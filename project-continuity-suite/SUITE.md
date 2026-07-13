@@ -46,6 +46,8 @@ The main skill guides the user through recommended defaults and explicit overrid
 
 Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, human merge, no force-push, and no auto-merge remain fixed.
 
+Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. External tracker publication remains a separate explicit-human-approval action.
+
 Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill, and `project doctor` fails on drift. Keep developer workspace roots and Codex automation records in developer-local configuration, never in this repository.
 
 ## Typical cycle
@@ -54,7 +56,7 @@ Run the installer again to update an existing installation; it preserves project
 2. Invoke `$capture-project-note` in the active project conversation.
 3. Invoke `$triage-project-notes`, or allow the nightly review to classify and route items.
 4. Use `$manage-project-memory` to retrieve a cited context brief.
-5. Use `$plan-project-goals` only for selected candidates.
+5. Use `$plan-project-goals` only for selected candidates. Verify action claims, map unresolved decisions for complex work, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
 6. Approve an exact goal version; it queues for the project-configured dispatch time.
 7. Use `$dispatch-project-goals` to start an approved goal earlier when needed.
 8. Use `$execute-project-goal` in the assigned isolated worktree.
@@ -82,6 +84,8 @@ flowchart LR
 ## Responsible development compliance
 
 Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval and plan review are evidenced, blocks dispatch on failed preflight, and blocks completion until implementation, code review, validation, security review, merge safety, documentation, memory impact, and final alignment are passed or explicitly not applicable with evidence.
+
+The planning patterns were adapted from lessons in Matt Pocock's MIT-licensed `triage`, `wayfinder`, and `to-tickets` skills. See `references/planning-patterns.md` for the reviewed upstream commit, provenance, and continuity-specific safety changes. The upstream skills are not bundled or invoked.
 
 ## Local validation
 

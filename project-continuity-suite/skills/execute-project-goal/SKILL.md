@@ -7,7 +7,7 @@ description: Execute one explicitly approved and dispatched project goal in an i
 
 Never execute a captured note, planning candidate, unapproved plan, or merely queued goal. Require a valid dispatch and matching approval hash.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory brief, and compliance ledger.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$project-continuity-local`, `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory brief, and compliance ledger.
 
 ## Required assurance
 
@@ -29,6 +29,7 @@ Verify the isolated worktree, integration branch and remote base, scope, approva
 ## Responsible execution stages
 
 1. Implement only approved scope using project architecture and developer best practices.
+   Follow the approved delivery frontier: start only slices whose blockers are complete, and never interpret an unresolved decision-map item as implementation discretion.
 2. Add focused tests and keep types, interfaces, migrations, compatibility, accessibility, performance, and privacy correct as applicable.
 3. Record alignment checkpoints after major phases. Route discoveries into feedback or new candidates.
 4. Perform a deliberate code review of the complete diff.

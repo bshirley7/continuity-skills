@@ -29,6 +29,14 @@ BEHAVIOR_PROFILE = "responsible-defaults-v1"
 BEHAVIOR_CONFIG_PATH = ".continuity/project-behavior.json"
 BEHAVIOR_SKILL_PATH = ".agents/skills/project-continuity-local/SKILL.md"
 VISUAL_EVIDENCE_MODES = {"when-applicable", "always", "explanation-allowed"}
+PLANNING_PATTERN_MODES = {"disabled", "auto", "required"}
+TRACKER_PROVIDERS = {"local", "github", "linear", "none"}
+DEFAULT_PLANNING_PATTERNS = {
+    "evidence_triage": "auto",
+    "decision_mapping": "auto",
+    "delivery_slicing": "auto",
+    "tracker_provider": "local",
+}
 FIXED_GUARDRAILS = {
     "ambiguous_notes": "hold-or-context",
     "canonical_documentation_changes": "approved-goal-only",
@@ -39,6 +47,8 @@ FIXED_GUARDRAILS = {
     "human_merge": "required",
     "force_push": "forbidden",
     "auto_merge": "forbidden",
+    "planning_artifacts_authorize_execution": False,
+    "external_tracker_publish": "explicit-human-approval-required",
 }
 NOTE_KINDS = {
     "context",
@@ -213,6 +223,174 @@ def canonical_hash(value: Any) -> str:
     ).hexdigest()
 
 
+def validate_string_list(value: Any, label: str, *, required: bool = False) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+        raise ContinuityError(f"{label} must be an array of non-empty strings")
+    if required and not value:
+        raise ContinuityError(f"{label} must contain at least one item")
+    return value
+
+
+def validate_dag(nodes: set[str], edges: dict[str, list[str]], label: str) -> None:
+    for node, blockers in edges.items():
+        unknown = sorted(set(blockers) - nodes)
+        if unknown:
+            raise ContinuityError(f"{label} {node} references unknown blockers: {unknown}")
+        if node in blockers:
+            raise ContinuityError(f"{label} {node} cannot block itself")
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(node: str) -> None:
+        if node in visiting:
+            raise ContinuityError(f"{label} dependency graph contains a cycle at {node}")
+        if node in visited:
+            return
+        visiting.add(node)
+        for blocker in edges.get(node, []):
+            visit(blocker)
+        visiting.remove(node)
+        visited.add(node)
+
+    for node in sorted(nodes):
+        visit(node)
+
+
+def validate_triage_brief(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ContinuityError("triage_brief must be a JSON object")
+    required_strings = ("summary", "classification", "claim_status", "current_behavior", "desired_behavior")
+    for key in required_strings:
+        if not isinstance(value.get(key), str) or not value[key].strip():
+            raise ContinuityError(f"triage_brief.{key} must be a non-empty string")
+    if value["classification"] not in NOTE_KINDS:
+        raise ContinuityError("triage_brief.classification is not a supported note kind")
+    if value["claim_status"] not in {"confirmed", "unconfirmed", "contradicted", "not-applicable"}:
+        raise ContinuityError("triage_brief.claim_status is unsupported")
+    for key in ("acceptance_criteria", "scope_exclusions", "evidence"):
+        validate_string_list(value.get(key), f"triage_brief.{key}", required=key != "scope_exclusions")
+    checks = value.get("codebase_checks")
+    if not isinstance(checks, dict) or set(checks) != {"redundancy", "prior_decisions"}:
+        raise ContinuityError("triage_brief.codebase_checks must define exactly redundancy and prior_decisions")
+    for key, check in checks.items():
+        if not isinstance(check, dict) or check.get("status") not in {"clear", "found", "uncertain", "not-applicable"}:
+            raise ContinuityError(f"triage_brief.codebase_checks.{key}.status is unsupported")
+        validate_string_list(check.get("evidence"), f"triage_brief.codebase_checks.{key}.evidence", required=True)
+    normalized = dict(value)
+    if normalized.get("execution_authorized") not in {None, False}:
+        raise ContinuityError("A triage brief cannot authorize execution")
+    normalized["execution_authorized"] = False
+    return normalized
+
+
+def validate_decision_map(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or not isinstance(value.get("destination"), str) or not value["destination"].strip():
+        raise ContinuityError("decision_map requires a non-empty destination")
+    for key in ("unresolved_territory", "out_of_scope"):
+        validate_string_list(value.get(key), f"decision_map.{key}")
+    decisions = value.get("decisions")
+    if not isinstance(decisions, list) or not decisions:
+        raise ContinuityError("decision_map.decisions must contain at least one decision")
+    nodes: set[str] = set()
+    edges: dict[str, list[str]] = {}
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            raise ContinuityError("Each decision_map decision must be a JSON object")
+        decision_id = validate_identifier(str(decision.get("decision_id", "")), "decision ID")
+        if decision_id in nodes:
+            raise ContinuityError(f"Duplicate decision ID: {decision_id}")
+        nodes.add(decision_id)
+        for key in ("title", "question"):
+            if not isinstance(decision.get(key), str) or not decision[key].strip():
+                raise ContinuityError(f"Decision {decision_id} requires a non-empty {key}")
+        if decision.get("status") not in {"open", "resolved", "blocked", "human-required"}:
+            raise ContinuityError(f"Decision {decision_id} has an unsupported status")
+        blockers = validate_string_list(decision.get("blocked_by", []), f"Decision {decision_id}.blocked_by")
+        edges[decision_id] = blockers
+        if decision.get("status") == "resolved" and (not isinstance(decision.get("resolution"), str) or not decision["resolution"].strip()):
+            raise ContinuityError(f"Resolved decision {decision_id} requires a resolution")
+    validate_dag(nodes, edges, "Decision")
+    normalized = dict(value)
+    if normalized.get("execution_authorized") not in {None, False}:
+        raise ContinuityError("A decision map cannot authorize execution")
+    normalized["execution_authorized"] = False
+    return normalized
+
+
+def validate_delivery_slices(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ContinuityError("delivery_slices must be a JSON array")
+    nodes: set[str] = set()
+    edges: dict[str, list[str]] = {}
+    normalized: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ContinuityError("Each delivery slice must be a JSON object")
+        ticket_id = validate_identifier(str(item.get("ticket_id", "")), "delivery slice ID")
+        if ticket_id in nodes:
+            raise ContinuityError(f"Duplicate delivery slice ID: {ticket_id}")
+        nodes.add(ticket_id)
+        for key in ("title", "delivers"):
+            if not isinstance(item.get(key), str) or not item[key].strip():
+                raise ContinuityError(f"Delivery slice {ticket_id} requires a non-empty {key}")
+        validate_string_list(item.get("acceptance_criteria"), f"Delivery slice {ticket_id}.acceptance_criteria", required=True)
+        blockers = validate_string_list(item.get("blocked_by", []), f"Delivery slice {ticket_id}.blocked_by")
+        edges[ticket_id] = blockers
+        if item.get("status", "planning-candidate") != "planning-candidate":
+            raise ContinuityError("Delivery slices remain planning-candidate until the parent goal is approved and dispatched")
+        if item.get("execution_authorized") not in {None, False}:
+            raise ContinuityError("A delivery slice cannot authorize execution")
+        normalized.append({**item, "status": "planning-candidate", "execution_authorized": False})
+    validate_dag(nodes, edges, "Delivery slice")
+    return normalized
+
+
+def render_planning_artifacts(goal: dict[str, Any]) -> str:
+    lines = ["<!-- continuity-planning-artifacts:start -->", "## Planning evidence and decomposition"]
+    brief = goal.get("triage_brief")
+    if brief:
+        lines.extend([
+            "", "### Evidence triage brief", "",
+            f"- Classification: `{brief['classification']}`",
+            f"- Claim status: `{brief['claim_status']}`",
+            f"- Summary: {brief['summary']}",
+            f"- Current behavior: {brief['current_behavior']}",
+            f"- Desired behavior: {brief['desired_behavior']}",
+        ])
+    decision_map = goal.get("decision_map")
+    if decision_map:
+        lines.extend(["", "### Decision map", "", f"Destination: {decision_map['destination']}", ""])
+        for decision in decision_map["decisions"]:
+            blockers = ", ".join(decision.get("blocked_by", [])) or "none"
+            lines.append(f"- **{decision['title']}** (`{decision['decision_id']}`, {decision['status']}; blocked by: {blockers}) — {decision['question']}")
+        if decision_map["unresolved_territory"]:
+            lines.extend(["", "Unresolved territory:", *[f"- {item}" for item in decision_map["unresolved_territory"]]])
+        if decision_map["out_of_scope"]:
+            lines.extend(["", "Out of scope:", *[f"- {item}" for item in decision_map["out_of_scope"]]])
+    slices = goal.get("delivery_slices", [])
+    if slices:
+        lines.extend(["", "### Delivery slices", ""])
+        for item in slices:
+            blockers = ", ".join(item.get("blocked_by", [])) or "none"
+            lines.append(f"- **{item['title']}** (`{item['ticket_id']}`; blocked by: {blockers}) — {item['delivers']}")
+    lines.extend(["", "These artifacts inform the plan and are included in its approval hash. They do not authorize execution.", "<!-- continuity-planning-artifacts:end -->"])
+    return "\n".join(lines)
+
+
+def with_planning_artifacts(plan: str, goal: dict[str, Any]) -> str:
+    start = "<!-- continuity-planning-artifacts:start -->"
+    end = "<!-- continuity-planning-artifacts:end -->"
+    if start in plan and end in plan:
+        plan = plan.split(start, 1)[0].rstrip() + "\n\n" + plan.split(end, 1)[1].lstrip()
+    return plan.rstrip() + "\n\n" + render_planning_artifacts(goal) + "\n"
+
+
 def behavior_payload_hash(record: dict[str, Any]) -> str:
     payload = {key: value for key, value in record.items() if key != "configuration_hash"}
     return canonical_hash(payload)
@@ -296,6 +474,7 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "visual_evidence_mode": settings["visual_evidence_mode"],
         "branch_prefix": settings["branch_prefix"],
         "project_instructions": settings["project_instructions"],
+        "planning_patterns": settings["planning_patterns"],
     }
     config_drift = sorted(key for key, value in expected_config.items() if config.get(key) != value)
     if config_drift:
@@ -965,6 +1144,31 @@ def load_goal(root: Path, config: dict[str, Any], goal_id: str) -> tuple[Path, d
     return directory, goal
 
 
+def validate_goal_planning_artifacts(goal: dict[str, Any], *, require_resolved: bool = False) -> None:
+    validate_triage_brief(goal.get("triage_brief"))
+    decision_map = validate_decision_map(goal.get("decision_map"))
+    validate_delivery_slices(goal.get("delivery_slices"))
+    if require_resolved and decision_map:
+        unresolved = [
+            decision["decision_id"]
+            for decision in decision_map["decisions"]
+            if decision.get("status") != "resolved"
+        ]
+        if unresolved:
+            raise ContinuityError(f"Decision map is not decision-complete; unresolved decisions: {unresolved}")
+
+
+def validate_planning_artifact_parity(directory: Path, goal: dict[str, Any]) -> None:
+    plan = (directory / "plan.md").read_text(encoding="utf-8")
+    expected = render_planning_artifacts(goal)
+    if plan.count("<!-- continuity-planning-artifacts:start -->") != 1 or plan.count("<!-- continuity-planning-artifacts:end -->") != 1:
+        raise ContinuityError("Plan must contain exactly one managed planning-artifacts block")
+    start = plan.index("<!-- continuity-planning-artifacts:start -->")
+    end = plan.index("<!-- continuity-planning-artifacts:end -->", start) + len("<!-- continuity-planning-artifacts:end -->")
+    if plan[start:end] != expected:
+        raise ContinuityError("Planning artifacts are out of sync with the machine goal; use goal revise")
+
+
 def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
     immutable_keys = {
         "schema_version",
@@ -982,6 +1186,9 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
         "documentation_updates",
         "required_checks",
         "runtime_limit_minutes",
+        "triage_brief",
+        "decision_map",
+        "delivery_slices",
     }
     machine = {key: goal.get(key) for key in sorted(immutable_keys)}
     plan = (directory / "plan.md").read_text(encoding="utf-8")
@@ -1041,6 +1248,9 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "documentation_updates": payload.get("documentation_updates", []),
         "required_checks": payload.get("required_checks", []),
         "runtime_limit_minutes": runtime_limit,
+        "triage_brief": validate_triage_brief(payload.get("triage_brief")),
+        "decision_map": validate_decision_map(payload.get("decision_map")),
+        "delivery_slices": validate_delivery_slices(payload.get("delivery_slices")),
         "created_at": stamp,
         "updated_at": stamp,
     }
@@ -1048,12 +1258,13 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         f"# {goal_id}: {goal['title']}\n\n"
         f"## Context and memory\n\nNotes: {', '.join(goal['source_note_ids']) or 'None'}  \n"
         f"Memory: {', '.join(goal['memory_ids']) or 'None'}\n\n"
-        f"## Authorized scope\n\n{goal['scope']}\n\n"
+        f"## Proposed execution scope\n\n{goal['scope']}\n\n"
         f"## Exclusions\n\n" + "\n".join(f"- {item}" for item in goal["exclusions"]) + "\n\n"
         f"## Acceptance criteria\n\n" + "\n".join(f"- {item}" for item in goal["acceptance_criteria"]) + "\n"
     )
+    plan = with_planning_artifacts(plan, goal)
     directory.mkdir(parents=True, exist_ok=False)
-    (directory / "plan.md").write_text(plan.rstrip() + "\n", encoding="utf-8")
+    (directory / "plan.md").write_text(plan, encoding="utf-8")
     goal["plan_hash"] = goal_material_hash(directory, goal)
     json_dump(directory / "goal.json", goal)
     stamp = iso_now(config)
@@ -1116,6 +1327,8 @@ def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple
     approval = json_load(directory / "approval.json")
     if not isinstance(approval, dict):
         raise ContinuityError(f"Goal {goal_id} has no approval record")
+    validate_goal_planning_artifacts(goal, require_resolved=True)
+    validate_planning_artifact_parity(directory, goal)
     current_hash = goal_material_hash(directory, goal)
     if approval.get("plan_version") != goal.get("plan_version") or approval.get("plan_hash") != current_hash:
         raise ContinuityError("Approval is stale because the plan or goal record changed")
@@ -1146,6 +1359,9 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "documentation_updates",
         "required_checks",
         "runtime_limit_minutes",
+        "triage_brief",
+        "decision_map",
+        "delivery_slices",
     }
     for key, value in payload.items():
         if key in allowed:
@@ -1162,6 +1378,9 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError("runtime_limit_minutes must be an integer of at least 1")
     if goal["runtime_limit_minutes"] > int(config.get("max_runtime_minutes", 360)):
         raise ContinuityError("runtime_limit_minutes exceeds the configured project maximum")
+    goal["triage_brief"] = validate_triage_brief(goal.get("triage_brief"))
+    goal["decision_map"] = validate_decision_map(goal.get("decision_map"))
+    goal["delivery_slices"] = validate_delivery_slices(goal.get("delivery_slices"))
     plan = payload.get("plan_markdown")
     if plan is not None:
         if not isinstance(plan, str) or not plan.strip():
@@ -1172,8 +1391,8 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     json_dump(revision_root / "goal.json", json_load(directory / "goal.json", {}))
     if (directory / "approval.json").exists():
         shutil.copy2(directory / "approval.json", revision_root / "approval.json")
-    if plan is not None:
-        (directory / "plan.md").write_text(plan.rstrip() + "\n", encoding="utf-8")
+    plan_source = plan if plan is not None else (directory / "plan.md").read_text(encoding="utf-8")
+    (directory / "plan.md").write_text(with_planning_artifacts(plan_source, goal), encoding="utf-8")
     goal["plan_version"] += 1
     goal["state"] = "awaiting-feedback"
     goal.pop("held_from", None)
@@ -1203,6 +1422,8 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError(f"Only an awaiting-feedback goal can be approved; current state is {goal.get('state')}")
     if int(args.version) != goal["plan_version"]:
         raise ContinuityError(f"Requested v{args.version}; current plan is v{goal['plan_version']}")
+    validate_goal_planning_artifacts(goal, require_resolved=True)
+    validate_planning_artifact_parity(directory, goal)
     compliance = json_load(directory / "compliance.json", {})
     if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
         raise ContinuityError("Goal compliance ledger uses a missing or unsupported assurance standard")
@@ -1422,7 +1643,9 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
     existing_path = confined_path(root, config.get("behavior_config_path", BEHAVIOR_CONFIG_PATH), "behavior_config_path")
     existing = json_load(existing_path, {})
     if isinstance(existing, dict) and isinstance(existing.get("settings"), dict):
-        return dict(existing["settings"])
+        settings = dict(existing["settings"])
+        settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
+        return settings
     schedules = manifest.get("schedules", {}) if isinstance(manifest.get("schedules"), dict) else {}
     return {
         "integration_branch": config.get("integration_branch", manifest.get("integration_branch", "main")),
@@ -1440,6 +1663,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         "visual_evidence_mode": config.get("visual_evidence_mode", "when-applicable"),
         "branch_prefix": config.get("branch_prefix", "continuity"),
         "project_instructions": config.get("project_instructions", []),
+        "planning_patterns": config.get("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS)),
         "execution_enabled": bool(manifest.get("execution_enabled", False)),
     }
 
@@ -1459,6 +1683,7 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
         "visual_evidence_mode": "when-applicable",
         "branch_prefix": "continuity",
         "project_instructions": current.get("project_instructions", []),
+        "planning_patterns": current.get("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS)),
         "execution_enabled": False,
     }
 
@@ -1484,6 +1709,10 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "visual_evidence_mode",
             "branch_prefix",
             "project_instructions",
+            "planning_patterns.evidence_triage",
+            "planning_patterns.decision_mapping",
+            "planning_patterns.delivery_slicing",
+            "planning_patterns.tracker_provider",
             "execution_enabled",
         ],
         "fixed_guardrails": FIXED_GUARDRAILS,
@@ -1493,6 +1722,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "security_commands": "Add project-native scanners when available; the evidence-based security review remains mandatory either way.",
             "visual_evidence_mode": "Use when-applicable so UI work produces visuals and non-visual work records why they do not apply.",
             "project_instructions": "Add only reviewed repository-specific refinements; fixed guardrails always take precedence.",
+            "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless external publication is separately approved.",
         },
     }
 
@@ -1512,6 +1742,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         "visual_evidence_mode",
         "branch_prefix",
         "project_instructions",
+        "planning_patterns",
         "execution_enabled",
     }
     unknown = sorted(set(value) - allowed)
@@ -1576,6 +1807,14 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
             instruction,
         ):
             raise ContinuityError("project_instructions cannot weaken fixed continuity guardrails")
+    planning_patterns = settings.get("planning_patterns")
+    if not isinstance(planning_patterns, dict) or set(planning_patterns) != set(DEFAULT_PLANNING_PATTERNS):
+        raise ContinuityError("planning_patterns must define exactly evidence_triage, decision_mapping, delivery_slicing, and tracker_provider")
+    for key in ("evidence_triage", "decision_mapping", "delivery_slicing"):
+        if planning_patterns.get(key) not in PLANNING_PATTERN_MODES:
+            raise ContinuityError(f"planning_patterns.{key} must be one of {sorted(PLANNING_PATTERN_MODES)}")
+    if planning_patterns.get("tracker_provider") not in TRACKER_PROVIDERS:
+        raise ContinuityError(f"planning_patterns.tracker_provider must be one of {sorted(TRACKER_PROVIDERS)}")
     if not isinstance(settings.get("execution_enabled"), bool):
         raise ContinuityError("execution_enabled must be true or false")
     return settings
@@ -1624,6 +1863,7 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         "visual_evidence_mode": text_answer("Visual evidence mode", recommended["visual_evidence_mode"]),
         "branch_prefix": text_answer("Goal branch prefix", recommended["branch_prefix"]),
         "project_instructions": json_answer("Additional project-specific instructions", recommended["project_instructions"]),
+        "planning_patterns": json_answer("Planning pattern modes", recommended["planning_patterns"]),
         "execution_enabled": execution in {"y", "yes"},
     }
 
@@ -1681,6 +1921,7 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "visual_evidence_mode": settings["visual_evidence_mode"],
             "branch_prefix": settings["branch_prefix"],
             "project_instructions": settings["project_instructions"],
+            "planning_patterns": settings["planning_patterns"],
             "behavior_config_path": BEHAVIOR_CONFIG_PATH,
             "behavior_skill_path": BEHAVIOR_SKILL_PATH,
             "behavior_configuration_hash": record["configuration_hash"],

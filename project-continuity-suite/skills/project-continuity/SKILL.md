@@ -43,6 +43,7 @@ The answers file may override only:
 - `visual_evidence_mode`
 - `branch_prefix`
 - `project_instructions` for reviewed repository-specific operating behavior
+- `planning_patterns` modes for evidence triage, decision mapping, delivery slicing, and the preferred tracker provider
 - `execution_enabled`
 
 The CLI writes `.continuity/project-behavior.json`, synchronizes the effective settings into the project config and manifest, generates `.agents/skills/project-continuity-local/SKILL.md`, and records an ignored append-only configuration audit. Configuration hashes make manual drift fail closed.
@@ -58,3 +59,5 @@ The CLI writes `.continuity/project-behavior.json`, synchronizes the effective s
 - Morning, completion, or portfolio reporting: `$report-project-progress`
 
 Always apply `$project-continuity-local` after the selected task skill. If it is missing or out of sync, stop and run project doctor or guided configuration.
+
+Planning patterns are local capabilities, not imported authorities. Their artifacts stay non-authorizing, enter the goal hash, and cannot publish to an external tracker without separate explicit human approval.

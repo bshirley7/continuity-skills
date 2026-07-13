@@ -39,6 +39,14 @@ Use: `awaiting-feedback`, `approved`, `queued`, `dispatched`, `running`, `valida
 Approval and dispatch are separate events. Bind approval to the exact plan version and SHA-256 material hash. Any plan or machine-goal edit invalidates approval.
 Only the human's explicit approval text and identity may populate an approval record; an agent must never generate or infer them. State transitions are enforced and terminal states cannot be restarted.
 
+## Planning artifacts
+
+- Use an evidence triage brief to verify action candidates against current behavior, existing implementations, and prior decisions.
+- Use a decision map when a destination still contains material unresolved decisions. Human-required decisions cannot be answered by the agent or treated as execution discretion.
+- Use acyclic, dependency-aware end-to-end delivery slices for multi-part outcomes. Every slice remains `planning-candidate` and `execution_authorized: false` before parent-goal approval and dispatch.
+- Include planning artifacts in the immutable goal material hash. Changing content or edges invalidates approval.
+- Keep artifacts local by default. A configured external tracker is a preferred surface only; creating or modifying tracker items requires separate explicit human approval.
+
 ## Required compliance stages
 
 Record evidence for every responsible development stage:

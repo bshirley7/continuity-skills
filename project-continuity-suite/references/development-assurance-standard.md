@@ -25,6 +25,8 @@ Apply this standard to every continuity skill. Treat it as a minimum; stricter r
 - Assess compatibility, migrations, rollback, accessibility, performance, observability, data integrity, and documentation when applicable.
 - Preserve deterministic and idempotent behavior for capture, state transitions, installation, indexing, and reporting.
 - Keep project-specific recommendations and overrides machine-readable, schema-validated, hash-bound, and reproducibly rendered into the project-local behavior skill.
+- Verify action claims before planning, preserve unresolved human decisions as blockers, and validate dependency graphs for cycles and unknown edges.
+- Prefer durable behavioral briefs and independently verifiable end-to-end delivery slices over brittle file-and-line instructions or layer-only task lists.
 
 ## Security standards
 
@@ -33,6 +35,7 @@ Apply this standard to every continuity skill. Treat it as a minimum; stricter r
 - Use parameterized data APIs and subprocess argument arrays. Never construct executable commands, paths, queries, or prompts directly from captured note text.
 - Review secrets, authentication, authorization, injection, path traversal, unsafe deserialization, logging, dependency and supply-chain changes, migrations, and external side effects as applicable.
 - Treat configured commands and paths as security-sensitive input: reject traversal, control characters, invalid references, secrets, and attempts to redefine fixed guardrails.
+- Treat issue trackers and other external publishing surfaces as side effects. Require separate explicit human approval and never leak raw notes, private memory, credentials, or unreviewed planning content into them.
 - Do not weaken safeguards, suppress relevant failures, force-push, auto-merge, or use destructive recovery without explicit authorization.
 
 ## Audit and evidence standards

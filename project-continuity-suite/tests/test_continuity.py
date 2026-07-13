@@ -388,6 +388,125 @@ unresolved_gaps: []
         self.assertTrue((goal_dir / "revisions" / "v1" / "plan.md").exists())
         self.assertFalse((goal_dir / "approval.json").exists())
 
+    def test_planning_patterns_are_validated_hashed_and_non_authorizing(self) -> None:
+        payload = {
+            "goal_id": "goal-patterns",
+            "title": "Plan a verified renderer change",
+            "scope": "Deliver the approved renderer behavior in safe increments.",
+            "acceptance_criteria": ["Each slice is independently verified"],
+            "memory_ids": ["memory-current"],
+            "source_note_ids": ["note-patterns"],
+            "plan_reviewed": True,
+            "triage_brief": {
+                "summary": "Verify the renderer request before planning.",
+                "classification": "execution-candidate",
+                "claim_status": "confirmed",
+                "current_behavior": "The renderer uses the existing bridge.",
+                "desired_behavior": "The renderer uses the approved safer behavior.",
+                "acceptance_criteria": ["The existing bridge remains compatible"],
+                "scope_exclusions": ["Do not replace Electron"],
+                "evidence": ["memory-current", "fixture inspection"],
+                "codebase_checks": {
+                    "redundancy": {"status": "clear", "evidence": ["No existing implementation found"]},
+                    "prior_decisions": {"status": "clear", "evidence": ["No conflicting current memory"]},
+                },
+            },
+            "decision_map": {
+                "destination": "A decision-complete renderer safety plan.",
+                "decisions": [
+                    {
+                        "decision_id": "decision-bridge",
+                        "title": "Preserve bridge compatibility",
+                        "question": "Must the existing bridge contract remain compatible?",
+                        "status": "resolved",
+                        "resolution": "Yes, preserve compatibility.",
+                        "blocked_by": [],
+                    }
+                ],
+                "unresolved_territory": [],
+                "out_of_scope": ["Replacing Electron"],
+            },
+            "delivery_slices": [
+                {
+                    "ticket_id": "slice-contract",
+                    "title": "Preserve the bridge contract",
+                    "delivers": "The safer behavior behind the existing contract.",
+                    "acceptance_criteria": ["Contract tests pass"],
+                    "blocked_by": [],
+                },
+                {
+                    "ticket_id": "slice-evidence",
+                    "title": "Capture renderer evidence",
+                    "delivers": "Reviewable validation evidence for the behavior.",
+                    "acceptance_criteria": ["Evidence identifies the verified behavior"],
+                    "blocked_by": ["slice-contract"],
+                },
+            ],
+        }
+        path = self.root / "goal-patterns.json"
+        self.write_json(path, payload)
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(path)).stdout)
+        self.assertFalse(goal["triage_brief"]["execution_authorized"])
+        self.assertTrue(all(item["status"] == "planning-candidate" for item in goal["delivery_slices"]))
+        plan = (self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "plan.md").read_text(encoding="utf-8")
+        self.assertIn("Decision map", plan)
+        self.assertIn("Delivery slices", plan)
+        approved = self.approve(goal)
+        self.assertEqual(approved["approval"]["plan_hash"], approved["goal"]["plan_hash"])
+
+    def test_unresolved_decisions_and_invalid_delivery_graph_block_approval(self) -> None:
+        unresolved = {
+            "goal_id": "goal-unresolved",
+            "title": "Unresolved plan",
+            "scope": "Wait for a required product decision.",
+            "acceptance_criteria": ["Decision is recorded"],
+            "memory_ids": ["memory-current"],
+            "source_note_ids": ["note-unresolved"],
+            "plan_reviewed": True,
+            "decision_map": {
+                "destination": "A decided product behavior.",
+                "decisions": [{"decision_id": "decision-human", "title": "Choose behavior", "question": "Which behavior should ship?", "status": "human-required", "blocked_by": []}],
+                "unresolved_territory": [],
+                "out_of_scope": [],
+            },
+        }
+        path = self.root / "goal-unresolved.json"
+        self.write_json(path, unresolved)
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(path)).stdout)
+        self.cli(
+            "goal", "approve", goal["goal_id"], "--version", "1", "--approved-by", "fixture-user",
+            "--authorization-text", f"Approve {goal['goal_id']} plan v1", expected=2,
+        )
+        cycle = dict(unresolved)
+        cycle.update({"goal_id": "goal-cycle", "decision_map": None, "delivery_slices": [
+            {"ticket_id": "slice-a", "title": "A", "delivers": "A", "acceptance_criteria": ["A"], "blocked_by": ["slice-b"]},
+            {"ticket_id": "slice-b", "title": "B", "delivers": "B", "acceptance_criteria": ["B"], "blocked_by": ["slice-a"]},
+        ]})
+        cycle_path = self.root / "goal-cycle.json"
+        self.write_json(cycle_path, cycle)
+        self.cli("goal", "create", "--goal-file", str(cycle_path), expected=2)
+
+    def test_machine_planning_artifacts_cannot_drift_from_review_plan(self) -> None:
+        payload = {
+            "goal_id": "goal-artifact-drift",
+            "title": "Artifact parity",
+            "scope": "Keep the human plan aligned with machine planning artifacts.",
+            "acceptance_criteria": ["Parity is enforced"],
+            "memory_ids": ["memory-current"],
+            "source_note_ids": ["note-parity"],
+            "plan_reviewed": True,
+            "delivery_slices": [{"ticket_id": "slice-parity", "title": "Enforce parity", "delivers": "Matching human and machine plans.", "acceptance_criteria": ["Drift is rejected"], "blocked_by": []}],
+        }
+        path = self.root / "goal-artifact-drift.json"
+        self.write_json(path, payload)
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(path)).stdout)
+        plan_path = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "plan.md"
+        plan_path.write_text(plan_path.read_text(encoding="utf-8").replace("Matching human and machine plans.", "Unreviewed drift."), encoding="utf-8")
+        self.cli(
+            "goal", "approve", goal["goal_id"], "--version", "1", "--approved-by", "fixture-user",
+            "--authorization-text", f"Approve {goal['goal_id']} plan v1", expected=2,
+        )
+
     def test_goal_create_rejects_invalid_machine_fields(self) -> None:
         path = self.root / "invalid-goal.json"
         self.write_json(path, {"title": "Bad", "scope": "Bad", "acceptance_criteria": "not-an-array", "plan_version": 0, "runtime_limit_minutes": -1})
@@ -449,6 +568,9 @@ class InstallerTest(unittest.TestCase):
             behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
             self.assertEqual(behavior["fixed_guardrails"]["security_review"], "required")
             self.assertEqual(behavior["fixed_guardrails"]["force_push"], "forbidden")
+            self.assertFalse(behavior["fixed_guardrails"]["planning_artifacts_authorize_execution"])
+            self.assertEqual(behavior["fixed_guardrails"]["external_tracker_publish"], "explicit-human-approval-required")
+            self.assertEqual(behavior["settings"]["planning_patterns"]["tracker_provider"], "local")
             self.assertEqual(manifest["behavior_configuration_hash"], behavior["configuration_hash"])
             self.assertIn(".continuity/private/", (root / ".gitignore").read_text(encoding="utf-8"))
             config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
@@ -476,6 +598,12 @@ class InstallerTest(unittest.TestCase):
                         "visual_evidence_mode": "always",
                         "validation_commands": ["pnpm typecheck", "pnpm test"],
                         "project_instructions": ["Run backend contract checks before the frontend build."],
+                        "planning_patterns": {
+                            "evidence_triage": "required",
+                            "decision_mapping": "auto",
+                            "delivery_slicing": "auto",
+                            "tracker_provider": "local",
+                        },
                     }
                 ),
                 encoding="utf-8",
@@ -503,6 +631,7 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(updated_behavior["settings"]["schedules"]["dispatch"], "21:30")
             self.assertEqual(updated_behavior["settings"]["schedules"]["review"], "20:00")
             self.assertEqual(updated_behavior["settings"]["project_instructions"], ["Run backend contract checks before the frontend build."])
+            self.assertEqual(updated_behavior["settings"]["planning_patterns"]["evidence_triage"], "required")
             local_skill = (root / ".agents" / "skills" / "project-continuity-local" / "SKILL.md").read_text(encoding="utf-8")
             self.assertIn(updated_behavior["configuration_hash"], local_skill)
             audit_lines = (root / ".continuity" / "private" / "configuration-audit.jsonl").read_text(encoding="utf-8").splitlines()
@@ -542,6 +671,22 @@ class InstallerTest(unittest.TestCase):
             )
             self.assertEqual(rejected_instruction.returncode, 2)
             self.assertIn("cannot weaken fixed continuity guardrails", rejected_instruction.stderr)
+            unsafe_answers.write_text(json.dumps({"planning_patterns": {"evidence_triage": "bypass", "decision_mapping": "auto", "delivery_slicing": "auto", "tracker_provider": "local"}}), encoding="utf-8")
+            rejected_pattern = subprocess.run(
+                [
+                    str(root / ".agents" / "project-continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "project",
+                    "configure",
+                    "--answers-file",
+                    str(unsafe_answers),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(rejected_pattern.returncode, 2)
+            self.assertIn("planning_patterns.evidence_triage", rejected_pattern.stderr)
 
             subprocess.run(command, check=True, capture_output=True, text=True)
             preserved_behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))

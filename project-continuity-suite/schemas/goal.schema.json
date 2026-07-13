@@ -17,7 +17,13 @@
     "memory_ids": {"type": "array", "items": {"type": "string"}},
     "exclusions": {"type": "array", "items": {"type": "string"}},
     "documentation_updates": {"type": "array", "items": {"type": "string"}},
-    "required_checks": {"type": "array", "items": {"type": "string"}}
+    "required_checks": {"type": "array", "items": {"type": "string"}},
+    "triage_brief": {"oneOf": [{"$ref": "triage-brief.schema.json"}, {"type": "null"}]},
+    "decision_map": {"oneOf": [{"$ref": "decision-map.schema.json"}, {"type": "null"}]},
+    "delivery_slices": {
+      "type": "array",
+      "items": {"$ref": "delivery-slice.schema.json"}
+    }
   },
   "additionalProperties": true
 }

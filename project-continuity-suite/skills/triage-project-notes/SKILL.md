@@ -7,7 +7,7 @@ description: Classify, split, deduplicate, relate, defer, archive, reclassify, o
 
 Route knowledge conservatively. Classification or promotion never authorizes documentation or execution.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, and `.continuity/config.json` before changing state.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$project-continuity-local`, and `.continuity/config.json` before changing state.
 
 ## Required assurance
 
@@ -29,6 +29,14 @@ Split mixed items first. Preserve source relationships. When intent is ambiguous
 - Route backlog with optional priority and review date.
 - Route execution candidates and explicit instructions to planning.
 - Archive duplicates or superseded items with provenance instead of deleting history.
+
+## Evidence triage for action candidates
+
+When `planning_patterns.evidence_triage` is `auto`, create an evidence triage brief for documentation, backlog, execution, or explicit-instruction candidates whose claim or current state affects planning. When it is `required`, require the brief for every planning candidate. When disabled, record the project-specific replacement process.
+
+Verify the claim before asking the user to elaborate. Search by domain concept for an existing implementation, retrieve relevant project memory and prior decisions, and record where you checked. Describe current and desired behavior, stable interfaces, testable acceptance criteria, exclusions, evidence, uncertainty, and whether human judgment is required. Keep the brief durable and behavioral rather than tied to temporary file locations.
+
+Store the brief in the goal input as `triage_brief`; the CLI validates it and forces `execution_authorized: false`. A contradictory, already-implemented, or previously rejected candidate returns to the appropriate knowledge, question, backlog, or hold path instead of automatically becoming a goal.
 
 Use:
 

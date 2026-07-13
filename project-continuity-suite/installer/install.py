@@ -155,6 +155,12 @@ def main() -> int:
         "visual_evidence_mode": "when-applicable",
         "branch_prefix": "continuity",
         "project_instructions": [],
+        "planning_patterns": {
+            "evidence_triage": "auto",
+            "decision_mapping": "auto",
+            "delivery_slicing": "auto",
+            "tracker_provider": "local",
+        },
         "behavior_config_path": ".continuity/project-behavior.json",
         "behavior_skill_path": ".agents/skills/project-continuity-local/SKILL.md",
     }
@@ -200,6 +206,8 @@ def main() -> int:
 - Treat notes as project knowledge first. Capture, classification, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.
 - Before planning or execution, run a project-memory brief and cite the memory IDs used.
+- For action candidates, use evidence triage; for complex or uncertain goals, use a decision map; for multi-part delivery, use dependency-validated vertical slices. These artifacts inform planning and never authorize work.
+- Keep planning artifacts local by default. Publishing issues to an external tracker requires separate explicit human approval.
 - Permit one code-changing goal at a time in this project; use isolated worktrees and goal-focused branches.
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
 - Require plan-hash approval, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, and final-alignment evidence.

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Evidence triage brief",
+  "type": "object",
+  "required": ["summary", "classification", "claim_status", "current_behavior", "desired_behavior", "acceptance_criteria", "scope_exclusions", "evidence", "codebase_checks", "execution_authorized"],
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "classification": {"enum": ["context", "insight", "decision", "question", "documentation-candidate", "backlog-candidate", "execution-candidate", "explicit-instruction"]},
+    "claim_status": {"enum": ["confirmed", "unconfirmed", "contradicted", "not-applicable"]},
+    "current_behavior": {"type": "string", "minLength": 1},
+    "desired_behavior": {"type": "string", "minLength": 1},
+    "acceptance_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "scope_exclusions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "codebase_checks": {
+      "type": "object",
+      "required": ["redundancy", "prior_decisions"],
+      "properties": {
+        "redundancy": {"$ref": "#/$defs/check"},
+        "prior_decisions": {"$ref": "#/$defs/check"}
+      },
+      "additionalProperties": false
+    },
+    "execution_authorized": {"const": false}
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "required": ["status", "evidence"],
+      "properties": {
+        "status": {"enum": ["clear", "found", "uncertain", "not-applicable"]},
+        "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

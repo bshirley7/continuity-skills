@@ -10,7 +10,7 @@
     "recommendation_profile": {"const": "responsible-defaults-v1"},
     "settings": {
       "type": "object",
-      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "execution_enabled"],
+      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "execution_enabled"],
       "properties": {
         "integration_branch": {"type": "string", "minLength": 1},
         "timezone": {"type": "string", "minLength": 1},
@@ -32,6 +32,17 @@
         "visual_evidence_mode": {"enum": ["when-applicable", "always", "explanation-allowed"]},
         "branch_prefix": {"type": "string", "minLength": 1},
         "project_instructions": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 500}},
+        "planning_patterns": {
+          "type": "object",
+          "required": ["evidence_triage", "decision_mapping", "delivery_slicing", "tracker_provider"],
+          "properties": {
+            "evidence_triage": {"enum": ["disabled", "auto", "required"]},
+            "decision_mapping": {"enum": ["disabled", "auto", "required"]},
+            "delivery_slicing": {"enum": ["disabled", "auto", "required"]},
+            "tracker_provider": {"enum": ["local", "github", "linear", "none"]}
+          },
+          "additionalProperties": false
+        },
         "execution_enabled": {"type": "boolean"}
       },
       "additionalProperties": false
@@ -47,7 +58,9 @@
         "merge_safety_review": "required",
         "human_merge": "required",
         "force_push": "forbidden",
-        "auto_merge": "forbidden"
+        "auto_merge": "forbidden",
+        "planning_artifacts_authorize_execution": false,
+        "external_tracker_publish": "explicit-human-approval-required"
       }
     },
     "configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
