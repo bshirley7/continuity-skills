@@ -7,7 +7,7 @@ description: Execute one explicitly approved and dispatched project goal in an i
 
 Never execute a captured note, planning candidate, unapproved plan, or merely queued goal. Require a valid dispatch and matching approval hash.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory brief, and compliance ledger.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory brief, and compliance ledger.
 
 ## Required assurance
 
@@ -33,7 +33,7 @@ Verify the isolated worktree, integration branch and remote base, scope, approva
 3. Record alignment checkpoints after major phases. Route discoveries into feedback or new candidates.
 4. Perform a deliberate code review of the complete diff.
 5. Run all configured validation plus targeted regressions.
-6. Run evidence-based security review for touched languages and frameworks; check secrets, dependencies, unsafe input/data paths, permissions, subprocesses, and migrations as relevant.
+6. Run every configured `security_commands` check plus an evidence-based security review for touched languages and frameworks; check secrets, dependencies, unsafe input/data paths, permissions, subprocesses, and migrations as relevant.
 7. Refresh the integration branch, assess conflicts and mergeability, and rerun affected checks.
 8. Update approved documentation and project memory; audit for drift and contradictions.
 9. Reconcile the final result against notes, memory, plan, acceptance criteria, and exclusions.

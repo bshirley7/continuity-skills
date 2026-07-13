@@ -7,7 +7,7 @@ description: Generate evidence-backed completion reports, active-run updates, mo
 
 Report recorded state without converting notes, feedback, or pending plans into implied commitments.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), project manifests, feedback, evidence, compliance ledgers, and `.continuity/config.json`.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, project manifests, feedback, evidence, compliance ledgers, and `.continuity/config.json`.
 
 ## Required assurance
 
@@ -20,7 +20,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 .agents/project-continuity/bin/continuity --project-root "$PWD" memory audit
 ```
 
-The morning report is mandatory even when no goal ran. Include notes retained as context, documentation candidates, deferred items, open questions, memory health, plans awaiting feedback, queued and held work, active runs, validation, completed or partial outcomes, blockers, PRs, compliance stages, and feedback needed.
+The morning report is mandatory even when no goal ran. Include configuration health and hash, notes retained as context, documentation candidates, deferred items, open questions, memory health, plans awaiting feedback, queued and held work, active runs, validation, completed or partial outcomes, blockers, PRs, compliance stages, and feedback needed.
 
 For a portfolio report, discover project-local manifests beneath developer-configured workspace roots. Run each report from that repository using its installed skill and CLI. Aggregate only sanitized summaries; do not centralize raw captures, private ledgers, approvals, or locks.
 

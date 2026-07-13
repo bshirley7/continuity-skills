@@ -7,7 +7,7 @@ description: Index, search, brief, audit, verify, curate, promote, and supersede
 
 Treat committed Markdown under `docs/project-memory/` as canonical. Treat the ignored SQLite FTS5 database as a rebuildable search index.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `.continuity/config.json`, and the project memory index before acting.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, `.continuity/config.json`, and the project memory index before acting.
 
 ## Required assurance
 

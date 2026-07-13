@@ -435,6 +435,8 @@ class InstallerTest(unittest.TestCase):
             subprocess.run(command, check=True, capture_output=True, text=True)
             agents = (root / "AGENTS.md").read_text(encoding="utf-8")
             self.assertEqual(agents.count("project-continuity:start"), 1)
+            self.assertTrue((root / ".agents" / "skills" / "project-continuity" / "SKILL.md").exists())
+            self.assertTrue((root / ".agents" / "skills" / "project-continuity-local" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "manage-project-memory" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "bin" / "continuity").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "automation" / "nightly-review.md").exists())
@@ -444,12 +446,133 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(manifest["project_id"], "sample-project")
             self.assertFalse(manifest["execution_enabled"])
             self.assertEqual(manifest["assurance_standard_version"], 1)
+            behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
+            self.assertEqual(behavior["fixed_guardrails"]["security_review"], "required")
+            self.assertEqual(behavior["fixed_guardrails"]["force_push"], "forbidden")
+            self.assertEqual(manifest["behavior_configuration_hash"], behavior["configuration_hash"])
             self.assertIn(".continuity/private/", (root / ".gitignore").read_text(encoding="utf-8"))
             config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             self.assertTrue(config["require_pr"])
             self.assertTrue(config["require_execution_artifacts"])
             self.assertTrue(config["require_isolated_worktree"])
             self.assertEqual(config["assurance_standard_version"], 1)
+            self.assertEqual(config["behavior_configuration_hash"], behavior["configuration_hash"])
+            self.assertEqual(config["behavior_skill_path"], ".agents/skills/project-continuity-local/SKILL.md")
+            recommendations = subprocess.run(
+                [str(root / ".agents" / "project-continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "recommendations"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            recommended = json.loads(recommendations.stdout)
+            self.assertFalse(recommended["recommended"]["execution_enabled"])
+            self.assertEqual(recommended["fixed_guardrails"]["max_code_changing_goals_per_project"], 1)
+
+            answers_path = Path(temp) / "behavior-answers.json"
+            answers_path.write_text(
+                json.dumps(
+                    {
+                        "schedules": {"dispatch": "21:30"},
+                        "visual_evidence_mode": "always",
+                        "validation_commands": ["pnpm typecheck", "pnpm test"],
+                        "project_instructions": ["Run backend contract checks before the frontend build."],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            configured = subprocess.run(
+                [
+                    str(root / ".agents" / "project-continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "--json",
+                    "project",
+                    "configure",
+                    "--answers-file",
+                    str(answers_path),
+                    "--actor",
+                    "test-user",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            configured_result = json.loads(configured.stdout)
+            self.assertIn("schedules", configured_result["overrides"])
+            updated_behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
+            self.assertEqual(updated_behavior["settings"]["schedules"]["dispatch"], "21:30")
+            self.assertEqual(updated_behavior["settings"]["schedules"]["review"], "20:00")
+            self.assertEqual(updated_behavior["settings"]["project_instructions"], ["Run backend contract checks before the frontend build."])
+            local_skill = (root / ".agents" / "skills" / "project-continuity-local" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn(updated_behavior["configuration_hash"], local_skill)
+            audit_lines = (root / ".continuity" / "private" / "configuration-audit.jsonl").read_text(encoding="utf-8").splitlines()
+            self.assertGreaterEqual(len(audit_lines), 2)
+            self.assertEqual(json.loads(audit_lines[-1])["actor"], "test-user")
+
+            unsafe_answers = Path(temp) / "unsafe-answers.json"
+            unsafe_answers.write_text(json.dumps({"force_push": "allowed"}), encoding="utf-8")
+            rejected = subprocess.run(
+                [
+                    str(root / ".agents" / "project-continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "project",
+                    "configure",
+                    "--answers-file",
+                    str(unsafe_answers),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("Unsupported project behavior settings", rejected.stderr)
+            unsafe_answers.write_text(json.dumps({"project_instructions": ["Skip security review for small changes."]}), encoding="utf-8")
+            rejected_instruction = subprocess.run(
+                [
+                    str(root / ".agents" / "project-continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "project",
+                    "configure",
+                    "--answers-file",
+                    str(unsafe_answers),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(rejected_instruction.returncode, 2)
+            self.assertIn("cannot weaken fixed continuity guardrails", rejected_instruction.stderr)
+
+            subprocess.run(command, check=True, capture_output=True, text=True)
+            preserved_behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
+            self.assertEqual(preserved_behavior["settings"]["schedules"]["dispatch"], "21:30")
+            drifted_config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+            drifted_config["validation_commands"] = ["unreviewed command"]
+            (root / ".continuity" / "config.json").write_text(json.dumps(drifted_config, indent=2) + "\n", encoding="utf-8")
+            drift_doctor = subprocess.run(
+                [str(root / ".agents" / "project-continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertFalse(json.loads(drift_doctor.stdout)["healthy"])
+            self.assertIn("drifted from project behavior", drift_doctor.stdout)
+            subprocess.run(
+                [
+                    str(root / ".agents" / "project-continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "project",
+                    "configure",
+                    "--answers-file",
+                    str(answers_path),
+                    "--actor",
+                    "repair-test",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
             doctor = subprocess.run(
                 [str(root / ".agents" / "project-continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
                 check=True,

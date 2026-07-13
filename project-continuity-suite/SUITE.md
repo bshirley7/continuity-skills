@@ -12,17 +12,19 @@ Every installed skill applies the versioned development assurance standard. The 
 
 ```text
 .agents/skills/                         project-level skills
+.agents/skills/project-continuity-local/ generated project-specific behavior skill
 .agents/project-continuity/             CLI, schemas, templates, contract
 .agents/references/continuity-contract.md
 .continuity/project.json                committed enrollment and schedule intent
 .continuity/config.json                 committed project configuration
+.continuity/project-behavior.json        committed recommendations, overrides, and hash
 .continuity/private/                    ignored captures, queues, goals, locks, indexes
 docs/project-memory/                    canonical searchable project memory
 ```
 
 The installed control directory also includes project-neutral recurring-action prompt assets. The Codex app owns each developer's actual schedules. A developer-local scheduler discovers enrolled repositories from configured workspace roots, then invokes the skills and CLI installed inside each project. No project paths, notes, memory, or registry are stored in this distribution.
 
-Installation creates a minimal project-memory index and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
+Installation creates a minimal project-memory index, installs `$project-continuity` as the guided entry point, generates `$project-continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
 ## Installation
 
@@ -34,18 +36,29 @@ python3 project-continuity-suite/installer/install.py \
   --validation <project-validation-command>
 ```
 
-Run the installer again to update an existing installation; managed `AGENTS.md` and `.gitignore` blocks are idempotent. Then run the installed `continuity --project-root <repository> --json project doctor`. Keep developer workspace roots and Codex automation records in developer-local configuration, never in this repository.
+The main skill guides the user through recommended defaults and explicit overrides. For a deterministic initial install, pass `--configuration <answers.json>`; for a terminal questionnaire, pass `--interactive`. After installation, use:
+
+```text
+.agents/project-continuity/bin/continuity --project-root <repository> --json project recommendations
+.agents/project-continuity/bin/continuity --project-root <repository> project configure --interactive --actor <identity>
+.agents/project-continuity/bin/continuity --project-root <repository> --json project configure --answers-file <answers.json> --actor <identity>
+```
+
+Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, human merge, no force-push, and no auto-merge remain fixed.
+
+Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill, and `project doctor` fails on drift. Keep developer workspace roots and Codex automation records in developer-local configuration, never in this repository.
 
 ## Typical cycle
 
-1. Invoke `$capture-project-note` in the active project conversation.
-2. Invoke `$triage-project-notes`, or allow the nightly review to classify and route items.
-3. Use `$manage-project-memory` to retrieve a cited context brief.
-4. Use `$plan-project-goals` only for selected candidates.
-5. Approve an exact goal version; it queues for 10:00 PM America/Chicago.
-6. Use `$dispatch-project-goals` to start an approved goal earlier when needed.
-7. Use `$execute-project-goal` in the assigned isolated worktree.
-8. Use `$report-project-progress` for completion and morning reporting.
+1. Invoke `$project-continuity` for setup or routing and apply `$project-continuity-local` with the selected task skill.
+2. Invoke `$capture-project-note` in the active project conversation.
+3. Invoke `$triage-project-notes`, or allow the nightly review to classify and route items.
+4. Use `$manage-project-memory` to retrieve a cited context brief.
+5. Use `$plan-project-goals` only for selected candidates.
+6. Approve an exact goal version; it queues for the project-configured dispatch time.
+7. Use `$dispatch-project-goals` to start an approved goal earlier when needed.
+8. Use `$execute-project-goal` in the assigned isolated worktree.
+9. Use `$report-project-progress` for completion and morning reporting.
 
 ```mermaid
 flowchart LR

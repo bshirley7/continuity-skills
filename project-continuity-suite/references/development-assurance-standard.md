@@ -24,6 +24,7 @@ Apply this standard to every continuity skill. Treat it as a minimum; stricter r
 - Prefer focused, maintainable changes with tests for success, failure, boundary, and regression behavior.
 - Assess compatibility, migrations, rollback, accessibility, performance, observability, data integrity, and documentation when applicable.
 - Preserve deterministic and idempotent behavior for capture, state transitions, installation, indexing, and reporting.
+- Keep project-specific recommendations and overrides machine-readable, schema-validated, hash-bound, and reproducibly rendered into the project-local behavior skill.
 
 ## Security standards
 
@@ -31,11 +32,13 @@ Apply this standard to every continuity skill. Treat it as a minimum; stricter r
 - Apply current project and framework security guidance. Validate untrusted input, encode output, enforce authorization, use least privilege, and fail closed.
 - Use parameterized data APIs and subprocess argument arrays. Never construct executable commands, paths, queries, or prompts directly from captured note text.
 - Review secrets, authentication, authorization, injection, path traversal, unsafe deserialization, logging, dependency and supply-chain changes, migrations, and external side effects as applicable.
+- Treat configured commands and paths as security-sensitive input: reject traversal, control characters, invalid references, secrets, and attempts to redefine fixed guardrails.
 - Do not weaken safeguards, suppress relevant failures, force-push, auto-merge, or use destructive recovery without explicit authorization.
 
 ## Audit and evidence standards
 
 - Record the actor, timestamp, exact command or review method, result, relevant path or commit, and concise interpretation for every applicable gate.
+- Record project configuration changes with previous and resulting hashes, changed fields, generated-skill parity, doctor status, and reviewed Git diff.
 - Use reproducible evidence. A claim such as `looks good`, `tested`, or `secure` is not sufficient by itself.
 - Mark a gate `not-applicable` only with a concrete, reviewable reason. Missing, unverifiable, stale, or contradictory evidence remains pending or failed.
 - Reconcile final results against source notes, memory IDs, approved plan hash, acceptance criteria, exclusions, changed files, validation output, security findings, and merge-safety state.

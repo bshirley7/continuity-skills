@@ -2,14 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Project continuity configuration",
   "type": "object",
-  "required": ["schema_version", "assurance_standard_version", "project_id", "integration_branch", "timezone", "memory_docs", "private_dir"],
+  "required": ["schema_version", "assurance_standard_version", "project_id", "integration_branch", "timezone", "default_start_time", "max_runtime_minutes", "memory_docs", "private_dir", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "behavior_config_path", "behavior_skill_path", "behavior_configuration_hash"],
   "properties": {
     "schema_version": {"const": 1},
     "assurance_standard_version": {"const": 1},
     "project_id": {"type": "string", "minLength": 1},
     "integration_branch": {"type": "string", "minLength": 1},
     "timezone": {"type": "string"},
-    "default_start_time": {"type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$"},
+    "default_start_time": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},
     "max_runtime_minutes": {"type": "integer", "minimum": 1},
     "memory_docs": {"type": "string"},
     "private_dir": {"type": "string"},
@@ -21,7 +21,14 @@
     "require_isolated_worktree": {"type": "boolean"},
     "refresh_base_on_preflight": {"type": "boolean"},
     "validation_commands": {"type": "array", "items": {"type": "string"}},
-    "documentation_map": {"type": "object"}
+    "security_commands": {"type": "array", "items": {"type": "string"}},
+    "documentation_map": {"type": "object"},
+    "visual_evidence_mode": {"enum": ["when-applicable", "always", "explanation-allowed"]},
+    "branch_prefix": {"type": "string", "minLength": 1},
+    "project_instructions": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 500}},
+    "behavior_config_path": {"const": ".continuity/project-behavior.json"},
+    "behavior_skill_path": {"const": ".agents/skills/project-continuity-local/SKILL.md"},
+    "behavior_configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
   },
   "additionalProperties": true
 }

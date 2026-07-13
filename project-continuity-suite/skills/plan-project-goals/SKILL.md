@@ -7,7 +7,7 @@ description: Convert selected documentation, research, backlog, or execution can
 
 Planning does not authorize work. Create a decision-complete proposal and leave it awaiting explicit approval.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `.continuity/config.json`, `AGENTS.md`, and the documentation map.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, `.continuity/config.json`, `AGENTS.md`, and the documentation map.
 
 ## Required assurance
 

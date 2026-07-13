@@ -9,7 +9,7 @@ Treat every note as project knowledge first. Never interpret capture as approval
 
 ## Contract
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), and `.continuity/config.json`. Stop and report an incomplete installation if any are unavailable or the configured assurance version does not match.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, and `.continuity/config.json`. Stop and report an incomplete installation if any are unavailable, out of sync, or the configured assurance version does not match.
 
 ## Required assurance
 

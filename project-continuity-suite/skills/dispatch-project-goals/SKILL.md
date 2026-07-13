@@ -7,7 +7,7 @@ description: Approve, queue, schedule, start, hold, cancel, resume, and inspect 
 
 Keep approval and dispatch as separate recorded transitions. Never infer either from conversational enthusiasm or note capture.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `.continuity/project.json`, and `.continuity/config.json`.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$project-continuity-local`, `.continuity/project.json`, and `.continuity/config.json`.
 
 ## Required assurance
 

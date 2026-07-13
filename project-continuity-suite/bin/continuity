@@ -24,6 +24,22 @@ from zoneinfo import ZoneInfo
 
 SCHEMA_VERSION = 1
 ASSURANCE_STANDARD_VERSION = 1
+BEHAVIOR_SCHEMA_VERSION = 1
+BEHAVIOR_PROFILE = "responsible-defaults-v1"
+BEHAVIOR_CONFIG_PATH = ".continuity/project-behavior.json"
+BEHAVIOR_SKILL_PATH = ".agents/skills/project-continuity-local/SKILL.md"
+VISUAL_EVIDENCE_MODES = {"when-applicable", "always", "explanation-allowed"}
+FIXED_GUARDRAILS = {
+    "ambiguous_notes": "hold-or-context",
+    "canonical_documentation_changes": "approved-goal-only",
+    "code_execution": "approved-and-dispatched-goal-only",
+    "max_code_changing_goals_per_project": 1,
+    "security_review": "required",
+    "merge_safety_review": "required",
+    "human_merge": "required",
+    "force_push": "forbidden",
+    "auto_merge": "forbidden",
+}
 NOTE_KINDS = {
     "context",
     "insight",
@@ -138,7 +154,7 @@ def find_project_root(start: Path | None = None) -> Path:
     raise ContinuityError("Run inside a configured project or set CONTINUITY_PROJECT_ROOT")
 
 
-def load_context(start: Path | None = None) -> tuple[Path, dict[str, Any]]:
+def load_context(start: Path | None = None, *, validate_behavior: bool = True) -> tuple[Path, dict[str, Any]]:
     root = find_project_root(start)
     config = json_load(root / ".continuity" / "config.json")
     if not isinstance(config, dict) or config.get("schema_version") != SCHEMA_VERSION:
@@ -147,6 +163,8 @@ def load_context(start: Path | None = None) -> tuple[Path, dict[str, Any]]:
         raise ContinuityError("Missing or unsupported development assurance standard")
     confined_path(root, config.get("private_dir", ".continuity/private"), "private_dir")
     confined_path(root, config.get("memory_docs", "docs/project-memory"), "memory_docs")
+    if validate_behavior and config.get("behavior_config_path"):
+        validate_project_behavior(root, config)
     return root, config
 
 
@@ -193,6 +211,120 @@ def canonical_hash(value: Any) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def behavior_payload_hash(record: dict[str, Any]) -> str:
+    payload = {key: value for key, value in record.items() if key != "configuration_hash"}
+    return canonical_hash(payload)
+
+
+def render_project_behavior_skill(record: dict[str, Any]) -> str:
+    project_id = validate_identifier(str(record.get("project_id", "")), "project id")
+    configuration_hash = str(record.get("configuration_hash", ""))
+    settings = record.get("settings", {})
+    fixed = record.get("fixed_guardrails", {})
+    overrides = record.get("overrides", [])
+    return f'''---
+name: project-continuity-local
+description: Apply the committed project-specific continuity configuration for {project_id}. Use with every continuity capture, triage, memory, planning, dispatch, execution, or reporting action in this repository.
+---
+
+# Project Continuity Local Behavior
+
+This skill is generated from `.continuity/project-behavior.json`. Reconfigure through `$project-continuity` or `continuity project configure`; do not edit this generated file directly.
+
+Configuration hash: `{configuration_hash}`
+Recommendation profile: `{record.get("recommendation_profile", BEHAVIOR_PROFILE)}`
+
+## Required use
+
+1. Read this skill after the task-specific continuity skill and before acting.
+2. Apply the effective settings below as project instructions.
+3. Treat the fixed guardrails as non-overridable. A requested exception requires a suite change and review; a local configuration answer cannot weaken them.
+4. Run `continuity project doctor` and stop on configuration drift or hash mismatch.
+
+## Effective settings
+
+```json
+{json.dumps(settings, indent=2, sort_keys=True)}
+```
+
+Explicitly overridden fields: `{json.dumps(overrides)}`
+
+## Fixed guardrails
+
+```json
+{json.dumps(fixed, indent=2, sort_keys=True)}
+```
+
+Project settings refine how the suite operates; they never convert notes into authorization or bypass approval, audit, security, validation, merge-safety, documentation, or human-review gates.
+'''
+
+
+def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    behavior_path = confined_path(root, config.get("behavior_config_path", BEHAVIOR_CONFIG_PATH), "behavior_config_path")
+    skill_path = confined_path(root, config.get("behavior_skill_path", BEHAVIOR_SKILL_PATH), "behavior_skill_path")
+    record = json_load(behavior_path, {})
+    if not isinstance(record, dict) or record.get("schema_version") != BEHAVIOR_SCHEMA_VERSION:
+        raise ContinuityError("Project behavior configuration is missing or unsupported")
+    if record.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError("Project behavior uses a missing or unsupported assurance standard")
+    if record.get("project_id") != config.get("project_id"):
+        raise ContinuityError("Project behavior and continuity configuration IDs differ")
+    if record.get("recommendation_profile") != BEHAVIOR_PROFILE:
+        raise ContinuityError("Project behavior recommendation profile is unsupported")
+    settings = validate_behavior_settings(root, record.get("settings"))
+    expected_hash = behavior_payload_hash(record)
+    if record.get("configuration_hash") != expected_hash:
+        raise ContinuityError("Project behavior configuration hash is stale or invalid")
+    if config.get("behavior_configuration_hash") != expected_hash:
+        raise ContinuityError("Continuity configuration does not match project behavior")
+    manifest = load_project_manifest(root)
+    if manifest.get("behavior_configuration_hash") != expected_hash:
+        raise ContinuityError("Project manifest does not match project behavior")
+    if record.get("fixed_guardrails") != FIXED_GUARDRAILS:
+        raise ContinuityError("Project behavior attempts to change fixed continuity guardrails")
+    expected_config = {
+        "integration_branch": settings["integration_branch"],
+        "timezone": settings["timezone"],
+        "default_start_time": settings["schedules"]["dispatch"],
+        "max_runtime_minutes": settings["max_runtime_minutes"],
+        "memory_stale_after_days": settings["memory_stale_after_days"],
+        "validation_commands": settings["validation_commands"],
+        "security_commands": settings["security_commands"],
+        "documentation_map": settings["documentation_map"],
+        "visual_evidence_mode": settings["visual_evidence_mode"],
+        "branch_prefix": settings["branch_prefix"],
+        "project_instructions": settings["project_instructions"],
+    }
+    config_drift = sorted(key for key, value in expected_config.items() if config.get(key) != value)
+    if config_drift:
+        raise ContinuityError(f"Continuity configuration drifted from project behavior: {config_drift}")
+    fixed_config = {
+        "require_remote": True,
+        "require_pr": True,
+        "require_pr_auth": True,
+        "require_execution_artifacts": True,
+        "require_isolated_worktree": True,
+        "refresh_base_on_preflight": True,
+    }
+    weakened = sorted(key for key, value in fixed_config.items() if config.get(key) is not value)
+    if weakened:
+        raise ContinuityError(f"Continuity configuration weakens fixed safeguards: {weakened}")
+    expected_manifest = {
+        "project_id": record["project_id"],
+        "integration_branch": settings["integration_branch"],
+        "timezone": settings["timezone"],
+        "schedules": settings["schedules"],
+        "max_concurrency": 1,
+        "execution_enabled": settings["execution_enabled"],
+    }
+    manifest_drift = sorted(key for key, value in expected_manifest.items() if manifest.get(key) != value)
+    if manifest_drift:
+        raise ContinuityError(f"Project manifest drifted from project behavior: {manifest_drift}")
+    if not skill_path.exists() or skill_path.read_text(encoding="utf-8") != render_project_behavior_skill(record):
+        raise ContinuityError("Generated project behavior skill is missing or out of sync")
+    return record
 
 
 def parse_scalar(value: str) -> Any:
@@ -1269,8 +1401,348 @@ def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
     return results
 
 
+def detected_validation_commands(root: Path) -> list[str]:
+    package_path = root / "package.json"
+    if not package_path.exists():
+        return []
+    package = json_load(package_path, {})
+    scripts = package.get("scripts", {}) if isinstance(package, dict) else {}
+    if not isinstance(scripts, dict):
+        return []
+    runner = "pnpm" if (root / "pnpm-lock.yaml").exists() else "npm run"
+    detected: list[str] = []
+    for name in ("typecheck", "test", "build"):
+        if name not in scripts:
+            continue
+        detected.append(f"{runner} {name}" if runner == "pnpm" else f"{runner} {name}")
+    return detected
+
+
+def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    existing_path = confined_path(root, config.get("behavior_config_path", BEHAVIOR_CONFIG_PATH), "behavior_config_path")
+    existing = json_load(existing_path, {})
+    if isinstance(existing, dict) and isinstance(existing.get("settings"), dict):
+        return dict(existing["settings"])
+    schedules = manifest.get("schedules", {}) if isinstance(manifest.get("schedules"), dict) else {}
+    return {
+        "integration_branch": config.get("integration_branch", manifest.get("integration_branch", "main")),
+        "timezone": config.get("timezone", manifest.get("timezone", "America/Chicago")),
+        "schedules": {
+            "review": schedules.get("review", "20:00"),
+            "dispatch": schedules.get("dispatch", config.get("default_start_time", "22:00")),
+            "report": schedules.get("report", "07:00"),
+        },
+        "max_runtime_minutes": config.get("max_runtime_minutes", 360),
+        "memory_stale_after_days": config.get("memory_stale_after_days", 90),
+        "validation_commands": config.get("validation_commands", []),
+        "security_commands": config.get("security_commands", []),
+        "documentation_map": config.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
+        "visual_evidence_mode": config.get("visual_evidence_mode", "when-applicable"),
+        "branch_prefix": config.get("branch_prefix", "continuity"),
+        "project_instructions": config.get("project_instructions", []),
+        "execution_enabled": bool(manifest.get("execution_enabled", False)),
+    }
+
+
+def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    current = current_behavior_settings(root, config, manifest)
+    detected = detected_validation_commands(root)
+    return {
+        "integration_branch": current["integration_branch"],
+        "timezone": current["timezone"],
+        "schedules": {"review": "20:00", "dispatch": "22:00", "report": "07:00"},
+        "max_runtime_minutes": 360,
+        "memory_stale_after_days": 90,
+        "validation_commands": detected or current.get("validation_commands", []),
+        "security_commands": current.get("security_commands", []),
+        "documentation_map": current.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
+        "visual_evidence_mode": "when-applicable",
+        "branch_prefix": "continuity",
+        "project_instructions": current.get("project_instructions", []),
+        "execution_enabled": False,
+    }
+
+
+def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    manifest = load_project_manifest(root)
+    return {
+        "project_id": config.get("project_id"),
+        "current": current_behavior_settings(root, config, manifest),
+        "recommended": recommended_behavior_settings(root, config, manifest),
+        "customizable_fields": [
+            "integration_branch",
+            "timezone",
+            "schedules.review",
+            "schedules.dispatch",
+            "schedules.report",
+            "max_runtime_minutes",
+            "memory_stale_after_days",
+            "validation_commands",
+            "security_commands",
+            "documentation_map",
+            "visual_evidence_mode",
+            "branch_prefix",
+            "project_instructions",
+            "execution_enabled",
+        ],
+        "fixed_guardrails": FIXED_GUARDRAILS,
+        "guidance": {
+            "execution_enabled": "Keep false until a separate user approval authorizes real product-code runs.",
+            "validation_commands": "Use deterministic repository-prescribed checks; keep credentials out of committed commands.",
+            "security_commands": "Add project-native scanners when available; the evidence-based security review remains mandatory either way.",
+            "visual_evidence_mode": "Use when-applicable so UI work produces visuals and non-visual work records why they do not apply.",
+            "project_instructions": "Add only reviewed repository-specific refinements; fixed guardrails always take precedence.",
+        },
+    }
+
+
+def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ContinuityError("Project behavior settings must be a JSON object")
+    allowed = {
+        "integration_branch",
+        "timezone",
+        "schedules",
+        "max_runtime_minutes",
+        "memory_stale_after_days",
+        "validation_commands",
+        "security_commands",
+        "documentation_map",
+        "visual_evidence_mode",
+        "branch_prefix",
+        "project_instructions",
+        "execution_enabled",
+    }
+    unknown = sorted(set(value) - allowed)
+    if unknown:
+        raise ContinuityError(f"Unsupported project behavior settings: {unknown}")
+    settings = dict(value)
+    branch = str(settings.get("integration_branch", ""))
+    if git_result(root, "check-ref-format", "--branch", branch).returncode != 0:
+        raise ContinuityError("integration_branch is not a valid Git branch name")
+    timezone = str(settings.get("timezone", ""))
+    try:
+        ZoneInfo(timezone)
+    except Exception as exc:
+        raise ContinuityError(f"Unknown timezone: {timezone}") from exc
+    schedules = settings.get("schedules")
+    if not isinstance(schedules, dict) or set(schedules) != {"review", "dispatch", "report"}:
+        raise ContinuityError("schedules must define exactly review, dispatch, and report")
+    for label, scheduled in schedules.items():
+        if not isinstance(scheduled, str) or not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", scheduled):
+            raise ContinuityError(f"Invalid {label} schedule; use HH:MM in 24-hour time")
+    for label, maximum in (("max_runtime_minutes", 360), ("memory_stale_after_days", 3650)):
+        number = settings.get(label)
+        if isinstance(number, bool) or not isinstance(number, int) or not 1 <= number <= maximum:
+            raise ContinuityError(f"{label} must be between 1 and {maximum}")
+    for label in ("validation_commands", "security_commands"):
+        commands = settings.get(label)
+        if not isinstance(commands, list) or any(not isinstance(item, str) or not item.strip() or any(char in item for char in "\n\r\x00") or "```" in item for item in commands):
+            raise ContinuityError(f"{label} must be a JSON array of non-empty, single-line strings")
+        for command in commands:
+            if re.search(r"(?i)(?:token|password|secret|api[_-]?key)\s*=", command) or re.search(r"://[^/\s:@]+:[^/\s@]+@", command):
+                raise ContinuityError(f"{label} appears to contain an inline credential; use the project's secret provider")
+    documentation_map = settings.get("documentation_map")
+    if not isinstance(documentation_map, dict) or not documentation_map:
+        raise ContinuityError("documentation_map must be a non-empty JSON object")
+    for label, path in documentation_map.items():
+        if not isinstance(label, str) or not label.strip() or any(char in label for char in "\n\r\x00") or "```" in label or not isinstance(path, str) or not path.strip() or "```" in path:
+            raise ContinuityError("documentation_map keys and paths must be non-empty strings")
+        resolved = confined_path(root, path, f"documentation_map.{label}")
+        private_root = (root / ".continuity" / "private").resolve()
+        if resolved == private_root or resolved.is_relative_to(private_root):
+            raise ContinuityError("documentation_map cannot expose private continuity state")
+    if settings.get("visual_evidence_mode") not in VISUAL_EVIDENCE_MODES:
+        raise ContinuityError(f"visual_evidence_mode must be one of {sorted(VISUAL_EVIDENCE_MODES)}")
+    prefix = settings.get("branch_prefix")
+    if not isinstance(prefix, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,63}", prefix) or ".." in prefix or prefix.endswith("/"):
+        raise ContinuityError("branch_prefix is not a safe Git branch prefix")
+    instructions = settings.get("project_instructions")
+    if not isinstance(instructions, list) or any(
+        not isinstance(item, str)
+        or not item.strip()
+        or len(item) > 500
+        or any(char in item for char in "\n\r\x00")
+        or "```" in item
+        for item in instructions
+    ):
+        raise ContinuityError("project_instructions must be a JSON array of non-empty single-line strings up to 500 characters")
+    for instruction in instructions:
+        if re.search(r"(?i)(?:token|password|secret|api[_-]?key)\s*=", instruction):
+            raise ContinuityError("project_instructions cannot contain inline credentials")
+        if re.search(r"(?i)(?:allow|permit|enable).{0,40}(?:force[- ]?push|auto[- ]?merge)", instruction) or re.search(
+            r"(?i)(?:skip|disable|bypass|omit|ignore).{0,40}(?:approval|audit|security|validation|merge[- ]?safety|human[- ]?review)",
+            instruction,
+        ):
+            raise ContinuityError("project_instructions cannot weaken fixed continuity guardrails")
+    if not isinstance(settings.get("execution_enabled"), bool):
+        raise ContinuityError("execution_enabled must be true or false")
+    return settings
+
+
+def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
+    print("Project Continuity guided configuration", file=sys.stderr)
+    print("Press Enter to accept each recommended value. Fixed guardrails cannot be overridden.", file=sys.stderr)
+
+    def text_answer(label: str, default: str) -> str:
+        answer = input(f"{label} [{default}]: ").strip()
+        return answer or default
+
+    def int_answer(label: str, default: int) -> int:
+        answer = input(f"{label} [{default}]: ").strip()
+        try:
+            return int(answer) if answer else default
+        except ValueError as exc:
+            raise ContinuityError(f"{label} must be an integer") from exc
+
+    def json_answer(label: str, default: Any) -> Any:
+        rendered = json.dumps(default, sort_keys=True)
+        answer = input(f"{label} as JSON [{rendered}]: ").strip()
+        if not answer:
+            return default
+        try:
+            return json.loads(answer)
+        except json.JSONDecodeError as exc:
+            raise ContinuityError(f"{label} must be valid JSON") from exc
+
+    schedules = recommended["schedules"]
+    execution = input("Enable real product-code execution now? [y/N, recommended N]: ").strip().lower()
+    return {
+        "integration_branch": text_answer("Integration branch", recommended["integration_branch"]),
+        "timezone": text_answer("IANA timezone", recommended["timezone"]),
+        "schedules": {
+            "review": text_answer("Daily review time", schedules["review"]),
+            "dispatch": text_answer("Default dispatch time", schedules["dispatch"]),
+            "report": text_answer("Morning report time", schedules["report"]),
+        },
+        "max_runtime_minutes": int_answer("Maximum unattended runtime in minutes", recommended["max_runtime_minutes"]),
+        "memory_stale_after_days": int_answer("Memory verification age in days", recommended["memory_stale_after_days"]),
+        "validation_commands": json_answer("Validation commands", recommended["validation_commands"]),
+        "security_commands": json_answer("Security commands", recommended["security_commands"]),
+        "documentation_map": json_answer("Documentation map", recommended["documentation_map"]),
+        "visual_evidence_mode": text_answer("Visual evidence mode", recommended["visual_evidence_mode"]),
+        "branch_prefix": text_answer("Goal branch prefix", recommended["branch_prefix"]),
+        "project_instructions": json_answer("Additional project-specific instructions", recommended["project_instructions"]),
+        "execution_enabled": execution in {"y", "yes"},
+    }
+
+
+def project_configure(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    manifest = load_project_manifest(root)
+    recommendations = recommended_behavior_settings(root, config, manifest)
+    current = current_behavior_settings(root, config, manifest)
+    if args.interactive and args.answers_file:
+        raise ContinuityError("Use either --interactive or --answers-file, not both")
+    if args.interactive:
+        answers = interactive_behavior_answers(recommendations)
+    elif args.answers_file:
+        answers = json_load(Path(args.answers_file).expanduser().resolve(), {})
+        if not isinstance(answers, dict):
+            raise ContinuityError("Configuration answers file must contain a JSON object")
+    else:
+        raise ContinuityError("Choose --interactive or provide --answers-file")
+    merged = dict(current)
+    if "schedules" in answers:
+        if not isinstance(answers["schedules"], dict):
+            raise ContinuityError("schedules override must be a JSON object")
+        answers = dict(answers)
+        answers["schedules"] = {**current.get("schedules", {}), **answers["schedules"]}
+    merged.update(answers)
+    settings = validate_behavior_settings(root, merged)
+    overrides = sorted(key for key, value in settings.items() if value != recommendations.get(key))
+    record = {
+        "schema_version": BEHAVIOR_SCHEMA_VERSION,
+        "assurance_standard_version": ASSURANCE_STANDARD_VERSION,
+        "project_id": config.get("project_id"),
+        "recommendation_profile": BEHAVIOR_PROFILE,
+        "settings": settings,
+        "overrides": overrides,
+        "fixed_guardrails": FIXED_GUARDRAILS,
+    }
+    record["configuration_hash"] = behavior_payload_hash(record)
+    if args.dry_run:
+        return {"changed": record != json_load(root / BEHAVIOR_CONFIG_PATH, {}), "behavior": record}
+
+    before_hash = config.get("behavior_configuration_hash")
+    before_config_hash = canonical_hash(config)
+    before_manifest_hash = canonical_hash(manifest)
+    config.update(
+        {
+            "integration_branch": settings["integration_branch"],
+            "timezone": settings["timezone"],
+            "default_start_time": settings["schedules"]["dispatch"],
+            "max_runtime_minutes": settings["max_runtime_minutes"],
+            "memory_stale_after_days": settings["memory_stale_after_days"],
+            "validation_commands": settings["validation_commands"],
+            "security_commands": settings["security_commands"],
+            "documentation_map": settings["documentation_map"],
+            "visual_evidence_mode": settings["visual_evidence_mode"],
+            "branch_prefix": settings["branch_prefix"],
+            "project_instructions": settings["project_instructions"],
+            "behavior_config_path": BEHAVIOR_CONFIG_PATH,
+            "behavior_skill_path": BEHAVIOR_SKILL_PATH,
+            "behavior_configuration_hash": record["configuration_hash"],
+            "require_remote": True,
+            "require_pr": True,
+            "require_pr_auth": True,
+            "require_execution_artifacts": True,
+            "require_isolated_worktree": True,
+            "refresh_base_on_preflight": True,
+        }
+    )
+    manifest.update(
+        {
+            "integration_branch": settings["integration_branch"],
+            "timezone": settings["timezone"],
+            "schedules": settings["schedules"],
+            "max_concurrency": 1,
+            "execution_enabled": settings["execution_enabled"],
+            "behavior_configuration_hash": record["configuration_hash"],
+        }
+    )
+    behavior_path = confined_path(root, BEHAVIOR_CONFIG_PATH, "behavior_config_path")
+    skill_path = confined_path(root, BEHAVIOR_SKILL_PATH, "behavior_skill_path")
+    json_dump(behavior_path, record)
+    json_dump(root / ".continuity" / "config.json", config)
+    json_dump(root / ".continuity" / "project.json", manifest)
+    skill_path.parent.mkdir(parents=True, exist_ok=True)
+    skill_temp = skill_path.with_suffix(".tmp")
+    skill_temp.write_text(render_project_behavior_skill(record), encoding="utf-8")
+    skill_temp.replace(skill_path)
+    changed = (
+        before_hash != record["configuration_hash"]
+        or before_config_hash != canonical_hash(config)
+        or before_manifest_hash != canonical_hash(manifest)
+    )
+    if changed:
+        append_jsonl(
+            private_path(root, config) / "configuration-audit.jsonl",
+            {
+                "at": iso_now(config),
+                "actor": args.actor,
+                "previous_hash": before_hash,
+                "configuration_hash": record["configuration_hash"],
+                "changed_fields": sorted(answers),
+                "reconciled_configuration": before_config_hash != canonical_hash(config),
+                "reconciled_manifest": before_manifest_hash != canonical_hash(manifest),
+            },
+        )
+    validate_project_behavior(root, config)
+    return {
+        "configured": True,
+        "project_id": config.get("project_id"),
+        "configuration_hash": record["configuration_hash"],
+        "changed": changed,
+        "overrides": overrides,
+        "execution_enabled": settings["execution_enabled"],
+        "behavior_skill": BEHAVIOR_SKILL_PATH,
+    }
+
+
 def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
-    root, config = load_context()
+    root, config = load_context(validate_behavior=False)
     manifest = load_project_manifest(root)
     records = discover_projects([root])
     record = next((item for item in records if item.get("path") == str(root)), None)
@@ -1281,6 +1753,13 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     record["healthy"] = record["healthy"] and record["integration_branch_matches"]
     if not record["integration_branch_matches"]:
         record["problems"].append("manifest and configuration integration branches differ")
+    try:
+        behavior = validate_project_behavior(root, config)
+        record["behavior_configuration_hash"] = behavior["configuration_hash"]
+        record["behavior_skill"] = config.get("behavior_skill_path")
+    except ContinuityError as exc:
+        record["healthy"] = False
+        record["problems"].append(str(exc))
     return record
 
 
@@ -1436,8 +1915,8 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "repository": str(root),
         "integration_branch": config["integration_branch"],
         "base_ref": f"origin/{config['integration_branch']}" if config.get("require_remote", True) else config["integration_branch"],
-        "branch_name": f"continuity/{now(config).date().isoformat()}/{slug(config['project_id'])}-{slug(goal['title'])}",
-        "worktree_path": str(root.parent / "worktrees" / f"continuity-{slug(goal['goal_id'])}"),
+        "branch_name": f"{config.get('branch_prefix', 'continuity')}/{now(config).date().isoformat()}/{slug(config['project_id'])}-{slug(goal['title'])}",
+        "worktree_path": str(root.parent / "worktrees" / f"{slug(config.get('branch_prefix', 'continuity'))}-{slug(goal['goal_id'])}"),
         "plan_path": str((directory / "plan.md").relative_to(root)),
         "goal_path": str((directory / "goal.json").relative_to(root)),
         "approval": approval,
@@ -1445,6 +1924,12 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "approved_plan_hash": approval["plan_hash"],
         "runtime_limit_minutes": goal["runtime_limit_minutes"],
         "required_checks": config.get("validation_commands", []) + goal.get("required_checks", []),
+        "required_security_checks": config.get("security_commands", []),
+        "documentation_map": config.get("documentation_map", {}),
+        "visual_evidence_mode": config.get("visual_evidence_mode", "when-applicable"),
+        "project_instructions": config.get("project_instructions", []),
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+        "behavior_skill_path": config.get("behavior_skill_path", BEHAVIOR_SKILL_PATH),
         "assurance_standard_version": ASSURANCE_STANDARD_VERSION,
         "deadline": (now(config) + dt.timedelta(minutes=goal["runtime_limit_minutes"])).isoformat(timespec="seconds"),
     }
@@ -1682,7 +2167,20 @@ def report_project(args: argparse.Namespace) -> str:
     for goal in goals:
         counts[goal["state"]] = counts.get(goal["state"], 0) + 1
     memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
-    lines = [f"# Project Continuity Report: {config['project_id']}", "", f"Generated: {iso_now(config)}", "", "## Goals", ""]
+    lines = [
+        f"# Project Continuity Report: {config['project_id']}",
+        "",
+        f"Generated: {iso_now(config)}",
+        "",
+        "## Configuration",
+        "",
+        f"- Behavior hash: `{config.get('behavior_configuration_hash', 'legacy-unconfigured')}`",
+        f"- Behavior skill: `{config.get('behavior_skill_path', 'legacy-unconfigured')}`",
+        "- Health: validated",
+        "",
+        "## Goals",
+        "",
+    ]
     if not goals:
         lines.append("No tracked goals.")
     for state, count in sorted(counts.items()):
@@ -1863,6 +2361,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     project_admin = top.add_parser("project")
     project_admin_sub = project_admin.add_subparsers(dest="command", required=True)
+    recommendations = project_admin_sub.add_parser("recommendations")
+    recommendations.set_defaults(handler=project_recommendations)
+    configure = project_admin_sub.add_parser("configure")
+    configure.add_argument("--interactive", action="store_true")
+    configure.add_argument("--answers-file")
+    configure.add_argument("--actor", default="user")
+    configure.add_argument("--dry-run", action="store_true")
+    configure.set_defaults(handler=project_configure)
     doctor = project_admin_sub.add_parser("doctor")
     doctor.set_defaults(handler=project_doctor)
 

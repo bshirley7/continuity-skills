@@ -1,6 +1,6 @@
 # Nightly Project Continuity Review
 
-At the configured review time, discover enrolled repositories beneath the developer's configured workspace roots. Start a separate project task for each enabled manifest. In every task, set the working directory to that repository and use only its installed continuity skills, CLI, `AGENTS.md`, configuration, private state, and project memory.
+At the configured review time, discover enrolled repositories beneath the developer's configured workspace roots. Start a separate project task for each enabled manifest. In every task, set the working directory to that repository, run `project doctor`, and apply its installed `$project-continuity-local` behavior with each task-specific skill. Use only that project's CLI, `AGENTS.md`, configuration, private state, and project memory. Stop that project task on configuration drift without blocking healthy projects.
 
 1. Triage new captures conservatively; notes never authorize work.
 2. Update private knowledge ledgers and revisit eligible deferred items.

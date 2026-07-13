@@ -8,11 +8,20 @@ Treat notes as project knowledge first. Only a deliberately promoted, decision-c
 
 Every skill must read and apply `development-assurance-standard.md`. The project configuration, project manifest, dispatch record, and goal compliance ledger must use the supported assurance-standard version. Missing or incompatible versions fail closed before execution or completion.
 
+## Project behavior configuration
+
+- Use `$project-continuity` as the guided configuration and routing entry point.
+- Store effective project-specific settings in `.continuity/project-behavior.json` and generate `.agents/skills/project-continuity-local/SKILL.md` from that committed record.
+- Apply the generated local behavior skill with every task-specific continuity skill. Configuration, manifest, behavior record, and generated skill hashes must agree.
+- Permit explicit overrides only for documented project settings such as schedules, validation, documentation map, evidence mode, branch prefix, runtime, and execution enrollment.
+- Never allow project configuration to weaken the fixed authorization, concurrency, security, merge-safety, force-push, auto-merge, or human-merge guardrails.
+- Record configuration changes in the ignored append-only audit ledger and fail closed on manual drift.
+
 ## Data boundaries
 
 - Keep skills, configuration, schedule intent, notes, memory, approvals, execution, and evidence authoritative inside the enrolled project.
 - Treat any developer-local scheduler as a discovery and triggering layer only. It may aggregate sanitized reports but must not own project instructions or private state.
-- Keep raw captures, queues, approvals, manifests, generated indexes, and task locks under `.continuity/private/`.
+- Keep raw captures, queues, approvals, generated indexes, configuration audit records, and task locks under `.continuity/private/`.
 - Keep trusted, sanitized project memory under `docs/project-memory/`.
 - Exclude private state from Git and default memory search.
 - Preserve provenance and append-only feedback. Never silently overwrite changed understanding.

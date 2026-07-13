@@ -9,6 +9,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -93,11 +94,16 @@ def main() -> int:
     parser.add_argument("--project-id", required=True)
     parser.add_argument("--integration-branch", required=True)
     parser.add_argument("--seed", help="Optional project-specific memory seed kept outside this distribution")
+    parser.add_argument("--configuration", help="Optional JSON answers for guided project behavior configuration")
+    parser.add_argument("--interactive", action="store_true", help="Ask guided project behavior questions after installation")
     parser.add_argument("--validation", action="append", default=[])
     parser.add_argument("--timezone", default="America/Chicago")
     parser.add_argument("--enable-execution", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    if args.interactive and args.configuration:
+        raise RuntimeError("Use either --interactive or --configuration, not both")
 
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args.project_id):
         raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
@@ -144,7 +150,13 @@ def main() -> int:
         "require_isolated_worktree": True,
         "refresh_base_on_preflight": True,
         "validation_commands": args.validation,
+        "security_commands": [],
         "documentation_map": seed.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
+        "visual_evidence_mode": "when-applicable",
+        "branch_prefix": "continuity",
+        "project_instructions": [],
+        "behavior_config_path": ".continuity/project-behavior.json",
+        "behavior_skill_path": ".agents/skills/project-continuity-local/SKILL.md",
     }
     project_manifest = {
         "schema_version": 1,
@@ -158,12 +170,32 @@ def main() -> int:
         "max_concurrency": 1,
     }
 
+    existing_config_path = root / ".continuity" / "config.json"
+    existing_manifest_path = root / ".continuity" / "project.json"
+    if existing_config_path.exists():
+        existing_config = load_json(existing_config_path)
+        if existing_config.get("project_id") != args.project_id:
+            raise RuntimeError("Existing continuity configuration belongs to a different project id")
+        config.update(existing_config)
+        config["schema_version"] = 1
+        config["assurance_standard_version"] = 1
+        config["behavior_config_path"] = ".continuity/project-behavior.json"
+        config["behavior_skill_path"] = ".agents/skills/project-continuity-local/SKILL.md"
+    if existing_manifest_path.exists():
+        existing_manifest = load_json(existing_manifest_path)
+        if existing_manifest.get("project_id") != args.project_id:
+            raise RuntimeError("Existing continuity manifest belongs to a different project id")
+        project_manifest.update(existing_manifest)
+        project_manifest["schema_version"] = 1
+        project_manifest["assurance_standard_version"] = 1
+
     agents_block = f"""{AGENTS_START}
 ## Project Continuity, Memory, and Sequenced Development
 
 - Project id: `{args.project_id}`. Treat `.continuity/project.json` as the committed enrollment and schedule contract.
-- Integration branch: `{args.integration_branch}`
+- Integration branch: use the value in `.continuity/project.json`; project configuration may change it through the guided workflow.
 - Enforce development assurance standard version `1` from `.agents/references/development-assurance-standard.md`; stop when configuration, evidence, or an installed skill is incompatible.
+- Start configuration and workflow routing with `$project-continuity`; apply the generated `$project-continuity-local` behavior skill with every task-specific continuity skill.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/project-continuity/bin/continuity`.
 - Treat notes as project knowledge first. Capture, classification, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.
@@ -180,7 +212,7 @@ def main() -> int:
 {IGNORE_END}"""
 
     if args.dry_run:
-        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "memory_entries": len(entries)}, indent=2))
+        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries)}, indent=2))
         return 0
 
     skills_target = root / ".agents" / "skills"
@@ -213,7 +245,32 @@ def main() -> int:
         if not target.exists():
             target.write_text(render_memory(entry, stamp, commit), encoding="utf-8")
 
-    print(json.dumps({"installed": True, "project": str(root), "skills": 7, "memory_entries": len(entries), "execution_enabled": args.enable_execution}, indent=2))
+    configure_command = [
+        str(control_target / "bin" / "continuity"),
+        "--project-root",
+        str(root),
+        "--json",
+        "project",
+        "configure",
+        "--actor",
+        "installer",
+    ]
+    if args.interactive:
+        configure_command.append("--interactive")
+        configured = subprocess.run(configure_command, check=False, text=True)
+    else:
+        answers = load_json(Path(args.configuration).expanduser().resolve()) if args.configuration else {}
+        with tempfile.TemporaryDirectory(prefix="project-continuity-") as temp:
+            answers_path = Path(temp) / "answers.json"
+            write_json(answers_path, answers)
+            configured = subprocess.run([*configure_command, "--answers-file", str(answers_path)], capture_output=True, text=True, check=False)
+    if configured.returncode != 0:
+        message = configured.stderr.strip() if configured.stderr else "guided project configuration failed"
+        raise RuntimeError(message)
+
+    manifest = load_json(root / ".continuity" / "project.json")
+    installed_skills = sum(1 for path in skills_target.iterdir() if path.is_dir())
+    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/project-continuity-local/SKILL.md"}, indent=2))
     return 0
 
 
