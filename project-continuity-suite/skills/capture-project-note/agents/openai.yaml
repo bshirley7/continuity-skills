@@ -1,0 +1,4 @@
+interface:
+  display_name: "Capture Project Note"
+  short_description: "Capture notes without authorizing execution"
+  default_prompt: "Use $capture-project-note to capture this conversation as project knowledge."

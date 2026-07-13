@@ -1,0 +1,1748 @@
+#!/usr/bin/env python3
+"""Deterministic control plane for project continuity workflows.
+
+The implementation intentionally uses only the Python standard library so it can
+be copied into heterogeneous projects without adding a runtime dependency.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import sqlite3
+import subprocess
+import sys
+import shutil
+from pathlib import Path
+from typing import Any, Iterable
+from zoneinfo import ZoneInfo
+
+
+SCHEMA_VERSION = 1
+NOTE_KINDS = {
+    "context",
+    "insight",
+    "decision",
+    "question",
+    "documentation-candidate",
+    "backlog-candidate",
+    "execution-candidate",
+    "explicit-instruction",
+}
+MEMORY_STATUSES = {"current", "proposed", "disputed", "superseded", "historical"}
+TERMINAL_STATES = {"completed", "partially-completed", "blocked", "cancelled"}
+GOAL_STATES = {
+    "proposed-plan",
+    "awaiting-feedback",
+    "approved",
+    "queued",
+    "dispatched",
+    "running",
+    "validating",
+    *TERMINAL_STATES,
+    "held",
+}
+COMPLIANCE_STAGES = [
+    "capture-triage",
+    "memory-retrieval",
+    "plan-review",
+    "approval",
+    "execution-preflight",
+    "implementation",
+    "code-review",
+    "validation",
+    "security-review",
+    "merge-safety",
+    "documentation",
+    "memory-impact",
+    "final-alignment",
+    "human-review",
+]
+COMPLIANCE_STATUSES = {"pending", "passed", "failed", "not-applicable"}
+FRONTMATTER_REQUIRED = {
+    "memory_id",
+    "title",
+    "type",
+    "system",
+    "summary",
+    "status",
+    "created_at",
+    "updated_at",
+    "last_verified_at",
+    "verified_against",
+    "confidence",
+}
+
+
+class ContinuityError(RuntimeError):
+    pass
+
+
+def now(config: dict[str, Any]) -> dt.datetime:
+    return dt.datetime.now(ZoneInfo(config.get("timezone", "America/Chicago")))
+
+
+def iso_now(config: dict[str, Any]) -> str:
+    return now(config).isoformat(timespec="seconds")
+
+
+def json_dump(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp.replace(path)
+
+
+def json_load(path: Path, default: Any = None) -> Any:
+    if not path.exists():
+        return default
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def append_jsonl(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(value, sort_keys=True) + "\n")
+
+
+def iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
+    if not path.exists():
+        return []
+    values: list[dict[str, Any]] = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            values.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            raise ContinuityError(f"Invalid JSONL at {path}:{number}: {exc}") from exc
+    return values
+
+
+def find_project_root(start: Path | None = None) -> Path:
+    env = os.environ.get("CONTINUITY_PROJECT_ROOT")
+    if env:
+        root = Path(env).expanduser().resolve()
+        if not (root / ".continuity" / "config.json").exists():
+            raise ContinuityError(f"No .continuity/config.json below {root}")
+        return root
+    current = (start or Path.cwd()).resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / ".continuity" / "config.json").exists():
+            return candidate
+    raise ContinuityError("Run inside a configured project or set CONTINUITY_PROJECT_ROOT")
+
+
+def load_context(start: Path | None = None) -> tuple[Path, dict[str, Any]]:
+    root = find_project_root(start)
+    config = json_load(root / ".continuity" / "config.json")
+    if not isinstance(config, dict) or config.get("schema_version") != SCHEMA_VERSION:
+        raise ContinuityError("Unsupported or missing continuity configuration")
+    confined_path(root, config.get("private_dir", ".continuity/private"), "private_dir")
+    confined_path(root, config.get("memory_docs", "docs/project-memory"), "memory_docs")
+    return root, config
+
+
+def confined_path(root: Path, value: str, label: str) -> Path:
+    candidate = Path(value)
+    if candidate.is_absolute():
+        raise ContinuityError(f"{label} must be a project-relative path")
+    resolved = (root / candidate).resolve()
+    if not resolved.is_relative_to(root.resolve()):
+        raise ContinuityError(f"{label} escapes the project root")
+    return resolved
+
+
+def private_path(root: Path, config: dict[str, Any]) -> Path:
+    return confined_path(root, config.get("private_dir", ".continuity/private"), "private_dir")
+
+
+def slug(value: str, limit: int = 56) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return normalized[:limit].rstrip("-") or "item"
+
+
+def stable_id(prefix: str, *parts: str) -> str:
+    digest = hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:10]
+    return f"{prefix}-{digest}"
+
+
+def validate_identifier(value: str, label: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", value):
+        raise ContinuityError(f"Invalid {label}: use 1-128 letters, numbers, dots, underscores, or hyphens")
+    return value
+
+
+def canonical_hash(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def parse_scalar(value: str) -> Any:
+    value = value.strip()
+    if not value:
+        return ""
+    if value in {"true", "false"}:
+        return value == "true"
+    if value in {"null", "~"}:
+        return None
+    if value.startswith("[") and value.endswith("]"):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return [item.strip() for item in value[1:-1].split(",") if item.strip()]
+    return value.strip('"\'')
+
+
+def parse_markdown(path: Path) -> tuple[dict[str, Any], str, str]:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        return {}, text, ""
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        return {}, text, ""
+    metadata: dict[str, Any] = {}
+    for line in text[4:end].splitlines():
+        if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        metadata[key.strip()] = parse_scalar(value)
+    body = text[end + 5 :]
+    heading = ""
+    for line in body.splitlines():
+        if line.startswith("# "):
+            heading = line[2:].strip()
+            break
+    return metadata, body, heading
+
+
+def render_markdown(metadata: dict[str, Any], body: str) -> str:
+    lines = ["---"]
+    for key, value in metadata.items():
+        if isinstance(value, (list, dict)):
+            rendered = json.dumps(value, sort_keys=True)
+        elif value is None:
+            rendered = "null"
+        else:
+            rendered = str(value)
+        lines.append(f"{key}: {rendered}")
+    lines.extend(["---", "", body.rstrip(), ""])
+    return "\n".join(lines)
+
+
+def note_capture(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    stamp = iso_now(config)
+    if args.items_file:
+        payload = json_load(Path(args.items_file).expanduser())
+        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+            raise ContinuityError("Items file must contain an object with an items array")
+    else:
+        text = args.text
+        if args.file:
+            text = Path(args.file).expanduser().read_text(encoding="utf-8")
+        if not text:
+            raise ContinuityError("Provide --text, --file, or --items-file")
+        payload = {
+            "source_type": "file" if args.file else "manual",
+            "source_ref": args.file or "manual-entry",
+            "items": [{"kind": "context", "text": text}],
+        }
+    source_type = payload.get("source_type", args.source_type or "conversation")
+    if source_type not in {"conversation", "manual", "file", "notion", "linear"}:
+        raise ContinuityError(f"Unsupported source_type: {source_type}")
+    raw_items = payload["items"]
+    items: list[dict[str, Any]] = []
+    for index, item in enumerate(raw_items, 1):
+        if not isinstance(item, dict) or not str(item.get("text", "")).strip():
+            raise ContinuityError(f"Capture item {index} must include text")
+        kind = item.get("kind", "context")
+        if kind not in NOTE_KINDS:
+            raise ContinuityError(f"Invalid note kind: {kind}")
+        item_id = item.get("item_id") or stable_id("note", stamp, str(index), item["text"])
+        items.append(
+            {
+                **item,
+                "item_id": item_id,
+                "kind": kind,
+                "text": item["text"].strip(),
+                "execution_authorized": False,
+                "routing_status": item.get("routing_status", "captured"),
+            }
+        )
+    content_fingerprint = canonical_hash(
+        [{"kind": item["kind"], "text": item["text"]} for item in items]
+    )
+    capture_id = payload.get("capture_id") or stable_id(
+        "capture", config["project_id"], stamp, content_fingerprint
+    )
+    captures_root = private_path(root, config) / "captures"
+    dedupe_key = payload.get("dedupe_key") or canonical_hash(
+        {
+            "source_type": source_type,
+            "source_ref": payload.get("source_ref", args.source_ref),
+            "items": content_fingerprint,
+        }
+    )
+    for existing_path in captures_root.glob("**/*.json"):
+        existing = json_load(existing_path, {})
+        if existing.get("dedupe_key") == dedupe_key and existing.get("source_ref") == payload.get("source_ref", args.source_ref):
+            existing["deduplicated"] = True
+            existing["path"] = str(existing_path.relative_to(root))
+            return existing
+    capture = {
+        "schema_version": SCHEMA_VERSION,
+        "capture_id": capture_id,
+        "captured_at": stamp,
+        "project_id": config["project_id"],
+        "repository": str(root),
+        "source_type": source_type,
+        "source_ref": payload.get("source_ref", args.source_ref),
+        "source_timestamp": payload.get("source_timestamp"),
+        "dedupe_key": dedupe_key,
+        "execution_authorized": False,
+        "items": items,
+    }
+    target = private_path(root, config) / "captures" / stamp[:10] / f"{capture_id}.json"
+    json_dump(target, capture)
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {"at": stamp, "event": "capture.created", "capture_id": capture_id},
+    )
+    capture["path"] = str(target.relative_to(root))
+    return capture
+
+
+def find_capture(root: Path, config: dict[str, Any], capture_id: str) -> Path:
+    validate_identifier(capture_id, "capture ID")
+    matches = [path for path in (private_path(root, config) / "captures").glob("**/*.json") if path.stem == capture_id]
+    if len(matches) != 1:
+        raise ContinuityError(f"Expected one capture {capture_id}; found {len(matches)}")
+    return matches[0]
+
+
+def route_for_kind(kind: str) -> str:
+    return {
+        "context": "knowledge",
+        "insight": "knowledge",
+        "decision": "knowledge",
+        "question": "questions",
+        "documentation-candidate": "documentation",
+        "backlog-candidate": "backlog",
+        "execution-candidate": "planning",
+        "explicit-instruction": "planning",
+    }[kind]
+
+
+def note_triage(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    path = find_capture(root, config, args.capture_id)
+    capture = json_load(path)
+    selected = None
+    for item in capture["items"]:
+        if item["item_id"] == args.item_id:
+            selected = item
+            break
+    if selected is None:
+        raise ContinuityError(f"Unknown item {args.item_id}")
+    previous = {
+        "kind": selected.get("kind"),
+        "routing_status": selected.get("routing_status"),
+        "queue": selected.get("queue"),
+        "review_after": selected.get("review_after"),
+    }
+    if args.kind:
+        if args.kind not in NOTE_KINDS:
+            raise ContinuityError(f"Invalid kind: {args.kind}")
+        selected["kind"] = args.kind
+    selected["routing_status"] = args.action
+    selected["execution_authorized"] = False
+    if args.review_after:
+        selected["review_after"] = args.review_after
+    revision = {
+        "at": iso_now(config),
+        "previous": previous,
+        "current": {
+            "kind": selected.get("kind"),
+            "routing_status": selected.get("routing_status"),
+            "review_after": selected.get("review_after"),
+        },
+    }
+    changed = revision["previous"] != {**revision["current"], "queue": previous.get("queue")}
+    if changed:
+        selected.setdefault("revision_history", []).append(revision)
+    if args.action in {"route", "defer", "promote"}:
+        queue = route_for_kind(selected["kind"])
+        selected["queue"] = queue
+        queue_path = private_path(root, config) / "queues" / f"{queue}.jsonl"
+        already_queued = any(
+            row.get("capture_id") == capture["capture_id"]
+            and row.get("item_id") == selected["item_id"]
+            and row.get("kind") == selected["kind"]
+            and row.get("routing_status") == selected["routing_status"]
+            for row in iter_jsonl(queue_path)
+        )
+        if not already_queued:
+            append_jsonl(queue_path, {"at": iso_now(config), "capture_id": capture["capture_id"], **selected})
+    json_dump(path, capture)
+    event = {
+        "at": iso_now(config),
+        "event": f"note.{args.action}",
+        "capture_id": capture["capture_id"],
+        "item_id": selected["item_id"],
+        "kind": selected["kind"],
+    }
+    append_jsonl(private_path(root, config) / "events.jsonl", event)
+    return selected
+
+
+def note_list(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    result: list[dict[str, Any]] = []
+    for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(path)
+        for item in capture.get("items", []):
+            if args.kind and item.get("kind") != args.kind:
+                continue
+            result.append({"capture_id": capture["capture_id"], **item})
+    return result
+
+
+def memory_db(root: Path, config: dict[str, Any]) -> Path:
+    return private_path(root, config) / "index" / "project-memory.sqlite"
+
+
+def memory_sources(root: Path, config: dict[str, Any], scope: str) -> list[tuple[Path, str]]:
+    docs_root = confined_path(root, config.get("memory_docs", "docs/project-memory"), "memory_docs")
+    result = [
+        (path, "trusted")
+        for path in sorted(docs_root.glob("**/*.md"))
+        if path.is_file() and path.resolve().is_relative_to(docs_root)
+    ]
+    if scope in {"private", "all"}:
+        private_docs = private_path(root, config) / "knowledge"
+        result.extend(
+            (path, "private")
+            for path in sorted(private_docs.glob("**/*.md"))
+            if path.is_file() and path.resolve().is_relative_to(private_docs.resolve())
+        )
+    return result
+
+
+def memory_source_fingerprint(root: Path, config: dict[str, Any], scope: str) -> str:
+    records = []
+    for path, source_scope in memory_sources(root, config, scope):
+        records.append(
+            {
+                "path": str(path.relative_to(root)),
+                "scope": source_scope,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    return canonical_hash(records)
+
+
+def memory_index(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    db_path = memory_db(root, config)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(db_path)
+    connection.executescript(
+        """
+        DROP TABLE IF EXISTS memory;
+        DROP TABLE IF EXISTS memory_fts;
+        CREATE TABLE memory (
+          memory_id TEXT PRIMARY KEY, path TEXT NOT NULL, heading TEXT, title TEXT,
+          entry_type TEXT, status TEXT, system_name TEXT, summary TEXT, tags TEXT,
+          aliases TEXT, sources TEXT, updated_at TEXT, last_verified_at TEXT,
+          verified_against TEXT, confidence TEXT, scope TEXT, body TEXT
+        );
+        CREATE VIRTUAL TABLE memory_fts USING fts5(
+          memory_id UNINDEXED, title, heading, summary, tags, aliases, system_name, body,
+          tokenize='unicode61'
+        );
+        """
+    )
+    indexed = 0
+    warnings: list[str] = []
+    seen: set[str] = set()
+    for path, scope in memory_sources(root, config, args.scope):
+        metadata, body, heading = parse_markdown(path)
+        absent = sorted(FRONTMATTER_REQUIRED - set(metadata))
+        if absent:
+            warnings.append(f"skipped {path.relative_to(root)}: missing {', '.join(absent)}")
+            continue
+        memory_id = str(metadata.get("memory_id") or stable_id("memory", str(path.relative_to(root))))
+        if memory_id in seen:
+            warnings.append(f"duplicate memory_id {memory_id}: {path.relative_to(root)}")
+            continue
+        seen.add(memory_id)
+        row = (
+            memory_id,
+            str(path.relative_to(root)),
+            heading,
+            str(metadata.get("title") or heading or path.stem),
+            str(metadata.get("type", "unclassified")),
+            str(metadata.get("status", "proposed")),
+            str(metadata.get("system", "project")),
+            str(metadata.get("summary", "")),
+            json.dumps(metadata.get("tags", [])),
+            json.dumps(metadata.get("aliases", [])),
+            json.dumps(metadata.get("sources", [])),
+            str(metadata.get("updated_at", "")),
+            str(metadata.get("last_verified_at", "")),
+            str(metadata.get("verified_against", "")),
+            str(metadata.get("confidence", "unknown")),
+            scope,
+            body,
+        )
+        connection.execute("INSERT INTO memory VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
+        connection.execute(
+            "INSERT INTO memory_fts VALUES (?,?,?,?,?,?,?,?)",
+            (memory_id, row[3], heading, row[7], row[8], row[9], row[6], body),
+        )
+        indexed += 1
+    connection.commit()
+    connection.close()
+    manifest = {
+        "indexed_at": iso_now(config),
+        "entries": indexed,
+        "scope": args.scope,
+        "warnings": warnings,
+        "database": str(db_path.relative_to(root)),
+        "source_fingerprint": memory_source_fingerprint(root, config, args.scope),
+    }
+    json_dump(private_path(root, config) / "index" / "manifest.json", manifest)
+    return manifest
+
+
+def ensure_index(root: Path, config: dict[str, Any], scope: str = "trusted") -> None:
+    manifest = json_load(private_path(root, config) / "index" / "manifest.json", {})
+    fingerprint = memory_source_fingerprint(root, config, scope)
+    if (
+        not memory_db(root, config).exists()
+        or manifest.get("scope") != scope
+        or manifest.get("source_fingerprint") != fingerprint
+    ):
+        memory_index(argparse.Namespace(scope=scope))
+
+
+def memory_search(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    ensure_index(root, config, args.scope)
+    connection = sqlite3.connect(memory_db(root, config))
+    connection.row_factory = sqlite3.Row
+    tokens = re.findall(r"[\w-]+", args.query, flags=re.UNICODE)
+    if not tokens:
+        raise ContinuityError("Search query contains no searchable terms")
+    safe_query = " AND ".join(f'"{token.replace(chr(34), chr(34) * 2)}"' for token in tokens)
+    where = ["memory_fts MATCH ?"]
+    params: list[Any] = [safe_query]
+    if args.type:
+        where.append("m.entry_type = ?")
+        params.append(args.type)
+    if args.status:
+        where.append("m.status = ?")
+        params.append(args.status)
+    if args.system:
+        where.append("m.system_name = ?")
+        params.append(args.system)
+    if args.tag:
+        where.append("m.tags LIKE ?")
+        params.append(f"%{args.tag}%")
+    if args.source:
+        where.append("m.sources LIKE ?")
+        params.append(f"%{args.source}%")
+    if args.since:
+        where.append("m.updated_at >= ?")
+        params.append(args.since)
+    if args.scope != "all":
+        where.append("m.scope = ?")
+        params.append(args.scope)
+    query = f"""
+      SELECT m.*, bm25(memory_fts) AS rank
+      FROM memory_fts JOIN memory m USING(memory_id)
+      WHERE {' AND '.join(where)}
+      ORDER BY CASE m.status WHEN 'current' THEN 0 WHEN 'proposed' THEN 1 ELSE 2 END,
+               rank, m.last_verified_at DESC
+      LIMIT ?
+    """
+    params.append(args.limit)
+    rows = [dict(row) for row in connection.execute(query, params).fetchall()]
+    connection.close()
+    for row in rows:
+        row["citation"] = f"{row['path']}#{slug(row['heading'])}" if row["heading"] else row["path"]
+        row.pop("body", None)
+    return rows
+
+
+def memory_brief(args: argparse.Namespace) -> str:
+    search_args = argparse.Namespace(
+        query=args.query,
+        type=None,
+        status=None,
+        system=None,
+        tag=None,
+        source=None,
+        since=None,
+        scope=args.scope,
+        limit=args.limit,
+    )
+    rows = memory_search(search_args)
+    lines = [f"# Project Memory Brief: {args.query}", ""]
+    if not rows:
+        lines.append("No matching trusted project memory was found.")
+    for row in rows:
+        lines.extend(
+            [
+                f"## {row['title']} ({row['memory_id']})",
+                "",
+                row["summary"] or "No summary recorded.",
+                "",
+                f"- Status: {row['status']}",
+                f"- System: {row['system_name']}",
+                f"- Verified: {row['last_verified_at'] or 'not recorded'} against {row['verified_against'] or 'not recorded'}",
+                f"- Source: `{row['citation']}`",
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def memory_audit(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    entries: list[dict[str, Any]] = []
+    missing: list[dict[str, Any]] = []
+    invalid_status: list[dict[str, str]] = []
+    duplicates: dict[str, list[str]] = {}
+    ids: dict[str, str] = {}
+    relationships: list[tuple[str, str, str]] = []
+    title_states: dict[str, list[dict[str, str]]] = {}
+    stale: list[dict[str, str]] = []
+    stale_days = int(config.get("memory_stale_after_days", 90))
+    cutoff = now(config).date() - dt.timedelta(days=stale_days)
+    for path, scope in memory_sources(root, config, args.scope):
+        metadata, _body, _heading = parse_markdown(path)
+        relative = str(path.relative_to(root))
+        entry_id = str(metadata.get("memory_id", ""))
+        absent = sorted(FRONTMATTER_REQUIRED - set(metadata))
+        if absent:
+            missing.append({"path": relative, "fields": absent})
+        if metadata.get("status") and metadata["status"] not in MEMORY_STATUSES:
+            invalid_status.append({"path": relative, "status": str(metadata["status"])})
+        if entry_id:
+            if entry_id in ids:
+                duplicates.setdefault(entry_id, [ids[entry_id]]).append(relative)
+            else:
+                ids[entry_id] = relative
+        title_key = str(metadata.get("title", "")).strip().lower()
+        if title_key:
+            title_states.setdefault(title_key, []).append(
+                {"path": relative, "status": str(metadata.get("status", "proposed")), "memory_id": entry_id}
+            )
+        for relationship_key in ("related", "supersedes"):
+            values = metadata.get(relationship_key) or []
+            if isinstance(values, str):
+                values = [values]
+            for target in values:
+                relationships.append((relative, relationship_key, str(target)))
+        verified = str(metadata.get("last_verified_at", ""))[:10]
+        if not verified:
+            stale.append({"path": relative, "reason": "never verified"})
+        else:
+            try:
+                if dt.date.fromisoformat(verified) < cutoff:
+                    stale.append({"path": relative, "reason": f"older than {stale_days} days"})
+            except ValueError:
+                stale.append({"path": relative, "reason": "invalid last_verified_at"})
+        entries.append({"path": relative, "scope": scope, "memory_id": entry_id})
+    orphan_relationships = [
+        {"path": source, "field": field, "target": target}
+        for source, field, target in relationships
+        if target and target not in ids
+    ]
+    possible_conflicts = {
+        title: values
+        for title, values in title_states.items()
+        if len(values) > 1 and sum(value["status"] in {"current", "proposed", "disputed"} for value in values) > 1
+    }
+    report = {
+        "audited_at": iso_now(config),
+        "entries": len(entries),
+        "missing_frontmatter": missing,
+        "invalid_status": invalid_status,
+        "duplicates": duplicates,
+        "orphan_relationships": orphan_relationships,
+        "possible_conflicts": possible_conflicts,
+        "stale": stale,
+        "healthy": not (missing or invalid_status or duplicates or orphan_relationships or possible_conflicts or stale),
+    }
+    json_dump(private_path(root, config) / "reports" / "memory-health.json", report)
+    return report
+
+
+def find_memory_entry(root: Path, config: dict[str, Any], memory_id: str) -> Path:
+    matches = []
+    for path, _scope in memory_sources(root, config, "all"):
+        metadata, _body, _heading = parse_markdown(path)
+        if metadata.get("memory_id") == memory_id:
+            matches.append(path)
+    if len(matches) != 1:
+        raise ContinuityError(f"Expected one memory entry {memory_id}; found {len(matches)}")
+    return matches[0]
+
+
+def require_goal_approval(
+    root: Path,
+    config: dict[str, Any],
+    goal_id: str,
+    *,
+    note_id: str | None = None,
+    memory_ids: Iterable[str] = (),
+) -> dict[str, Any]:
+    goal, _approval = validate_approval(root, config, goal_id)
+    if goal.get("state") not in {"approved", "queued", "dispatched", "running", "validating"}:
+        raise ContinuityError(f"Goal {goal_id} is not active and cannot authorize memory changes")
+    if not goal.get("documentation_updates"):
+        raise ContinuityError(f"Goal {goal_id} does not authorize documentation or memory updates")
+    if note_id and note_id not in goal.get("source_note_ids", []):
+        raise ContinuityError(f"Note {note_id} is outside goal {goal_id} scope")
+    missing = sorted(set(memory_ids) - set(goal.get("memory_ids", [])))
+    if missing:
+        raise ContinuityError(f"Memory entries outside goal {goal_id} scope: {missing}")
+    return goal
+
+
+def memory_verify(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    require_goal_approval(root, config, args.goal_id, memory_ids=[args.memory_id])
+    path = find_memory_entry(root, config, args.memory_id)
+    metadata, body, _heading = parse_markdown(path)
+    stamp = iso_now(config)
+    metadata["last_verified_at"] = stamp
+    metadata["updated_at"] = stamp
+    metadata["verified_against"] = args.commit
+    if metadata.get("status") in {"proposed", "disputed"} and args.mark_current:
+        metadata["status"] = "current"
+    path.write_text(render_markdown(metadata, body), encoding="utf-8")
+    memory_index(argparse.Namespace(scope="trusted"))
+    return {"memory_id": args.memory_id, "path": str(path.relative_to(root)), "verified_against": args.commit}
+
+
+def memory_promote(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    require_goal_approval(root, config, args.goal_id, note_id=args.note_id)
+    selected = None
+    source_capture = None
+    for capture_path in (private_path(root, config) / "captures").glob("**/*.json"):
+        capture = json_load(capture_path, {})
+        for item in capture.get("items", []):
+            if item.get("item_id") == args.note_id:
+                selected = item
+                source_capture = capture.get("capture_id")
+                break
+        if selected:
+            break
+    if not selected:
+        raise ContinuityError(f"Unknown note {args.note_id}")
+    if selected.get("kind") not in {"context", "insight", "decision", "documentation-candidate"}:
+        raise ContinuityError("Only knowledge or documentation candidates may be promoted to memory")
+    stamp = iso_now(config)
+    memory_id = args.memory_id or stable_id("memory", config["project_id"], args.note_id, args.title)
+    metadata = {
+        "memory_id": memory_id,
+        "title": args.title,
+        "type": args.type,
+        "system": args.system,
+        "summary": args.summary,
+        "status": "proposed",
+        "tags": args.tag or [],
+        "aliases": [],
+        "created_at": stamp,
+        "updated_at": stamp,
+        "last_verified_at": "",
+        "verified_against": "",
+        "sources": [f"capture:{source_capture}", f"note:{args.note_id}", f"goal:{args.goal_id}"],
+        "related": [],
+        "supersedes": [],
+        "confidence": args.confidence,
+        "unresolved_gaps": [],
+    }
+    target = confined_path(root, config.get("memory_docs", "docs/project-memory"), "memory_docs") / "proposed" / f"{slug(memory_id)}.md"
+    if target.exists():
+        raise ContinuityError(f"Memory entry already exists at {target.relative_to(root)}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = f"# {args.title}\n\n{selected['text']}\n"
+    target.write_text(render_markdown(metadata, body), encoding="utf-8")
+    memory_index(argparse.Namespace(scope="trusted"))
+    return {"memory_id": memory_id, "path": str(target.relative_to(root)), "status": "proposed"}
+
+
+def memory_supersede(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    require_goal_approval(root, config, args.goal_id, memory_ids=[args.memory_id, args.replacement_id])
+    old_path = find_memory_entry(root, config, args.memory_id)
+    new_path = find_memory_entry(root, config, args.replacement_id)
+    old_meta, old_body, _old_heading = parse_markdown(old_path)
+    new_meta, new_body, _new_heading = parse_markdown(new_path)
+    stamp = iso_now(config)
+    old_meta["status"] = "superseded"
+    old_meta["updated_at"] = stamp
+    related = list(old_meta.get("related") or [])
+    if args.replacement_id not in related:
+        related.append(args.replacement_id)
+    old_meta["related"] = related
+    supersedes = list(new_meta.get("supersedes") or [])
+    if args.memory_id not in supersedes:
+        supersedes.append(args.memory_id)
+    new_meta["supersedes"] = supersedes
+    new_meta["updated_at"] = stamp
+    old_path.write_text(render_markdown(old_meta, old_body), encoding="utf-8")
+    new_path.write_text(render_markdown(new_meta, new_body), encoding="utf-8")
+    memory_index(argparse.Namespace(scope="trusted"))
+    return {"superseded": args.memory_id, "replacement": args.replacement_id}
+
+
+def goal_dir(root: Path, config: dict[str, Any], goal_id: str) -> Path:
+    validate_identifier(goal_id, "goal ID")
+    return private_path(root, config) / "goals" / goal_id
+
+
+def load_goal(root: Path, config: dict[str, Any], goal_id: str) -> tuple[Path, dict[str, Any]]:
+    directory = goal_dir(root, config, goal_id)
+    goal = json_load(directory / "goal.json")
+    if not isinstance(goal, dict):
+        raise ContinuityError(f"Unknown goal {goal_id}")
+    return directory, goal
+
+
+def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
+    immutable_keys = {
+        "schema_version",
+        "goal_id",
+        "project_id",
+        "title",
+        "plan_version",
+        "priority",
+        "depends_on",
+        "source_note_ids",
+        "memory_ids",
+        "scope",
+        "exclusions",
+        "acceptance_criteria",
+        "documentation_updates",
+        "required_checks",
+        "runtime_limit_minutes",
+    }
+    machine = {key: goal.get(key) for key in sorted(immutable_keys)}
+    plan = (directory / "plan.md").read_text(encoding="utf-8")
+    return hashlib.sha256((json.dumps(machine, sort_keys=True) + "\n" + plan).encode()).hexdigest()
+
+
+def goal_create(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    payload = json_load(Path(args.goal_file).expanduser())
+    if not isinstance(payload, dict):
+        raise ContinuityError("Goal file must be a JSON object")
+    if not isinstance(payload.get("title"), str) or not payload["title"].strip():
+        raise ContinuityError("Goal requires a non-empty title")
+    if not isinstance(payload.get("scope"), str) or not payload["scope"].strip():
+        raise ContinuityError("Goal requires a non-empty scope")
+    for key in (
+        "acceptance_criteria",
+        "depends_on",
+        "source_note_ids",
+        "memory_ids",
+        "exclusions",
+        "documentation_updates",
+        "required_checks",
+    ):
+        value = payload.get(key, [])
+        if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+            raise ContinuityError(f"Goal field {key} must be an array of non-empty strings")
+    if not payload.get("acceptance_criteria"):
+        raise ContinuityError("Goal requires acceptance_criteria")
+    plan_version = payload.get("plan_version", 1)
+    runtime_limit = payload.get("runtime_limit_minutes", config.get("max_runtime_minutes", 360))
+    if not isinstance(plan_version, int) or isinstance(plan_version, bool) or plan_version < 1:
+        raise ContinuityError("plan_version must be an integer of at least 1")
+    if not isinstance(runtime_limit, int) or isinstance(runtime_limit, bool) or runtime_limit < 1:
+        raise ContinuityError("runtime_limit_minutes must be an integer of at least 1")
+    if runtime_limit > int(config.get("max_runtime_minutes", 360)):
+        raise ContinuityError("runtime_limit_minutes exceeds the configured project maximum")
+    stamp = iso_now(config)
+    goal_id = validate_identifier(payload.get("goal_id") or stable_id("goal", config["project_id"], stamp, payload["title"]), "goal ID")
+    directory = goal_dir(root, config, goal_id)
+    if directory.exists():
+        raise ContinuityError(f"Goal already exists: {goal_id}")
+    goal = {
+        "schema_version": SCHEMA_VERSION,
+        "goal_id": goal_id,
+        "project_id": config["project_id"],
+        "title": payload["title"],
+        "plan_version": plan_version,
+        "state": "awaiting-feedback",
+        "priority": payload.get("priority", "normal"),
+        "depends_on": payload.get("depends_on", []),
+        "source_note_ids": payload.get("source_note_ids", []),
+        "memory_ids": payload.get("memory_ids", []),
+        "scope": payload["scope"],
+        "exclusions": payload.get("exclusions", []),
+        "acceptance_criteria": payload["acceptance_criteria"],
+        "documentation_updates": payload.get("documentation_updates", []),
+        "required_checks": payload.get("required_checks", []),
+        "runtime_limit_minutes": runtime_limit,
+        "created_at": stamp,
+        "updated_at": stamp,
+    }
+    plan = payload.get("plan_markdown") or (
+        f"# {goal_id}: {goal['title']}\n\n"
+        f"## Context and memory\n\nNotes: {', '.join(goal['source_note_ids']) or 'None'}  \n"
+        f"Memory: {', '.join(goal['memory_ids']) or 'None'}\n\n"
+        f"## Authorized scope\n\n{goal['scope']}\n\n"
+        f"## Exclusions\n\n" + "\n".join(f"- {item}" for item in goal["exclusions"]) + "\n\n"
+        f"## Acceptance criteria\n\n" + "\n".join(f"- {item}" for item in goal["acceptance_criteria"]) + "\n"
+    )
+    directory.mkdir(parents=True, exist_ok=False)
+    (directory / "plan.md").write_text(plan.rstrip() + "\n", encoding="utf-8")
+    goal["plan_hash"] = goal_material_hash(directory, goal)
+    json_dump(directory / "goal.json", goal)
+    stamp = iso_now(config)
+    compliance = {
+        "schema_version": SCHEMA_VERSION,
+        "goal_id": goal_id,
+        "updated_at": stamp,
+        "stages": {
+            stage: {"status": "pending", "evidence": [], "updated_at": stamp}
+            for stage in COMPLIANCE_STAGES
+        },
+    }
+    compliance["stages"]["capture-triage"] = {
+        "status": "passed" if goal["source_note_ids"] else "not-applicable",
+        "evidence": goal["source_note_ids"] or ["Goal was created directly without captured notes"],
+        "updated_at": stamp,
+    }
+    compliance["stages"]["memory-retrieval"] = {
+        "status": "passed" if goal["memory_ids"] else "pending",
+        "evidence": goal["memory_ids"],
+        "updated_at": stamp,
+    }
+    if payload.get("plan_reviewed"):
+        compliance["stages"]["plan-review"] = {
+            "status": "passed",
+            "evidence": [str(payload.get("plan_review_evidence", "Plan reviewed for scope, decisions, and acceptance criteria"))],
+            "updated_at": stamp,
+        }
+    json_dump(directory / "compliance.json", compliance)
+    (directory / "feedback.jsonl").touch()
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.created", "goal_id": goal_id})
+    return goal
+
+
+def next_default_start(config: dict[str, Any]) -> str:
+    current = now(config)
+    hour, minute = [int(value) for value in config.get("default_start_time", "22:00").split(":", 1)]
+    scheduled = current.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if scheduled <= current:
+        scheduled += dt.timedelta(days=1)
+    return scheduled.isoformat(timespec="minutes")
+
+
+def parse_schedule(value: str, config: dict[str, Any]) -> str:
+    try:
+        scheduled = dt.datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ContinuityError("Schedule must be an ISO 8601 date-time") from exc
+    if scheduled.tzinfo is None:
+        scheduled = scheduled.replace(tzinfo=ZoneInfo(config["timezone"]))
+    return scheduled.isoformat(timespec="minutes")
+
+
+def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    directory, goal = load_goal(root, config, goal_id)
+    approval = json_load(directory / "approval.json")
+    if not isinstance(approval, dict):
+        raise ContinuityError(f"Goal {goal_id} has no approval record")
+    current_hash = goal_material_hash(directory, goal)
+    if approval.get("plan_version") != goal.get("plan_version") or approval.get("plan_hash") != current_hash:
+        raise ContinuityError("Approval is stale because the plan or goal record changed")
+    if goal.get("state") not in {"approved", "queued", "dispatched", "running", "validating"}:
+        raise ContinuityError(f"Goal state {goal.get('state')} is not approved")
+    return goal, approval
+
+
+def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") not in {"awaiting-feedback", "queued", "held"}:
+        raise ContinuityError(f"Goal in state {goal.get('state')} cannot be revised")
+    if goal.get("state") == "held" and goal.get("held_from") not in {"awaiting-feedback", "queued"}:
+        raise ContinuityError("Only a pre-execution held goal can be revised")
+    payload = json_load(Path(args.goal_file).expanduser())
+    if not isinstance(payload, dict):
+        raise ContinuityError("Revision file must be a JSON object")
+    allowed = {
+        "title",
+        "priority",
+        "depends_on",
+        "source_note_ids",
+        "memory_ids",
+        "scope",
+        "exclusions",
+        "acceptance_criteria",
+        "documentation_updates",
+        "required_checks",
+        "runtime_limit_minutes",
+    }
+    for key, value in payload.items():
+        if key in allowed:
+            goal[key] = value
+    for key in ("depends_on", "source_note_ids", "memory_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
+        value = goal.get(key)
+        if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+            raise ContinuityError(f"Goal field {key} must be an array of non-empty strings")
+    if not goal.get("acceptance_criteria"):
+        raise ContinuityError("Goal requires acceptance_criteria")
+    if not isinstance(goal.get("title"), str) or not goal["title"].strip() or not isinstance(goal.get("scope"), str) or not goal["scope"].strip():
+        raise ContinuityError("Revised title and scope must be non-empty strings")
+    if not isinstance(goal.get("runtime_limit_minutes"), int) or goal["runtime_limit_minutes"] < 1:
+        raise ContinuityError("runtime_limit_minutes must be an integer of at least 1")
+    if goal["runtime_limit_minutes"] > int(config.get("max_runtime_minutes", 360)):
+        raise ContinuityError("runtime_limit_minutes exceeds the configured project maximum")
+    plan = payload.get("plan_markdown")
+    if plan is not None:
+        if not isinstance(plan, str) or not plan.strip():
+            raise ContinuityError("plan_markdown must be a non-empty string")
+    revision_root = directory / "revisions" / f"v{goal['plan_version']}"
+    revision_root.mkdir(parents=True, exist_ok=False)
+    shutil.copy2(directory / "plan.md", revision_root / "plan.md")
+    json_dump(revision_root / "goal.json", json_load(directory / "goal.json", {}))
+    if (directory / "approval.json").exists():
+        shutil.copy2(directory / "approval.json", revision_root / "approval.json")
+    if plan is not None:
+        (directory / "plan.md").write_text(plan.rstrip() + "\n", encoding="utf-8")
+    goal["plan_version"] += 1
+    goal["state"] = "awaiting-feedback"
+    goal.pop("held_from", None)
+    goal.pop("scheduled_for", None)
+    goal.pop("dispatched_at", None)
+    goal["updated_at"] = iso_now(config)
+    goal["plan_hash"] = goal_material_hash(directory, goal)
+    json_dump(directory / "goal.json", goal)
+    (directory / "approval.json").unlink(missing_ok=True)
+    compliance = json_load(directory / "compliance.json", {})
+    compliance.setdefault("stages", {})["approval"] = {
+        "status": "pending",
+        "evidence": [f"Approval invalidated by revision v{goal['plan_version']}"],
+        "updated_at": goal["updated_at"],
+    }
+    compliance["stages"]["plan-review"] = {"status": "pending", "evidence": [], "updated_at": goal["updated_at"]}
+    compliance["updated_at"] = goal["updated_at"]
+    json_dump(directory / "compliance.json", compliance)
+    append_jsonl(directory / "feedback.jsonl", {"at": goal["updated_at"], "author": args.author, "type": "revision", "text": args.summary})
+    return goal
+
+
+def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") != "awaiting-feedback":
+        raise ContinuityError(f"Only an awaiting-feedback goal can be approved; current state is {goal.get('state')}")
+    if int(args.version) != goal["plan_version"]:
+        raise ContinuityError(f"Requested v{args.version}; current plan is v{goal['plan_version']}")
+    compliance = json_load(directory / "compliance.json", {})
+    for stage in ("memory-retrieval", "plan-review"):
+        state = compliance.get("stages", {}).get(stage, {}).get("status")
+        if state not in {"passed", "not-applicable"}:
+            raise ContinuityError(f"Compliance stage {stage} must pass before approval")
+    expected_authorization = re.compile(
+        rf"\b{re.escape(goal['goal_id'])}\b.*\bplan\s+v{goal['plan_version']}\b",
+        re.IGNORECASE,
+    )
+    if not expected_authorization.search(args.authorization_text):
+        raise ContinuityError("Authorization text must explicitly name the goal ID and plan version")
+    plan_hash = goal_material_hash(directory, goal)
+    scheduled_for = parse_schedule(args.schedule, config) if args.schedule else next_default_start(config)
+    stamp = iso_now(config)
+    approval = {
+        "schema_version": SCHEMA_VERSION,
+        "goal_id": goal["goal_id"],
+        "plan_version": goal["plan_version"],
+        "plan_hash": plan_hash,
+        "approved_at": stamp,
+        "approved_by": args.approved_by,
+        "authorization_text": args.authorization_text,
+    }
+    json_dump(directory / "approval.json", approval)
+    compliance["stages"]["approval"] = {
+        "status": "passed",
+        "evidence": [approval["authorization_text"], plan_hash],
+        "updated_at": stamp,
+    }
+    compliance["updated_at"] = stamp
+    json_dump(directory / "compliance.json", compliance)
+    goal["plan_hash"] = plan_hash
+    goal["state"] = "queued"
+    goal["scheduled_for"] = scheduled_for
+    goal["updated_at"] = stamp
+    json_dump(directory / "goal.json", goal)
+    append_jsonl(directory / "feedback.jsonl", {"at": stamp, "author": args.approved_by, "type": "approval", "text": approval["authorization_text"]})
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.approved", "goal_id": goal["goal_id"], "scheduled_for": goal["scheduled_for"]})
+    return {"goal": goal, "approval": approval}
+
+
+def dependency_states(root: Path, config: dict[str, Any], goal: dict[str, Any]) -> dict[str, str]:
+    states: dict[str, str] = {}
+    for dependency in goal.get("depends_on", []):
+        try:
+            dependency_root = root
+            dependency_config = config
+            dependency_goal_id = dependency
+            if ":" in dependency:
+                project_id, dependency_goal_id = dependency.split(":", 1)
+                registry = json_load(Path(__file__).resolve().parents[1] / "registry" / "projects.json", {})
+                project = next((item for item in registry.get("projects", []) if item.get("project_id") == project_id), None)
+                if not project:
+                    raise ContinuityError(f"Unknown dependency project {project_id}")
+                dependency_root = Path(project["path"]).expanduser().resolve()
+                dependency_config = json_load(dependency_root / ".continuity" / "config.json", {})
+            _directory, dep = load_goal(dependency_root, dependency_config, dependency_goal_id)
+            states[dependency] = dep.get("state", "unknown")
+        except ContinuityError:
+            states[dependency] = "missing"
+    return states
+
+
+def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
+    registry_path = Path(args.registry).expanduser().resolve() if args.registry else Path(__file__).resolve().parents[1] / "registry" / "projects.json"
+    registry = json_load(registry_path, {})
+    if not isinstance(registry, dict) or not isinstance(registry.get("projects"), list):
+        raise ContinuityError(f"Invalid portfolio registry: {registry_path}")
+    results: list[dict[str, Any]] = []
+    for project in registry["projects"]:
+        project_root = Path(project.get("path", "")).expanduser().resolve()
+        config = json_load(project_root / ".continuity" / "config.json", {})
+        if not isinstance(config, dict) or config.get("schema_version") != SCHEMA_VERSION:
+            results.append({"project_id": project.get("project_id"), "path": str(project_root), "error": "project is not configured"})
+            continue
+        if args.due:
+            previous = os.environ.get("CONTINUITY_PROJECT_ROOT")
+            os.environ["CONTINUITY_PROJECT_ROOT"] = str(project_root)
+            try:
+                goals = goal_due(argparse.Namespace())
+            finally:
+                if previous is None:
+                    os.environ.pop("CONTINUITY_PROJECT_ROOT", None)
+                else:
+                    os.environ["CONTINUITY_PROJECT_ROOT"] = previous
+        else:
+            goals = []
+            for path in sorted((private_path(project_root, config) / "goals").glob("*/goal.json")):
+                goal = json_load(path, {})
+                if isinstance(goal, dict):
+                    goals.append(goal)
+        for goal in goals:
+            results.append(
+                {
+                    "project_id": project.get("project_id"),
+                    "path": str(project_root),
+                    "integration_branch": project.get("integration_branch"),
+                    "project_lock": json_load(private_path(project_root, config) / "project.lock.json"),
+                    **goal,
+                }
+            )
+    return results
+
+
+def git_result(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+
+def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    failures: list[str] = []
+    evidence: list[str] = []
+    try:
+        _goal, approval = validate_approval(root, config, args.goal_id)
+        evidence.append(f"approval:{approval['plan_hash']}")
+    except ContinuityError as exc:
+        failures.append(str(exc))
+    compliance = json_load(directory / "compliance.json", {})
+    for stage in ("memory-retrieval", "plan-review", "approval"):
+        status = compliance.get("stages", {}).get(stage, {}).get("status")
+        if status not in {"passed", "not-applicable"}:
+            failures.append(f"compliance stage {stage} is {status or 'missing'}")
+    inside = git_result(root, "rev-parse", "--is-inside-work-tree")
+    if inside.returncode != 0:
+        failures.append("repository is not a Git working tree")
+    else:
+        evidence.append("git-worktree:ok")
+    base = config.get("integration_branch")
+    if not base:
+        failures.append("integration_branch is not configured")
+    else:
+        if config.get("refresh_base_on_preflight", False):
+            fetched = git_result(root, "fetch", "origin", base)
+            if fetched.returncode != 0:
+                failures.append(f"failed to fetch origin/{base}: {fetched.stderr.strip()}")
+            else:
+                evidence.append(f"fetched:origin/{base}")
+        local = git_result(root, "show-ref", "--verify", f"refs/heads/{base}")
+        remote = git_result(root, "show-ref", "--verify", f"refs/remotes/origin/{base}")
+        if local.returncode != 0 and remote.returncode != 0:
+            failures.append(f"integration branch {base} is unavailable")
+        else:
+            evidence.append(f"integration-branch:{base}")
+    if config.get("require_remote", True):
+        remote_url = git_result(root, "remote", "get-url", "origin")
+        if remote_url.returncode != 0 or not remote_url.stdout.strip():
+            failures.append("origin remote is unavailable")
+        else:
+            evidence.append("origin:configured")
+    if config.get("require_pr_auth", False):
+        gh = shutil.which("gh")
+        if not gh:
+            failures.append("GitHub CLI is required but unavailable")
+        else:
+            auth = subprocess.run([gh, "auth", "status"], capture_output=True, text=True, timeout=30, check=False)
+            if auth.returncode != 0:
+                failures.append("GitHub CLI authentication is unavailable")
+            else:
+                evidence.append("gh-auth:ok")
+    if not (root / "AGENTS.md").exists():
+        failures.append("AGENTS.md is unavailable")
+    else:
+        evidence.append("AGENTS.md:present")
+    states = dependency_states(root, config, goal)
+    blocked = {key: state for key, state in states.items() if state != "completed"}
+    if blocked:
+        failures.append(f"unmet dependencies: {blocked}")
+    stamp = iso_now(config)
+    status = "passed" if not failures else "failed"
+    compliance.setdefault("stages", {})["execution-preflight"] = {
+        "status": status,
+        "evidence": evidence + failures,
+        "actor": "continuity-cli",
+        "updated_at": stamp,
+    }
+    compliance["updated_at"] = stamp
+    json_dump(directory / "compliance.json", compliance)
+    report = {"goal_id": args.goal_id, "passed": not failures, "failures": failures, "evidence": evidence}
+    json_dump(directory / "preflight.json", report)
+    return report
+
+
+def execution_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, _goal = load_goal(root, config, args.goal_id)
+    checkpoint = {
+        "at": iso_now(config),
+        "phase": args.phase,
+        "summary": args.summary,
+        "alignment": args.alignment,
+        "evidence": args.evidence or [],
+    }
+    append_jsonl(directory / "checkpoints.jsonl", checkpoint)
+    return checkpoint
+
+
+def goal_start(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    goal, approval = validate_approval(root, config, args.goal_id)
+    if goal.get("state") != "queued":
+        raise ContinuityError(f"Only a queued goal can be dispatched; current state is {goal.get('state')}")
+    directory = goal_dir(root, config, args.goal_id)
+    preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id))
+    if not preflight["passed"]:
+        raise ContinuityError(f"Execution preflight failed: {preflight['failures']}")
+    lock_path = private_path(root, config) / "project.lock.json"
+    states = dependency_states(root, config, goal)
+    blocked = {key: state for key, state in states.items() if state != "completed"}
+    if blocked:
+        raise ContinuityError(f"Unmet dependencies: {blocked}")
+    stamp = iso_now(config)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(lock_path, flags, 0o600)
+    except FileExistsError as exc:
+        lock = json_load(lock_path, {})
+        if lock.get("goal_id") == args.goal_id:
+            existing = json_load(directory / "dispatch.json")
+            if existing:
+                return existing
+        raise ContinuityError(f"Project is locked by active goal {lock.get('goal_id', 'unknown')}") from exc
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps({"goal_id": args.goal_id, "acquired_at": stamp}, sort_keys=True) + "\n")
+    goal["state"] = "dispatched"
+    goal["dispatched_at"] = stamp
+    goal["updated_at"] = stamp
+    json_dump(directory / "goal.json", goal)
+    prompt = {
+        "goal_id": goal["goal_id"],
+        "project_id": config["project_id"],
+        "repository": str(root),
+        "integration_branch": config["integration_branch"],
+        "base_ref": f"origin/{config['integration_branch']}" if config.get("require_remote", True) else config["integration_branch"],
+        "branch_name": f"continuity/{now(config).date().isoformat()}/{slug(config['project_id'])}-{slug(goal['title'])}",
+        "worktree_path": str(root.parent / "worktrees" / f"continuity-{slug(goal['goal_id'])}"),
+        "plan_path": str((directory / "plan.md").relative_to(root)),
+        "goal_path": str((directory / "goal.json").relative_to(root)),
+        "approval": approval,
+        "approved_plan": (directory / "plan.md").read_text(encoding="utf-8"),
+        "approved_plan_hash": approval["plan_hash"],
+        "runtime_limit_minutes": goal["runtime_limit_minutes"],
+        "required_checks": config.get("validation_commands", []) + goal.get("required_checks", []),
+        "deadline": (now(config) + dt.timedelta(minutes=goal["runtime_limit_minutes"])).isoformat(timespec="seconds"),
+    }
+    json_dump(directory / "dispatch.json", prompt)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.dispatched", "goal_id": goal["goal_id"]})
+    return prompt
+
+
+def goal_gate(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    compliance = json_load(directory / "compliance.json", {})
+    if args.stage not in COMPLIANCE_STAGES:
+        raise ContinuityError(f"Unknown compliance stage: {args.stage}")
+    if args.status not in COMPLIANCE_STATUSES:
+        raise ContinuityError(f"Invalid compliance status: {args.status}")
+    if args.status in {"passed", "failed", "not-applicable"} and not args.evidence:
+        raise ContinuityError("Non-pending compliance states require evidence")
+    if goal.get("state") in TERMINAL_STATES and args.stage != "human-review":
+        raise ContinuityError("Only human-review evidence may be added after a goal becomes terminal")
+    stamp = iso_now(config)
+    compliance.setdefault("stages", {})[args.stage] = {
+        "status": args.status,
+        "evidence": args.evidence or [],
+        "actor": args.actor,
+        "updated_at": stamp,
+    }
+    compliance["updated_at"] = stamp
+    json_dump(directory / "compliance.json", compliance)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.compliance", "goal_id": args.goal_id, "stage": args.stage, "status": args.status})
+    return compliance["stages"][args.stage]
+
+
+def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    transition = args.transition
+    current = goal.get("state")
+    if transition == "hold":
+        if current not in {"awaiting-feedback", "queued"}:
+            raise ContinuityError(f"Goal in state {current} cannot be held")
+        goal["held_from"] = current
+        target = "held"
+    elif transition == "resume":
+        if current != "held":
+            raise ContinuityError(f"Goal in state {current} cannot be resumed")
+        target = goal.pop("held_from", None)
+        if target not in {"awaiting-feedback", "queued"}:
+            raise ContinuityError("Held goal has no valid prior state")
+        if target == "queued":
+            approval = json_load(directory / "approval.json", {})
+            if (
+                not isinstance(approval, dict)
+                or approval.get("plan_version") != goal.get("plan_version")
+                or approval.get("plan_hash") != goal_material_hash(directory, goal)
+            ):
+                raise ContinuityError("Held goal approval is missing or stale")
+    else:
+        if current not in {"proposed-plan", "awaiting-feedback", "approved", "queued", "held"}:
+            raise ContinuityError("Active execution must be stopped before recording cancellation")
+        target = "cancelled"
+    stamp = iso_now(config)
+    lock_path = private_path(root, config) / "project.lock.json"
+    lock = json_load(lock_path)
+    if isinstance(lock, dict) and lock.get("goal_id") == args.goal_id:
+        raise ContinuityError("Pre-execution transition found an active project lock; use run update after stopping the executor")
+    goal["state"] = target
+    goal["updated_at"] = stamp
+    if transition == "resume" and target == "queued" and not goal.get("scheduled_for"):
+        goal["scheduled_for"] = next_default_start(config)
+    json_dump(directory / "goal.json", goal)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": f"goal.{transition}", "goal_id": args.goal_id})
+    return goal
+
+
+def goal_feedback(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, _goal = load_goal(root, config, args.goal_id)
+    event = {"at": iso_now(config), "author": args.author, "type": "feedback", "text": args.text}
+    append_jsonl(directory / "feedback.jsonl", event)
+    return event
+
+
+def goal_list(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    values = []
+    for path in sorted((private_path(root, config) / "goals").glob("*/goal.json")):
+        goal = json_load(path)
+        if args.state and goal.get("state") != args.state:
+            continue
+        values.append(goal)
+    return values
+
+
+def goal_due(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    current = now(config)
+    due = []
+    for goal in goal_list(argparse.Namespace(state="queued")):
+        scheduled_text = goal.get("scheduled_for")
+        if not scheduled_text:
+            continue
+        try:
+            scheduled = dt.datetime.fromisoformat(scheduled_text)
+        except (TypeError, ValueError):
+            continue
+        if scheduled.tzinfo is None:
+            scheduled = scheduled.replace(tzinfo=ZoneInfo(config["timezone"]))
+        if scheduled <= current:
+            states = dependency_states(root, config, goal)
+            goal["dependency_states"] = states
+            if all(state == "completed" for state in states.values()):
+                due.append(goal)
+    return due
+
+
+def run_update(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if args.state not in {"running", "validating", *TERMINAL_STATES}:
+        raise ContinuityError(f"Invalid execution state: {args.state}")
+    current = goal.get("state")
+    allowed = {
+        "dispatched": {"running", "blocked", "cancelled"},
+        "running": {"running", "validating", "partially-completed", "blocked", "cancelled"},
+        "validating": {"validating", "completed", "partially-completed", "blocked", "cancelled"},
+    }
+    if args.state not in allowed.get(current, set()):
+        raise ContinuityError(f"Illegal execution transition: {current} -> {args.state}")
+    dispatch = json_load(directory / "dispatch.json", {})
+    if not isinstance(dispatch, dict) or not dispatch.get("deadline"):
+        raise ContinuityError("Execution requires a valid dispatch record")
+    try:
+        deadline = dt.datetime.fromisoformat(dispatch["deadline"])
+    except (TypeError, ValueError) as exc:
+        raise ContinuityError("Dispatch record has an invalid deadline") from exc
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=ZoneInfo(config["timezone"]))
+    if now(config) > deadline and args.state in {"running", "validating"}:
+        raise ContinuityError("Runtime deadline has expired; record a blocked or partial terminal state")
+    if args.state == "running" and config.get("require_isolated_worktree", False):
+        if not args.worktree:
+            raise ContinuityError("An isolated execution worktree is required")
+        worktree = Path(args.worktree).expanduser().resolve()
+        if worktree == root or not worktree.is_dir():
+            raise ContinuityError("Execution worktree must exist and differ from the configured project root")
+        common_root = git_result(root, "rev-parse", "--git-common-dir")
+        common_worktree = git_result(worktree, "rev-parse", "--git-common-dir")
+        if common_worktree.returncode != 0:
+            raise ContinuityError("Execution path is not a Git worktree")
+        root_common = (root / common_root.stdout.strip()).resolve()
+        worktree_common = (worktree / common_worktree.stdout.strip()).resolve()
+        if root_common != worktree_common:
+            raise ContinuityError("Execution worktree does not belong to the configured repository")
+    if args.state == "completed":
+        compliance = json_load(directory / "compliance.json", {})
+        required = [stage for stage in COMPLIANCE_STAGES if stage != "human-review"]
+        incomplete = {
+            stage: compliance.get("stages", {}).get(stage, {}).get("status", "missing")
+            for stage in required
+            if compliance.get("stages", {}).get(stage, {}).get("status") not in {"passed", "not-applicable"}
+        }
+        if incomplete:
+            raise ContinuityError(f"Cannot mark completed; compliance stages incomplete: {incomplete}")
+    stamp = iso_now(config)
+    manifest = json_load(directory / "execution.json", {})
+    artifacts = dict(manifest.get("artifacts", {}))
+    evidence_root = Path(args.worktree or manifest.get("worktree") or root).expanduser().resolve()
+    for value in args.artifact or []:
+        path = Path(value).expanduser().resolve()
+        if not path.is_file():
+            raise ContinuityError(f"Execution artifact does not exist: {value}")
+        if not path.is_relative_to(evidence_root):
+            raise ContinuityError(f"Execution artifact is outside the execution worktree: {value}")
+        if path.is_relative_to(private_path(root, config)):
+            raise ContinuityError("Private continuity state cannot be used as PR evidence")
+        artifacts[path.name] = str(path)
+    manifest.update(
+        {
+            "goal_id": args.goal_id,
+            "state": args.state,
+            "updated_at": stamp,
+            "task_id": args.task_id or manifest.get("task_id"),
+            "branch": args.branch or manifest.get("branch"),
+            "pr_url": args.pr_url or manifest.get("pr_url"),
+            "summary": args.summary or manifest.get("summary"),
+            "worktree": args.worktree or manifest.get("worktree"),
+            "artifacts": artifacts,
+        }
+    )
+    if args.state == "running" and "started_at" not in manifest:
+        manifest["started_at"] = stamp
+    if args.state in TERMINAL_STATES:
+        manifest["completed_at"] = stamp
+    if args.state == "completed":
+        missing_fields = [key for key in ("started_at", "branch", "summary") if not manifest.get(key)]
+        if config.get("require_pr", False):
+            pr_url = str(manifest.get("pr_url") or "")
+            if not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/pull/\d+", pr_url):
+                missing_fields.append("valid GitHub pr_url")
+        if config.get("require_execution_artifacts", False):
+            required_artifacts = {
+                "request-alignment.md",
+                "implementation-report.md",
+                "validation-and-security.md",
+                "memory-impact.md",
+                "evidence.md",
+            }
+            missing_fields.extend(sorted(required_artifacts - set(artifacts)))
+            if not list(iter_jsonl(directory / "checkpoints.jsonl")):
+                missing_fields.append("alignment checkpoint")
+        if missing_fields:
+            raise ContinuityError(f"Cannot mark completed; missing execution evidence: {missing_fields}")
+    json_dump(directory / "execution.json", manifest)
+    goal["state"] = args.state
+    goal["updated_at"] = stamp
+    json_dump(directory / "goal.json", goal)
+    if args.state in TERMINAL_STATES:
+        lock_path = private_path(root, config) / "project.lock.json"
+        lock = json_load(lock_path)
+        if isinstance(lock, dict) and lock.get("goal_id") == args.goal_id:
+            lock_path.unlink(missing_ok=True)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": f"run.{args.state}", "goal_id": args.goal_id})
+    return manifest
+
+
+def report_project(args: argparse.Namespace) -> str:
+    root, config = load_context()
+    goals = goal_list(argparse.Namespace(state=None))
+    counts: dict[str, int] = {}
+    for goal in goals:
+        counts[goal["state"]] = counts.get(goal["state"], 0) + 1
+    memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
+    lines = [f"# Project Continuity Report: {config['project_id']}", "", f"Generated: {iso_now(config)}", "", "## Goals", ""]
+    if not goals:
+        lines.append("No tracked goals.")
+    for state, count in sorted(counts.items()):
+        lines.append(f"- {state}: {count}")
+    lines.extend(["", "## Goal detail", ""])
+    for goal in sorted(goals, key=lambda value: value.get("updated_at", ""), reverse=True):
+        compliance = json_load(goal_dir(root, config, goal["goal_id"]) / "compliance.json", {})
+        pending = [stage for stage, detail in compliance.get("stages", {}).items() if detail.get("status") in {"pending", "failed"}]
+        lines.append(f"- **{goal['goal_id']}** — {goal['title']} — `{goal['state']}` — compliance pending: {', '.join(pending) or 'none'}")
+    lines.extend(["", "## Project memory", ""])
+    if memory_report:
+        lines.extend(
+            [
+                f"- Entries audited: {memory_report.get('entries', 0)}",
+                f"- Missing metadata: {len(memory_report.get('missing_frontmatter', []))}",
+                f"- Stale entries: {len(memory_report.get('stale', []))}",
+                f"- Healthy: {memory_report.get('healthy', False)}",
+            ]
+        )
+    else:
+        lines.append("- Memory health has not been audited.")
+    return "\n".join(lines) + "\n"
+
+
+def output(value: Any, as_json: bool = False) -> None:
+    if isinstance(value, str) and not as_json:
+        print(value, end="" if value.endswith("\n") else "\n")
+    else:
+        print(json.dumps(value, indent=2, sort_keys=True))
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="continuity", description="Project continuity control plane")
+    parser.add_argument("--json", action="store_true", help="Emit JSON when supported")
+    parser.add_argument("--project-root", help="Configured project root (defaults to upward discovery)")
+    top = parser.add_subparsers(dest="domain", required=True)
+
+    note = top.add_parser("note")
+    note_sub = note.add_subparsers(dest="command", required=True)
+    capture = note_sub.add_parser("capture")
+    capture.add_argument("--text")
+    capture.add_argument("--file")
+    capture.add_argument("--items-file")
+    capture.add_argument("--source-type")
+    capture.add_argument("--source-ref")
+    capture.set_defaults(handler=note_capture)
+    triage = note_sub.add_parser("triage")
+    triage.add_argument("capture_id")
+    triage.add_argument("item_id")
+    triage.add_argument("--kind", choices=sorted(NOTE_KINDS))
+    triage.add_argument("--action", choices=["route", "defer", "archive", "promote"], default="route")
+    triage.add_argument("--review-after")
+    triage.set_defaults(handler=note_triage)
+    notes = note_sub.add_parser("list")
+    notes.add_argument("--kind", choices=sorted(NOTE_KINDS))
+    notes.set_defaults(handler=note_list)
+
+    memory = top.add_parser("memory")
+    memory_sub = memory.add_subparsers(dest="command", required=True)
+    index = memory_sub.add_parser("index")
+    index.add_argument("--scope", choices=["trusted", "private", "all"], default="trusted")
+    index.set_defaults(handler=memory_index)
+    search = memory_sub.add_parser("search")
+    search.add_argument("query")
+    search.add_argument("--type")
+    search.add_argument("--status", choices=sorted(MEMORY_STATUSES))
+    search.add_argument("--system")
+    search.add_argument("--tag")
+    search.add_argument("--source")
+    search.add_argument("--since")
+    search.add_argument("--scope", choices=["trusted", "private", "all"], default="trusted")
+    search.add_argument("--limit", type=int, default=10)
+    search.set_defaults(handler=memory_search)
+    brief = memory_sub.add_parser("brief")
+    brief.add_argument("query")
+    brief.add_argument("--scope", choices=["trusted", "private", "all"], default="trusted")
+    brief.add_argument("--limit", type=int, default=6)
+    brief.set_defaults(handler=memory_brief)
+    audit = memory_sub.add_parser("audit")
+    audit.add_argument("--scope", choices=["trusted", "private", "all"], default="trusted")
+    audit.set_defaults(handler=memory_audit)
+    verify = memory_sub.add_parser("verify")
+    verify.add_argument("memory_id")
+    verify.add_argument("--goal-id", required=True)
+    verify.add_argument("--commit", required=True)
+    verify.add_argument("--mark-current", action="store_true")
+    verify.set_defaults(handler=memory_verify)
+    promote = memory_sub.add_parser("promote")
+    promote.add_argument("note_id")
+    promote.add_argument("--goal-id", required=True)
+    promote.add_argument("--memory-id")
+    promote.add_argument("--title", required=True)
+    promote.add_argument("--type", required=True)
+    promote.add_argument("--system", required=True)
+    promote.add_argument("--summary", required=True)
+    promote.add_argument("--tag", action="append")
+    promote.add_argument("--confidence", choices=["low", "medium", "high"], default="medium")
+    promote.set_defaults(handler=memory_promote)
+    supersede = memory_sub.add_parser("supersede")
+    supersede.add_argument("memory_id")
+    supersede.add_argument("--with", dest="replacement_id", required=True)
+    supersede.add_argument("--goal-id", required=True)
+    supersede.set_defaults(handler=memory_supersede)
+
+    goal = top.add_parser("goal")
+    goal_sub = goal.add_subparsers(dest="command", required=True)
+    create = goal_sub.add_parser("create")
+    create.add_argument("--goal-file", required=True)
+    create.set_defaults(handler=goal_create)
+    revise = goal_sub.add_parser("revise")
+    revise.add_argument("goal_id")
+    revise.add_argument("--goal-file", required=True)
+    revise.add_argument("--author", required=True)
+    revise.add_argument("--summary", required=True)
+    revise.set_defaults(handler=goal_revise)
+    approve = goal_sub.add_parser("approve")
+    approve.add_argument("goal_id")
+    approve.add_argument("--version", required=True, type=int)
+    approve.add_argument("--approved-by", required=True)
+    approve.add_argument("--authorization-text", required=True)
+    approve.add_argument("--schedule")
+    approve.set_defaults(handler=goal_approve)
+    start = goal_sub.add_parser("start")
+    start.add_argument("goal_id")
+    start.set_defaults(handler=goal_start)
+    for name in ("hold", "cancel", "resume"):
+        transition = goal_sub.add_parser(name)
+        transition.add_argument("goal_id")
+        transition.set_defaults(handler=goal_transition, transition=name)
+    feedback = goal_sub.add_parser("feedback")
+    feedback.add_argument("goal_id")
+    feedback.add_argument("--author", default="user")
+    feedback.add_argument("--text", required=True)
+    feedback.set_defaults(handler=goal_feedback)
+    goals = goal_sub.add_parser("list")
+    goals.add_argument("--state", choices=sorted(GOAL_STATES))
+    goals.set_defaults(handler=goal_list)
+    due = goal_sub.add_parser("due")
+    due.set_defaults(handler=goal_due)
+    gate = goal_sub.add_parser("gate")
+    gate.add_argument("goal_id")
+    gate.add_argument("stage", choices=COMPLIANCE_STAGES)
+    gate.add_argument("--status", choices=sorted(COMPLIANCE_STATUSES), required=True)
+    gate.add_argument("--evidence", action="append")
+    gate.add_argument("--actor", default="agent")
+    gate.set_defaults(handler=goal_gate)
+
+    run = top.add_parser("run")
+    run_sub = run.add_subparsers(dest="command", required=True)
+    update = run_sub.add_parser("update")
+    update.add_argument("goal_id")
+    update.add_argument("--state", required=True, choices=["running", "validating", *sorted(TERMINAL_STATES)])
+    update.add_argument("--task-id")
+    update.add_argument("--branch")
+    update.add_argument("--pr-url")
+    update.add_argument("--summary")
+    update.add_argument("--worktree")
+    update.add_argument("--artifact", action="append")
+    update.set_defaults(handler=run_update)
+
+    execution = top.add_parser("execution")
+    execution_sub = execution.add_subparsers(dest="command", required=True)
+    preflight = execution_sub.add_parser("preflight")
+    preflight.add_argument("goal_id")
+    preflight.set_defaults(handler=execution_preflight)
+    checkpoint = execution_sub.add_parser("checkpoint")
+    checkpoint.add_argument("goal_id")
+    checkpoint.add_argument("--phase", required=True)
+    checkpoint.add_argument("--summary", required=True)
+    checkpoint.add_argument("--alignment", required=True)
+    checkpoint.add_argument("--evidence", action="append")
+    checkpoint.set_defaults(handler=execution_checkpoint)
+
+    report = top.add_parser("report")
+    report_sub = report.add_subparsers(dest="command", required=True)
+    project = report_sub.add_parser("project")
+    project.set_defaults(handler=report_project)
+
+    portfolio = top.add_parser("portfolio")
+    portfolio_sub = portfolio.add_subparsers(dest="command", required=True)
+    for name, due_only in (("queue", False), ("due", True)):
+        portfolio_command = portfolio_sub.add_parser(name)
+        portfolio_command.add_argument("--registry")
+        portfolio_command.set_defaults(handler=portfolio_goals, due=due_only)
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.project_root:
+        os.environ["CONTINUITY_PROJECT_ROOT"] = str(Path(args.project_root).expanduser().resolve())
+    try:
+        value = args.handler(args)
+        output(value, args.json)
+        return 0
+    except ContinuityError as exc:
+        print(f"continuity: {exc}", file=sys.stderr)
+        return 2
+    except sqlite3.OperationalError as exc:
+        print(f"continuity: SQLite search failed: {exc}", file=sys.stderr)
+        return 3
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

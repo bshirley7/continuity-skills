@@ -1,0 +1,116 @@
+{
+  "documentation_map": {
+    "architecture": "docs/architecture/data-flow-and-ingestion-contract.md",
+    "data-flow": "docs/architecture/data-flow-and-ingestion-contract.md",
+    "product": "docs/product/guiding-principles.md",
+    "design": "docs/product/tactical-interface-design-system.md",
+    "operations": "docs/operations/codebase-operating-guidelines.md",
+    "project-memory": "docs/project-memory/INDEX.md"
+  },
+  "entries": [
+    {
+      "path": "INDEX.md",
+      "memory_id": "tempest-memory-index",
+      "title": "LabyrinthOS Project Memory",
+      "type": "index",
+      "system": "project",
+      "summary": "Trusted shorthand for the current LabyrinthOS product, architecture, data, workflow, and operating boundaries.",
+      "tags": ["index", "orientation", "labyrinthos"],
+      "sources": ["AGENTS.md", "README.md", "docs/architecture/data-flow-and-ingestion-contract.md"],
+      "body": "Use this index before planning or implementation. Start with the current-state, architecture, persistence, product, and operating-boundary entries below. Treat dated architecture notes as historical context unless a current entry or code verification confirms them.\n\n## Core entries\n\n- [Current state](current-state.md)\n- [System architecture](systems.md)\n- [Signal persistence](decisions/signal-persistence.md)\n- [Product and interface direction](product-intent.md)\n- [Worktree and data safety](constraints.md)\n- [Operations](operations.md)\n- [Open questions](open-questions.md)\n- [History and dated material](history.md)"
+    },
+    {
+      "path": "current-state.md",
+      "memory_id": "tempest-current-state",
+      "title": "LabyrinthOS Current State",
+      "type": "current-state",
+      "system": "project",
+      "summary": "LabyrinthOS is a geospatial operating picture that persists source-attributed signals before higher-level interpretation.",
+      "tags": ["current-state", "signals", "geospatial"],
+      "sources": ["AGENTS.md", "README.md", "docs/architecture/current-state-audit-2026-03-06.md"],
+      "related": ["tempest-signal-persistence", "tempest-system-architecture"],
+      "body": "The product unifies global open-source, public, commercial, field, and physical data signals into a live operating picture. Current work must remain database-backed and source-attributed. Revalidate dated audit material against the configured integration branch before relying on it."
+    },
+    {
+      "path": "systems.md",
+      "memory_id": "tempest-system-architecture",
+      "title": "LabyrinthOS System Architecture",
+      "type": "architecture",
+      "system": "platform",
+      "summary": "The application separates signal ingestion and persistence from geospatial presentation and interpretation.",
+      "tags": ["architecture", "ingestion", "map"],
+      "sources": ["README.md", "docs/architecture/data-flow-and-ingestion-contract.md"],
+      "related": ["tempest-signal-persistence"],
+      "body": "Read the current architecture and ingestion contract before changing source adapters, storage, APIs, or map layers. Source adapters must preserve neutral records and provenance before interpretation."
+    },
+    {
+      "path": "decisions/signal-persistence.md",
+      "memory_id": "tempest-signal-persistence",
+      "title": "Signal Persistence Contract",
+      "type": "decision",
+      "system": "data",
+      "summary": "Current signals, observation history, and imagery manifests have distinct persistence responsibilities.",
+      "tags": ["database", "signals", "history", "imagery"],
+      "sources": ["AGENTS.md", "docs/architecture/data-flow-and-ingestion-contract.md"],
+      "body": "`signals` stores the latest snapshot per entity or event. `signal_observations` stores append-only history for playback and audit. `imagery_frames` stores time-indexed imagery manifests. Ingestion must persist neutral, source-attributed records before higher-level interpretation."
+    },
+    {
+      "path": "product-intent.md",
+      "memory_id": "tempest-product-intent",
+      "title": "Product and Interface Intent",
+      "type": "product",
+      "system": "experience",
+      "summary": "Product and UI work must follow the guiding principles and tactical interface design system.",
+      "tags": ["product", "design", "interface"],
+      "sources": ["docs/product/guiding-principles.md", "docs/product/tactical-interface-design-system.md"],
+      "body": "Treat the product guidance and tactical design system as current requirements for product or UI work. Reconcile implementation proposals with both documents before approval."
+    },
+    {
+      "path": "constraints.md",
+      "memory_id": "tempest-worktree-data-safety",
+      "title": "Worktree and Data Safety",
+      "type": "constraint",
+      "system": "operations",
+      "summary": "Branch work belongs in managed worktrees; live database and runtime data must remain outside the repository.",
+      "tags": ["worktree", "database", "safety"],
+      "sources": ["AGENTS.md", "docs/architecture/worktree-and-data-safety.md"],
+      "body": "Treat `/Volumes/OPENFRONT/project-tempest` as the admin root. Perform branch work in a matching worktree. Keep PostgreSQL data, logs, PIDs, and ingest runtime artifacts under `/Volumes/OPENFRONT/project-tempest-data`, never in the repository or a worktree."
+    },
+    {
+      "path": "operations.md",
+      "memory_id": "tempest-operations",
+      "title": "LabyrinthOS Operating Workflow",
+      "type": "operations",
+      "system": "operations",
+      "summary": "Database, backup, and ingest commands must respect the external data and runtime boundaries.",
+      "tags": ["operations", "database", "ingest"],
+      "sources": ["AGENTS.md", "docs/operations/codebase-operating-guidelines.md", "db/README.md"],
+      "body": "Confirm the correct worktree. Use the project database commands and take a backup before destructive database work. Start ingestion only after validating that data and runtime paths resolve outside the workspace."
+    },
+    {
+      "path": "open-questions.md",
+      "memory_id": "tempest-open-questions",
+      "title": "LabyrinthOS Open Questions",
+      "type": "open-questions",
+      "system": "project",
+      "summary": "Curated unresolved product and engineering decisions awaiting explicit resolution.",
+      "status": "proposed",
+      "tags": ["questions", "decisions"],
+      "sources": ["project-continuity-baseline"],
+      "confidence": "medium",
+      "body": "No baseline open question is promoted as current. Add questions here only through an approved documentation goal with source evidence and ownership."
+    },
+    {
+      "path": "history.md",
+      "memory_id": "tempest-history-map",
+      "title": "LabyrinthOS Historical Documentation Map",
+      "type": "history",
+      "system": "project",
+      "summary": "Dated architecture and branch notes remain useful evidence but require current-code verification.",
+      "status": "historical",
+      "tags": ["history", "dated-docs"],
+      "sources": ["docs/architecture", "docs/engineering"],
+      "body": "The architecture and engineering directories contain many dated plans, audits, and branch summaries. Search them for provenance, but do not treat a dated document as current unless a current memory entry or code review revalidates it."
+    }
+  ]
+}

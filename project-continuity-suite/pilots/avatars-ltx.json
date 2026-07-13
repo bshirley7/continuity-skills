@@ -1,0 +1,102 @@
+{
+  "documentation_map": {
+    "architecture": "AGENTS.md",
+    "backend": "backend/architecture.md",
+    "news-ingest": "docs/NEWS_INGEST_SCORING_AND_AGGREGATION.md",
+    "contributing": "docs/CONTRIBUTING.md",
+    "project-memory": "docs/project-memory/INDEX.md"
+  },
+  "entries": [
+    {
+      "path": "INDEX.md",
+      "memory_id": "avatars-memory-index",
+      "title": "Avatars LTX Project Memory",
+      "type": "index",
+      "system": "project",
+      "summary": "Trusted shorthand for the Avatars LTX desktop architecture, development contracts, and active product knowledge.",
+      "tags": ["index", "orientation", "avatars-ltx"],
+      "sources": ["AGENTS.md", "README.md", "backend/architecture.md"],
+      "body": "Use this index before planning or implementation. Begin with current state, architecture, backend contract, frontend contract, validation, and known documentation gaps.\n\n## Core entries\n\n- [Current state](current-state.md)\n- [System architecture](systems.md)\n- [Backend contract](decisions/backend-contract.md)\n- [Frontend contract](decisions/frontend-contract.md)\n- [Validation](operations.md)\n- [Known limitations](known-limitations.md)\n- [Open questions](open-questions.md)"
+    },
+    {
+      "path": "current-state.md",
+      "memory_id": "avatars-current-state",
+      "title": "Avatars LTX Current State",
+      "type": "current-state",
+      "system": "project",
+      "summary": "Avatars LTX is an Electron desktop application combining a React renderer with a Python FastAPI generation backend.",
+      "tags": ["current-state", "electron", "video"],
+      "sources": ["AGENTS.md", "README.md"],
+      "related": ["avatars-system-architecture"],
+      "body": "The desktop application supports AI video generation and related production workflows. Revalidate feature-specific behavior against the configured integration branch because active feature work may exist in separate worktrees."
+    },
+    {
+      "path": "systems.md",
+      "memory_id": "avatars-system-architecture",
+      "title": "Avatars LTX System Architecture",
+      "type": "architecture",
+      "system": "platform",
+      "summary": "The product has React renderer, Electron main/preload, and Python FastAPI backend layers.",
+      "tags": ["architecture", "react", "electron", "fastapi"],
+      "sources": ["AGENTS.md", "backend/architecture.md"],
+      "body": "Frontend code lives under `frontend/`, Electron lifecycle and IPC under `electron/`, and generation orchestration under `backend/`. Preserve the IPC and authenticated backend-fetch boundaries when changing cross-layer behavior."
+    },
+    {
+      "path": "decisions/backend-contract.md",
+      "memory_id": "avatars-backend-contract",
+      "title": "Backend Architecture Contract",
+      "type": "decision",
+      "system": "backend",
+      "summary": "Routes remain thin, handlers own logic, services isolate side effects, and state transitions are lock-aware and typed.",
+      "tags": ["backend", "fastapi", "testing", "concurrency"],
+      "sources": ["AGENTS.md", "backend/architecture.md"],
+      "body": "Use `_routes` for transport plumbing, `AppHandler` as the composition root, handlers for logic, service protocols and fakes for heavy side effects, and centralized typed state. Do not hold the shared lock during expensive I/O or compute. Integration tests use service fakes rather than mocks."
+    },
+    {
+      "path": "decisions/frontend-contract.md",
+      "memory_id": "avatars-frontend-contract",
+      "title": "Frontend and IPC Contract",
+      "type": "decision",
+      "system": "frontend",
+      "summary": "Renderer state uses React contexts, backend requests use backendFetch, and Electron access goes through the preload bridge.",
+      "tags": ["frontend", "react", "ipc", "security"],
+      "sources": ["AGENTS.md"],
+      "body": "Do not call the application backend with raw `fetch`; use `backendFetch`. Keep Electron communication behind `window.electronAPI`. Preserve the view-based ProjectContext navigation and existing semantic Tailwind tokens."
+    },
+    {
+      "path": "operations.md",
+      "memory_id": "avatars-validation-contract",
+      "title": "Avatars LTX Validation Contract",
+      "type": "operations",
+      "system": "development",
+      "summary": "Changes require strict TypeScript/Python checks, backend tests, and a frontend build before review.",
+      "tags": ["validation", "typecheck", "tests", "build"],
+      "sources": ["AGENTS.md"],
+      "body": "Run `pnpm typecheck`, `pnpm backend:test`, and `pnpm build:frontend`. When backend contracts change, regenerate the OpenAPI client before validation and include generated diffs in review."
+    },
+    {
+      "path": "known-limitations.md",
+      "memory_id": "avatars-known-limitations",
+      "title": "Avatars LTX Known Limitations",
+      "type": "limitations",
+      "system": "project",
+      "summary": "The frontend currently has no dedicated automated test suite; validation relies on types, backend integration tests, builds, and targeted UI evidence.",
+      "tags": ["limitations", "frontend-tests"],
+      "sources": ["AGENTS.md"],
+      "body": "Frontend changes must compensate for the absence of a dedicated frontend test suite with strict type checking, production builds, focused runtime checks, and before/after evidence when applicable."
+    },
+    {
+      "path": "open-questions.md",
+      "memory_id": "avatars-open-questions",
+      "title": "Avatars LTX Open Questions",
+      "type": "open-questions",
+      "system": "project",
+      "summary": "Curated unresolved decisions awaiting explicit ownership and resolution.",
+      "status": "proposed",
+      "tags": ["questions", "decisions"],
+      "sources": ["project-continuity-baseline"],
+      "confidence": "medium",
+      "body": "No baseline open question is promoted as current. Add project questions only through approved documentation work with source evidence."
+    }
+  ]
+}

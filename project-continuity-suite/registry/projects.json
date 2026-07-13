@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "timezone": "America/Chicago",
+  "default_start_time": "22:00",
+  "projects": [
+    {
+      "project_id": "project-tempest",
+      "path": "/Volumes/OPENFRONT/project-tempest",
+      "integration_branch": "dev",
+      "max_concurrency": 1
+    },
+    {
+      "project_id": "avatars-ltx",
+      "path": "/Volumes/OPENFRONT/avatars-ltx",
+      "integration_branch": "main",
+      "max_concurrency": 1
+    }
+  ]
+}

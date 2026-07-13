@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project continuity capture",
+  "type": "object",
+  "required": ["schema_version", "capture_id", "captured_at", "project_id", "source_type", "execution_authorized", "items"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "capture_id": {"type": "string"},
+    "source_type": {"enum": ["conversation", "manual", "file", "notion", "linear"]},
+    "execution_authorized": {"const": false},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item_id", "kind", "text", "execution_authorized"],
+        "properties": {
+          "kind": {"enum": ["context", "insight", "decision", "question", "documentation-candidate", "backlog-candidate", "execution-candidate", "explicit-instruction"]},
+          "execution_authorized": {"const": false}
+        }
+      }
+    }
+  }
+}
