@@ -25,6 +25,7 @@ class ContinuityTest(unittest.TestCase):
         (self.root / ".continuity").mkdir()
         self.config = {
             "schema_version": 1,
+            "assurance_standard_version": 1,
             "project_id": "test-project",
             "integration_branch": "main",
             "timezone": "America/Chicago",
@@ -47,6 +48,7 @@ class ContinuityTest(unittest.TestCase):
             self.root / ".continuity" / "project.json",
             {
                 "schema_version": 1,
+                "assurance_standard_version": 1,
                 "project_id": "test-project",
                 "continuity_enabled": True,
                 "execution_enabled": True,
@@ -323,6 +325,17 @@ unresolved_gaps: []
         approval = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "approval.json"
         self.assertFalse(approval.exists())
 
+    def test_assurance_standard_is_required_for_approval(self) -> None:
+        goal = self.create_goal()
+        ledger = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "compliance.json"
+        compliance = json.loads(ledger.read_text(encoding="utf-8"))
+        compliance.pop("assurance_standard_version")
+        self.write_json(ledger, compliance)
+        self.cli(
+            "goal", "approve", goal["goal_id"], "--version", "1", "--approved-by", "fixture-user",
+            "--authorization-text", f"Approve {goal['goal_id']} plan v1", expected=2,
+        )
+
     def test_preflight_and_project_lock_enforce_one_goal(self) -> None:
         first = self.create_goal("First goal")
         self.approve(first)
@@ -425,15 +438,18 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((root / ".agents" / "skills" / "manage-project-memory" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "bin" / "continuity").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "automation" / "nightly-review.md").exists())
+            self.assertTrue((root / ".agents" / "references" / "development-assurance-standard.md").exists())
             self.assertTrue((root / "docs" / "project-memory" / "INDEX.md").exists())
             manifest = json.loads((root / ".continuity" / "project.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["project_id"], "sample-project")
             self.assertFalse(manifest["execution_enabled"])
+            self.assertEqual(manifest["assurance_standard_version"], 1)
             self.assertIn(".continuity/private/", (root / ".gitignore").read_text(encoding="utf-8"))
             config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             self.assertTrue(config["require_pr"])
             self.assertTrue(config["require_execution_artifacts"])
             self.assertTrue(config["require_isolated_worktree"])
+            self.assertEqual(config["assurance_standard_version"], 1)
             doctor = subprocess.run(
                 [str(root / ".agents" / "project-continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
                 check=True,

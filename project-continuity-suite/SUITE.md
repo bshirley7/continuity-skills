@@ -6,6 +6,8 @@ This suite turns project conversations and notes into searchable knowledge, revi
 
 Notes are knowledge first. Capture and triage never authorize documentation or code changes. An executable goal requires a decision-complete plan, exact version approval, a valid plan hash, successful preflight, and explicit dispatch.
 
+Every installed skill applies the versioned development assurance standard. The CLI requires the same version in project configuration, enrollment manifests, dispatch records, and compliance ledgers, and blocks incompatible execution or completion.
+
 ## Installed layout
 
 ```text

@@ -128,6 +128,7 @@ def main() -> int:
 
     config = {
         "schema_version": 1,
+        "assurance_standard_version": 1,
         "project_id": args.project_id,
         "integration_branch": args.integration_branch,
         "timezone": args.timezone,
@@ -147,6 +148,7 @@ def main() -> int:
     }
     project_manifest = {
         "schema_version": 1,
+        "assurance_standard_version": 1,
         "project_id": args.project_id,
         "continuity_enabled": True,
         "execution_enabled": args.enable_execution,
@@ -161,6 +163,7 @@ def main() -> int:
 
 - Project id: `{args.project_id}`. Treat `.continuity/project.json` as the committed enrollment and schedule contract.
 - Integration branch: `{args.integration_branch}`
+- Enforce development assurance standard version `1` from `.agents/references/development-assurance-standard.md`; stop when configuration, evidence, or an installed skill is incompatible.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/project-continuity/bin/continuity`.
 - Treat notes as project knowledge first. Capture, classification, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.

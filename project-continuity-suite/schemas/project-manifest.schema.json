@@ -2,9 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Project-local continuity enrollment manifest",
   "type": "object",
-  "required": ["schema_version", "project_id", "continuity_enabled", "execution_enabled", "integration_branch", "timezone", "schedules", "max_concurrency"],
+  "required": ["schema_version", "assurance_standard_version", "project_id", "continuity_enabled", "execution_enabled", "integration_branch", "timezone", "schedules", "max_concurrency"],
   "properties": {
     "schema_version": {"const": 1},
+    "assurance_standard_version": {"const": 1},
     "project_id": {"type": "string", "minLength": 1},
     "continuity_enabled": {"type": "boolean"},
     "execution_enabled": {"type": "boolean"},

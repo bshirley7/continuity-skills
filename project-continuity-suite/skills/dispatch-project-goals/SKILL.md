@@ -7,7 +7,13 @@ description: Approve, queue, schedule, start, hold, cancel, resume, and inspect 
 
 Keep approval and dispatch as separate recorded transitions. Never infer either from conversational enthusiasm or note capture.
 
-Read [the continuity contract](../../references/continuity-contract.md) and `.continuity/config.json`.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `.continuity/project.json`, and `.continuity/config.json`.
+
+## Required assurance
+
+- Accept only explicit human approval that names the exact goal and plan version. Never synthesize an approver, approval text, or dispatch instruction.
+- Fail closed on stale hashes, unsupported assurance versions, disabled execution, illegal states, unmet dependencies, active locks, expired runtime, missing authentication, or failed preflight evidence.
+- Audit approval and dispatch as separate transitions, including actor, timestamp, plan hash, schedule, dependency state, project lock, task ID, and outcome.
 
 ## Approval
 

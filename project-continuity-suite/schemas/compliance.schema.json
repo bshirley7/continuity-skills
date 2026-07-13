@@ -2,9 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Project continuity compliance ledger",
   "type": "object",
-  "required": ["schema_version", "goal_id", "stages"],
+  "required": ["schema_version", "assurance_standard_version", "goal_id", "stages"],
   "properties": {
     "schema_version": {"const": 1},
+    "assurance_standard_version": {"const": 1},
     "goal_id": {"type": "string"},
     "stages": {
       "type": "object",

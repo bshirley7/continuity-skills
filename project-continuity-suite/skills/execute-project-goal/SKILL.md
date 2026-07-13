@@ -7,7 +7,14 @@ description: Execute one explicitly approved and dispatched project goal in an i
 
 Never execute a captured note, planning candidate, unapproved plan, or merely queued goal. Require a valid dispatch and matching approval hash.
 
-Read [the continuity contract](../../references/continuity-contract.md), `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory brief, and compliance ledger.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory brief, and compliance ledger.
+
+## Required assurance
+
+- Identify every touched language, framework, trust boundary, input, credential, data store, external action, and migration; apply the repository's current security and engineering guidance for each.
+- Use least privilege, validated inputs, encoded outputs, parameterized data access, safe path confinement, subprocess argument arrays, secret-safe logging, pinned dependency workflows, and fail-closed error handling as applicable.
+- Audit the complete diff for correctness, maintainability, tests, data integrity, compatibility, accessibility, performance, privacy, security, supply-chain risk, documentation, and rollback. Record reproducible commands and results; unsupported claims do not pass a gate.
+- Stop on any scope expansion, stale approval, unsafe base state, conflict, validation failure, security finding, evidence gap, or assurance-version mismatch.
 
 ## Preflight
 

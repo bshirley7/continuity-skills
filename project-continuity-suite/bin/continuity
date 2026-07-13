@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 
 SCHEMA_VERSION = 1
+ASSURANCE_STANDARD_VERSION = 1
 NOTE_KINDS = {
     "context",
     "insight",
@@ -142,6 +143,8 @@ def load_context(start: Path | None = None) -> tuple[Path, dict[str, Any]]:
     config = json_load(root / ".continuity" / "config.json")
     if not isinstance(config, dict) or config.get("schema_version") != SCHEMA_VERSION:
         raise ContinuityError("Unsupported or missing continuity configuration")
+    if config.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError("Missing or unsupported development assurance standard")
     confined_path(root, config.get("private_dir", ".continuity/private"), "private_dir")
     confined_path(root, config.get("memory_docs", "docs/project-memory"), "memory_docs")
     return root, config
@@ -151,6 +154,8 @@ def load_project_manifest(root: Path) -> dict[str, Any]:
     manifest = json_load(root / ".continuity" / "project.json", {})
     if not isinstance(manifest, dict) or manifest.get("schema_version") != SCHEMA_VERSION:
         raise ContinuityError(f"Project-local continuity manifest is missing or invalid at {root}")
+    if manifest.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError(f"Project-local assurance standard is missing or unsupported at {root}")
     return manifest
 
 
@@ -922,6 +927,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
     stamp = iso_now(config)
     compliance = {
         "schema_version": SCHEMA_VERSION,
+        "assurance_standard_version": ASSURANCE_STANDARD_VERSION,
         "goal_id": goal_id,
         "updated_at": stamp,
         "stages": {
@@ -972,6 +978,9 @@ def parse_schedule(value: str, config: dict[str, Any]) -> str:
 
 def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
     directory, goal = load_goal(root, config, goal_id)
+    compliance = json_load(directory / "compliance.json", {})
+    if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError("Goal compliance ledger uses a missing or unsupported assurance standard")
     approval = json_load(directory / "approval.json")
     if not isinstance(approval, dict):
         raise ContinuityError(f"Goal {goal_id} has no approval record")
@@ -1063,6 +1072,8 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
     if int(args.version) != goal["plan_version"]:
         raise ContinuityError(f"Requested v{args.version}; current plan is v{goal['plan_version']}")
     compliance = json_load(directory / "compliance.json", {})
+    if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError("Goal compliance ledger uses a missing or unsupported assurance standard")
     for stage in ("memory-retrieval", "plan-review"):
         state = compliance.get("stages", {}).get(stage, {}).get("status")
         if state not in {"passed", "not-applicable"}:
@@ -1434,6 +1445,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "approved_plan_hash": approval["plan_hash"],
         "runtime_limit_minutes": goal["runtime_limit_minutes"],
         "required_checks": config.get("validation_commands", []) + goal.get("required_checks", []),
+        "assurance_standard_version": ASSURANCE_STANDARD_VERSION,
         "deadline": (now(config) + dt.timedelta(minutes=goal["runtime_limit_minutes"])).isoformat(timespec="seconds"),
     }
     json_dump(directory / "dispatch.json", prompt)
@@ -1445,6 +1457,8 @@ def goal_gate(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
     compliance = json_load(directory / "compliance.json", {})
+    if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError("Compliance ledger uses a missing or unsupported assurance standard")
     if args.stage not in COMPLIANCE_STAGES:
         raise ContinuityError(f"Unknown compliance stage: {args.stage}")
     if args.status not in COMPLIANCE_STATUSES:
@@ -1589,6 +1603,8 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
             raise ContinuityError("Execution worktree does not belong to the configured repository")
     if args.state == "completed":
         compliance = json_load(directory / "compliance.json", {})
+        if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+            raise ContinuityError("Cannot mark completed under a missing or unsupported assurance standard")
         required = [stage for stage in COMPLIANCE_STAGES if stage != "human-review"]
         incomplete = {
             stage: compliance.get("stages", {}).get(stage, {}).get("status", "missing")

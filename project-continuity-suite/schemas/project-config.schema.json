@@ -2,9 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Project continuity configuration",
   "type": "object",
-  "required": ["schema_version", "project_id", "integration_branch", "timezone", "memory_docs", "private_dir"],
+  "required": ["schema_version", "assurance_standard_version", "project_id", "integration_branch", "timezone", "memory_docs", "private_dir"],
   "properties": {
     "schema_version": {"const": 1},
+    "assurance_standard_version": {"const": 1},
     "project_id": {"type": "string", "minLength": 1},
     "integration_branch": {"type": "string", "minLength": 1},
     "timezone": {"type": "string"},
