@@ -12,12 +12,27 @@ Notes are knowledge first. Capture and triage never authorize documentation or c
 .agents/skills/                         project-level skills
 .agents/project-continuity/             CLI, schemas, templates, contract
 .agents/references/continuity-contract.md
+.continuity/project.json                committed enrollment and schedule intent
 .continuity/config.json                 committed project configuration
 .continuity/private/                    ignored captures, queues, goals, locks, indexes
 docs/project-memory/                    canonical searchable project memory
 ```
 
-The installed control directory also includes the recurring-action prompt assets and portfolio registry snapshot. The Codex app owns the actual 8:00 PM review, 10:00 PM dispatch, and 7:00 AM reporting schedules.
+The installed control directory also includes project-neutral recurring-action prompt assets. The Codex app owns each developer's actual schedules. A developer-local scheduler discovers enrolled repositories from configured workspace roots, then invokes the skills and CLI installed inside each project. No project paths, notes, memory, or registry are stored in this distribution.
+
+Installation creates a minimal project-memory index and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
+
+## Installation
+
+```text
+python3 project-continuity-suite/installer/install.py \
+  --project-root <repository> \
+  --project-id <stable-project-id> \
+  --integration-branch <branch> \
+  --validation <project-validation-command>
+```
+
+Run the installer again to update an existing installation; managed `AGENTS.md` and `.gitignore` blocks are idempotent. Then run the installed `continuity --project-root <repository> --json project doctor`. Keep developer workspace roots and Codex automation records in developer-local configuration, never in this repository.
 
 ## Typical cycle
 

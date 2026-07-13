@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -91,25 +92,45 @@ def main() -> int:
     parser.add_argument("--project-root", required=True)
     parser.add_argument("--project-id", required=True)
     parser.add_argument("--integration-branch", required=True)
-    parser.add_argument("--seed", required=True)
+    parser.add_argument("--seed", help="Optional project-specific memory seed kept outside this distribution")
     parser.add_argument("--validation", action="append", default=[])
+    parser.add_argument("--timezone", default="America/Chicago")
+    parser.add_argument("--enable-execution", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args.project_id):
+        raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
 
     suite = Path(__file__).resolve().parents[1]
     root = Path(args.project_root).expanduser().resolve()
     if root == Path("/") or not root.is_dir():
         raise RuntimeError("Refusing unsafe or missing project root")
     git(root, "rev-parse", "--is-inside-work-tree")
+    git(root, "check-ref-format", "--branch", args.integration_branch)
     commit = git(root, "rev-parse", "HEAD")
-    seed = load_json(Path(args.seed).expanduser().resolve())
-    stamp = dt.datetime.now(ZoneInfo("America/Chicago")).isoformat(timespec="seconds")
+    seed = load_json(Path(args.seed).expanduser().resolve()) if args.seed else {}
+    stamp = dt.datetime.now(ZoneInfo(args.timezone)).isoformat(timespec="seconds")
+    entries = seed.get("entries") or [
+        {
+            "path": "INDEX.md",
+            "memory_id": "project-memory-index",
+            "title": f"{args.project_id} Project Memory",
+            "type": "index",
+            "system": "project",
+            "summary": "Trusted entry point for curated, verified project knowledge.",
+            "tags": ["index", "orientation"],
+            "sources": ["AGENTS.md"],
+            "confidence": "medium",
+            "body": "No substantive project knowledge has been promoted yet. Curate current-state, architecture, decisions, constraints, operations, open questions, and history through approved documentation goals.",
+        }
+    ]
 
     config = {
         "schema_version": 1,
         "project_id": args.project_id,
         "integration_branch": args.integration_branch,
-        "timezone": "America/Chicago",
+        "timezone": args.timezone,
         "default_start_time": "22:00",
         "max_runtime_minutes": 360,
         "memory_docs": "docs/project-memory",
@@ -122,13 +143,23 @@ def main() -> int:
         "require_isolated_worktree": True,
         "refresh_base_on_preflight": True,
         "validation_commands": args.validation,
-        "documentation_map": seed.get("documentation_map", {}),
+        "documentation_map": seed.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
+    }
+    project_manifest = {
+        "schema_version": 1,
+        "project_id": args.project_id,
+        "continuity_enabled": True,
+        "execution_enabled": args.enable_execution,
+        "integration_branch": args.integration_branch,
+        "timezone": args.timezone,
+        "schedules": {"review": "20:00", "dispatch": "22:00", "report": "07:00"},
+        "max_concurrency": 1,
     }
 
     agents_block = f"""{AGENTS_START}
 ## Project Continuity, Memory, and Sequenced Development
 
-- Project id: `{args.project_id}`
+- Project id: `{args.project_id}`. Treat `.continuity/project.json` as the committed enrollment and schedule contract.
 - Integration branch: `{args.integration_branch}`
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/project-continuity/bin/continuity`.
 - Treat notes as project knowledge first. Capture, classification, promotion, planning, approval, and dispatch are separate events.
@@ -146,7 +177,7 @@ def main() -> int:
 {IGNORE_END}"""
 
     if args.dry_run:
-        print(json.dumps({"project": str(root), "config": config, "memory_entries": len(seed.get("entries", []))}, indent=2))
+        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "memory_entries": len(entries)}, indent=2))
         return 0
 
     skills_target = root / ".agents" / "skills"
@@ -158,10 +189,11 @@ def main() -> int:
     control_target = root / ".agents" / "project-continuity"
     (control_target / "bin").mkdir(parents=True, exist_ok=True)
     shutil.copy2(suite / "bin" / "continuity", control_target / "bin" / "continuity")
-    for name in ("references", "schemas", "templates", "automation", "registry"):
+    for name in ("references", "schemas", "templates", "automation"):
         shutil.copytree(suite / name, control_target / name, dirs_exist_ok=True)
     shutil.copytree(suite / "references", root / ".agents" / "references", dirs_exist_ok=True)
     write_json(root / ".continuity" / "config.json", config)
+    write_json(root / ".continuity" / "project.json", project_manifest)
 
     agents_path = root / "AGENTS.md"
     agents_text = agents_path.read_text(encoding="utf-8") if agents_path.exists() else "# AGENTS.md\n"
@@ -172,13 +204,13 @@ def main() -> int:
 
     memory_root = confined(root, config["memory_docs"], "memory_docs")
     memory_root.mkdir(parents=True, exist_ok=True)
-    for entry in seed.get("entries", []):
+    for entry in entries:
         target = confined(memory_root, entry["path"], f"seed entry {entry.get('memory_id', 'unknown')}")
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
             target.write_text(render_memory(entry, stamp, commit), encoding="utf-8")
 
-    print(json.dumps({"installed": True, "project": str(root), "skills": 7, "memory_entries": len(seed.get("entries", []))}, indent=2))
+    print(json.dumps({"installed": True, "project": str(root), "skills": 7, "memory_entries": len(entries), "execution_enabled": args.enable_execution}, indent=2))
     return 0
 
 

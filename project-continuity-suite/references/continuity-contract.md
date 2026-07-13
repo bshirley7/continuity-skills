@@ -6,6 +6,8 @@ Treat notes as project knowledge first. Only a deliberately promoted, decision-c
 
 ## Data boundaries
 
+- Keep skills, configuration, schedule intent, notes, memory, approvals, execution, and evidence authoritative inside the enrolled project.
+- Treat any developer-local scheduler as a discovery and triggering layer only. It may aggregate sanitized reports but must not own project instructions or private state.
 - Keep raw captures, queues, approvals, manifests, generated indexes, and task locks under `.continuity/private/`.
 - Keep trusted, sanitized project memory under `docs/project-memory/`.
 - Exclude private state from Git and default memory search.

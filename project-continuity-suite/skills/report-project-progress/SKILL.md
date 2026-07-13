@@ -16,4 +16,6 @@ Read [the continuity contract](../../references/continuity-contract.md), project
 
 The morning report is mandatory even when no goal ran. Include notes retained as context, documentation candidates, deferred items, open questions, memory health, plans awaiting feedback, queued and held work, active runs, validation, completed or partial outcomes, blockers, PRs, compliance stages, and feedback needed.
 
+For a portfolio report, discover project-local manifests beneath developer-configured workspace roots. Run each report from that repository using its installed skill and CLI. Aggregate only sanitized summaries; do not centralize raw captures, private ledgers, approvals, or locks.
+
 Never claim completion, mergeability, security, or review readiness without evidence. Publish a completion report immediately when work ends and preserve later feedback for the next cycle.

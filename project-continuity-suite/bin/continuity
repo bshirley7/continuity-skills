@@ -147,6 +147,13 @@ def load_context(start: Path | None = None) -> tuple[Path, dict[str, Any]]:
     return root, config
 
 
+def load_project_manifest(root: Path) -> dict[str, Any]:
+    manifest = json_load(root / ".continuity" / "project.json", {})
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != SCHEMA_VERSION:
+        raise ContinuityError(f"Project-local continuity manifest is missing or invalid at {root}")
+    return manifest
+
+
 def confined_path(root: Path, value: str, label: str) -> Path:
     candidate = Path(value)
     if candidate.is_absolute():
@@ -1096,6 +1103,91 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
     return {"goal": goal, "approval": approval}
 
 
+def requested_workspace_roots(values: Iterable[str] = ()) -> list[Path]:
+    raw = [value for value in values if value]
+    if not raw:
+        raw = [value for value in os.environ.get("CONTINUITY_WORKSPACE_ROOTS", "").split(os.pathsep) if value]
+    if not raw:
+        raw = [str(Path.cwd())]
+    roots: list[Path] = []
+    for value in raw:
+        root = Path(value).expanduser().resolve()
+        if not root.is_dir() or root == Path("/"):
+            raise ContinuityError(f"Unsafe or missing workspace root: {root}")
+        if root not in roots:
+            roots.append(root)
+    return roots
+
+
+def discover_projects(workspace_roots: Iterable[Path]) -> list[dict[str, Any]]:
+    discovered: dict[str, dict[str, Any]] = {}
+    pruned = {".git", ".agents", ".continuity", "node_modules", ".venv", "venv", "dist", "build", "target", "vendor", "__pycache__"}
+    for workspace_root in workspace_roots:
+        for current, directories, _files in os.walk(workspace_root, followlinks=False):
+            current_path = Path(current).resolve()
+            if not current_path.is_relative_to(workspace_root):
+                directories[:] = []
+                continue
+            manifest_path = current_path / ".continuity" / "project.json"
+            if manifest_path.is_file() and manifest_path.resolve().is_relative_to(current_path):
+                try:
+                    manifest = load_project_manifest(current_path)
+                    config = json_load(current_path / ".continuity" / "config.json", {})
+                    problems = []
+                    if not manifest.get("continuity_enabled"):
+                        problems.append("continuity is disabled")
+                    if not isinstance(config, dict) or config.get("schema_version") != SCHEMA_VERSION:
+                        problems.append("configuration is missing or invalid")
+                    elif config.get("project_id") != manifest.get("project_id"):
+                        problems.append("manifest and configuration project IDs differ")
+                    if not (current_path / "AGENTS.md").is_file():
+                        problems.append("AGENTS.md is missing")
+                    if not (current_path / ".agents" / "project-continuity" / "bin" / "continuity").is_file():
+                        problems.append("project-local continuity CLI is missing")
+                    installed_skills = current_path / ".agents" / "skills"
+                    missing_skills = [
+                        name for name in (
+                            "capture-project-note",
+                            "triage-project-notes",
+                            "manage-project-memory",
+                            "plan-project-goals",
+                            "dispatch-project-goals",
+                            "execute-project-goal",
+                            "report-project-progress",
+                        )
+                        if not (installed_skills / name / "SKILL.md").is_file()
+                    ]
+                    if missing_skills:
+                        problems.append(f"missing skills: {missing_skills}")
+                    project_id = str(manifest.get("project_id", ""))
+                    if not project_id:
+                        problems.append("project_id is missing")
+                        project_id = str(current_path)
+                    record = {
+                        "project_id": project_id,
+                        "path": str(current_path),
+                        "manifest": manifest,
+                        "healthy": not problems,
+                        "problems": problems,
+                    }
+                    if project_id in discovered and discovered[project_id]["path"] != record["path"]:
+                        discovered[project_id]["healthy"] = False
+                        discovered[project_id]["problems"].append(f"duplicate project ID at {record['path']}")
+                    else:
+                        discovered[project_id] = record
+                except (ContinuityError, json.JSONDecodeError) as exc:
+                    discovered[str(current_path)] = {
+                        "project_id": None,
+                        "path": str(current_path),
+                        "healthy": False,
+                        "problems": [str(exc)],
+                    }
+                directories[:] = []
+                continue
+            directories[:] = [name for name in directories if name not in pruned and not name.startswith(".")]
+    return sorted(discovered.values(), key=lambda item: (str(item.get("project_id")), item["path"]))
+
+
 def dependency_states(root: Path, config: dict[str, Any], goal: dict[str, Any]) -> dict[str, str]:
     states: dict[str, str] = {}
     for dependency in goal.get("depends_on", []):
@@ -1105,8 +1197,10 @@ def dependency_states(root: Path, config: dict[str, Any], goal: dict[str, Any]) 
             dependency_goal_id = dependency
             if ":" in dependency:
                 project_id, dependency_goal_id = dependency.split(":", 1)
-                registry = json_load(Path(__file__).resolve().parents[1] / "registry" / "projects.json", {})
-                project = next((item for item in registry.get("projects", []) if item.get("project_id") == project_id), None)
+                project = next(
+                    (item for item in discover_projects(requested_workspace_roots()) if item.get("project_id") == project_id and item.get("healthy")),
+                    None,
+                )
                 if not project:
                     raise ContinuityError(f"Unknown dependency project {project_id}")
                 dependency_root = Path(project["path"]).expanduser().resolve()
@@ -1119,16 +1213,20 @@ def dependency_states(root: Path, config: dict[str, Any], goal: dict[str, Any]) 
 
 
 def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
-    registry_path = Path(args.registry).expanduser().resolve() if args.registry else Path(__file__).resolve().parents[1] / "registry" / "projects.json"
-    registry = json_load(registry_path, {})
-    if not isinstance(registry, dict) or not isinstance(registry.get("projects"), list):
-        raise ContinuityError(f"Invalid portfolio registry: {registry_path}")
+    workspace_roots = requested_workspace_roots(args.root or [])
+    os.environ["CONTINUITY_WORKSPACE_ROOTS"] = os.pathsep.join(str(root) for root in workspace_roots)
+    projects = discover_projects(workspace_roots)
+    if args.discover:
+        return projects
     results: list[dict[str, Any]] = []
-    for project in registry["projects"]:
-        project_root = Path(project.get("path", "")).expanduser().resolve()
+    for project in projects:
+        if not project.get("healthy"):
+            results.append(project)
+            continue
+        project_root = Path(project["path"]).expanduser().resolve()
+        manifest = project["manifest"]
         config = json_load(project_root / ".continuity" / "config.json", {})
-        if not isinstance(config, dict) or config.get("schema_version") != SCHEMA_VERSION:
-            results.append({"project_id": project.get("project_id"), "path": str(project_root), "error": "project is not configured"})
+        if args.due and not manifest.get("execution_enabled"):
             continue
         if args.due:
             previous = os.environ.get("CONTINUITY_PROJECT_ROOT")
@@ -1151,12 +1249,28 @@ def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
                 {
                     "project_id": project.get("project_id"),
                     "path": str(project_root),
-                    "integration_branch": project.get("integration_branch"),
+                    "integration_branch": manifest.get("integration_branch"),
+                    "execution_enabled": manifest.get("execution_enabled", False),
                     "project_lock": json_load(private_path(project_root, config) / "project.lock.json"),
                     **goal,
                 }
             )
     return results
+
+
+def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    manifest = load_project_manifest(root)
+    records = discover_projects([root])
+    record = next((item for item in records if item.get("path") == str(root)), None)
+    if not record:
+        raise ContinuityError("Project could not be discovered from its own root")
+    record["integration_branch_matches"] = manifest.get("integration_branch") == config.get("integration_branch")
+    record["execution_enabled"] = manifest.get("execution_enabled", False)
+    record["healthy"] = record["healthy"] and record["integration_branch_matches"]
+    if not record["integration_branch_matches"]:
+        record["problems"].append("manifest and configuration integration branches differ")
+    return record
 
 
 def git_result(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -1174,6 +1288,19 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
     directory, goal = load_goal(root, config, args.goal_id)
     failures: list[str] = []
     evidence: list[str] = []
+    try:
+        manifest = load_project_manifest(root)
+        if not manifest.get("continuity_enabled"):
+            failures.append("project continuity is disabled")
+        if not manifest.get("execution_enabled"):
+            failures.append("project product-code execution is disabled")
+        if manifest.get("project_id") != config.get("project_id"):
+            failures.append("project manifest and configuration IDs differ")
+        if manifest.get("integration_branch") != config.get("integration_branch"):
+            failures.append("project manifest and configuration integration branches differ")
+        evidence.append("project-manifest:present")
+    except ContinuityError as exc:
+        failures.append(str(exc))
     try:
         _goal, approval = validate_approval(root, config, args.goal_id)
         evidence.append(f"approval:{approval['plan_hash']}")
@@ -1718,12 +1845,17 @@ def build_parser() -> argparse.ArgumentParser:
     project = report_sub.add_parser("project")
     project.set_defaults(handler=report_project)
 
+    project_admin = top.add_parser("project")
+    project_admin_sub = project_admin.add_subparsers(dest="command", required=True)
+    doctor = project_admin_sub.add_parser("doctor")
+    doctor.set_defaults(handler=project_doctor)
+
     portfolio = top.add_parser("portfolio")
     portfolio_sub = portfolio.add_subparsers(dest="command", required=True)
-    for name, due_only in (("queue", False), ("due", True)):
+    for name, due_only, discover_only in (("discover", False, True), ("queue", False, False), ("due", True, False)):
         portfolio_command = portfolio_sub.add_parser(name)
-        portfolio_command.add_argument("--registry")
-        portfolio_command.set_defaults(handler=portfolio_goals, due=due_only)
+        portfolio_command.add_argument("--root", action="append", help="Workspace root to scan; repeat for multiple roots")
+        portfolio_command.set_defaults(handler=portfolio_goals, due=due_only, discover=discover_only)
     return parser
 
 

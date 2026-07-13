@@ -43,6 +43,19 @@ class ContinuityTest(unittest.TestCase):
             "documentation_map": {},
         }
         self.write_json(self.root / ".continuity" / "config.json", self.config)
+        self.write_json(
+            self.root / ".continuity" / "project.json",
+            {
+                "schema_version": 1,
+                "project_id": "test-project",
+                "continuity_enabled": True,
+                "execution_enabled": True,
+                "integration_branch": "main",
+                "timezone": "America/Chicago",
+                "schedules": {"review": "20:00", "dispatch": "22:00", "report": "07:00"},
+                "max_concurrency": 1,
+            },
+        )
         self.memory_root = self.root / "docs" / "project-memory"
         self.memory_root.mkdir(parents=True)
         self.write_memory(
@@ -384,12 +397,12 @@ unresolved_gaps: []
 class InstallerTest(unittest.TestCase):
     def test_installer_is_idempotent_and_creates_memory_and_guardrails(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp) / "pilot"
+            root = Path(temp) / "project"
             root.mkdir()
             subprocess.run(["git", "-C", str(root), "init", "-b", "main"], check=True, capture_output=True)
             subprocess.run(["git", "-C", str(root), "config", "user.email", "tests@example.invalid"], check=True)
             subprocess.run(["git", "-C", str(root), "config", "user.name", "Tests"], check=True)
-            (root / "AGENTS.md").write_text("# Pilot\n", encoding="utf-8")
+            (root / "AGENTS.md").write_text("# Example project\n", encoding="utf-8")
             (root / ".gitignore").write_text(".DS_Store\n", encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", "."], check=True)
             subprocess.run(["git", "-C", str(root), "commit", "-m", "initial"], check=True, capture_output=True)
@@ -399,11 +412,9 @@ class InstallerTest(unittest.TestCase):
                 "--project-root",
                 str(root),
                 "--project-id",
-                "avatars-ltx",
+                "sample-project",
                 "--integration-branch",
                 "main",
-                "--seed",
-                str(SUITE / "pilots" / "avatars-ltx.json"),
                 "--validation",
                 "pnpm typecheck",
             ]
@@ -414,13 +425,30 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((root / ".agents" / "skills" / "manage-project-memory" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "bin" / "continuity").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "automation" / "nightly-review.md").exists())
-            self.assertTrue((root / ".agents" / "project-continuity" / "registry" / "projects.json").exists())
             self.assertTrue((root / "docs" / "project-memory" / "INDEX.md").exists())
+            manifest = json.loads((root / ".continuity" / "project.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["project_id"], "sample-project")
+            self.assertFalse(manifest["execution_enabled"])
             self.assertIn(".continuity/private/", (root / ".gitignore").read_text(encoding="utf-8"))
             config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             self.assertTrue(config["require_pr"])
             self.assertTrue(config["require_execution_artifacts"])
             self.assertTrue(config["require_isolated_worktree"])
+            doctor = subprocess.run(
+                [str(root / ".agents" / "project-continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertTrue(json.loads(doctor.stdout)["healthy"])
+            discovered = subprocess.run(
+                ["python3", str(CLI), "--json", "portfolio", "discover", "--root", temp],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            records = json.loads(discovered.stdout)
+            self.assertEqual([record["project_id"] for record in records], ["sample-project"])
 
 
 if __name__ == "__main__":

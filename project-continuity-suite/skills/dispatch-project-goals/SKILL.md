@@ -30,4 +30,4 @@ Use `goal revise <goal-id> --goal-file <revision.json> --author <identity> --sum
 .agents/project-continuity/bin/continuity --project-root "$PWD" goal resume <goal-id>
 ```
 
-Before dispatch, enforce approval hash, dependencies, integration branch, `AGENTS.md`, remote requirements, compliance evidence, runtime allowance, and the project lock. Allow different projects concurrently but one code-changing goal per project. Manual start never bypasses guardrails.
+Before dispatch, require the project-local manifest to have both `continuity_enabled` and `execution_enabled`, then enforce approval hash, dependencies, integration branch, `AGENTS.md`, remote requirements, compliance evidence, runtime allowance, and the project lock. Allow different projects concurrently but one code-changing goal per project. Manual start never bypasses guardrails.
