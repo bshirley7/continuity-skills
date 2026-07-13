@@ -30,6 +30,25 @@ The installed control directory also includes the recurring-action prompt assets
 7. Use `$execute-project-goal` in the assigned isolated worktree.
 8. Use `$report-project-progress` for completion and morning reporting.
 
+```mermaid
+flowchart LR
+    A["Captured notes"] --> B["Atomic classification"]
+    B --> C["Private project knowledge"]
+    B --> D["Questions and deferred items"]
+    B --> E["Planning candidates"]
+    C --> F["Approved memory promotion"]
+    F --> G["Trusted searchable memory"]
+    E --> H["Versioned plan"]
+    G --> H
+    H --> I{"Explicit plan approval"}
+    I -->|"No"| J["Feedback or hold"]
+    I -->|"Yes"| K["10 PM queue or manual start"]
+    K --> L["Isolated project worktree"]
+    L --> M["Review, validation, security, and merge-safety gates"]
+    M --> N["Human-review PR"]
+    N --> O["Morning and completion reports"]
+```
+
 ## Responsible development compliance
 
 Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval and plan review are evidenced, blocks dispatch on failed preflight, and blocks completion until implementation, code review, validation, security review, merge safety, documentation, memory impact, and final alignment are passed or explicitly not applicable with evidence.
