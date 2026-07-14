@@ -777,6 +777,7 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(behavior["settings"]["roadmap"]["ui_mode"], "local-read-only")
             self.assertEqual(manifest["behavior_configuration_hash"], behavior["configuration_hash"])
             self.assertIn(".continuity/private/", (root / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn(".agents/project-continuity/lib/__pycache__/", (root / ".gitignore").read_text(encoding="utf-8"))
             config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             self.assertTrue(config["require_pr"])
             self.assertTrue(config["require_execution_artifacts"])

@@ -240,6 +240,8 @@ def main() -> int:
 
     ignore_block = f"""{IGNORE_START}
 .continuity/private/
+.agents/project-continuity/lib/__pycache__/
+.agents/project-continuity/lib/*.pyc
 {IGNORE_END}"""
 
     if args.dry_run:
