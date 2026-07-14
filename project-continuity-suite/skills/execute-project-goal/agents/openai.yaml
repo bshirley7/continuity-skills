@@ -1,4 +1,0 @@
-interface:
-  display_name: "Execute Project Goal"
-  short_description: "Execute one approved goal with safety gates"
-  default_prompt: "Use $execute-project-goal to execute the approved goal within its exact scope."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Share"
+  short_description: "Sanitize and transport approved project notes"
+  default_prompt: "Use $continuity-share to prepare an explicitly approved note packet."

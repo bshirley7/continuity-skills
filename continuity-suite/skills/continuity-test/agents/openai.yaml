@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Test"
+  short_description: "Run and record quality, validation, and security gates"
+  default_prompt: "Use $continuity-test to run and record the required quality gates for this Continuity goal."

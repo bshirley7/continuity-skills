@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity merge assessment",
+  "type": "object",
+  "required": ["project_id", "goal_id", "status", "updated_at", "actor", "branch", "base", "worktree", "failures", "evidence", "human_merge_required", "auto_merge_allowed", "force_push_allowed"],
+  "properties": {
+    "project_id": {"type": "string"},
+    "goal_id": {"type": "string"},
+    "status": {"enum": ["passed", "failed"]},
+    "updated_at": {"type": "string"},
+    "actor": {"type": "string"},
+    "branch": {"type": ["string", "null"]},
+    "base": {"type": ["string", "null"]},
+    "pr_url": {"type": ["string", "null"]},
+    "worktree": {"type": "string"},
+    "failures": {"type": "array", "items": {"type": "string"}},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "human_merge_required": {"const": true},
+    "auto_merge_allowed": {"const": false},
+    "force_push_allowed": {"const": false},
+    "merge_safety_checks": {"type": "array", "items": {"type": "string"}}
+  }
+}

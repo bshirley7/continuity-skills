@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Plan"
+  short_description: "Turn selected notes into reviewable goals"
+  default_prompt: "Use $continuity-plan to create a reviewable goal from selected project notes."

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity test report",
+  "type": "object",
+  "required": ["project_id", "goal_id", "status", "summary", "actor", "updated_at", "validation_commands", "security_commands", "code_review_evidence", "validation_evidence", "security_evidence"],
+  "properties": {
+    "project_id": {"type": "string"},
+    "goal_id": {"type": "string"},
+    "status": {"enum": ["passed", "failed"]},
+    "summary": {"type": "string"},
+    "actor": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "worktree": {"type": ["string", "null"]},
+    "branch": {"type": ["string", "null"]},
+    "validation_commands": {"type": "array", "items": {"type": "string"}},
+    "security_commands": {"type": "array", "items": {"type": "string"}},
+    "code_review_evidence": {"type": "array", "items": {"type": "string"}},
+    "validation_evidence": {"type": "array", "items": {"type": "string"}},
+    "security_evidence": {"type": "array", "items": {"type": "string"}},
+    "findings": {"type": "array", "items": {"type": "string"}},
+    "artifacts": {"type": "array", "items": {"type": "string"}},
+    "evergreen_checks": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -2,5 +2,5 @@
 __pycache__/
 *.pyc
 .continuity/private/
-project-continuity-suite/.test-output/
+continuity-suite/.test-output/
 dist/

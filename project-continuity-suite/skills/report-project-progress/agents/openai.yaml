@@ -1,4 +1,0 @@
-interface:
-  display_name: "Report Project Progress"
-  short_description: "Report project goal and memory progress"
-  default_prompt: "Use $report-project-progress to summarize current project goals and memory updates."

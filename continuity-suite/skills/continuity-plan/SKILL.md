@@ -1,0 +1,43 @@
+---
+name: continuity-plan
+description: Convert selected documentation, research, backlog, or execution candidates into cohesive, versioned, approval-ready project goals. Use when the user or scheduled review wants a plan that distinguishes contextual knowledge from proposed instructions.
+---
+
+# Continuity Plan
+
+Planning does not authorize work. Create a decision-complete proposal and leave it awaiting explicit approval.
+
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, and the documentation map.
+
+## Required assurance
+
+- Identify applicable repository, language, framework, privacy, security, compatibility, migration, accessibility, performance, validation, rollout, and rollback standards before proposing execution.
+- Define bounded scope, exclusions, dependencies, acceptance criteria, evidence, and stop conditions. Separate unresolved decisions and newly discovered work rather than guessing.
+- Audit source-note eligibility, cited memory freshness, assurance-standard version, unattended suitability, required security review, and validation coverage. Planning never records approval.
+
+## Workflow
+
+1. Confirm every source item is eligible for planning.
+2. Run `memory brief` and `roadmap brief` for the goal and record every memory and roadmap ID used.
+3. Apply the configured planning patterns. Use the evidence triage brief for verified action context. For complex or uncertain work, create a decision map with one destination, explicit decisions, dependency edges, unresolved territory, and out-of-scope boundaries. Do not plan execution across unresolved or human-required decisions.
+4. Group only work supporting one cohesive outcome. Split unrelated intents.
+5. For a multi-part outcome, create dependency-aware end-to-end delivery slices. Each slice must be independently verifiable, small enough for one focused run, and blocked only by genuine prerequisites. Use an expand-migrate-contract sequence for wide changes that cannot remain valid as vertical slices.
+6. Distinguish context, trusted memory, roadmap context, new insights, proposed instructions, scope, exclusions, dependencies, decisions, documentation impact, structured roadmap impact, acceptance, validation, security, merge-safety, and evidence.
+7. Apply repository architecture and developer best practices. Review the plan for correctness, maintainability, privacy, security, testing, rollout, and rollback implications.
+8. Set unattended suitability and runtime, defaulting to six hours.
+9. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `roadmap_ids`, and `roadmap_impact`; the CLI validates them, renders them into the plan, and includes them in the approval hash.
+10. Record evidence for `capture-triage`, `memory-retrieval`, `roadmap-retrieval`, and `plan-review` compliance stages.
+11. Leave the goal `awaiting-feedback`.
+
+When a goal is created from `source_note_ids`, those source notes are marked `work_status: planned`. Approval and dispatch move them to `queued` and `dispatched`; execution updates later mark them `running`, `validating`, `completed`, `partially-completed`, `blocked`, or `cancelled`. Notes that do not belong in the current branch or PR should remain open, deferred, or roadmap-linked for a later aligned pass.
+
+Create a validated goal JSON payload, then run:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" goal create --goal-file <path>
+.agents/continuity/bin/continuity --project-root "$PWD" goal gate <goal-id> <stage> --status passed --evidence <evidence>
+```
+
+Any revision uses `goal revise`, creates an archived prior version, and invalidates prior approval. Surface blocking decisions instead of guessing.
+
+Do not publish decision or delivery tickets externally as a side effect of planning. Local artifacts are the default. GitHub, Linear, or another tracker requires a separate explicit human publication approval; tracker-ready never means execution-ready.

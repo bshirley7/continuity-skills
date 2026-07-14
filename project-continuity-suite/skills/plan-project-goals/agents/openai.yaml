@@ -1,4 +1,0 @@
-interface:
-  display_name: "Plan Project Goals"
-  short_description: "Turn selected notes into reviewable goals"
-  default_prompt: "Use $plan-project-goals to create a reviewable goal from selected project notes."

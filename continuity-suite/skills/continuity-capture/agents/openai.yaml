@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Capture"
+  short_description: "Capture notes without authorizing execution"
+  default_prompt: "Use $continuity-capture to capture this conversation as project knowledge."

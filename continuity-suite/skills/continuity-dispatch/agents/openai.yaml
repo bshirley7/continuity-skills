@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Dispatch"
+  short_description: "Approve, queue, and dispatch project goals"
+  default_prompt: "Use $continuity-dispatch to approve or start a reviewed project goal."

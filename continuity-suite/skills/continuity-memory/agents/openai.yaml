@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Memory"
+  short_description: "Search and maintain trusted project memory"
+  default_prompt: "Use $continuity-memory to build or search trusted project memory."

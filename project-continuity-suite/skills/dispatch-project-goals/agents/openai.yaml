@@ -1,4 +1,0 @@
-interface:
-  display_name: "Dispatch Project Goals"
-  short_description: "Approve, queue, and dispatch project goals"
-  default_prompt: "Use $dispatch-project-goals to approve or start a reviewed project goal."

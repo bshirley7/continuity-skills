@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Report"
+  short_description: "Report project goal and memory progress"
+  default_prompt: "Use $continuity-report to summarize current project goals and memory updates."

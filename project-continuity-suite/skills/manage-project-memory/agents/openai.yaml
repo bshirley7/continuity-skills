@@ -1,4 +1,0 @@
-interface:
-  display_name: "Manage Project Memory"
-  short_description: "Search and maintain trusted project memory"
-  default_prompt: "Use $manage-project-memory to build or search trusted project memory."

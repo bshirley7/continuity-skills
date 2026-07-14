@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Triage"
+  short_description: "Classify and route captured project notes"
+  default_prompt: "Use $continuity-triage to classify and route the captured project notes."
