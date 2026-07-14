@@ -33,7 +33,7 @@ Apply this standard to every Continuity execution before PR handoff and merge re
 - Confirm the working tree has no unrelated product changes and no private Continuity state staged for commit.
 - Confirm tests, code review, validation, security review, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable.
 - Keep incomplete, failed, or blocked work in a draft PR with visible blockers.
-- Human PR review and merge are separate from Continuity completion. Continuity must not auto-merge or force-push.
+- Human PR review and merge are separate from automated delivery. Continuity must stop at `review-ready`, must not auto-merge or force-push, and may record `completed` only after human merge evidence.
 
 ## Report standard
 

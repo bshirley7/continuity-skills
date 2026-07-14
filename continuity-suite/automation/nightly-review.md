@@ -1,6 +1,6 @@
 # Nightly Continuity Review
 
-At the configured review time, discover enrolled repositories beneath the developer's configured workspace roots. Start a separate project task for each enabled manifest. In every task, set the working directory to that repository, run `project doctor`, and apply its installed `$continuity-local` behavior with each task-specific skill. Use only that project's CLI, `AGENTS.md`, configuration, private state, and project memory. Stop that project task on configuration drift without blocking healthy projects.
+When the portfolio supervisor returns a due `review` action, start a separate project task, record the scheduler run, set the working directory to that repository, run `project doctor`, and apply its installed `$continuity-local` behavior with each task-specific skill. Use only that project's CLI, `AGENTS.md`, configuration, private state, and project memory. Stop that project task on configuration drift without blocking healthy projects.
 
 1. Triage new captures conservatively; notes never authorize work.
 2. Apply configured evidence triage to selected action candidates. Use decision maps for complex or uncertain outcomes and dependency-aware delivery slices for multi-part work. Keep every artifact local and non-authorizing.

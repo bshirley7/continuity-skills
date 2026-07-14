@@ -21,6 +21,8 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 
 - Keep skills, configuration, schedule intent, notes, memory, approvals, execution, and evidence authoritative inside the enrolled project.
 - Treat any developer-local scheduler as a discovery and triggering layer only. It may aggregate sanitized reports but must not own project instructions or private state.
+- Register one provider-owned portfolio supervisor in developer-local state. It must calculate due project actions from each project's timezone and schedule, enforce idempotency, retries, stale-run recovery, and portfolio concurrency, and start an isolated project task for every due action.
+- Keep scheduler registration receipts, workspace roots, run events, task IDs, heartbeats, and recovery records private and project-local. A selected provider without a current registration receipt is unhealthy.
 - Keep raw captures, queues, approvals, generated indexes, configuration audit records, and task locks under `.continuity/private/`.
 - Keep trusted, sanitized project memory under `docs/project-memory/`.
 - Keep canonical, sanitized roadmap Markdown under `docs/project-roadmap/`; ignored SQLite and JSON projections may merge committed records with local goal and note-link context.
@@ -36,10 +38,11 @@ Set `execution_authorized: false` during capture and triage. Classify ambiguity 
 
 ## Goal states
 
-Use: `awaiting-feedback`, `approved`, `queued`, `dispatched`, `running`, `validating`, `completed`, `partially-completed`, `blocked`, `cancelled`, or `held`.
+Use: `awaiting-feedback`, `approved`, `queued`, `dispatched`, `running`, `validating`, `review-ready`, `completed`, `partially-completed`, `blocked`, `cancelled`, or `held`.
 
 Approval and dispatch are separate events. Bind approval to the exact plan version and SHA-256 material hash. Any plan or machine-goal edit invalidates approval.
 Only the human's explicit approval text and identity may populate an approval record; an agent must never generate or infer them. State transitions are enforced and terminal states cannot be restarted.
+Overnight execution ends at `review-ready` after every pre-human-review gate and PR artifact passes. Human review without merge leaves the goal review-ready. Only recorded human merge evidence moves it to `completed`.
 
 ## Planning artifacts
 
@@ -70,7 +73,7 @@ Record evidence for every responsible development stage:
 15. final-alignment
 16. human-review
 
-Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` result requires a concrete reason. Do not mark a goal completed while any pre-human-review stage is pending or failed.
+Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` result requires a concrete reason. Do not mark a goal review-ready while any pre-human-review stage is pending or failed, and do not mark it completed without passed human-review and merge evidence.
 
 ## Developer and security guardrails
 
@@ -87,6 +90,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 - Never log, commit, or place secrets or raw private captures in PR documentation.
 - Never force-push, auto-merge, disable safeguards, or use destructive Git recovery without explicit authorization.
 - Stop on an unapproved product decision, failed required gate, stale approval, unmet dependency, or merge conflict.
+- Stop on production data changes, credentials, billing, infrastructure mutation, external publishing, destructive actions, or any other restricted side effect unless the exact action has fresh human approval in the current goal.
 
 ## Memory contract
 

@@ -4,10 +4,10 @@
   "type": "object",
   "required": ["schema_version", "assurance_standard_version", "project_id", "recommendation_profile", "settings", "overrides", "fixed_guardrails", "configuration_hash"],
   "properties": {
-    "schema_version": {"const": 2},
+    "schema_version": {"const": 3},
     "assurance_standard_version": {"const": 2},
     "project_id": {"type": "string", "minLength": 1},
-    "recommendation_profile": {"const": "responsible-defaults-v2"},
+    "recommendation_profile": {"const": "responsible-defaults-v3"},
     "settings": {
       "type": "object",
       "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "execution_enabled"],
@@ -53,12 +53,7 @@
           },
           "additionalProperties": false
         },
-        "scheduler": {
-          "type": "object",
-          "required": ["provider"],
-          "properties": {"provider": {"enum": ["codex", "claude-code", "external", "none"]}},
-          "additionalProperties": false
-        },
+        "scheduler": {"$ref": "scheduler-settings.schema.json"},
         "execution_enabled": {"type": "boolean"}
       },
       "additionalProperties": false
@@ -75,6 +70,8 @@
         "human_merge": "required",
         "force_push": "forbidden",
         "auto_merge": "forbidden",
+        "overnight_completion": "review-ready-until-human-review",
+        "restricted_external_side_effects": "fresh-human-approval-required",
         "planning_artifacts_authorize_execution": false,
         "external_tracker_publish": "explicit-human-approval-required",
         "raw_note_transport": "forbidden",

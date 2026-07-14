@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -392,7 +393,7 @@ unresolved_gaps: []
         self.approve(goal)
         self.cli("goal", "start", goal["goal_id"])
         self.cli("run", "update", goal["goal_id"], "--state", "running", "--branch", "continuity/test")
-        self.cli("run", "update", goal["goal_id"], "--state", "completed", expected=2)
+        self.cli("run", "update", goal["goal_id"], "--state", "review-ready", expected=2)
         stages = [
             "implementation",
             "code-review",
@@ -407,8 +408,16 @@ unresolved_gaps: []
         for stage in stages:
             self.cli("goal", "gate", goal["goal_id"], stage, "--status", "passed", "--evidence", f"fixture:{stage}")
         self.cli("run", "update", goal["goal_id"], "--state", "validating")
-        completed = json.loads(self.cli("run", "update", goal["goal_id"], "--state", "completed", "--summary", "All gates passed").stdout)
-        self.assertEqual(completed["state"], "completed")
+        review_ready = json.loads(self.cli("run", "update", goal["goal_id"], "--state", "review-ready", "--summary", "All gates passed").stdout)
+        self.assertEqual(review_ready["state"], "review-ready")
+        goal_record = json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json").read_text())
+        self.assertEqual(goal_record["state"], "review-ready")
+        self.cli(
+            "merge", "record-human", goal["goal_id"], "--pr-url", "https://github.com/example/project/pull/1",
+            "--merged-by", "fixture-user", "--merge-commit", "abc123", "--evidence", "Human reviewed and merged PR #1",
+        )
+        completed_goal = json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json").read_text())
+        self.assertEqual(completed_goal["state"], "completed")
         self.cli("goal", "start", goal["goal_id"], expected=2)
 
     def test_quality_and_merge_reports_update_gates_and_morning_status(self) -> None:
@@ -482,6 +491,15 @@ unresolved_gaps: []
         self.assertEqual(merge["status"], "passed", merge)
         compliance = json.loads(compliance_path.read_text(encoding="utf-8"))
         self.assertEqual(compliance["stages"]["merge-safety"]["status"], "passed")
+        for stage in ("implementation", "documentation", "memory-impact", "roadmap-impact", "final-alignment"):
+            self.cli("goal", "gate", goal["goal_id"], stage, "--status", "passed", "--evidence", f"fixture:{stage}")
+        self.cli("run", "update", goal["goal_id"], "--state", "validating")
+        review_ready = json.loads(
+            self.cli("run", "update", goal["goal_id"], "--state", "review-ready", "--summary", "Ready for human review").stdout
+        )
+        self.assertEqual(review_ready["state"], "review-ready")
+        morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertEqual(morning["decisions_needed"][0]["goal_id"], goal["goal_id"])
         human = json.loads(
             self.cli(
                 "merge",
@@ -498,6 +516,8 @@ unresolved_gaps: []
             ).stdout
         )
         self.assertEqual(human["status"], "merged")
+        completed_morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertEqual(completed_morning["completed_overnight"][0]["goal_id"], goal["goal_id"])
         compliance = json.loads(compliance_path.read_text(encoding="utf-8"))
         self.assertEqual(compliance["stages"]["human-review"]["status"], "passed")
         project_report = self.cli("report", "project").stdout
@@ -507,7 +527,7 @@ unresolved_gaps: []
     def test_queued_goal_cannot_skip_execution_or_restart_terminal(self) -> None:
         goal = self.create_goal()
         self.approve(goal)
-        self.cli("run", "update", goal["goal_id"], "--state", "completed", "--summary", "claimed", expected=2)
+        self.cli("run", "update", goal["goal_id"], "--state", "review-ready", "--summary", "claimed", expected=2)
         self.cli("run", "update", goal["goal_id"], "--state", "running", expected=2)
 
     def test_goal_revision_preserves_history_and_invalidates_approval(self) -> None:
@@ -830,6 +850,73 @@ unresolved_gaps: []
         self.assertIn("No tracked goals", report)
         self.assertIn("Project memory", report)
 
+    def test_scheduler_registration_run_ledger_idempotency_and_recovery(self) -> None:
+        config = json.loads((self.root / ".continuity" / "config.json").read_text())
+        config["scheduler"] = {
+            "provider": "external",
+            "sweep_minutes": 15,
+            "business_days": [0, 1, 2, 3, 4],
+            "retry_limit": 2,
+            "retry_backoff_minutes": 15,
+            "stale_after_minutes": 45,
+            "portfolio_max_concurrency": 4,
+        }
+        config["behavior_configuration_hash"] = "a" * 64
+        self.write_json(self.root / ".continuity" / "config.json", config)
+        registered = json.loads(
+            self.cli("scheduler", "register", "--task-id", "supervisor-fixture", "--root", self.temp.name, "--actor", "fixture-user").stdout
+        )
+        self.assertEqual(registered["state"], "registered")
+        run = json.loads(
+            self.cli(
+                "scheduler", "run-start", "review", "--idempotency-key", "test-project:review:2026-07-15",
+                "--task-id", "child-task-1",
+            ).stdout
+        )
+        self.cli("scheduler", "run-heartbeat", run["run_id"], "--summary", "Still reviewing")
+        self.cli("scheduler", "run-finish", run["run_id"], "--status", "succeeded", "--summary", "Review completed")
+        self.cli(
+            "scheduler", "run-start", "review", "--idempotency-key", "test-project:review:2026-07-15",
+            "--task-id", "duplicate-task", expected=2,
+        )
+        stale = json.loads(
+            self.cli(
+                "scheduler", "run-start", "report", "--idempotency-key", "test-project:report:2026-07-16",
+                "--task-id", "child-task-2",
+            ).stdout
+        )
+        runs_path = self.root / ".continuity" / "private" / "scheduler-runs.jsonl"
+        with runs_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({**stale, "status": "heartbeat", "at": "2020-01-01T00:00:00-06:00", "summary": "stale fixture"}) + "\n")
+        recovered = json.loads(self.cli("scheduler", "recover", "--run-id", stale["run_id"], "--actor", "fixture-user").stdout)
+        self.assertEqual(recovered[0]["status"], "stale")
+        goal = self.create_goal("Recover stale execution")
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        execution_run = json.loads(
+            self.cli(
+                "scheduler", "run-start", "dispatch", "--idempotency-key", "test-project:dispatch:2026-07-16",
+                "--task-id", "execution-task", "--goal-id", goal["goal_id"],
+            ).stdout
+        )
+        self.cli(
+            "run", "update", goal["goal_id"], "--state", "running", "--task-id", "execution-task",
+            "--branch", "continuity/recover-stale-execution",
+        )
+        self.cli(
+            "scheduler", "run-finish", execution_run["run_id"], "--status", "succeeded",
+            "--summary", "Incorrect early success", expected=2,
+        )
+        with runs_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({**execution_run, "status": "heartbeat", "at": "2020-01-01T00:00:00-06:00", "summary": "stale execution fixture"}) + "\n")
+        execution_recovery = json.loads(
+            self.cli("scheduler", "recover", "--run-id", execution_run["run_id"], "--actor", "fixture-user").stdout
+        )
+        self.assertEqual(execution_recovery[0]["goal_recovery"], "blocked-and-lock-released")
+        recovered_goal = json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json").read_text())
+        self.assertEqual(recovered_goal["state"], "blocked")
+        self.assertFalse((self.root / ".continuity" / "private" / "project.lock.json").exists())
+
 
 class InstallerTest(unittest.TestCase):
     def test_installer_is_idempotent_and_creates_memory_and_guardrails(self) -> None:
@@ -900,7 +987,8 @@ class InstallerTest(unittest.TestCase):
             self.assertFalse(manifest["execution_enabled"])
             self.assertEqual(manifest["assurance_standard_version"], 2)
             self.assertEqual(manifest["agent_surfaces"], {"primary": "codex", "enabled": ["codex"]})
-            self.assertEqual(manifest["scheduler"], {"provider": "none"})
+            self.assertEqual(manifest["scheduler"]["provider"], "none")
+            self.assertEqual(manifest["scheduler"]["sweep_minutes"], 15)
             self.assertEqual(json.loads((root / ".continuity" / "scheduler.json").read_text(encoding="utf-8"))["registration_state"], "not-requested")
             behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
             self.assertEqual(behavior["fixed_guardrails"]["security_review"], "required")
@@ -990,6 +1078,26 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((root / ".cursor" / "commands" / "continuity-plan.md").exists())
             self.assertTrue((root / ".windsurf" / "skills" / "continuity-plan" / "SKILL.md").exists())
             self.assertEqual(json.loads((root / ".continuity" / "scheduler.json").read_text(encoding="utf-8"))["registration_state"], "requires-user-registration")
+            registration = subprocess.run(
+                [
+                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "--json",
+                    "scheduler",
+                    "register",
+                    "--task-id",
+                    "supervisor-test-task",
+                    "--root",
+                    temp,
+                    "--actor",
+                    "test-user",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(json.loads(registration.stdout)["state"], "registered")
             audit_lines = (root / ".continuity" / "private" / "configuration-audit.jsonl").read_text(encoding="utf-8").splitlines()
             self.assertGreaterEqual(len(audit_lines), 2)
             self.assertEqual(json.loads(audit_lines[-1])["actor"], "test-user")
@@ -1116,6 +1224,16 @@ class InstallerTest(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
+            subprocess.run(
+                [
+                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    "--project-root", str(root), "scheduler", "register",
+                    "--task-id", "supervisor-test-task", "--root", temp, "--actor", "repair-test",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
             doctor = subprocess.run(
                 [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
                 check=True,
@@ -1131,6 +1249,71 @@ class InstallerTest(unittest.TestCase):
             )
             records = json.loads(discovered.stdout)
             self.assertEqual([record["project_id"] for record in records], ["sample-project"])
+            queued = subprocess.run(
+                ["python3", str(CLI), "--json", "portfolio", "queue", "--root", temp],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            queue_records = json.loads(queued.stdout)
+            self.assertEqual(queue_records[0]["state"], "no-goals")
+            second_root = Path(temp) / "project-two"
+            shutil.copytree(root, second_root)
+            second_config_path = second_root / ".continuity" / "config.json"
+            second_config = json.loads(second_config_path.read_text(encoding="utf-8"))
+            second_config["project_id"] = "sample-project-two"
+            second_config["scheduler"]["portfolio_max_concurrency"] = 1
+            second_config_path.write_text(json.dumps(second_config, indent=2) + "\n", encoding="utf-8")
+            second_manifest_path = second_root / ".continuity" / "project.json"
+            second_manifest = json.loads(second_manifest_path.read_text(encoding="utf-8"))
+            second_manifest["project_id"] = "sample-project-two"
+            second_manifest["scheduler"]["portfolio_max_concurrency"] = 1
+            second_manifest_path.write_text(json.dumps(second_manifest, indent=2) + "\n", encoding="utf-8")
+            actions = subprocess.run(
+                [
+                    "python3", str(CLI), "--json", "portfolio", "actions", "--root", temp,
+                    "--action", "review", "--at", "2026-07-19T20:30:00-05:00",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            action_records = json.loads(actions.stdout)
+            self.assertEqual([record["status"] for record in action_records], ["due", "capacity-deferred"])
+            due_action = next(record for record in action_records if record["status"] == "due")
+            self.assertEqual(due_action["project_id"], "sample-project")
+            self.assertEqual(due_action["action"], "review")
+            scheduled_run = subprocess.run(
+                [
+                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    "--project-root", str(root), "--json", "scheduler", "run-start", "review",
+                    "--idempotency-key", due_action["idempotency_key"], "--task-id", "review-child-task",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            scheduled_run_record = json.loads(scheduled_run.stdout)
+            subprocess.run(
+                [
+                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    "--project-root", str(root), "scheduler", "run-finish", scheduled_run_record["run_id"],
+                    "--status", "succeeded", "--summary", "Nightly review completed",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            actions_after_success = subprocess.run(
+                [
+                    "python3", str(CLI), "--json", "portfolio", "actions", "--root", str(root),
+                    "--action", "review", "--at", "2026-07-19T20:30:00-05:00",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(json.loads(actions_after_success.stdout), [])
 
     def test_installer_reuses_portable_user_defaults_without_sharing_project_controls(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

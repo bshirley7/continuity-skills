@@ -17,10 +17,11 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" report project
+.agents/continuity/bin/continuity --project-root "$PWD" --json report morning
 .agents/continuity/bin/continuity --project-root "$PWD" memory audit
 ```
 
-The morning report is mandatory even when no goal ran. Include configuration health and hash, notes retained as context, documentation candidates, deferred items, open questions, memory and roadmap health, releases, milestones, sprints, risks, imported shared packets, plans awaiting feedback, queued and held work, active runs, latest `$continuity-test` result, failed validation or security findings, latest `$continuity-merge` assessment, completed or partial outcomes, blockers, PRs, compliance stages, and feedback needed.
+The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal or note, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Then include configuration and scheduler health, notes retained as context, documentation candidates, deferred items, open questions, memory and roadmap health, plans awaiting feedback, queues, active runs, tests, security, merge assessment, compliance, and prepared next work.
 
 For a portfolio report, discover project-local manifests beneath developer-configured workspace roots. Run each report from that repository using its installed skill and CLI. Aggregate only sanitized summaries; do not centralize raw captures, private ledgers, approvals, or locks.
 

@@ -48,6 +48,15 @@ USER_DEFAULT_FIELDS = {
     "agent_surfaces",
     "scheduler",
 }
+DEFAULT_SCHEDULER = {
+    "provider": "none",
+    "sweep_minutes": 15,
+    "business_days": [0, 1, 2, 3, 4],
+    "retry_limit": 2,
+    "retry_backoff_minutes": 15,
+    "stale_after_minutes": 45,
+    "portfolio_max_concurrency": 4,
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -73,6 +82,13 @@ def load_user_defaults(path: Path) -> dict[str, Any]:
 
 def portable_user_defaults(settings: dict[str, Any]) -> dict[str, Any]:
     return {key: settings[key] for key in sorted(USER_DEFAULT_FIELDS) if key in settings}
+
+
+def scheduler_defaults(value: Any) -> dict[str, Any]:
+    scheduler = dict(DEFAULT_SCHEDULER)
+    if isinstance(value, dict):
+        scheduler.update(value)
+    return scheduler
 
 
 def confined(root: Path, value: str, label: str) -> Path:
@@ -250,7 +266,7 @@ def main() -> int:
             "production_distribution": "forbidden",
         }),
         "agent_surfaces": user_defaults.get("agent_surfaces", {"primary": "codex", "enabled": ["codex"]}),
-        "scheduler": user_defaults.get("scheduler", {"provider": "none"}),
+        "scheduler": scheduler_defaults(user_defaults.get("scheduler")),
         "behavior_config_path": ".continuity/project-behavior.json",
         "behavior_skill_path": ".agents/skills/continuity-local/SKILL.md",
     }
@@ -265,7 +281,7 @@ def main() -> int:
         "timezone": effective_timezone,
         "schedules": user_defaults.get("schedules", {"review": "20:00", "dispatch": "22:00", "report": "07:00"}),
         "agent_surfaces": user_defaults.get("agent_surfaces", {"primary": "codex", "enabled": ["codex"]}),
-        "scheduler": user_defaults.get("scheduler", {"provider": "none"}),
+        "scheduler": scheduler_defaults(user_defaults.get("scheduler")),
         "max_concurrency": 1,
     }
 
@@ -307,7 +323,7 @@ def main() -> int:
 - Start configuration and workflow routing with `$continuity`; apply the generated `$continuity-local` behavior skill with every task-specific continuity skill.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/continuity/bin/continuity`.
 - Treat `AGENTS.md` and `.agents/` as the canonical cross-surface contract. Use the generated Claude Code, Cursor, or Windsurf adapters selected in `.continuity/project.json`; do not maintain divergent copies by hand.
-- Treat `.continuity/scheduler.json` as a scheduler handoff, not proof that a persistent task was registered. Registration in Codex, Claude Code, or an external scheduler remains an explicit user action.
+- Treat `.continuity/scheduler.json` as the supervisor handoff. Record the provider task ID and workspace roots with `scheduler register`; project doctor must fail on missing, stale, or unhealthy registration.
 - Treat notes as project knowledge first. Capture, classification, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.
 - Before planning or execution, run project-memory and roadmap briefs and cite the memory and roadmap IDs used.
@@ -320,7 +336,7 @@ def main() -> int:
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
 - Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
 - Use `$continuity-test` for project validation, targeted regressions, code review, and security review reports before PR handoff.
-- Use `$continuity-merge` for merge-safety assessment and later human-review or merge records. Continuity never auto-merges or force-pushes.
+- Use `$continuity-merge` for merge-safety assessment and later human-review or merge records. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.
 {AGENTS_END}"""
@@ -422,7 +438,7 @@ def main() -> int:
             {"schema_version": 1, "settings": portable_user_defaults(behavior["settings"])},
         )
     installed_skills = sum(1 for path in skills_target.iterdir() if path.is_dir())
-    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "user_defaults": str(user_defaults_path), "user_defaults_saved": save_defaults}, indent=2))
+    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": save_defaults}, indent=2))
     return 0
 
 

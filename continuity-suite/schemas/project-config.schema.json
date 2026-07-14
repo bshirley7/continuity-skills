@@ -48,12 +48,7 @@
       },
       "additionalProperties": false
     },
-    "scheduler": {
-      "type": "object",
-      "required": ["provider"],
-      "properties": {"provider": {"enum": ["codex", "claude-code", "external", "none"]}},
-      "additionalProperties": false
-    },
+    "scheduler": {"$ref": "scheduler-settings.schema.json"},
     "behavior_config_path": {"const": ".continuity/project-behavior.json"},
     "behavior_skill_path": {"const": ".agents/skills/continuity-local/SKILL.md"},
     "behavior_configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}

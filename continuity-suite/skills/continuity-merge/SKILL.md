@@ -34,7 +34,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 
 4. If the assessment fails, keep the PR draft or blocked and route unrelated follow-up into notes, roadmap, or a later goal.
 5. If the assessment passes, hand off for human PR review. Completion may be review-ready, but merge remains a human action.
-6. After a human review or merge, record the evidence:
+6. After a human review or merge, record the evidence. A review without a merge leaves the goal `review-ready`; a recorded merge commit moves it to `completed`:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> \

@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import sqlite3
 import subprocess
 import sys
@@ -28,14 +29,25 @@ import shared_notes as shared_notes_lib  # noqa: E402
 
 SCHEMA_VERSION = 1
 ASSURANCE_STANDARD_VERSION = 2
-BEHAVIOR_SCHEMA_VERSION = 2
-BEHAVIOR_PROFILE = "responsible-defaults-v2"
+BEHAVIOR_SCHEMA_VERSION = 3
+BEHAVIOR_PROFILE = "responsible-defaults-v3"
 BEHAVIOR_CONFIG_PATH = ".continuity/project-behavior.json"
 BEHAVIOR_SKILL_PATH = ".agents/skills/continuity-local/SKILL.md"
 AGENT_SURFACES = {"codex", "claude-code", "cursor", "windsurf", "generic"}
 SCHEDULER_PROVIDERS = {"codex", "claude-code", "external", "none"}
 DEFAULT_AGENT_SURFACES = {"primary": "codex", "enabled": ["codex"]}
-DEFAULT_SCHEDULER = {"provider": "none"}
+DEFAULT_SCHEDULER = {
+    "provider": "none",
+    "sweep_minutes": 15,
+    "business_days": [0, 1, 2, 3, 4],
+    "retry_limit": 2,
+    "retry_backoff_minutes": 15,
+    "stale_after_minutes": 45,
+    "portfolio_max_concurrency": 4,
+}
+SCHEDULE_ACTIONS = {"review", "dispatch", "report"}
+SCHEDULER_ACTIVE_STATES = {"started", "heartbeat"}
+SCHEDULER_FINAL_STATES = {"succeeded", "failed", "blocked", "stale"}
 VISUAL_EVIDENCE_MODES = {"when-applicable", "always", "explanation-allowed"}
 PLANNING_PATTERN_MODES = {"disabled", "auto", "required"}
 TRACKER_PROVIDERS = {"local", "github", "linear", "none"}
@@ -63,6 +75,8 @@ FIXED_GUARDRAILS = {
     "human_merge": "required",
     "force_push": "forbidden",
     "auto_merge": "forbidden",
+    "overnight_completion": "review-ready-until-human-review",
+    "restricted_external_side_effects": "fresh-human-approval-required",
     "planning_artifacts_authorize_execution": False,
     "external_tracker_publish": "explicit-human-approval-required",
     "raw_note_transport": "forbidden",
@@ -104,6 +118,7 @@ NOTE_WORK_STATUSES = {
     "dispatched",
     "running",
     "validating",
+    "review-ready",
     "completed",
     "partially-completed",
     "blocked",
@@ -112,7 +127,7 @@ NOTE_WORK_STATUSES = {
     "archived",
 }
 MEMORY_STATUSES = {"current", "proposed", "disputed", "superseded", "historical"}
-TERMINAL_STATES = {"completed", "partially-completed", "blocked", "cancelled"}
+TERMINAL_STATES = {"review-ready", "completed", "partially-completed", "blocked", "cancelled"}
 GOAL_STATES = {
     "proposed-plan",
     "awaiting-feedback",
@@ -268,6 +283,14 @@ def stable_id(prefix: str, *parts: str) -> str:
 def validate_identifier(value: str, label: str) -> str:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", value):
         raise ContinuityError(f"Invalid {label}: use 1-128 letters, numbers, dots, underscores, or hyphens")
+    return value
+
+
+def validate_task_id(value: str, label: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}", value):
+        raise ContinuityError(
+            f"Invalid {label}: use 1-256 letters, numbers, dots, underscores, colons, slashes, or hyphens"
+        )
     return value
 
 
@@ -663,22 +686,32 @@ def render_surface_command(skill_name: str) -> str:
     )
 
 
+def normalize_scheduler(value: Any) -> dict[str, Any]:
+    scheduler = dict(DEFAULT_SCHEDULER)
+    if isinstance(value, dict):
+        scheduler.update(value)
+    return scheduler
+
+
 def scheduler_plan(settings: dict[str, Any]) -> dict[str, Any]:
-    provider = settings["scheduler"]["provider"]
+    scheduler = normalize_scheduler(settings["scheduler"])
+    provider = scheduler["provider"]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "provider": provider,
         "registration_state": "not-requested" if provider == "none" else "requires-user-registration",
         "primary_surface": settings["agent_surfaces"]["primary"],
         "enabled_surfaces": settings["agent_surfaces"]["enabled"],
         "timezone": settings["timezone"],
         "schedules": settings["schedules"],
+        "policy": {key: value for key, value in scheduler.items() if key != "provider"},
         "prompts": {
+            "supervisor": ".agents/continuity/automation/portfolio-supervisor.md",
             "review": ".agents/continuity/automation/nightly-review.md",
             "dispatch": ".agents/continuity/automation/default-dispatch.md",
             "report": ".agents/continuity/automation/morning-report.md",
         },
-        "note": "Schedule intent is configured. Persistent registration remains an explicit user action in the selected scheduler.",
+        "note": "Register one provider-owned supervisor task, then record its task ID and workspace roots in private project state.",
     }
 
 
@@ -1900,6 +1933,167 @@ def requested_workspace_roots(values: Iterable[str] = ()) -> list[Path]:
     return roots
 
 
+def scheduler_registration_path(root: Path, config: dict[str, Any]) -> Path:
+    return private_path(root, config) / "scheduler-registration.json"
+
+
+def scheduler_runs_path(root: Path, config: dict[str, Any]) -> Path:
+    return private_path(root, config) / "scheduler-runs.jsonl"
+
+
+def parse_recorded_time(value: Any, timezone: str) -> dt.datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=ZoneInfo(timezone))
+    return parsed
+
+
+def scheduler_run_snapshots(root: Path, config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    snapshots: dict[str, dict[str, Any]] = {}
+    for event in iter_jsonl(scheduler_runs_path(root, config)):
+        run_id = event.get("run_id")
+        if not isinstance(run_id, str):
+            continue
+        current = dict(snapshots.get(run_id, {}))
+        current.update(event)
+        current["last_event_at"] = event.get("at")
+        snapshots[run_id] = current
+    return snapshots
+
+
+def scheduler_registration_status_for(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    scheduler = normalize_scheduler(config.get("scheduler"))
+    provider = scheduler["provider"]
+    registration = json_load(scheduler_registration_path(root, config), {})
+    state = "not-requested" if provider == "none" else "requires-user-registration"
+    problems: list[str] = []
+    if provider != "none" and isinstance(registration, dict) and registration:
+        if registration.get("provider") != provider:
+            problems.append("registered provider does not match project configuration")
+        if registration.get("behavior_configuration_hash") != config.get("behavior_configuration_hash"):
+            problems.append("registration is stale for the current behavior configuration")
+        task_id = registration.get("supervisor_task_id")
+        if not isinstance(task_id, str) or not task_id.strip():
+            problems.append("supervisor task ID is missing")
+        else:
+            try:
+                validate_task_id(task_id, "supervisor task ID")
+            except ContinuityError:
+                problems.append("supervisor task ID is invalid")
+        roots = registration.get("workspace_roots")
+        if not isinstance(roots, list) or not roots:
+            problems.append("workspace roots are missing")
+        elif any(not isinstance(item, str) or not item.strip() for item in roots):
+            problems.append("workspace roots must be non-empty paths")
+        elif any(not Path(item).expanduser().resolve().is_dir() or Path(item).expanduser().resolve() == Path("/") for item in roots):
+            problems.append("a registered workspace root is missing or unsafe")
+        if not problems:
+            state = "registered"
+        else:
+            state = "stale"
+    snapshots = scheduler_run_snapshots(root, config)
+    active = [run for run in snapshots.values() if run.get("status") in SCHEDULER_ACTIVE_STATES]
+    stale_after = dt.timedelta(minutes=scheduler["stale_after_minutes"])
+    current = now(config)
+    stale_runs = [
+        run["run_id"]
+        for run in active
+        if (stamp := parse_recorded_time(run.get("last_event_at"), config["timezone"])) is not None
+        and current - stamp > stale_after
+    ]
+    return {
+        "state": state,
+        "provider": provider,
+        "registered_at": registration.get("registered_at") if isinstance(registration, dict) else None,
+        "supervisor_task_id": registration.get("supervisor_task_id") if isinstance(registration, dict) else None,
+        "workspace_roots": registration.get("workspace_roots", []) if isinstance(registration, dict) else [],
+        "active_runs": len(active),
+        "stale_runs": stale_runs,
+        "problems": problems,
+        "policy": {key: value for key, value in scheduler.items() if key != "provider"},
+    }
+
+
+def action_calendar_allows(action: str, local_now: dt.datetime, business_days: list[int]) -> bool:
+    if action == "report":
+        return local_now.weekday() in business_days
+    return (local_now + dt.timedelta(days=1)).weekday() in business_days
+
+
+def latest_run_for_key(root: Path, config: dict[str, Any], idempotency_key: str) -> tuple[dict[str, Any] | None, int]:
+    matching = [run for run in scheduler_run_snapshots(root, config).values() if run.get("idempotency_key") == idempotency_key]
+    if not matching:
+        return None, 0
+    matching.sort(key=lambda value: value.get("last_event_at", ""))
+    return matching[-1], max(int(run.get("attempt", 1)) for run in matching)
+
+
+def due_action_for_project(root: Path, config: dict[str, Any], manifest: dict[str, Any], action: str, current: dt.datetime) -> dict[str, Any] | None:
+    scheduler = normalize_scheduler(config.get("scheduler", manifest.get("scheduler")))
+    local_now = current.astimezone(ZoneInfo(config["timezone"]))
+    business_days = scheduler["business_days"]
+    if not action_calendar_allows(action, local_now, business_days):
+        return None
+    scheduled_text = manifest.get("schedules", {}).get(action)
+    if not isinstance(scheduled_text, str):
+        return None
+    hour, minute = (int(part) for part in scheduled_text.split(":"))
+    scheduled_at = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if local_now < scheduled_at:
+        return None
+    if action == "dispatch" and not manifest.get("execution_enabled"):
+        return None
+    idempotency_key = f"{manifest['project_id']}:{action}:{scheduled_at.date().isoformat()}"
+    latest, attempts = latest_run_for_key(root, config, idempotency_key)
+    stale_after = dt.timedelta(minutes=scheduler["stale_after_minutes"])
+    retry_backoff = dt.timedelta(minutes=scheduler["retry_backoff_minutes"])
+    status = "due"
+    if latest:
+        latest_at = parse_recorded_time(latest.get("last_event_at"), config["timezone"])
+        if latest.get("status") == "succeeded":
+            return None
+        if latest.get("status") in SCHEDULER_ACTIVE_STATES:
+            if latest_at is None or local_now - latest_at <= stale_after:
+                return None
+            status = "recovery-required"
+        elif attempts > scheduler["retry_limit"]:
+            return None
+        elif latest_at is not None and local_now - latest_at < retry_backoff:
+            return None
+        else:
+            status = "retry"
+    due_goals: list[str] = []
+    if action == "dispatch":
+        previous = os.environ.get("CONTINUITY_PROJECT_ROOT")
+        os.environ["CONTINUITY_PROJECT_ROOT"] = str(root)
+        try:
+            due_goals = [goal["goal_id"] for goal in goal_due(argparse.Namespace())]
+        finally:
+            if previous is None:
+                os.environ.pop("CONTINUITY_PROJECT_ROOT", None)
+            else:
+                os.environ["CONTINUITY_PROJECT_ROOT"] = previous
+        if not due_goals:
+            return None
+    return {
+        "project_id": manifest["project_id"],
+        "path": str(root),
+        "action": action,
+        "status": status,
+        "scheduled_at": scheduled_at.isoformat(timespec="minutes"),
+        "idempotency_key": idempotency_key,
+        "attempt": attempts + 1,
+        "due_goal_ids": due_goals,
+        "portfolio_max_concurrency": scheduler["portfolio_max_concurrency"],
+        "autonomy_envelope": "approved-code" if manifest.get("execution_enabled") else "analysis-only",
+    }
+
+
 def discover_projects(workspace_roots: Iterable[Path]) -> list[dict[str, Any]]:
     discovered: dict[str, dict[str, Any]] = {}
     pruned = {".git", ".agents", ".continuity", "node_modules", ".venv", "venv", "dist", "build", "target", "vendor", "__pycache__"}
@@ -2029,6 +2223,20 @@ def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
                 goal = json_load(path, {})
                 if isinstance(goal, dict):
                     goals.append(goal)
+        if not goals:
+            results.append(
+                {
+                    "project_id": project.get("project_id"),
+                    "path": str(project_root),
+                    "integration_branch": manifest.get("integration_branch"),
+                    "execution_enabled": manifest.get("execution_enabled", False),
+                    "project_lock": json_load(private_path(project_root, config) / "project.lock.json"),
+                    "goal_count": 0,
+                    "goals": [],
+                    "state": "no-goals",
+                }
+            )
+            continue
         for goal in goals:
             results.append(
                 {
@@ -2037,9 +2245,57 @@ def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
                     "integration_branch": manifest.get("integration_branch"),
                     "execution_enabled": manifest.get("execution_enabled", False),
                     "project_lock": json_load(private_path(project_root, config) / "project.lock.json"),
+                    "goal_count": len(goals),
                     **goal,
                 }
             )
+    return results
+
+
+def portfolio_actions(args: argparse.Namespace) -> list[dict[str, Any]]:
+    workspace_roots = requested_workspace_roots(args.root or [])
+    os.environ["CONTINUITY_WORKSPACE_ROOTS"] = os.pathsep.join(str(root) for root in workspace_roots)
+    if args.at:
+        try:
+            current = dt.datetime.fromisoformat(args.at)
+        except ValueError as exc:
+            raise ContinuityError("--at must be an ISO 8601 datetime") from exc
+        if current.tzinfo is None:
+            raise ContinuityError("--at must include a timezone offset")
+    else:
+        current = dt.datetime.now(dt.timezone.utc)
+    actions = [args.action] if args.action else ["review", "dispatch", "report"]
+    results: list[dict[str, Any]] = []
+    for project in discover_projects(workspace_roots):
+        if not project.get("healthy"):
+            results.append({**project, "action": "health", "status": "blocked"})
+            continue
+        root = Path(project["path"]).resolve()
+        manifest = project["manifest"]
+        config = json_load(root / ".continuity" / "config.json", {})
+        registration = scheduler_registration_status_for(root, config)
+        if registration["state"] not in {"registered", "not-requested"}:
+            results.append(
+                {
+                    "project_id": project["project_id"],
+                    "path": str(root),
+                    "action": "registration",
+                    "status": "blocked",
+                    "scheduler": registration,
+                }
+            )
+            continue
+        for action in actions:
+            due = due_action_for_project(root, config, manifest, action, current)
+            if due:
+                due["scheduler"] = registration
+                results.append(due)
+    runnable = [item for item in results if item.get("status") in {"due", "retry"}]
+    if runnable:
+        capacity = min(int(item["portfolio_max_concurrency"]) for item in runnable)
+        runnable.sort(key=lambda item: (item.get("scheduled_at", ""), item.get("project_id", ""), item.get("action", "")))
+        for item in runnable[capacity:]:
+            item["status"] = "capacity-deferred"
     return results
 
 
@@ -2068,7 +2324,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
         settings.setdefault("roadmap", dict(DEFAULT_ROADMAP_SETTINGS))
         settings.setdefault("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))
-        settings.setdefault("scheduler", dict(DEFAULT_SCHEDULER))
+        settings["scheduler"] = normalize_scheduler(settings.get("scheduler"))
         documentation_map = dict(settings.get("documentation_map", {}))
         documentation_map.setdefault("project-roadmap", "docs/project-roadmap/INDEX.md")
         settings["documentation_map"] = documentation_map
@@ -2093,7 +2349,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         "planning_patterns": config.get("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS)),
         "roadmap": config.get("roadmap", dict(DEFAULT_ROADMAP_SETTINGS)),
         "agent_surfaces": config.get("agent_surfaces", manifest.get("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))),
-        "scheduler": config.get("scheduler", manifest.get("scheduler", dict(DEFAULT_SCHEDULER))),
+        "scheduler": normalize_scheduler(config.get("scheduler", manifest.get("scheduler"))),
         "execution_enabled": bool(manifest.get("execution_enabled", False)),
     }
 
@@ -2153,6 +2409,12 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "agent_surfaces.primary",
             "agent_surfaces.enabled",
             "scheduler.provider",
+            "scheduler.sweep_minutes",
+            "scheduler.business_days",
+            "scheduler.retry_limit",
+            "scheduler.retry_backoff_minutes",
+            "scheduler.stale_after_minutes",
+            "scheduler.portfolio_max_concurrency",
             "execution_enabled",
         ],
         "fixed_guardrails": FIXED_GUARDRAILS,
@@ -2291,13 +2553,33 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         raise ContinuityError("agent_surfaces.enabled must be a unique non-empty list of supported surfaces containing the primary surface")
     agent_surfaces["enabled"] = sorted(enabled_surfaces)
     scheduler = settings.get("scheduler")
-    if not isinstance(scheduler, dict) or set(scheduler) != {"provider"}:
-        raise ContinuityError("scheduler must define exactly provider")
+    if not isinstance(scheduler, dict) or set(scheduler) != set(DEFAULT_SCHEDULER):
+        raise ContinuityError(f"scheduler must define exactly {sorted(DEFAULT_SCHEDULER)}")
     provider = scheduler.get("provider")
     if provider not in SCHEDULER_PROVIDERS:
         raise ContinuityError(f"scheduler.provider must be one of {sorted(SCHEDULER_PROVIDERS)}")
     if provider in {"codex", "claude-code"} and provider not in agent_surfaces["enabled"]:
         raise ContinuityError("scheduler.provider must name an enabled agent surface or use external/none")
+    business_days = scheduler.get("business_days")
+    if (
+        not isinstance(business_days, list)
+        or not business_days
+        or any(isinstance(day, bool) or not isinstance(day, int) or day < 0 or day > 6 for day in business_days)
+        or len(business_days) != len(set(business_days))
+    ):
+        raise ContinuityError("scheduler.business_days must be a unique non-empty list of weekday numbers 0-6")
+    scheduler["business_days"] = sorted(business_days)
+    scheduler_limits = {
+        "sweep_minutes": (5, 60),
+        "retry_limit": (0, 5),
+        "retry_backoff_minutes": (1, 240),
+        "stale_after_minutes": (10, 720),
+        "portfolio_max_concurrency": (1, 16),
+    }
+    for label, (minimum, maximum) in scheduler_limits.items():
+        number = scheduler.get(label)
+        if isinstance(number, bool) or not isinstance(number, int) or not minimum <= number <= maximum:
+            raise ContinuityError(f"scheduler.{label} must be between {minimum} and {maximum}")
     if not isinstance(settings.get("execution_enabled"), bool):
         raise ContinuityError("execution_enabled must be true or false")
     return settings
@@ -2376,6 +2658,11 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             raise ContinuityError("schedules override must be a JSON object")
         answers = dict(answers)
         answers["schedules"] = {**current.get("schedules", {}), **answers["schedules"]}
+    if "scheduler" in answers:
+        if not isinstance(answers["scheduler"], dict):
+            raise ContinuityError("scheduler override must be a JSON object")
+        answers = dict(answers)
+        answers["scheduler"] = {**normalize_scheduler(current.get("scheduler")), **answers["scheduler"]}
     merged.update(answers)
     settings = validate_behavior_settings(root, merged)
     overrides = sorted(key for key, value in settings.items() if value != recommendations.get(key))
@@ -2498,7 +2785,187 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     except ContinuityError as exc:
         record["healthy"] = False
         record["problems"].append(str(exc))
+    scheduler_health = scheduler_registration_status_for(root, config)
+    record["scheduler"] = scheduler_health
+    if scheduler_health["state"] in {"requires-user-registration", "stale"}:
+        record["healthy"] = False
+        record["problems"].append(f"scheduler is {scheduler_health['state']}")
+    if scheduler_health["stale_runs"]:
+        record["healthy"] = False
+        record["problems"].append(f"scheduler has stale runs: {scheduler_health['stale_runs']}")
     return record
+
+
+def scheduler_register(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    scheduler = normalize_scheduler(config.get("scheduler"))
+    if scheduler["provider"] == "none":
+        raise ContinuityError("Choose a scheduler provider before recording registration")
+    workspace_roots = requested_workspace_roots(args.root or [])
+    record = {
+        "schema_version": 1,
+        "provider": scheduler["provider"],
+        "registered_at": iso_now(config),
+        "registered_by": args.actor,
+        "supervisor_task_id": validate_task_id(args.task_id, "supervisor task ID"),
+        "workspace_roots": [str(path) for path in workspace_roots],
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+        "sweep_minutes": scheduler["sweep_minutes"],
+        "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md",
+    }
+    json_dump(scheduler_registration_path(root, config), record)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": record["registered_at"], "event": "scheduler.registered", "actor": args.actor, "task_id": args.task_id})
+    return scheduler_registration_status_for(root, config)
+
+
+def scheduler_unregister(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    path = scheduler_registration_path(root, config)
+    existed = path.exists()
+    path.unlink(missing_ok=True)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": iso_now(config), "event": "scheduler.unregistered", "actor": args.actor})
+    return {"unregistered": existed, **scheduler_registration_status_for(root, config)}
+
+
+def scheduler_status(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    status = scheduler_registration_status_for(root, config)
+    snapshots = list(scheduler_run_snapshots(root, config).values())
+    snapshots.sort(key=lambda value: value.get("last_event_at", ""), reverse=True)
+    status["recent_runs"] = snapshots[: args.limit]
+    return status
+
+
+def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    registration = scheduler_registration_status_for(root, config)
+    if registration["state"] not in {"registered", "not-requested"}:
+        raise ContinuityError(f"Scheduler registration is {registration['state']}")
+    expected_prefix = f"{config['project_id']}:{args.action}:"
+    if not args.idempotency_key.startswith(expected_prefix):
+        raise ContinuityError(f"idempotency key must start with {expected_prefix}")
+    latest, attempts = latest_run_for_key(root, config, args.idempotency_key)
+    scheduler = normalize_scheduler(config.get("scheduler"))
+    current = now(config)
+    if latest:
+        latest_at = parse_recorded_time(latest.get("last_event_at"), config["timezone"])
+        if latest.get("status") == "succeeded":
+            raise ContinuityError("This scheduled action already succeeded")
+        if latest.get("status") in SCHEDULER_ACTIVE_STATES and latest_at is not None and current - latest_at <= dt.timedelta(minutes=scheduler["stale_after_minutes"]):
+            raise ContinuityError(f"Scheduled action is already active as {latest['run_id']}")
+        if attempts > scheduler["retry_limit"]:
+            raise ContinuityError("Scheduled action exhausted its retry allowance")
+        if latest_at is not None and latest.get("status") in SCHEDULER_FINAL_STATES and current - latest_at < dt.timedelta(minutes=scheduler["retry_backoff_minutes"]):
+            raise ContinuityError("Scheduled action is still in retry backoff")
+    attempt = attempts + 1
+    run_id = f"run-{secrets.token_hex(8)}"
+    task_id = validate_task_id(args.task_id, "scheduled task ID")
+    event = {
+        "schema_version": 1,
+        "run_id": run_id,
+        "project_id": config["project_id"],
+        "action": args.action,
+        "status": "started",
+        "at": iso_now(config),
+        "idempotency_key": args.idempotency_key,
+        "attempt": attempt,
+        "task_id": task_id,
+        "goal_id": args.goal_id,
+        "summary": args.summary or "Scheduled action started.",
+    }
+    append_jsonl(scheduler_runs_path(root, config), event)
+    return event
+
+
+def scheduler_run_event(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    snapshots = scheduler_run_snapshots(root, config)
+    run = snapshots.get(args.run_id)
+    if not run:
+        raise ContinuityError(f"Unknown scheduler run: {args.run_id}")
+    if run.get("status") not in SCHEDULER_ACTIVE_STATES:
+        raise ContinuityError(f"Scheduler run is already final: {run.get('status')}")
+    status = "heartbeat" if args.command == "heartbeat" else args.status
+    if status == "succeeded" and run.get("action") == "dispatch":
+        goal_id = run.get("goal_id")
+        if not isinstance(goal_id, str):
+            raise ContinuityError("A successful dispatch run must identify its goal")
+        _directory, goal = load_goal(root, config, goal_id)
+        if goal.get("state") not in {"review-ready", "completed"}:
+            raise ContinuityError("A dispatch run cannot succeed before its goal reaches review-ready")
+    event = {
+        "schema_version": 1,
+        "run_id": args.run_id,
+        "project_id": config["project_id"],
+        "action": run["action"],
+        "status": status,
+        "at": iso_now(config),
+        "idempotency_key": run["idempotency_key"],
+        "attempt": run["attempt"],
+        "task_id": run.get("task_id"),
+        "goal_id": run.get("goal_id"),
+        "summary": args.summary,
+    }
+    append_jsonl(scheduler_runs_path(root, config), event)
+    return event
+
+
+def scheduler_recover(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    scheduler = normalize_scheduler(config.get("scheduler"))
+    current = now(config)
+    recovered: list[dict[str, Any]] = []
+    for run in scheduler_run_snapshots(root, config).values():
+        if args.run_id and run.get("run_id") != args.run_id:
+            continue
+        if run.get("status") not in SCHEDULER_ACTIVE_STATES:
+            continue
+        last_event = parse_recorded_time(run.get("last_event_at"), config["timezone"])
+        if last_event is None or current - last_event <= dt.timedelta(minutes=scheduler["stale_after_minutes"]):
+            continue
+        goal_id = run.get("goal_id")
+        goal_context: tuple[Path, dict[str, Any], dict[str, Any]] | None = None
+        if isinstance(goal_id, str):
+            directory, goal = load_goal(root, config, goal_id)
+            execution = json_load(directory / "execution.json", {})
+            if goal.get("state") in {"dispatched", "running", "validating"}:
+                execution_task = execution.get("task_id") if isinstance(execution, dict) else None
+                if execution_task and execution_task != run.get("task_id"):
+                    raise ContinuityError("Refusing stale recovery because the execution task ID does not match")
+                goal_context = (directory, goal, execution if isinstance(execution, dict) else {})
+        event = {
+            "schema_version": 1,
+            "run_id": run["run_id"],
+            "project_id": config["project_id"],
+            "action": run["action"],
+            "status": "stale",
+            "at": iso_now(config),
+            "idempotency_key": run["idempotency_key"],
+            "attempt": run["attempt"],
+            "task_id": run.get("task_id"),
+            "goal_id": run.get("goal_id"),
+            "summary": args.summary,
+            "recovered_by": args.actor,
+        }
+        append_jsonl(scheduler_runs_path(root, config), event)
+        if goal_context is not None:
+            directory, goal, execution = goal_context
+            stamp = iso_now(config)
+            goal["state"] = "blocked"
+            goal["updated_at"] = stamp
+            json_dump(directory / "goal.json", goal)
+            execution.update({"goal_id": goal_id, "state": "blocked", "updated_at": stamp, "summary": args.summary})
+            json_dump(directory / "execution.json", execution)
+            update_note_work_status(root, config, goal.get("source_note_ids", []), "blocked", goal_id=goal_id)
+            lock_path = private_path(root, config) / "project.lock.json"
+            lock = json_load(lock_path, {})
+            if isinstance(lock, dict) and lock.get("goal_id") == goal_id:
+                lock_path.unlink(missing_ok=True)
+            event["goal_recovery"] = "blocked-and-lock-released"
+        recovered.append(event)
+    if args.run_id and not recovered:
+        raise ContinuityError("Requested run is not stale or does not exist")
+    return recovered
 
 
 def git_result(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -3023,6 +3490,8 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
 def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
+    if args.merge_commit and goal.get("state") != "review-ready":
+        raise ContinuityError("Only review-ready work can be recorded as human-merged")
     if not args.evidence:
         raise ContinuityError("Human merge review requires evidence")
     if config.get("require_pr", True) and not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/pull/\d+", args.pr_url):
@@ -3044,6 +3513,12 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
     json_dump(directory / "human-review.json", report)
     append_jsonl(private_path(root, config) / "reports" / "human-reviews.jsonl", report)
     record_compliance_stage(root, config, directory, goal, "human-review", "passed", args.evidence, args.actor)
+    if args.merge_commit:
+        goal["state"] = "completed"
+        goal["updated_at"] = stamp
+        goal["completed_at"] = stamp
+        json_dump(directory / "goal.json", goal)
+        update_note_work_status(root, config, goal.get("source_note_ids", []), "completed", goal_id=args.goal_id)
     append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "merge.human-review", "goal_id": args.goal_id, "status": report["status"]})
     return report
 
@@ -3051,13 +3526,13 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
 def run_update(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
-    if args.state not in {"running", "validating", *TERMINAL_STATES}:
+    if args.state not in {"running", "validating", "review-ready", "partially-completed", "blocked", "cancelled"}:
         raise ContinuityError(f"Invalid execution state: {args.state}")
     current = goal.get("state")
     allowed = {
         "dispatched": {"running", "blocked", "cancelled"},
         "running": {"running", "validating", "partially-completed", "blocked", "cancelled"},
-        "validating": {"validating", "completed", "partially-completed", "blocked", "cancelled"},
+        "validating": {"validating", "review-ready", "partially-completed", "blocked", "cancelled"},
     }
     if args.state not in allowed.get(current, set()):
         raise ContinuityError(f"Illegal execution transition: {current} -> {args.state}")
@@ -3086,10 +3561,10 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
         worktree_common = (worktree / common_worktree.stdout.strip()).resolve()
         if root_common != worktree_common:
             raise ContinuityError("Execution worktree does not belong to the configured repository")
-    if args.state == "completed":
+    if args.state == "review-ready":
         compliance = json_load(directory / "compliance.json", {})
         if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
-            raise ContinuityError("Cannot mark completed under a missing or unsupported assurance standard")
+            raise ContinuityError("Cannot mark review-ready under a missing or unsupported assurance standard")
         required = [stage for stage in COMPLIANCE_STAGES if stage != "human-review"]
         incomplete = {
             stage: compliance.get("stages", {}).get(stage, {}).get("status", "missing")
@@ -3097,7 +3572,7 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
             if compliance.get("stages", {}).get(stage, {}).get("status") not in {"passed", "not-applicable"}
         }
         if incomplete:
-            raise ContinuityError(f"Cannot mark completed; compliance stages incomplete: {incomplete}")
+            raise ContinuityError(f"Cannot mark review-ready; compliance stages incomplete: {incomplete}")
     stamp = iso_now(config)
     manifest = json_load(directory / "execution.json", {})
     artifacts = dict(manifest.get("artifacts", {}))
@@ -3126,9 +3601,11 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
     )
     if args.state == "running" and "started_at" not in manifest:
         manifest["started_at"] = stamp
-    if args.state in TERMINAL_STATES:
+    if args.state == "review-ready":
+        manifest["review_ready_at"] = stamp
+    elif args.state in TERMINAL_STATES:
         manifest["completed_at"] = stamp
-    if args.state == "completed":
+    if args.state == "review-ready":
         missing_fields = [key for key in ("started_at", "branch", "summary") if not manifest.get(key)]
         if config.get("require_pr", False):
             pr_url = str(manifest.get("pr_url") or "")
@@ -3147,7 +3624,7 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
             if not list(iter_jsonl(directory / "checkpoints.jsonl")):
                 missing_fields.append("alignment checkpoint")
         if missing_fields:
-            raise ContinuityError(f"Cannot mark completed; missing execution evidence: {missing_fields}")
+            raise ContinuityError(f"Cannot mark review-ready; missing execution evidence: {missing_fields}")
     json_dump(directory / "execution.json", manifest)
     goal["state"] = args.state
     goal["updated_at"] = stamp
@@ -3162,9 +3639,73 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
     return manifest
 
 
+def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    goals = goal_list(argparse.Namespace(state=None))
+    notes = note_list(argparse.Namespace(kind=None))
+    decisions_needed: list[dict[str, Any]] = []
+    completed_overnight: list[dict[str, Any]] = []
+    blocked_or_at_risk: list[dict[str, Any]] = []
+    prepared_next: list[dict[str, Any]] = []
+    overnight_cutoff = now(config) - dt.timedelta(hours=24)
+    for goal in sorted(goals, key=lambda value: value.get("updated_at", ""), reverse=True):
+        directory = goal_dir(root, config, goal["goal_id"])
+        execution = json_load(directory / "execution.json", {})
+        detail = {
+            "goal_id": goal["goal_id"],
+            "title": goal["title"],
+            "state": goal["state"],
+            "updated_at": goal.get("updated_at"),
+            "pr_url": execution.get("pr_url") if isinstance(execution, dict) else None,
+            "summary": execution.get("summary") if isinstance(execution, dict) else None,
+        }
+        if goal["state"] == "review-ready":
+            decisions_needed.append({**detail, "decision": "Review the draft PR and record human disposition.", "recommendation": "Review evidence, then merge or request revisions."})
+        elif goal["state"] in {"proposed-plan", "awaiting-feedback"}:
+            prepared_next.append(detail)
+            decisions_needed.append({**detail, "decision": "Approve, revise, hold, or reject this exact plan version.", "recommendation": "Approve only when scope and business outcome are decision-complete."})
+        elif goal["state"] in {"blocked", "partially-completed"}:
+            blocked_or_at_risk.append(detail)
+            decisions_needed.append({**detail, "decision": "Choose remediation, rescheduling, or cancellation.", "recommendation": "Resolve the recorded blocker before further dispatch."})
+        elif goal["state"] == "completed":
+            completed_at = parse_recorded_time(goal.get("completed_at"), config["timezone"])
+            if completed_at is not None and completed_at >= overnight_cutoff:
+                completed_overnight.append(detail)
+    for note in notes:
+        if note.get("kind") == "question" and note.get("work_status") in {"open", "deferred"}:
+            decisions_needed.append(
+                {
+                    "note_id": note.get("item_id"),
+                    "title": note.get("text"),
+                    "state": note.get("work_status"),
+                    "decision": "Answer or defer the open project question.",
+                    "recommendation": "Answer only when it affects an upcoming approved goal.",
+                }
+            )
+    scheduler_health = scheduler_registration_status_for(root, config)
+    if scheduler_health["state"] in {"requires-user-registration", "stale"} or scheduler_health["stale_runs"]:
+        blocked_or_at_risk.append({"type": "scheduler", "state": scheduler_health["state"], "stale_runs": scheduler_health["stale_runs"], "problems": scheduler_health["problems"]})
+    return {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "generated_at": iso_now(config),
+        "decisions_needed": decisions_needed,
+        "completed_overnight": completed_overnight,
+        "blocked_or_at_risk": blocked_or_at_risk,
+        "prepared_next": prepared_next,
+        "no_action_required": not decisions_needed and not blocked_or_at_risk,
+        "scheduler": scheduler_health,
+    }
+
+
+def report_morning(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    return morning_decision_report(root, config)
+
+
 def report_project(args: argparse.Namespace) -> str:
     root, config = load_context()
     goals = goal_list(argparse.Namespace(state=None))
+    decision_report = morning_decision_report(root, config)
     counts: dict[str, int] = {}
     for goal in goals:
         counts[goal["state"]] = counts.get(goal["state"], 0) + 1
@@ -3179,6 +3720,27 @@ def report_project(args: argparse.Namespace) -> str:
         "",
         f"Generated: {iso_now(config)}",
         "",
+        "## Decisions needed",
+        "",
+    ]
+    if not decision_report["decisions_needed"]:
+        lines.append("- No decisions are required.")
+    for item in decision_report["decisions_needed"]:
+        identifier = item.get("goal_id") or item.get("note_id") or "project"
+        lines.append(f"- **{identifier}** — {item.get('title', 'Operational decision')} — {item['decision']} Recommendation: {item['recommendation']}")
+    lines.extend(["", "## Completed overnight", ""])
+    if not decision_report["completed_overnight"]:
+        lines.append("- No work was recorded as human-complete during this reporting window.")
+    for item in decision_report["completed_overnight"]:
+        lines.append(f"- **{item['goal_id']}** — {item['title']} — {item.get('summary') or 'Completed with recorded evidence.'}")
+    lines.extend(["", "## Blocked or at risk", ""])
+    if not decision_report["blocked_or_at_risk"]:
+        lines.append("- No recorded blockers or operational risks.")
+    for item in decision_report["blocked_or_at_risk"]:
+        identifier = item.get("goal_id") or item.get("type", "project")
+        lines.append(f"- **{identifier}** — `{item.get('state', 'unknown')}` — {item.get('summary') or ', '.join(item.get('problems', [])) or 'Review recorded evidence.'}")
+    lines.extend([
+        "",
         "## Configuration",
         "",
         f"- Behavior hash: `{config.get('behavior_configuration_hash', 'legacy-unconfigured')}`",
@@ -3187,7 +3749,7 @@ def report_project(args: argparse.Namespace) -> str:
         "",
         "## Goals",
         "",
-    ]
+    ])
     if not goals:
         lines.append("No tracked goals.")
     for state, count in sorted(counts.items()):
@@ -3448,7 +4010,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_sub = run.add_subparsers(dest="command", required=True)
     update = run_sub.add_parser("update")
     update.add_argument("goal_id")
-    update.add_argument("--state", required=True, choices=["running", "validating", *sorted(TERMINAL_STATES)])
+    update.add_argument("--state", required=True, choices=["running", "validating", "review-ready", "partially-completed", "blocked", "cancelled"])
     update.add_argument("--task-id")
     update.add_argument("--branch")
     update.add_argument("--pr-url")
@@ -3517,6 +4079,8 @@ def build_parser() -> argparse.ArgumentParser:
     report_sub = report.add_subparsers(dest="command", required=True)
     project = report_sub.add_parser("project")
     project.set_defaults(handler=report_project)
+    morning = report_sub.add_parser("morning")
+    morning.set_defaults(handler=report_morning)
 
     project_admin = top.add_parser("project")
     project_admin_sub = project_admin.add_subparsers(dest="command", required=True)
@@ -3531,12 +4095,52 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = project_admin_sub.add_parser("doctor")
     doctor.set_defaults(handler=project_doctor)
 
+    scheduler = top.add_parser("scheduler")
+    scheduler_sub = scheduler.add_subparsers(dest="command", required=True)
+    scheduler_register_command = scheduler_sub.add_parser("register")
+    scheduler_register_command.add_argument("--task-id", required=True)
+    scheduler_register_command.add_argument("--root", action="append", required=True, help="Workspace root scanned by the supervisor; repeat for multiple roots")
+    scheduler_register_command.add_argument("--actor", default="user")
+    scheduler_register_command.set_defaults(handler=scheduler_register)
+    scheduler_unregister_command = scheduler_sub.add_parser("unregister")
+    scheduler_unregister_command.add_argument("--actor", default="user")
+    scheduler_unregister_command.set_defaults(handler=scheduler_unregister)
+    scheduler_status_command = scheduler_sub.add_parser("status")
+    scheduler_status_command.add_argument("--limit", type=int, default=10)
+    scheduler_status_command.set_defaults(handler=scheduler_status)
+    scheduler_start_command = scheduler_sub.add_parser("run-start")
+    scheduler_start_command.add_argument("action", choices=sorted(SCHEDULE_ACTIONS))
+    scheduler_start_command.add_argument("--idempotency-key", required=True)
+    scheduler_start_command.add_argument("--task-id", required=True)
+    scheduler_start_command.add_argument("--goal-id")
+    scheduler_start_command.add_argument("--summary")
+    scheduler_start_command.set_defaults(handler=scheduler_run_start)
+    scheduler_heartbeat_command = scheduler_sub.add_parser("run-heartbeat")
+    scheduler_heartbeat_command.add_argument("run_id")
+    scheduler_heartbeat_command.add_argument("--summary", default="Scheduled task heartbeat.")
+    scheduler_heartbeat_command.set_defaults(handler=scheduler_run_event, command="heartbeat")
+    scheduler_finish_command = scheduler_sub.add_parser("run-finish")
+    scheduler_finish_command.add_argument("run_id")
+    scheduler_finish_command.add_argument("--status", choices=["succeeded", "failed", "blocked"], required=True)
+    scheduler_finish_command.add_argument("--summary", required=True)
+    scheduler_finish_command.set_defaults(handler=scheduler_run_event, command="finish")
+    scheduler_recover_command = scheduler_sub.add_parser("recover")
+    scheduler_recover_command.add_argument("--run-id")
+    scheduler_recover_command.add_argument("--actor", default="supervisor")
+    scheduler_recover_command.add_argument("--summary", default="Stale scheduled task blocked; project lock released for explicit retry.")
+    scheduler_recover_command.set_defaults(handler=scheduler_recover)
+
     portfolio = top.add_parser("portfolio")
     portfolio_sub = portfolio.add_subparsers(dest="command", required=True)
     for name, due_only, discover_only in (("discover", False, True), ("queue", False, False), ("due", True, False)):
         portfolio_command = portfolio_sub.add_parser(name)
         portfolio_command.add_argument("--root", action="append", help="Workspace root to scan; repeat for multiple roots")
         portfolio_command.set_defaults(handler=portfolio_goals, due=due_only, discover=discover_only)
+    portfolio_actions_command = portfolio_sub.add_parser("actions")
+    portfolio_actions_command.add_argument("--root", action="append", help="Workspace root to scan; repeat for multiple roots")
+    portfolio_actions_command.add_argument("--action", choices=sorted(SCHEDULE_ACTIONS))
+    portfolio_actions_command.add_argument("--at", help="ISO 8601 time override used for deterministic inspection and tests")
+    portfolio_actions_command.set_defaults(handler=portfolio_actions)
     return parser
 
 

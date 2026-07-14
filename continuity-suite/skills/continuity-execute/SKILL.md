@@ -43,4 +43,4 @@ Use `goal gate`, `execution checkpoint`, and `run update` to record evidence. Wh
 
 ## Delivery
 
-Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark review-ready only after `$continuity-test`, `$continuity-merge`, and all pre-human-review compliance stages pass. Never auto-merge or force-push.
+Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark `review-ready` only after `$continuity-test`, `$continuity-merge`, and all pre-human-review compliance stages pass. Stop there for next-business-day human disposition; only recorded human merge evidence may mark the goal `completed`. Never auto-merge or force-push.

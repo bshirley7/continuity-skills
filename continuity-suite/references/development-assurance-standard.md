@@ -50,7 +50,11 @@ Apply this standard to every continuity skill. Treat it as a minimum; stricter r
 - Mark a gate `not-applicable` only with a concrete, reviewable reason. Missing, unverifiable, stale, or contradictory evidence remains pending or failed.
 - Reconcile final results against source notes, memory and roadmap IDs, approved plan hash, acceptance criteria, exclusions, changed files, validation output, security findings, merge-safety state, and roadmap impact.
 - Keep incomplete or failed work visibly partial or blocked. Human review and merge remain separate recorded actions.
+- Treat off-hours delivery as review preparation. A passing execution becomes `review-ready`; business completion requires next-business-day human review and recorded merge evidence.
+- Record scheduler registration, idempotency key, task ID, heartbeat, attempts, final status, and recovery evidence for every scheduled action. Retry only transient failures within the configured allowance.
 
 ## Mandatory stop conditions
 
 Stop and report the blocker when approval is missing or stale, scope is ambiguous, a dependency or lock fails, private data would escape its boundary, required validation or security review fails, the base branch cannot be refreshed safely, evidence is insufficient, or the result no longer aligns with the approved plan.
+
+For unattended work, also stop when a heartbeat becomes stale, a retry allowance is exhausted, an unexpected external side effect appears, or a new product or business decision is required. Recovery may block the matching goal and release only its matching stale lock; it must not infer a replacement decision.

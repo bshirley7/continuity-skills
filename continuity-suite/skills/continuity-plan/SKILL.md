@@ -29,7 +29,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 10. Record evidence for `capture-triage`, `memory-retrieval`, `roadmap-retrieval`, and `plan-review` compliance stages.
 11. Leave the goal `awaiting-feedback`.
 
-When a goal is created from `source_note_ids`, those source notes are marked `work_status: planned`. Approval and dispatch move them to `queued` and `dispatched`; execution updates later mark them `running`, `validating`, `completed`, `partially-completed`, `blocked`, or `cancelled`. Notes that do not belong in the current branch or PR should remain open, deferred, or roadmap-linked for a later aligned pass.
+When a goal is created from `source_note_ids`, those source notes are marked `work_status: planned`. Approval and dispatch move them to `queued` and `dispatched`; execution updates later mark them `running`, `validating`, `review-ready`, `partially-completed`, `blocked`, or `cancelled`. Human merge evidence alone moves review-ready notes to `completed`. Notes that do not belong in the current branch or PR should remain open, deferred, or roadmap-linked for a later aligned pass.
 
 Create a validated goal JSON payload, then run:
 

@@ -13,7 +13,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 
 - Accept only explicit human approval that names the exact goal and plan version. Never synthesize an approver, approval text, or dispatch instruction.
 - Fail closed on stale hashes, unsupported assurance versions, disabled execution, illegal states, unresolved decision-map items, invalid delivery-slice graphs, unmet dependencies, active locks, expired runtime, missing authentication, or failed preflight evidence.
-- Audit approval and dispatch as separate transitions, including actor, timestamp, plan hash, schedule, dependency state, project lock, task ID, and outcome.
+- Audit approval, scheduler dispatch, and execution as separate transitions, including actor, timestamp, plan hash, schedule, idempotency key, dependency state, project lock, task ID, heartbeat, and outcome.
 
 ## Approval
 
@@ -39,4 +39,4 @@ Use `goal revise <goal-id> --goal-file <revision.json> --author <identity> --sum
 
 Before dispatch, require the project-local manifest to have both `continuity_enabled` and `execution_enabled`, then enforce approval hash, dependencies, integration branch, `AGENTS.md`, remote requirements, compliance evidence, runtime allowance, and the project lock. Allow different projects concurrently but one code-changing goal per project. Manual start never bypasses guardrails.
 
-Once execution begins, the assigned execution task must use `$continuity-test` before PR handoff and `$continuity-merge` before marking merge safety passed. Failed quality or merge-safety reports keep the goal validating, blocked, or partially completed.
+For scheduled work, record `scheduler run-start`, send heartbeats, and finish the run explicitly. Once execution begins, the assigned execution task must use `$continuity-test` before PR handoff and `$continuity-merge` before marking merge safety passed. Successful overnight delivery ends at `review-ready`; failed quality or merge-safety reports keep the goal validating, blocked, or partially completed. Only later human merge evidence moves it to `completed`.

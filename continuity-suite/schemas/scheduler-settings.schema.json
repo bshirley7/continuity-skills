@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity scheduler settings",
+  "type": "object",
+  "required": ["provider", "sweep_minutes", "business_days", "retry_limit", "retry_backoff_minutes", "stale_after_minutes", "portfolio_max_concurrency"],
+  "properties": {
+    "provider": {"enum": ["codex", "claude-code", "external", "none"]},
+    "sweep_minutes": {"type": "integer", "minimum": 5, "maximum": 60},
+    "business_days": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 6}},
+    "retry_limit": {"type": "integer", "minimum": 0, "maximum": 5},
+    "retry_backoff_minutes": {"type": "integer", "minimum": 1, "maximum": 240},
+    "stale_after_minutes": {"type": "integer", "minimum": 10, "maximum": 720},
+    "portfolio_max_concurrency": {"type": "integer", "minimum": 1, "maximum": 16}
+  },
+  "additionalProperties": false
+}

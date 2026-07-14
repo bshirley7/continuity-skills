@@ -12,7 +12,7 @@ Use this as the suite entry point. Keep the neutral suite reusable while encodin
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `AGENTS.md`, `.continuity/config.json`, and `.continuity/project.json`.
 
 - Treat configuration values, commands, and paths as security-sensitive inputs. Keep secrets, credentials, personal data, private paths, and raw notes out of committed configuration.
-- Preserve the fixed guardrails for note authorization, approval, one code-changing goal per project, security review, merge safety, human merge, force-push, and auto-merge. Project overrides may refine behavior but may not weaken these controls.
+- Preserve the fixed guardrails for note authorization, exact-plan approval, one code-changing goal per project, security review, merge safety, next-business-day human review, restricted external side effects, force-push, and auto-merge. Project overrides may refine behavior but may not weaken these controls.
 - Audit every configuration change with the previous and resulting hash, actor, changed fields, effective values, generated-skill parity, project doctor result, and Git diff review.
 - Stop on unsafe paths, invalid Git references, unknown timezones, malformed commands, unsupported assurance versions, configuration drift, or a requested guardrail bypass.
 
@@ -47,9 +47,10 @@ The answers file may override only:
 - `roadmap` modes for hybrid planning and hierarchy; read-only local UI, project-inbox sharing, and production exclusion remain fixed
 - `agent_surfaces.primary` and `agent_surfaces.enabled` for Codex, Claude Code, Cursor, Windsurf, or a generic `AGENTS.md` consumer
 - `scheduler.provider` for Codex, Claude Code, an external scheduler, or no scheduler
+- scheduler sweep interval, business days, retry and backoff limits, stale-run timeout, and portfolio concurrency
 - `execution_enabled`
 
-The CLI writes `.continuity/project-behavior.json`, synchronizes the effective settings into the project config and manifest, generates `.agents/skills/continuity-local/SKILL.md`, regenerates selected surface adapters, writes `.continuity/scheduler.json`, and records an ignored append-only configuration audit. Configuration hashes make manual drift fail closed. Scheduler configuration records intent but never claims persistent registration occurred.
+The CLI writes `.continuity/project-behavior.json`, synchronizes the effective settings into the project config and manifest, generates `.agents/skills/continuity-local/SKILL.md`, regenerates selected surface adapters, writes `.continuity/scheduler.json`, and records an ignored append-only configuration audit. Configuration hashes make manual drift fail closed. Register one provider-owned portfolio supervisor, then record its task ID and workspace roots with `scheduler register`; `project doctor` fails on missing, stale, or unhealthy registration.
 
 ## Routing
 

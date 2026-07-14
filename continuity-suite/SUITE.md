@@ -27,7 +27,7 @@ docs/project-roadmap/                   canonical sanitized project roadmap
 .continuity/shared-notes/packets/       reviewed non-authorizing note packets
 ```
 
-The installed control directory also includes project-neutral recurring-action prompt assets. The selected Codex, Claude Code, or external scheduler owns each developer's actual schedules. A scheduler discovers enrolled repositories from configured workspace roots, then invokes the skills and CLI installed inside each project. Schedule intent and the selected provider are committed; task registration, machine paths, credentials, notes, memory, and private scheduler state remain developer-local.
+The installed control directory also includes a provider-neutral portfolio supervisor prompt. One recurring Codex, Claude Code, or external supervisor polls at the configured interval, calculates per-project due actions from each timezone and schedule, and starts isolated project tasks. Schedule intent and policy are committed; registration receipts, workspace roots, task IDs, heartbeats, run ledgers, credentials, notes, memory, and recovery state remain private and developer-local.
 
 Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
@@ -49,7 +49,7 @@ The main skill guides the user through recommended defaults and explicit overrid
 .agents/continuity/bin/continuity --project-root <repository> --json project configure --answers-file <answers.json> --actor <identity>
 ```
 
-Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, human merge, no force-push, and no auto-merge remain fixed.
+Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, business days, sweep/retry/stale timing, portfolio concurrency, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, next-business-day human review, restricted side effects, no force-push, and no auto-merge remain fixed.
 
 Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. External tracker publication remains a separate explicit-human-approval action.
 
@@ -99,7 +99,8 @@ Run the installer again to update an existing installation; it preserves project
 9. Use `$continuity-execute` in the assigned isolated worktree.
 10. Use `$continuity-test` to run configured project checks, targeted regressions, code review, and security review; record a test report before PR handoff.
 11. Use `$continuity-merge` to assess merge safety before PR handoff and to record later human review or merge evidence.
-12. Use `$continuity-report` for completion and morning reporting.
+12. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
+13. Record human review separately. Only recorded merge evidence moves the goal to `completed`.
 
 ```mermaid
 flowchart LR
@@ -117,13 +118,14 @@ flowchart LR
     K --> L["Isolated project worktree"]
     L --> M["Testing, code review, validation, and security report"]
     M --> N["Merge-safety assessment"]
-    N --> O["Human-review PR"]
-    O --> P["Morning and completion reports"]
+    N --> O["Review-ready PR"]
+    O --> P["Morning decision report"]
+    P --> Q["Human review and merge"]
 ```
 
 ## Responsible development compliance
 
-Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks completion until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. `$continuity-test` and `$continuity-merge` make the quality and merge-safety gates explicit and reportable, but human review and merge remain separate user actions.
+Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks `review-ready` until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. `$continuity-test` and `$continuity-merge` make these gates explicit. Only recorded human merge evidence moves the goal to `completed`.
 
 The planning patterns were adapted from lessons in Matt Pocock's MIT-licensed `triage`, `wayfinder`, and `to-tickets` skills. See `references/planning-patterns.md` for the reviewed upstream commit, provenance, and continuity-specific safety changes. The upstream skills are not bundled or invoked.
 

@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Continuity scheduler handoff",
   "type": "object",
-  "required": ["schema_version", "provider", "registration_state", "primary_surface", "enabled_surfaces", "timezone", "schedules", "prompts", "note"],
+  "required": ["schema_version", "provider", "registration_state", "primary_surface", "enabled_surfaces", "timezone", "schedules", "policy", "prompts", "note"],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "provider": {"enum": ["codex", "claude-code", "external", "none"]},
     "registration_state": {"enum": ["not-requested", "requires-user-registration"]},
     "primary_surface": {"enum": ["codex", "claude-code", "cursor", "windsurf", "generic"]},
@@ -20,9 +20,13 @@
       },
       "additionalProperties": false
     },
+    "policy": {
+      "type": "object",
+      "required": ["sweep_minutes", "business_days", "retry_limit", "retry_backoff_minutes", "stale_after_minutes", "portfolio_max_concurrency"]
+    },
     "prompts": {
       "type": "object",
-      "required": ["review", "dispatch", "report"],
+      "required": ["supervisor", "review", "dispatch", "report"],
       "additionalProperties": {"type": "string", "minLength": 1}
     },
     "note": {"type": "string", "minLength": 1}

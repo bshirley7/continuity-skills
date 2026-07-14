@@ -152,7 +152,13 @@ Use `--configuration` for repeatable setup:
     "enabled": ["codex", "claude-code", "cursor", "windsurf"]
   },
   "scheduler": {
-    "provider": "codex"
+    "provider": "codex",
+    "sweep_minutes": 15,
+    "business_days": [0, 1, 2, 3, 4],
+    "retry_limit": 2,
+    "retry_backoff_minutes": 15,
+    "stale_after_minutes": 45,
+    "portfolio_max_concurrency": 4
   },
   "execution_enabled": false
 }
@@ -249,13 +255,13 @@ created_at       when the atomic note was created or imported
 updated_at       when Continuity last changed its routing or work state
 routing_status   captured, route, defer, archive, or promote
 work_status      open, deferred, planned, queued, dispatched, running, validating,
-                 completed, partially-completed, blocked, cancelled,
+                 review-ready, completed, partially-completed, blocked, cancelled,
                  not-applicable, or archived
 ```
 
 Use `routing_status` to understand where the note went. Use `work_status` to understand whether the underlying work is still incomplete.
 
-Notes do not move to a branch or PR directly. A note that requires action becomes useful for execution only after triage connects it to roadmap context and `$continuity-plan` creates an approval-ready goal. When a goal is created from `source_note_ids`, those notes move to `planned`. Approval moves them to `queued`; dispatch moves them to `dispatched`; execution updates move them through `running`, `validating`, `completed`, `partially-completed`, `blocked`, or `cancelled`.
+Notes do not move to a branch or PR directly. A note that requires action becomes useful for execution only after triage connects it to roadmap context and `$continuity-plan` creates an approval-ready goal. When a goal is created from `source_note_ids`, those notes move to `planned`. Approval moves them to `queued`; dispatch moves them to `dispatched`; execution updates move them through `running`, `validating`, `review-ready`, `partially-completed`, `blocked`, or `cancelled`. Human merge evidence moves review-ready work to `completed`.
 
 If a note is too separate from the current branch or PR, keep it open, deferred, or roadmap-linked for a later pass. The user can later retrieve incomplete roadmap-linked work and manually run:
 
@@ -281,7 +287,7 @@ The project stores schedule intent in `.continuity/project.json`:
 }
 ```
 
-The selected scheduler owns actual persistent task registration. Continuity records one provider in the hash-bound project behavior:
+The selected scheduler owns actual persistent task registration. Continuity records the provider and operating policy in the hash-bound project behavior:
 
 ```text
 codex        register Codex scheduled tasks or automations
@@ -290,11 +296,29 @@ external     use cron, launchd, GitHub Actions, CI, or another scheduler
 none         keep schedule intent without registering recurring tasks
 ```
 
-Selecting a provider does not silently create a machine-level job. `.continuity/scheduler.json` reports either `not-requested` or `requires-user-registration`, identifies the selected surface, and points to the installed prompts. This prevents a project clone from silently changing a developer's machine, account, permissions, or cloud routines.
+The policy includes the supervisor sweep interval, business days, retry allowance and backoff, stale-run timeout, and portfolio concurrency cap. Review and dispatch run only on nights preceding configured business days; the decision report runs on configured business-day mornings.
+
+Selecting a provider does not silently create a machine-level job. Create one recurring supervisor task in the selected surface using:
+
+```text
+.agents/continuity/automation/portfolio-supervisor.md
+```
+
+Run it at the configured `sweep_minutes` interval. Give the task the developer-local workspace roots it may scan. After the scheduling surface returns its task ID, record the receipt inside every enrolled project covered by that supervisor:
+
+```text
+.agents/continuity/bin/continuity --project-root /path/to/project scheduler register \
+  --task-id <provider-task-id> \
+  --root /workspace/root \
+  --actor <identity>
+```
+
+The receipt is ignored private state. It contains only provider, task ID, roots, timestamps, and the behavior hash. `project doctor` reports `requires-user-registration`, `registered`, or `stale`, and also fails on stale scheduled runs.
 
 Scheduler tasks should use:
 
 ```text
+.agents/continuity/automation/portfolio-supervisor.md
 .agents/continuity/automation/nightly-review.md
 .agents/continuity/automation/default-dispatch.md
 .agents/continuity/automation/morning-report.md
@@ -306,11 +330,12 @@ Portfolio-level scheduler commands operate over developer-configured workspace r
 continuity --json portfolio discover --root /workspace/root
 continuity --json portfolio due --root /workspace/root
 continuity --json portfolio queue --root /workspace/root
+continuity --json portfolio actions --root /workspace/root --root /another/workspace/root
 ```
 
-The scheduler discovers enrolled projects, starts project-scoped tasks, runs project doctor first, and must not centralize raw notes or private state.
+`portfolio actions` calculates what is due from each project's timezone and schedule. It suppresses completed idempotency keys, enforces retry backoff, identifies stale runs, omits dispatch when no approved goal is due, and applies the smallest portfolio concurrency cap across all roots passed in one call. Excess runnable work is returned as `capacity-deferred` for a later sweep. The supervisor starts one project-scoped task per `due` or `retry` action, records `scheduler run-start`, sends heartbeats, and records `scheduler run-finish`. A dispatch run cannot finish successfully until its goal reaches `review-ready`.
 
-For Codex or Claude Code, create the three persistent tasks in that product's scheduling surface using the recorded timezone and times. For an external scheduler, invoke a project-scoped agent session or the portfolio discovery commands from a trusted local wrapper. A plain cron entry that runs only the deterministic CLI can inspect queues and reports, but model-driven review or execution still requires an authenticated agent surface.
+For stale work, run `scheduler recover`. Recovery marks the matching run stale and may block only its matching active goal and release only its matching lock. It does not resume work or infer a decision. For Codex or Claude Code, the supervisor must be able to start authenticated project tasks. An external scheduler must invoke an authenticated agent surface; a plain cron process can calculate due actions but cannot perform model-driven review or implementation by itself.
 
 ## Execution Layer
 
@@ -352,13 +377,14 @@ $continuity-merge
 .agents/continuity/bin/continuity --project-root "$PWD" merge assess <goal-id> --branch <branch> --pr-url <pull-request-url> --update-gate
 ```
 
-After a human reviews or merges the PR, record that fact separately:
+After overnight delivery passes every gate, record `review-ready` and stop. After a human reviews or merges the PR, record that fact separately:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --evidence "<review or merge evidence>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --evidence "<review evidence>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --merge-commit <sha> --evidence "<merge evidence>"
 ```
 
-Continuity can report readiness, failures, and missing evidence. It must not auto-merge, force-push, or treat an agent's judgment as human review.
+Review without a merge leaves the goal `review-ready`. A recorded merge commit moves it to `completed`. Continuity can report readiness, failures, and missing evidence. It must not auto-merge, force-push, or treat an agent's judgment as human review.
 
 ## Verify An Install
 

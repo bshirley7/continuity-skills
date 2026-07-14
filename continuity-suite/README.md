@@ -1,6 +1,6 @@
 # Continuity Suite
 
-Continuity turns project conversations and notes into searchable memory, roadmap context, reviewable plans, scheduled execution, and evidence-backed reports.
+Continuity turns project conversations and notes into searchable memory, roadmap context, reviewable plans, supervised off-hours execution, and next-business-day decision reports.
 
 ## Start Here
 
@@ -24,7 +24,7 @@ python3 continuity-suite/installer/install.py \
 
 After installation, day-to-day use happens inside the project with `$continuity-*` skills and the installed project-local CLI at `.agents/continuity/bin/continuity`.
 
-The guided installer can save portable user defaults in `~/.continuity/defaults.json`, then generate isolated project controls for Codex, Claude Code, Cursor, Windsurf, or another `AGENTS.md`-aware surface. Repository-specific commands, instructions, notes, approvals, roadmap state, and execution enrollment never move into the user-default profile.
+The guided installer can save portable user defaults in `~/.continuity/defaults.json`, then generate isolated project controls for Codex, Claude Code, Cursor, Windsurf, or another `AGENTS.md`-aware surface. One provider-owned portfolio supervisor calculates due actions and records private task/run health. Repository-specific commands, instructions, notes, approvals, roadmap state, and execution enrollment never move into the user-default profile.
 
 ## Daily Skill Calls
 
@@ -44,3 +44,5 @@ $continuity-share     prepare sanitized note packets for explicit sharing
 ```
 
 Notes and feedback are captured first. They become searchable project memory only after triage and approved promotion.
+
+Overnight code delivery stops at `review-ready`. The morning report surfaces decisions, completed work, and blockers; only recorded human merge evidence marks a goal `completed`.
