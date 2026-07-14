@@ -5,11 +5,11 @@
   "required": ["schema_version", "assurance_standard_version", "goal_id", "stages"],
   "properties": {
     "schema_version": {"const": 1},
-    "assurance_standard_version": {"const": 1},
+    "assurance_standard_version": {"const": 2},
     "goal_id": {"type": "string"},
     "stages": {
       "type": "object",
-      "propertyNames": {"enum": ["capture-triage", "memory-retrieval", "plan-review", "approval", "execution-preflight", "implementation", "code-review", "validation", "security-review", "merge-safety", "documentation", "memory-impact", "final-alignment", "human-review"]},
+      "propertyNames": {"enum": ["capture-triage", "memory-retrieval", "roadmap-retrieval", "plan-review", "approval", "execution-preflight", "implementation", "code-review", "validation", "security-review", "merge-safety", "documentation", "memory-impact", "roadmap-impact", "final-alignment", "human-review"]},
       "additionalProperties": {
         "type": "object",
         "required": ["status", "evidence", "updated_at"],

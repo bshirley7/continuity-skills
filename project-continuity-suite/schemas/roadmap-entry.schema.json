@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Canonical project roadmap record",
+  "type": "object",
+  "required": ["roadmap_id", "title", "kind", "status", "summary", "created_at", "updated_at"],
+  "properties": {
+    "roadmap_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "title": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["program", "initiative", "release", "milestone", "epic", "story", "bug", "spike", "chore", "sprint"]},
+    "status": {"enum": ["proposed", "inbox", "triaged", "ready", "planned", "active", "in-progress", "validating", "paused", "at-risk", "blocked", "completed", "done", "closed", "cancelled", "historical"]},
+    "summary": {"type": "string", "minLength": 1},
+    "parent_ids": {"type": "array", "items": {"type": "string"}},
+    "depends_on": {"type": "array", "items": {"type": "string"}},
+    "health": {"enum": ["unknown", "on-track", "at-risk", "off-track", "blocked", "complete"]},
+    "estimate_points": {"enum": [1, 2, 3, 5, 8, 13, 20, 40, 100, null]},
+    "start_date": {"type": "string", "format": "date"},
+    "target_date": {"type": "string", "format": "date"}
+  },
+  "additionalProperties": true
+}

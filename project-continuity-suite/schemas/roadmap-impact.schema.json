@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Goal roadmap impact",
+  "type": "object",
+  "required": ["entries", "documentation_required", "summary"],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["roadmap_id", "action", "rationale"],
+        "properties": {
+          "roadmap_id": {"type": "string", "minLength": 1},
+          "action": {"enum": ["create", "revise", "verify", "status", "none"]},
+          "rationale": {"type": "string", "minLength": 1},
+          "from_status": {"type": "string"},
+          "to_status": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "documentation_required": {"type": "boolean"},
+    "summary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

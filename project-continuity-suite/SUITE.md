@@ -20,6 +20,8 @@ Every installed skill applies the versioned development assurance standard. The 
 .continuity/project-behavior.json        committed recommendations, overrides, and hash
 .continuity/private/                    ignored captures, queues, goals, locks, indexes
 docs/project-memory/                    canonical searchable project memory
+docs/project-roadmap/                   canonical sanitized project roadmap
+.continuity/shared-notes/packets/       reviewed non-authorizing note packets
 ```
 
 The installed control directory also includes project-neutral recurring-action prompt assets. The Codex app owns each developer's actual schedules. A developer-local scheduler discovers enrolled repositories from configured workspace roots, then invokes the skills and CLI installed inside each project. No project paths, notes, memory, or registry are stored in this distribution.
@@ -48,6 +50,31 @@ Customizable settings cover the integration branch, timezone, three schedules, r
 
 Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. External tracker publication remains a separate explicit-human-approval action.
 
+Roadmap settings default to full hybrid planning. Canonical Markdown remains committed under `docs/project-roadmap/`; the CLI derives ignored SQLite and JSON projections that can combine roadmap truth with developer-local goals and note links. `continuity roadmap serve --open` launches a read-only loopback companion with timeline, hierarchy, release, milestone, sprint, board, dependency, risk, blocker, and detail views. The companion lives under `.agents/project-continuity/` and is forbidden from product routes, build inputs, previews, staging, and production packages.
+
+Raw captures never travel through Git. `$share-project-notes` lets a developer select atomic notes, review a sanitized hash-bound packet, approve its exact version and current-project target, then publish it through an isolated `continuity-notes/...` branch and human-reviewed PR. Merged packets live under `.continuity/shared-notes/packets/`; other developers explicitly import and triage them. Neither a packet nor its merge authorizes execution or canonical changes.
+
+## Roadmap and note transport commands
+
+```text
+continuity roadmap index
+continuity roadmap list
+continuity roadmap show <roadmap-id>
+continuity roadmap brief "<topic-or-id>"
+continuity roadmap audit
+continuity roadmap link-note <note-id> --to <roadmap-id> --relation <relation>
+continuity roadmap create --entry-file <path> --goal-id <approved-goal>
+continuity roadmap revise <roadmap-id> --entry-file <path> --goal-id <approved-goal>
+continuity roadmap export --scope committed
+continuity roadmap serve --open
+continuity roadmap production-audit --artifact <build-or-package>
+
+continuity note share prepare <note-id>... --target-project <current-project> --sender <identity>
+continuity note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text <text>
+continuity note share publish <packet-id>
+continuity note share import
+```
+
 Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill, and `project doctor` fails on drift. Keep developer workspace roots and Codex automation records in developer-local configuration, never in this repository.
 
 ## Typical cycle
@@ -55,12 +82,13 @@ Run the installer again to update an existing installation; it preserves project
 1. Invoke `$project-continuity` for setup or routing and apply `$project-continuity-local` with the selected task skill.
 2. Invoke `$capture-project-note` in the active project conversation.
 3. Invoke `$triage-project-notes`, or allow the nightly review to classify and route items.
-4. Use `$manage-project-memory` to retrieve a cited context brief.
-5. Use `$plan-project-goals` only for selected candidates. Verify action claims, map unresolved decisions for complex work, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
-6. Approve an exact goal version; it queues for the project-configured dispatch time.
-7. Use `$dispatch-project-goals` to start an approved goal earlier when needed.
-8. Use `$execute-project-goal` in the assigned isolated worktree.
-9. Use `$report-project-progress` for completion and morning reporting.
+4. Use `$manage-project-memory` and `$manage-project-roadmap` to retrieve cited context briefs. Use the local read-only roadmap sidecar when visual transport helps.
+5. Use `$share-project-notes` only for explicitly selected, sanitized, approved developer handoffs.
+6. Use `$plan-project-goals` only for selected candidates. Verify action claims, map unresolved decisions for complex work, record `roadmap_ids` and structured `roadmap_impact`, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
+7. Approve an exact goal version; it queues for the project-configured dispatch time.
+8. Use `$dispatch-project-goals` to start an approved goal earlier when needed.
+9. Use `$execute-project-goal` in the assigned isolated worktree.
+10. Use `$report-project-progress` for completion and morning reporting.
 
 ```mermaid
 flowchart LR
@@ -83,7 +111,7 @@ flowchart LR
 
 ## Responsible development compliance
 
-Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval and plan review are evidenced, blocks dispatch on failed preflight, and blocks completion until implementation, code review, validation, security review, merge safety, documentation, memory impact, and final alignment are passed or explicitly not applicable with evidence.
+Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks completion until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence.
 
 The planning patterns were adapted from lessons in Matt Pocock's MIT-licensed `triage`, `wayfinder`, and `to-tickets` skills. See `references/planning-patterns.md` for the reviewed upstream commit, provenance, and continuity-specific safety changes. The upstream skills are not bundled or invoked.
 
@@ -91,7 +119,7 @@ The planning patterns were adapted from lessons in Matt Pocock's MIT-licensed `t
 
 ```text
 python3 -m unittest discover -s project-continuity-suite/tests -v
-python3 -m py_compile project-continuity-suite/bin/continuity project-continuity-suite/installer/install.py
+python3 -m py_compile project-continuity-suite/bin/continuity project-continuity-suite/lib/*.py project-continuity-suite/installer/install.py
 ```
 
 Validate each skill with the `skill-creator` `quick_validate.py` utility. The validator requires PyYAML in its Python environment.

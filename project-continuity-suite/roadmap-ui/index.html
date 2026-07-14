@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Project Roadmap Admin</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">Local project context</p>
+        <h1>Roadmap Admin</h1>
+      </div>
+      <div class="status"><span class="status-dot"></span><span>Read only · local clone</span></div>
+    </header>
+    <main>
+      <section class="summary" aria-labelledby="summary-title">
+        <div><p class="eyebrow">Portfolio signal</p><h2 id="summary-title">Project delivery map</h2><p id="project-name">Loading project…</p></div>
+        <div class="metric"><strong id="entity-count">—</strong><span>roadmap records</span></div>
+        <div class="metric"><strong id="active-count">—</strong><span>active items</span></div>
+        <div class="metric risk"><strong id="risk-count">—</strong><span>risks and blockers</span></div>
+      </section>
+      <nav class="views" aria-label="Roadmap views">
+        <button type="button" class="active" data-view="timeline">Timeline</button>
+        <button type="button" data-view="hierarchy">Hierarchy</button>
+        <button type="button" data-view="board">Backlog board</button>
+        <button type="button" data-view="dependencies">Dependencies</button>
+        <button type="button" data-view="sprints">Sprints</button>
+        <button type="button" data-view="risks">Risks</button>
+      </nav>
+      <section class="workspace">
+        <div class="canvas" id="canvas" aria-live="polite"></div>
+        <aside id="detail" aria-label="Roadmap detail">
+          <p class="eyebrow">Context detail</p>
+          <h2>Select a record</h2>
+          <p>Choose a roadmap card to inspect its committed path, dependencies, memory, notes, goals, and evidence.</p>
+        </aside>
+      </section>
+    </main>
+    <footer>Local Git projection · Markdown remains authoritative · no write actions</footer>
+  </body>
+</html>

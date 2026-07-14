@@ -25,7 +25,8 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 4. Record source type, reference, timestamps, project mapping, deduplication key, and revision history.
 5. Set `execution_authorized: false` on every item.
 6. Use a conservative provisional kind. Leave ambiguous intent for triage.
-7. Return capture and item IDs and state explicitly that no work was authorized.
+7. Attach notes to roadmap IDs only through private `supports`, `contradicts`, `blocks`, `updates`, or `suggests` links; a link does not change committed roadmap truth.
+8. Return capture and item IDs and state explicitly that no work was authorized.
 
 Support `conversation`, `manual`, and `file`. Preserve `notion` and `linear` as reserved adapter types; do not simulate an unconfigured integration.
 

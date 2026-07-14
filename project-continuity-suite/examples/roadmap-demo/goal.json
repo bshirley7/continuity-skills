@@ -1,0 +1,23 @@
+{
+  "goal_id": "goal-roadmap-demo",
+  "title": "Establish a neutral roadmap demonstration",
+  "scope": "Create sanitized sample roadmap records for local sidecar validation.",
+  "exclusions": ["No product code", "No private project data"],
+  "acceptance_criteria": ["Timeline, hierarchy, board, dependency, sprint, and risk views render"],
+  "memory_ids": ["project-memory-index"],
+  "roadmap_ids": ["program-demo", "initiative-demo", "milestone-demo", "story-demo", "sprint-demo"],
+  "roadmap_impact": {
+    "entries": [
+      {"roadmap_id": "program-demo", "action": "create", "rationale": "Provide a neutral program root."},
+      {"roadmap_id": "initiative-demo", "action": "create", "rationale": "Demonstrate hierarchy and ownership."},
+      {"roadmap_id": "milestone-demo", "action": "create", "rationale": "Demonstrate delivery health and timing."},
+      {"roadmap_id": "story-demo", "action": "create", "rationale": "Demonstrate Kanban, estimates, dependencies, and risks."},
+      {"roadmap_id": "sprint-demo", "action": "create", "rationale": "Demonstrate optional sprint grouping."}
+    ],
+    "documentation_required": true,
+    "summary": "Create five sanitized records for visual validation."
+  },
+  "documentation_updates": ["docs/project-roadmap"],
+  "plan_reviewed": true,
+  "plan_review_evidence": "Neutral demo reviewed for scope, privacy, and non-production use"
+}

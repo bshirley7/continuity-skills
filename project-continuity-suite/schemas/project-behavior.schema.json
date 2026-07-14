@@ -4,13 +4,13 @@
   "type": "object",
   "required": ["schema_version", "assurance_standard_version", "project_id", "recommendation_profile", "settings", "overrides", "fixed_guardrails", "configuration_hash"],
   "properties": {
-    "schema_version": {"const": 1},
-    "assurance_standard_version": {"const": 1},
+    "schema_version": {"const": 2},
+    "assurance_standard_version": {"const": 2},
     "project_id": {"type": "string", "minLength": 1},
-    "recommendation_profile": {"const": "responsible-defaults-v1"},
+    "recommendation_profile": {"const": "responsible-defaults-v2"},
     "settings": {
       "type": "object",
-      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "execution_enabled"],
+      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "execution_enabled"],
       "properties": {
         "integration_branch": {"type": "string", "minLength": 1},
         "timezone": {"type": "string", "minLength": 1},
@@ -43,6 +43,7 @@
           },
           "additionalProperties": false
         },
+        "roadmap": {"$ref": "roadmap-settings.schema.json"},
         "execution_enabled": {"type": "boolean"}
       },
       "additionalProperties": false
@@ -60,7 +61,11 @@
         "force_push": "forbidden",
         "auto_merge": "forbidden",
         "planning_artifacts_authorize_execution": false,
-        "external_tracker_publish": "explicit-human-approval-required"
+        "external_tracker_publish": "explicit-human-approval-required",
+        "raw_note_transport": "forbidden",
+        "shared_notes_authorize_execution": false,
+        "roadmap_ui_write_methods": "forbidden",
+        "hosted_roadmap_surface": "forbidden"
       }
     },
     "configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}

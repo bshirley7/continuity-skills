@@ -29,6 +29,7 @@ Split mixed items first. Preserve source relationships. When intent is ambiguous
 - Route backlog with optional priority and review date.
 - Route execution candidates and explicit instructions to planning.
 - Archive duplicates or superseded items with provenance instead of deleting history.
+- Import shared-note packets into private triage, deduplicate them, and preserve `execution_authorized: false`. Contradictions and stale roadmap links require human review rather than automatic reconciliation.
 
 ## Evidence triage for action candidates
 

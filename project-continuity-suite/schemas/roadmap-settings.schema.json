@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project roadmap settings",
+  "type": "object",
+  "required": ["enabled", "agile_mode", "hierarchy", "ui_mode", "shared_notes", "production_distribution"],
+  "properties": {
+    "enabled": {"type": "boolean"},
+    "agile_mode": {"enum": ["hybrid", "kanban", "milestone"]},
+    "hierarchy": {"enum": ["full", "lightweight"]},
+    "ui_mode": {"const": "local-read-only"},
+    "shared_notes": {"const": "explicit-project-inbox"},
+    "production_distribution": {"const": "forbidden"}
+  },
+  "additionalProperties": false
+}

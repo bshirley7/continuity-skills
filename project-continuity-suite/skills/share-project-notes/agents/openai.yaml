@@ -1,0 +1,4 @@
+interface:
+  display_name: "Share Project Notes"
+  short_description: "Sanitize and transport approved project notes"
+  default_prompt: "Use $share-project-notes to prepare an explicitly approved note packet."

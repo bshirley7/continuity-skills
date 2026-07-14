@@ -23,6 +23,8 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 - Treat any developer-local scheduler as a discovery and triggering layer only. It may aggregate sanitized reports but must not own project instructions or private state.
 - Keep raw captures, queues, approvals, generated indexes, configuration audit records, and task locks under `.continuity/private/`.
 - Keep trusted, sanitized project memory under `docs/project-memory/`.
+- Keep canonical, sanitized roadmap Markdown under `docs/project-roadmap/`; ignored SQLite and JSON projections may merge committed records with local goal and note-link context.
+- Keep approved shared packets under `.continuity/shared-notes/packets/`. Packets are context only and never authorize execution or canonical changes.
 - Exclude private state from Git and default memory search.
 - Preserve provenance and append-only feedback. Never silently overwrite changed understanding.
 
@@ -53,18 +55,20 @@ Record evidence for every responsible development stage:
 
 1. capture-triage
 2. memory-retrieval
-3. plan-review
-4. approval
-5. execution-preflight
-6. implementation
-7. code-review
-8. validation
-9. security-review
-10. merge-safety
-11. documentation
-12. memory-impact
-13. final-alignment
-14. human-review
+3. roadmap-retrieval
+4. plan-review
+5. approval
+6. execution-preflight
+7. implementation
+8. code-review
+9. validation
+10. security-review
+11. merge-safety
+12. documentation
+13. memory-impact
+14. roadmap-impact
+15. final-alignment
+16. human-review
 
 Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` result requires a concrete reason. Do not mark a goal completed while any pre-human-review stage is pending or failed.
 
@@ -89,6 +93,12 @@ Committed Markdown is canonical. SQLite FTS5 is a rebuildable ignored index. Eve
 
 Use statuses `current`, `proposed`, `disputed`, `superseded`, or `historical`. Supersede rather than delete. Default search includes trusted memory only.
 
+## Roadmap and shared-note contract
+
+Committed roadmap Markdown is canonical. A goal must retrieve relevant roadmap context and include exact `roadmap_ids` plus structured `roadmap_impact` in its approval hash. Releases and milestones express commitments; sprints and estimates are optional and never authorize execution. The local admin sidecar is read-only, loopback-only, and excluded from application source and every preview, staging, or production artifact.
+
+Raw captures remain private. Sharing requires a selected sanitized packet, exact version and target approval, an isolated branch, privacy and secret checks, and a human-reviewed PR. Imported packets enter private triage with `execution_authorized: false` and cannot update roadmap, memory, goals, code, systems, or another developer's private state.
+
 ## Completion evidence
 
-Every goal PR must include request alignment, implementation report, validation and security results, memory impact, and evidence. A review-ready PR requires all automated and agent review gates to pass. Human review and merge remain user actions.
+Every goal PR must include request alignment, implementation report, validation and security results, memory impact, roadmap impact, and evidence. A review-ready PR requires all automated and agent review gates to pass. Human review and merge remain user actions.

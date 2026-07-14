@@ -1,13 +1,13 @@
 ---
 name: execute-project-goal
-description: Execute one explicitly approved and dispatched project goal in an isolated worktree with alignment, developer review, Git, validation, security, memory-impact, evidence, and pull-request gates. Use only when a valid dispatch record identifies the goal and assigned task.
+description: Execute one explicitly approved and dispatched project goal in an isolated worktree with alignment, developer review, Git, validation, security, memory-impact, roadmap-impact, evidence, and pull-request gates. Use only when a valid dispatch record identifies the goal and assigned task.
 ---
 
 # Execute Project Goal
 
 Never execute a captured note, planning candidate, unapproved plan, or merely queued goal. Require a valid dispatch and matching approval hash.
 
-Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$project-continuity-local`, `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory brief, and compliance ledger.
+Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$project-continuity-local`, `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory and roadmap briefs, and compliance ledger.
 
 ## Required assurance
 
@@ -36,12 +36,12 @@ Verify the isolated worktree, integration branch and remote base, scope, approva
 5. Run all configured validation plus targeted regressions.
 6. Run every configured `security_commands` check plus an evidence-based security review for touched languages and frameworks; check secrets, dependencies, unsafe input/data paths, permissions, subprocesses, and migrations as relevant.
 7. Refresh the integration branch, assess conflicts and mergeability, and rerun affected checks.
-8. Update approved documentation and project memory; audit for drift and contradictions.
-9. Reconcile the final result against notes, memory, plan, acceptance criteria, and exclusions.
+8. Update approved documentation, roadmap, and project memory; audit for drift and contradictions.
+9. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, and exclusions. Scan product artifacts to prove the roadmap sidecar remains excluded.
 10. Record evidence in every compliance stage. A failed or pending gate prevents completion and review-ready status.
 
 Use `goal gate`, `execution checkpoint`, and `run update` to record evidence. When recording `running`, provide the actual isolated `--worktree` and `--branch`. When completing, provide the PR URL, summary, and each report with `--artifact <absolute-path>`. Stop safely at the runtime limit.
 
 ## Delivery
 
-Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `memory-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark review-ready only after all pre-human-review compliance stages pass. Never auto-merge or force-push.
+Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark review-ready only after all pre-human-review compliance stages pass. Never auto-merge or force-push.

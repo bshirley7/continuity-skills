@@ -3,14 +3,21 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
+import threading
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 
 SUITE = Path(__file__).resolve().parents[1]
 CLI = SUITE / "bin" / "continuity"
 INSTALLER = SUITE / "installer" / "install.py"
+sys.path.insert(0, str(SUITE / "lib"))
+import roadmap as roadmap_lib  # noqa: E402
+import shared_notes as shared_notes_lib  # noqa: E402
 
 
 class ContinuityTest(unittest.TestCase):
@@ -25,13 +32,14 @@ class ContinuityTest(unittest.TestCase):
         (self.root / ".continuity").mkdir()
         self.config = {
             "schema_version": 1,
-            "assurance_standard_version": 1,
+            "assurance_standard_version": 2,
             "project_id": "test-project",
             "integration_branch": "main",
             "timezone": "America/Chicago",
             "default_start_time": "22:00",
             "max_runtime_minutes": 360,
             "memory_docs": "docs/project-memory",
+            "roadmap_docs": "docs/project-roadmap",
             "private_dir": ".continuity/private",
             "memory_stale_after_days": 90,
             "require_remote": False,
@@ -48,7 +56,7 @@ class ContinuityTest(unittest.TestCase):
             self.root / ".continuity" / "project.json",
             {
                 "schema_version": 1,
-                "assurance_standard_version": 1,
+                "assurance_standard_version": 2,
                 "project_id": "test-project",
                 "continuity_enabled": True,
                 "execution_enabled": True,
@@ -78,6 +86,23 @@ class ContinuityTest(unittest.TestCase):
         )
         self.git("add", ".")
         self.git("commit", "-m", "fixture")
+
+    def write_roadmap(self, roadmap_id: str, title: str, kind: str, status: str, *, parents: list[str] | None = None, dependencies: list[str] | None = None, health: str = "on-track") -> None:
+        path = self.root / "docs" / "project-roadmap" / "entities" / f"{roadmap_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        value = {
+            "roadmap_id": roadmap_id,
+            "title": title,
+            "kind": kind,
+            "status": status,
+            "summary": f"Roadmap context for {title}.",
+            "parent_ids": parents or [],
+            "depends_on": dependencies or [],
+            "health": health,
+            "created_at": "2026-07-13T10:00:00-05:00",
+            "updated_at": "2026-07-13T10:00:00-05:00",
+        }
+        path.write_text(roadmap_lib.render_entry(roadmap_lib.normalize_entry(value)), encoding="utf-8")
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -361,6 +386,7 @@ unresolved_gaps: []
             "merge-safety",
             "documentation",
             "memory-impact",
+            "roadmap-impact",
             "final-alignment",
         ]
         for stage in stages:
@@ -519,6 +545,177 @@ unresolved_gaps: []
         self.write_json(self.root / ".continuity" / "config.json", self.config)
         self.cli("goal", "list", expected=2)
 
+    def test_roadmap_index_brief_hierarchy_and_audit(self) -> None:
+        self.write_roadmap("program-core", "Core program", "program", "active")
+        self.write_roadmap("initiative-safe", "Safe renderer", "initiative", "active", parents=["program-core"])
+        self.write_roadmap("milestone-ready", "Renderer ready", "milestone", "planned", parents=["initiative-safe"], dependencies=["program-core"])
+        indexed = json.loads(self.cli("roadmap", "index").stdout)
+        self.assertEqual(indexed["entries"], 3)
+        audit = json.loads(self.cli("roadmap", "audit").stdout)
+        self.assertTrue(audit["healthy"], audit)
+        brief = self.cli("roadmap", "brief", "renderer").stdout
+        self.assertIn("initiative-safe", brief)
+        self.assertIn("docs/project-roadmap/entities/initiative-safe.md", brief)
+        shown = json.loads(self.cli("roadmap", "show", "milestone-ready").stdout)
+        self.assertEqual(shown["parent_ids"], ["initiative-safe"])
+
+    def test_roadmap_audit_detects_cycle_orphan_and_stale_link(self) -> None:
+        self.write_roadmap("initiative-a", "A", "initiative", "active", parents=["initiative-b"])
+        self.write_roadmap("initiative-b", "B", "initiative", "active", parents=["initiative-a"])
+        self.write_roadmap("story-orphan", "Orphan", "story", "ready")
+        link = self.root / ".continuity" / "private" / "roadmap" / "note-links.jsonl"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.write_text(json.dumps({"note_id": "missing", "roadmap_id": "initiative-a", "relation": "supports"}) + "\n", encoding="utf-8")
+        audit = json.loads(self.cli("roadmap", "audit").stdout)
+        self.assertFalse(audit["healthy"])
+        self.assertTrue(audit["cycles"])
+        self.assertIn("story-orphan", audit["orphans"])
+        self.assertTrue(audit["stale_note_links"])
+
+    def test_roadmap_validates_dates_estimates_sprints_and_filters(self) -> None:
+        self.write_roadmap("program-core", "Core", "program", "active")
+        self.write_roadmap("sprint-1", "Sprint one", "sprint", "active")
+        story_path = self.root / "docs" / "project-roadmap" / "entities" / "story-one.md"
+        story_path.write_text(roadmap_lib.render_entry(roadmap_lib.normalize_entry({
+            "roadmap_id": "story-one", "title": "Story one", "kind": "story", "status": "ready", "summary": "A deliverable story.",
+            "parent_ids": ["program-core"], "sprint_ids": ["sprint-1"], "estimate_points": 5, "owners": ["dev-a"], "tags": ["renderer"],
+            "health": "on-track", "start_date": "2026-07-13", "target_date": "2026-07-20", "created_at": "2026-07-13T10:00:00-05:00", "updated_at": "2026-07-13T10:00:00-05:00",
+        })), encoding="utf-8")
+        filtered = json.loads(self.cli("roadmap", "list", "--kind", "story", "--owner", "dev-a", "--tag", "renderer", "--sprint", "sprint-1").stdout)
+        self.assertEqual([item["roadmap_id"] for item in filtered], ["story-one"])
+        bad = self.root / "bad-roadmap.json"
+        self.write_json(bad, {"roadmap_id": "bad", "title": "Bad", "kind": "story", "status": "ready", "summary": "Bad dates.", "estimate_points": 7, "start_date": "2026-07-30", "target_date": "2026-07-01", "created_at": "now", "updated_at": "now"})
+        with self.assertRaises(roadmap_lib.RoadmapError):
+            roadmap_lib.normalize_entry(json.loads(bad.read_text(encoding="utf-8")))
+
+    def test_private_note_links_to_roadmap_without_authorization(self) -> None:
+        self.write_roadmap("program-core", "Core program", "program", "active")
+        capture = self.create_capture()
+        note_id = capture["items"][0]["item_id"]
+        linked = json.loads(self.cli("roadmap", "link-note", note_id, "--to", "program-core", "--relation", "supports").stdout)
+        self.assertFalse(linked["execution_authorized"])
+        self.assertFalse((self.root / "docs" / "project-roadmap" / "entities" / "program-core.md").read_text(encoding="utf-8").find(note_id) >= 0)
+
+    def test_goal_roadmap_contract_is_hash_bound_and_gates_updates(self) -> None:
+        payload = {
+            "goal_id": "goal-roadmap",
+            "title": "Create roadmap milestone",
+            "scope": "Create the approved milestone documentation.",
+            "acceptance_criteria": ["Milestone is committed"],
+            "memory_ids": ["memory-current"],
+            "roadmap_ids": ["milestone-new"],
+            "roadmap_impact": {"entries": [{"roadmap_id": "milestone-new", "action": "create", "rationale": "Track the approved delivery commitment."}], "documentation_required": True, "summary": "Create one milestone."},
+            "plan_reviewed": True,
+        }
+        goal_file = self.root / "roadmap-goal.json"
+        self.write_json(goal_file, payload)
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(goal_file)).stdout)
+        approved = self.approve(goal)
+        self.assertEqual(approved["approval"]["plan_hash"], approved["goal"]["plan_hash"])
+        entry_file = self.root / "milestone.json"
+        self.write_json(entry_file, {"roadmap_id": "milestone-new", "title": "New milestone", "kind": "milestone", "status": "planned", "summary": "Approved delivery milestone.", "parent_ids": [], "health": "on-track", "created_at": "2026-07-13T10:00:00-05:00", "updated_at": "2026-07-13T10:00:00-05:00"})
+        created = json.loads(self.cli("roadmap", "create", "--entry-file", str(entry_file), "--goal-id", goal["goal_id"]).stdout)
+        self.assertEqual(created["roadmap_id"], "milestone-new")
+        goal_path = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json"
+        mutated = json.loads(goal_path.read_text(encoding="utf-8")); mutated["roadmap_impact"]["summary"] = "Unapproved change"; self.write_json(goal_path, mutated)
+        self.cli("goal", "start", goal["goal_id"], expected=2)
+
+    def test_roadmap_change_invalidates_pre_dispatch_approval(self) -> None:
+        self.write_roadmap("program-core", "Core program", "program", "active")
+        payload = {"goal_id": "goal-roadmap-stale", "title": "Use roadmap context", "scope": "Plan against current roadmap context.", "acceptance_criteria": ["Context remains current"], "memory_ids": ["memory-current"], "roadmap_ids": ["program-core"], "roadmap_impact": {"entries": [{"roadmap_id": "program-core", "action": "none", "rationale": "Context only."}], "documentation_required": False, "summary": "No roadmap change."}, "plan_reviewed": True}
+        path = self.root / "stale-roadmap-goal.json"; self.write_json(path, payload)
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(path)).stdout); self.approve(goal)
+        roadmap_path = self.root / "docs" / "project-roadmap" / "entities" / "program-core.md"
+        roadmap_path.write_text(roadmap_path.read_text(encoding="utf-8") + "\nChanged after approval.\n", encoding="utf-8")
+        self.cli("goal", "start", goal["goal_id"], expected=2)
+
+    def test_shared_note_packet_requires_exact_approval_and_stays_non_authorizing(self) -> None:
+        capture = self.create_capture()
+        note_id = capture["items"][1]["item_id"]
+        self.cli("note", "share", "prepare", note_id, "--target-project", "test-project", "--sender", "bad\nsender", expected=2)
+        prepared = json.loads(self.cli("note", "share", "prepare", note_id, "--target-project", "test-project", "--sender", "fixture").stdout)
+        self.assertFalse(prepared["execution_authorized"])
+        self.assertIn("source_ref_hash", prepared["provenance"][0])
+        self.assertNotIn("source_ref", prepared["provenance"][0])
+        self.cli("note", "share", "approve", prepared["packet_id"], "--version", str(prepared["version"]), "--approved-by", "fixture", "--authorization-text", "wrong", expected=2)
+        self.cli("note", "share", "approve", prepared["packet_id"], "--version", str(prepared["version"]), "--approved-by", "fixture", "--authorization-text", f"Approve {prepared['packet_id']} version {prepared['version']} for test-project")
+        published = json.loads(self.cli("note", "share", "publish", prepared["packet_id"], "--dry-run").stdout)
+        self.assertTrue(published["dry_run"])
+        self.assertFalse(published["execution_authorized"])
+        self.assertTrue(published["branch"].startswith("continuity-notes/"))
+        revised = json.loads(self.cli("note", "share", "prepare", note_id, "--packet-id", prepared["packet_id"], "--target-project", "test-project", "--sender", "fixture").stdout)
+        self.assertEqual(revised["version"], prepared["version"] + 1)
+        self.cli("note", "share", "publish", prepared["packet_id"], "--dry-run", expected=2)
+        self.assertTrue((self.root / ".continuity" / "private" / "shared-notes" / "outbox" / prepared["packet_id"] / "versions" / f"v{prepared['version']}.json").exists())
+
+    def test_shared_note_secret_detection_and_import_deduplication(self) -> None:
+        payload = {"source_type": "manual", "source_ref": "secret-test", "items": [{"kind": "context", "text": "api_key=super-secret-value"}]}
+        path = self.root / "secret-capture.json"; self.write_json(path, payload)
+        capture = json.loads(self.cli("note", "capture", "--items-file", str(path)).stdout)
+        self.cli("note", "share", "prepare", capture["items"][0]["item_id"], "--target-project", "test-project", "--sender", "fixture", expected=2)
+        clean = self.create_capture()
+        prepared = json.loads(self.cli("note", "share", "prepare", clean["items"][0]["item_id"], "--target-project", "test-project", "--sender", "fixture").stdout)
+        packet = json.loads((self.root / prepared["private_path"]).read_text(encoding="utf-8"))
+        packet_dir = self.root / ".continuity" / "shared-notes" / "packets" / "2026"; packet_dir.mkdir(parents=True)
+        packet_dir.joinpath("packet-fixture-v1.md").write_text(shared_notes_lib.render_packet(packet), encoding="utf-8")
+        first = json.loads(self.cli("note", "share", "import").stdout)
+        second = json.loads(self.cli("note", "share", "import").stdout)
+        self.assertEqual(len(first["imported"]), 1)
+        self.assertEqual(len(second["imported"]), 0)
+
+    def test_sidecar_is_loopback_authorized_read_only_and_strict(self) -> None:
+        self.write_roadmap("program-core", "Core program", "program", "active")
+        try:
+            server = roadmap_lib.create_server(self.root, self.config, token="fixture-token", asset_root=SUITE / "roadmap-ui")
+        except PermissionError:
+            self.skipTest("The current sandbox does not permit loopback socket binding")
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        try:
+            request = urllib.request.Request(base + "/api/v1/roadmap", headers={"Authorization": "Bearer fixture-token"})
+            with urllib.request.urlopen(request, timeout=3) as response:
+                self.assertEqual(response.status, 200)
+                self.assertIn("frame-ancestors 'none'", response.headers["Content-Security-Policy"])
+                self.assertTrue(json.loads(response.read())["entities"])
+            source_request = urllib.request.Request(base + "/api/v1/source/program-core", headers={"Authorization": "Bearer fixture-token"})
+            with urllib.request.urlopen(source_request, timeout=3) as response:
+                source = json.loads(response.read())
+                self.assertEqual(source["roadmap_id"], "program-core")
+                self.assertIn("roadmap_id: program-core", source["content"])
+            with self.assertRaises(urllib.error.HTTPError) as unauthorized:
+                urllib.request.urlopen(base + "/api/v1/roadmap", timeout=3)
+            self.assertEqual(unauthorized.exception.code, 401)
+            unauthorized.exception.close()
+            post = urllib.request.Request(base + "/api/v1/roadmap", data=b"{}", method="POST")
+            with self.assertRaises(urllib.error.HTTPError) as readonly:
+                urllib.request.urlopen(post, timeout=3)
+            self.assertEqual(readonly.exception.code, 405)
+            readonly.exception.close()
+            cross_origin = urllib.request.Request(base + "/api/v1/roadmap", headers={"Authorization": "Bearer fixture-token", "Origin": "https://example.invalid"})
+            with self.assertRaises(urllib.error.HTTPError) as rejected:
+                urllib.request.urlopen(cross_origin, timeout=3)
+            self.assertEqual(rejected.exception.code, 403)
+            rejected.exception.close()
+            traversal = urllib.request.Request(base + "/..%2f..%2fetc/passwd")
+            with self.assertRaises(urllib.error.HTTPError) as confined:
+                urllib.request.urlopen(traversal, timeout=3)
+            self.assertEqual(confined.exception.code, 400)
+            confined.exception.close()
+        finally:
+            server.shutdown(); server.server_close(); thread.join(timeout=3)
+
+    def test_sidecar_uses_safe_dom_and_production_audit_detects_leakage(self) -> None:
+        javascript = (SUITE / "roadmap-ui" / "app.js").read_text(encoding="utf-8")
+        self.assertNotIn("innerHTML", javascript)
+        self.assertNotIn("localStorage", javascript)
+        self.assertNotIn("sessionStorage", javascript)
+        artifact = self.root / "dist"; artifact.mkdir(); artifact.joinpath("app.js").write_text("console.log('product')", encoding="utf-8")
+        clean = json.loads(self.cli("roadmap", "production-audit", "--artifact", str(artifact)).stdout)
+        self.assertTrue(clean["clean"])
+        artifact.joinpath("leak.js").write_text("const route='/api/v1/roadmap'", encoding="utf-8")
+        leaked = json.loads(self.cli("roadmap", "production-audit", "--artifact", str(artifact)).stdout)
+        self.assertFalse(leaked["clean"])
+
     def test_report_exists_with_no_goals_and_memory_status(self) -> None:
         self.cli("memory", "audit")
         report = self.cli("report", "project").stdout
@@ -557,27 +754,34 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((root / ".agents" / "skills" / "project-continuity" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "project-continuity-local" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "manage-project-memory" / "SKILL.md").exists())
+            self.assertTrue((root / ".agents" / "skills" / "manage-project-roadmap" / "SKILL.md").exists())
+            self.assertTrue((root / ".agents" / "skills" / "share-project-notes" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "bin" / "continuity").exists())
             self.assertTrue((root / ".agents" / "project-continuity" / "automation" / "nightly-review.md").exists())
             self.assertTrue((root / ".agents" / "references" / "development-assurance-standard.md").exists())
             self.assertTrue((root / "docs" / "project-memory" / "INDEX.md").exists())
+            self.assertTrue((root / "docs" / "project-roadmap" / "INDEX.md").exists())
+            self.assertTrue((root / ".agents" / "project-continuity" / "roadmap-ui" / "app.js").exists())
             manifest = json.loads((root / ".continuity" / "project.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["project_id"], "sample-project")
             self.assertFalse(manifest["execution_enabled"])
-            self.assertEqual(manifest["assurance_standard_version"], 1)
+            self.assertEqual(manifest["assurance_standard_version"], 2)
             behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
             self.assertEqual(behavior["fixed_guardrails"]["security_review"], "required")
             self.assertEqual(behavior["fixed_guardrails"]["force_push"], "forbidden")
             self.assertFalse(behavior["fixed_guardrails"]["planning_artifacts_authorize_execution"])
             self.assertEqual(behavior["fixed_guardrails"]["external_tracker_publish"], "explicit-human-approval-required")
+            self.assertFalse(behavior["fixed_guardrails"]["shared_notes_authorize_execution"])
+            self.assertEqual(behavior["fixed_guardrails"]["hosted_roadmap_surface"], "forbidden")
             self.assertEqual(behavior["settings"]["planning_patterns"]["tracker_provider"], "local")
+            self.assertEqual(behavior["settings"]["roadmap"]["ui_mode"], "local-read-only")
             self.assertEqual(manifest["behavior_configuration_hash"], behavior["configuration_hash"])
             self.assertIn(".continuity/private/", (root / ".gitignore").read_text(encoding="utf-8"))
             config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             self.assertTrue(config["require_pr"])
             self.assertTrue(config["require_execution_artifacts"])
             self.assertTrue(config["require_isolated_worktree"])
-            self.assertEqual(config["assurance_standard_version"], 1)
+            self.assertEqual(config["assurance_standard_version"], 2)
             self.assertEqual(config["behavior_configuration_hash"], behavior["configuration_hash"])
             self.assertEqual(config["behavior_skill_path"], ".agents/skills/project-continuity-local/SKILL.md")
             recommendations = subprocess.run(

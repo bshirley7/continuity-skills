@@ -21,11 +21,15 @@ from pathlib import Path
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
+CONTROL_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(CONTROL_ROOT / "lib"))
+import roadmap as roadmap_lib  # noqa: E402
+import shared_notes as shared_notes_lib  # noqa: E402
 
 SCHEMA_VERSION = 1
-ASSURANCE_STANDARD_VERSION = 1
-BEHAVIOR_SCHEMA_VERSION = 1
-BEHAVIOR_PROFILE = "responsible-defaults-v1"
+ASSURANCE_STANDARD_VERSION = 2
+BEHAVIOR_SCHEMA_VERSION = 2
+BEHAVIOR_PROFILE = "responsible-defaults-v2"
 BEHAVIOR_CONFIG_PATH = ".continuity/project-behavior.json"
 BEHAVIOR_SKILL_PATH = ".agents/skills/project-continuity-local/SKILL.md"
 VISUAL_EVIDENCE_MODES = {"when-applicable", "always", "explanation-allowed"}
@@ -36,6 +40,14 @@ DEFAULT_PLANNING_PATTERNS = {
     "decision_mapping": "auto",
     "delivery_slicing": "auto",
     "tracker_provider": "local",
+}
+DEFAULT_ROADMAP_SETTINGS = {
+    "enabled": True,
+    "agile_mode": "hybrid",
+    "hierarchy": "full",
+    "ui_mode": "local-read-only",
+    "shared_notes": "explicit-project-inbox",
+    "production_distribution": "forbidden",
 }
 FIXED_GUARDRAILS = {
     "ambiguous_notes": "hold-or-context",
@@ -49,6 +61,10 @@ FIXED_GUARDRAILS = {
     "auto_merge": "forbidden",
     "planning_artifacts_authorize_execution": False,
     "external_tracker_publish": "explicit-human-approval-required",
+    "raw_note_transport": "forbidden",
+    "shared_notes_authorize_execution": False,
+    "roadmap_ui_write_methods": "forbidden",
+    "hosted_roadmap_surface": "forbidden",
 }
 NOTE_KINDS = {
     "context",
@@ -76,6 +92,7 @@ GOAL_STATES = {
 COMPLIANCE_STAGES = [
     "capture-triage",
     "memory-retrieval",
+    "roadmap-retrieval",
     "plan-review",
     "approval",
     "execution-preflight",
@@ -86,6 +103,7 @@ COMPLIANCE_STAGES = [
     "merge-safety",
     "documentation",
     "memory-impact",
+    "roadmap-impact",
     "final-alignment",
     "human-review",
 ]
@@ -173,6 +191,7 @@ def load_context(start: Path | None = None, *, validate_behavior: bool = True) -
         raise ContinuityError("Missing or unsupported development assurance standard")
     confined_path(root, config.get("private_dir", ".continuity/private"), "private_dir")
     confined_path(root, config.get("memory_docs", "docs/project-memory"), "memory_docs")
+    confined_path(root, config.get("roadmap_docs", "docs/project-roadmap"), "roadmap_docs")
     if validate_behavior and config.get("behavior_config_path"):
         validate_project_behavior(root, config)
     return root, config
@@ -351,6 +370,85 @@ def validate_delivery_slices(value: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def validate_roadmap_impact(value: Any, roadmap_ids: list[str]) -> dict[str, Any]:
+    if value is None:
+        return {"entries": [], "documentation_required": False, "summary": "No roadmap change planned."}
+    if not isinstance(value, dict):
+        raise ContinuityError("roadmap_impact must be a JSON object")
+    entries = value.get("entries", [])
+    if not isinstance(entries, list):
+        raise ContinuityError("roadmap_impact.entries must be an array")
+    normalized = []
+    seen: set[tuple[str, str]] = set()
+    for item in entries:
+        if not isinstance(item, dict):
+            raise ContinuityError("Each roadmap impact must be a JSON object")
+        roadmap_id = validate_identifier(str(item.get("roadmap_id", "")), "roadmap ID")
+        action = item.get("action")
+        if action not in roadmap_lib.IMPACT_ACTIONS:
+            raise ContinuityError(f"Unsupported roadmap impact action: {action}")
+        if roadmap_id not in roadmap_ids:
+            raise ContinuityError(f"Roadmap impact {roadmap_id} is absent from roadmap_ids")
+        if (roadmap_id, action) in seen:
+            raise ContinuityError(f"Duplicate roadmap impact: {roadmap_id} {action}")
+        seen.add((roadmap_id, action))
+        rationale = item.get("rationale")
+        if not isinstance(rationale, str) or not rationale.strip():
+            raise ContinuityError(f"Roadmap impact {roadmap_id} requires a rationale")
+        normalized.append({**item, "roadmap_id": roadmap_id, "action": action, "rationale": rationale.strip()})
+    summary = value.get("summary", "")
+    if not isinstance(summary, str) or not summary.strip():
+        raise ContinuityError("roadmap_impact.summary must be a non-empty string")
+    documentation_required = value.get("documentation_required", bool([item for item in normalized if item["action"] != "none"]))
+    if not isinstance(documentation_required, bool):
+        raise ContinuityError("roadmap_impact.documentation_required must be true or false")
+    if any(item["action"] != "none" for item in normalized) and not documentation_required:
+        raise ContinuityError("Roadmap changes require roadmap impact documentation")
+    return {"entries": normalized, "documentation_required": documentation_required, "summary": summary.strip()}
+
+
+def validate_goal_roadmap_targets(root: Path, config: dict[str, Any], roadmap_ids: list[str], impact: dict[str, Any]) -> None:
+    roadmap_entries = roadmap_lib.entries(root, config)
+    current = {item.get("roadmap_id") for item in roadmap_entries}
+    actions = {item["roadmap_id"]: item["action"] for item in impact.get("entries", [])}
+    counts = {roadmap_id: sum(1 for item in roadmap_entries if item.get("roadmap_id") == roadmap_id) for roadmap_id in roadmap_ids}
+    for roadmap_id in roadmap_ids:
+        action = actions.get(roadmap_id, "none")
+        if action == "create" and roadmap_id in current:
+            raise ContinuityError(f"Roadmap create target already exists: {roadmap_id}")
+        if action != "create" and roadmap_id not in current:
+            raise ContinuityError(f"Roadmap retrieval target does not exist: {roadmap_id}")
+        if counts[roadmap_id] > 1:
+            raise ContinuityError(f"Roadmap retrieval target is duplicated: {roadmap_id}")
+        if action != "create":
+            try:
+                roadmap_lib.normalize_entry(next(item for item in roadmap_entries if item.get("roadmap_id") == roadmap_id))
+            except roadmap_lib.RoadmapError as exc:
+                raise ContinuityError(f"Roadmap retrieval target is invalid: {roadmap_id}: {exc}") from exc
+    if roadmap_ids:
+        report = roadmap_lib.audit(root, config)
+        targets = set(roadmap_ids)
+        blocking = []
+        for key in ("unknown_parents", "unknown_dependencies", "unknown_links", "contradictions", "stale_note_links"):
+            for issue in report.get(key, []):
+                if issue.get("roadmap_id") in targets:
+                    blocking.append({key: issue})
+        for cycle in report.get("cycles", []):
+            if targets.intersection(cycle):
+                blocking.append({"cycle": cycle})
+        if blocking:
+            raise ContinuityError(f"Roadmap context requires reconciliation before planning: {blocking}")
+
+
+def roadmap_fingerprint(root: Path, config: dict[str, Any], roadmap_ids: list[str]) -> str:
+    by_id = {item.get("roadmap_id"): item for item in roadmap_lib.entries(root, config)}
+    material = {}
+    for roadmap_id in sorted(roadmap_ids):
+        item = by_id.get(roadmap_id)
+        material[roadmap_id] = hashlib.sha256((root / item["path"]).read_bytes()).hexdigest() if item else "missing-at-plan-time"
+    return canonical_hash(material)
+
+
 def render_planning_artifacts(goal: dict[str, Any]) -> str:
     lines = ["<!-- continuity-planning-artifacts:start -->", "## Planning evidence and decomposition"]
     brief = goal.get("triage_brief")
@@ -379,6 +477,16 @@ def render_planning_artifacts(goal: dict[str, Any]) -> str:
         for item in slices:
             blockers = ", ".join(item.get("blocked_by", [])) or "none"
             lines.append(f"- **{item['title']}** (`{item['ticket_id']}`; blocked by: {blockers}) — {item['delivers']}")
+    roadmap_ids = goal.get("roadmap_ids", [])
+    impact = goal.get("roadmap_impact", {})
+    lines.extend(["", "### Roadmap context and impact", "", f"Retrieved roadmap IDs: {', '.join(roadmap_ids) or 'none'}"])
+    lines.append(f"Roadmap baseline fingerprint: `{goal.get('roadmap_fingerprint', 'not-recorded')}`")
+    if impact.get("entries"):
+        for item in impact["entries"]:
+            lines.append(f"- `{item['roadmap_id']}` — **{item['action']}** — {item['rationale']}")
+    else:
+        lines.append("- No committed roadmap change is planned.")
+    lines.append(f"- Impact summary: {impact.get('summary', 'No roadmap change planned.')}")
     lines.extend(["", "These artifacts inform the plan and are included in its approval hash. They do not authorize execution.", "<!-- continuity-planning-artifacts:end -->"])
     return "\n".join(lines)
 
@@ -475,6 +583,8 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "branch_prefix": settings["branch_prefix"],
         "project_instructions": settings["project_instructions"],
         "planning_patterns": settings["planning_patterns"],
+        "roadmap": settings["roadmap"],
+        "roadmap_docs": "docs/project-roadmap",
     }
     config_drift = sorted(key for key, value in expected_config.items() if config.get(key) != value)
     if config_drift:
@@ -495,6 +605,7 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "integration_branch": settings["integration_branch"],
         "timezone": settings["timezone"],
         "schedules": settings["schedules"],
+        "roadmap": settings["roadmap"],
         "max_concurrency": 1,
         "execution_enabled": settings["execution_enabled"],
     }
@@ -1148,6 +1259,8 @@ def validate_goal_planning_artifacts(goal: dict[str, Any], *, require_resolved: 
     validate_triage_brief(goal.get("triage_brief"))
     decision_map = validate_decision_map(goal.get("decision_map"))
     validate_delivery_slices(goal.get("delivery_slices"))
+    roadmap_ids = validate_string_list(goal.get("roadmap_ids", []), "roadmap_ids")
+    validate_roadmap_impact(goal.get("roadmap_impact"), roadmap_ids)
     if require_resolved and decision_map:
         unresolved = [
             decision["decision_id"]
@@ -1180,6 +1293,9 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
         "depends_on",
         "source_note_ids",
         "memory_ids",
+        "roadmap_ids",
+        "roadmap_impact",
+        "roadmap_fingerprint",
         "scope",
         "exclusions",
         "acceptance_criteria",
@@ -1209,6 +1325,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "depends_on",
         "source_note_ids",
         "memory_ids",
+        "roadmap_ids",
         "exclusions",
         "documentation_updates",
         "required_checks",
@@ -1242,6 +1359,8 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "depends_on": payload.get("depends_on", []),
         "source_note_ids": payload.get("source_note_ids", []),
         "memory_ids": payload.get("memory_ids", []),
+        "roadmap_ids": payload.get("roadmap_ids", []),
+        "roadmap_impact": validate_roadmap_impact(payload.get("roadmap_impact"), payload.get("roadmap_ids", [])),
         "scope": payload["scope"],
         "exclusions": payload.get("exclusions", []),
         "acceptance_criteria": payload["acceptance_criteria"],
@@ -1254,10 +1373,13 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "created_at": stamp,
         "updated_at": stamp,
     }
+    validate_goal_roadmap_targets(root, config, goal["roadmap_ids"], goal["roadmap_impact"])
+    goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal["roadmap_ids"])
     plan = payload.get("plan_markdown") or (
         f"# {goal_id}: {goal['title']}\n\n"
         f"## Context and memory\n\nNotes: {', '.join(goal['source_note_ids']) or 'None'}  \n"
         f"Memory: {', '.join(goal['memory_ids']) or 'None'}\n\n"
+        f"Roadmap: {', '.join(goal['roadmap_ids']) or 'None'}\n\n"
         f"## Proposed execution scope\n\n{goal['scope']}\n\n"
         f"## Exclusions\n\n" + "\n".join(f"- {item}" for item in goal["exclusions"]) + "\n\n"
         f"## Acceptance criteria\n\n" + "\n".join(f"- {item}" for item in goal["acceptance_criteria"]) + "\n"
@@ -1286,6 +1408,11 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
     compliance["stages"]["memory-retrieval"] = {
         "status": "passed" if goal["memory_ids"] else "pending",
         "evidence": goal["memory_ids"],
+        "updated_at": stamp,
+    }
+    compliance["stages"]["roadmap-retrieval"] = {
+        "status": "passed" if goal["roadmap_ids"] else "not-applicable",
+        "evidence": goal["roadmap_ids"] or ["Goal has no roadmap context"],
         "updated_at": stamp,
     }
     if payload.get("plan_reviewed"):
@@ -1332,6 +1459,8 @@ def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple
     current_hash = goal_material_hash(directory, goal)
     if approval.get("plan_version") != goal.get("plan_version") or approval.get("plan_hash") != current_hash:
         raise ContinuityError("Approval is stale because the plan or goal record changed")
+    if goal.get("state") in {"approved", "queued"} and goal.get("roadmap_fingerprint") != roadmap_fingerprint(root, config, goal.get("roadmap_ids", [])):
+        raise ContinuityError("Approval is stale because retrieved roadmap context changed")
     if goal.get("state") not in {"approved", "queued", "dispatched", "running", "validating"}:
         raise ContinuityError(f"Goal state {goal.get('state')} is not approved")
     return goal, approval
@@ -1353,6 +1482,8 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "depends_on",
         "source_note_ids",
         "memory_ids",
+        "roadmap_ids",
+        "roadmap_impact",
         "scope",
         "exclusions",
         "acceptance_criteria",
@@ -1366,7 +1497,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     for key, value in payload.items():
         if key in allowed:
             goal[key] = value
-    for key in ("depends_on", "source_note_ids", "memory_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
+    for key in ("depends_on", "source_note_ids", "memory_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
         value = goal.get(key)
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
             raise ContinuityError(f"Goal field {key} must be an array of non-empty strings")
@@ -1381,6 +1512,9 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     goal["triage_brief"] = validate_triage_brief(goal.get("triage_brief"))
     goal["decision_map"] = validate_decision_map(goal.get("decision_map"))
     goal["delivery_slices"] = validate_delivery_slices(goal.get("delivery_slices"))
+    goal["roadmap_impact"] = validate_roadmap_impact(goal.get("roadmap_impact"), goal.get("roadmap_ids", []))
+    validate_goal_roadmap_targets(root, config, goal.get("roadmap_ids", []), goal["roadmap_impact"])
+    goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal.get("roadmap_ids", []))
     plan = payload.get("plan_markdown")
     if plan is not None:
         if not isinstance(plan, str) or not plan.strip():
@@ -1409,6 +1543,11 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": goal["updated_at"],
     }
     compliance["stages"]["plan-review"] = {"status": "pending", "evidence": [], "updated_at": goal["updated_at"]}
+    compliance["stages"]["roadmap-retrieval"] = {
+        "status": "passed" if goal.get("roadmap_ids") else "not-applicable",
+        "evidence": goal.get("roadmap_ids") or ["Goal has no roadmap context"],
+        "updated_at": goal["updated_at"],
+    }
     compliance["updated_at"] = goal["updated_at"]
     json_dump(directory / "compliance.json", compliance)
     append_jsonl(directory / "feedback.jsonl", {"at": goal["updated_at"], "author": args.author, "type": "revision", "text": args.summary})
@@ -1424,10 +1563,12 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError(f"Requested v{args.version}; current plan is v{goal['plan_version']}")
     validate_goal_planning_artifacts(goal, require_resolved=True)
     validate_planning_artifact_parity(directory, goal)
+    if goal.get("roadmap_fingerprint") != roadmap_fingerprint(root, config, goal.get("roadmap_ids", [])):
+        raise ContinuityError("Roadmap context changed after planning; revise the goal before approval")
     compliance = json_load(directory / "compliance.json", {})
     if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
         raise ContinuityError("Goal compliance ledger uses a missing or unsupported assurance standard")
-    for stage in ("memory-retrieval", "plan-review"):
+    for stage in ("memory-retrieval", "roadmap-retrieval", "plan-review"):
         state = compliance.get("stages", {}).get(stage, {}).get("status")
         if state not in {"passed", "not-applicable"}:
             raise ContinuityError(f"Compliance stage {stage} must pass before approval")
@@ -1514,6 +1655,8 @@ def discover_projects(workspace_roots: Iterable[Path]) -> list[dict[str, Any]]:
                             "capture-project-note",
                             "triage-project-notes",
                             "manage-project-memory",
+                            "manage-project-roadmap",
+                            "share-project-notes",
                             "plan-project-goals",
                             "dispatch-project-goals",
                             "execute-project-goal",
@@ -1645,6 +1788,10 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
     if isinstance(existing, dict) and isinstance(existing.get("settings"), dict):
         settings = dict(existing["settings"])
         settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
+        settings.setdefault("roadmap", dict(DEFAULT_ROADMAP_SETTINGS))
+        documentation_map = dict(settings.get("documentation_map", {}))
+        documentation_map.setdefault("project-roadmap", "docs/project-roadmap/INDEX.md")
+        settings["documentation_map"] = documentation_map
         return settings
     schedules = manifest.get("schedules", {}) if isinstance(manifest.get("schedules"), dict) else {}
     return {
@@ -1659,11 +1806,12 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         "memory_stale_after_days": config.get("memory_stale_after_days", 90),
         "validation_commands": config.get("validation_commands", []),
         "security_commands": config.get("security_commands", []),
-        "documentation_map": config.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
+        "documentation_map": {**config.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}), "project-roadmap": "docs/project-roadmap/INDEX.md"},
         "visual_evidence_mode": config.get("visual_evidence_mode", "when-applicable"),
         "branch_prefix": config.get("branch_prefix", "continuity"),
         "project_instructions": config.get("project_instructions", []),
         "planning_patterns": config.get("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS)),
+        "roadmap": config.get("roadmap", dict(DEFAULT_ROADMAP_SETTINGS)),
         "execution_enabled": bool(manifest.get("execution_enabled", False)),
     }
 
@@ -1684,6 +1832,7 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
         "branch_prefix": "continuity",
         "project_instructions": current.get("project_instructions", []),
         "planning_patterns": current.get("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS)),
+        "roadmap": current.get("roadmap", dict(DEFAULT_ROADMAP_SETTINGS)),
         "execution_enabled": False,
     }
 
@@ -1713,6 +1862,10 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "planning_patterns.decision_mapping",
             "planning_patterns.delivery_slicing",
             "planning_patterns.tracker_provider",
+            "roadmap.agile_mode",
+            "roadmap.hierarchy",
+            "roadmap.ui_mode",
+            "roadmap.shared_notes",
             "execution_enabled",
         ],
         "fixed_guardrails": FIXED_GUARDRAILS,
@@ -1723,6 +1876,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "visual_evidence_mode": "Use when-applicable so UI work produces visuals and non-visual work records why they do not apply.",
             "project_instructions": "Add only reviewed repository-specific refinements; fixed guardrails always take precedence.",
             "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless external publication is separately approved.",
+            "roadmap": "Use the full hybrid roadmap by default. The sidecar stays read-only, local-clone-only, and excluded from every production distribution.",
         },
     }
 
@@ -1743,6 +1897,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         "branch_prefix",
         "project_instructions",
         "planning_patterns",
+        "roadmap",
         "execution_enabled",
     }
     unknown = sorted(set(value) - allowed)
@@ -1815,6 +1970,19 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
             raise ContinuityError(f"planning_patterns.{key} must be one of {sorted(PLANNING_PATTERN_MODES)}")
     if planning_patterns.get("tracker_provider") not in TRACKER_PROVIDERS:
         raise ContinuityError(f"planning_patterns.tracker_provider must be one of {sorted(TRACKER_PROVIDERS)}")
+    roadmap = settings.get("roadmap")
+    if not isinstance(roadmap, dict) or set(roadmap) != set(DEFAULT_ROADMAP_SETTINGS):
+        raise ContinuityError(f"roadmap must define exactly {sorted(DEFAULT_ROADMAP_SETTINGS)}")
+    if not isinstance(roadmap.get("enabled"), bool):
+        raise ContinuityError("roadmap.enabled must be true or false")
+    fixed_roadmap = {"ui_mode": "local-read-only", "shared_notes": "explicit-project-inbox", "production_distribution": "forbidden"}
+    for key, expected in fixed_roadmap.items():
+        if roadmap.get(key) != expected:
+            raise ContinuityError(f"roadmap.{key} is a fixed safety boundary and must be {expected}")
+    if roadmap.get("agile_mode") not in {"hybrid", "kanban", "milestone"}:
+        raise ContinuityError("roadmap.agile_mode is unsupported")
+    if roadmap.get("hierarchy") not in {"full", "lightweight"}:
+        raise ContinuityError("roadmap.hierarchy is unsupported")
     if not isinstance(settings.get("execution_enabled"), bool):
         raise ContinuityError("execution_enabled must be true or false")
     return settings
@@ -1864,6 +2032,7 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         "branch_prefix": text_answer("Goal branch prefix", recommended["branch_prefix"]),
         "project_instructions": json_answer("Additional project-specific instructions", recommended["project_instructions"]),
         "planning_patterns": json_answer("Planning pattern modes", recommended["planning_patterns"]),
+        "roadmap": json_answer("Roadmap behavior", recommended["roadmap"]),
         "execution_enabled": execution in {"y", "yes"},
     }
 
@@ -1922,6 +2091,8 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "branch_prefix": settings["branch_prefix"],
             "project_instructions": settings["project_instructions"],
             "planning_patterns": settings["planning_patterns"],
+            "roadmap": settings["roadmap"],
+            "roadmap_docs": "docs/project-roadmap",
             "behavior_config_path": BEHAVIOR_CONFIG_PATH,
             "behavior_skill_path": BEHAVIOR_SKILL_PATH,
             "behavior_configuration_hash": record["configuration_hash"],
@@ -1938,6 +2109,7 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "integration_branch": settings["integration_branch"],
             "timezone": settings["timezone"],
             "schedules": settings["schedules"],
+            "roadmap": settings["roadmap"],
             "max_concurrency": 1,
             "execution_enabled": settings["execution_enabled"],
             "behavior_configuration_hash": record["configuration_hash"],
@@ -2038,7 +2210,7 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
     except ContinuityError as exc:
         failures.append(str(exc))
     compliance = json_load(directory / "compliance.json", {})
-    for stage in ("memory-retrieval", "plan-review", "approval"):
+    for stage in ("memory-retrieval", "roadmap-retrieval", "plan-review", "approval"):
         status = compliance.get("stages", {}).get(stage, {}).get("status")
         if status not in {"passed", "not-applicable"}:
             failures.append(f"compliance stage {stage} is {status or 'missing'}")
@@ -2163,6 +2335,10 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "approval": approval,
         "approved_plan": (directory / "plan.md").read_text(encoding="utf-8"),
         "approved_plan_hash": approval["plan_hash"],
+        "source_note_ids": goal.get("source_note_ids", []),
+        "memory_ids": goal.get("memory_ids", []),
+        "roadmap_ids": goal.get("roadmap_ids", []),
+        "roadmap_impact": goal.get("roadmap_impact", {}),
         "runtime_limit_minutes": goal["runtime_limit_minutes"],
         "required_checks": config.get("validation_commands", []) + goal.get("required_checks", []),
         "required_security_checks": config.get("security_commands", []),
@@ -2381,6 +2557,7 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
                 "implementation-report.md",
                 "validation-and-security.md",
                 "memory-impact.md",
+                "roadmap-impact.md",
                 "evidence.md",
             }
             missing_fields.extend(sorted(required_artifacts - set(artifacts)))
@@ -2408,6 +2585,8 @@ def report_project(args: argparse.Namespace) -> str:
     for goal in goals:
         counts[goal["state"]] = counts.get(goal["state"], 0) + 1
     memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
+    roadmap_report = json_load(private_path(root, config) / "reports" / "roadmap-health.json", {})
+    shared_inbox = list(iter_jsonl(private_path(root, config) / "queues" / "shared-notes.jsonl"))
     lines = [
         f"# Project Continuity Report: {config['project_id']}",
         "",
@@ -2443,7 +2622,34 @@ def report_project(args: argparse.Namespace) -> str:
         )
     else:
         lines.append("- Memory health has not been audited.")
+    lines.extend(["", "## Roadmap and shared context", ""])
+    if roadmap_report:
+        lines.extend([
+            f"- Roadmap entries audited: {roadmap_report.get('entries', 0)}",
+            f"- Roadmap healthy: {roadmap_report.get('healthy', False)}",
+            f"- Roadmap cycles: {len(roadmap_report.get('cycles', []))}",
+            f"- Roadmap stale note links: {len(roadmap_report.get('stale_note_links', []))}",
+        ])
+    else:
+        lines.append("- Roadmap health has not been audited.")
+    lines.append(f"- Imported shared-note packets awaiting triage: {len(shared_inbox)}")
     return "\n".join(lines) + "\n"
+
+
+def roadmap_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    try:
+        return args.roadmap_handler(root, config, args)
+    except roadmap_lib.RoadmapError as exc:
+        raise ContinuityError(str(exc)) from exc
+
+
+def shared_note_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    try:
+        return args.shared_note_handler(root, config, args)
+    except shared_notes_lib.SharedNoteError as exc:
+        raise ContinuityError(str(exc)) from exc
 
 
 def output(value: Any, as_json: bool = False) -> None:
@@ -2478,6 +2684,29 @@ def build_parser() -> argparse.ArgumentParser:
     notes = note_sub.add_parser("list")
     notes.add_argument("--kind", choices=sorted(NOTE_KINDS))
     notes.set_defaults(handler=note_list)
+    share = note_sub.add_parser("share")
+    share_sub = share.add_subparsers(dest="share_command", required=True)
+    prepare = share_sub.add_parser("prepare")
+    prepare.add_argument("note_ids", nargs="+")
+    prepare.add_argument("--packet-id")
+    prepare.add_argument("--target-project", required=True)
+    prepare.add_argument("--sender", required=True)
+    prepare.add_argument("--source-pr")
+    prepare.add_argument("--roadmap-id", action="append")
+    prepare.add_argument("--relation", choices=sorted(roadmap_lib.NOTE_RELATIONS), default="suggests")
+    prepare.set_defaults(handler=shared_note_command, shared_note_handler=shared_notes_lib.prepare)
+    share_approve = share_sub.add_parser("approve")
+    share_approve.add_argument("packet_id")
+    share_approve.add_argument("--version", type=int, required=True)
+    share_approve.add_argument("--approved-by", required=True)
+    share_approve.add_argument("--authorization-text", required=True)
+    share_approve.set_defaults(handler=shared_note_command, shared_note_handler=shared_notes_lib.approve)
+    publish = share_sub.add_parser("publish")
+    publish.add_argument("packet_id")
+    publish.add_argument("--dry-run", action="store_true")
+    publish.set_defaults(handler=shared_note_command, shared_note_handler=shared_notes_lib.publish)
+    import_notes = share_sub.add_parser("import")
+    import_notes.set_defaults(handler=shared_note_command, shared_note_handler=shared_notes_lib.import_packets)
 
     memory = top.add_parser("memory")
     memory_sub = memory.add_subparsers(dest="command", required=True)
@@ -2525,6 +2754,53 @@ def build_parser() -> argparse.ArgumentParser:
     supersede.add_argument("--with", dest="replacement_id", required=True)
     supersede.add_argument("--goal-id", required=True)
     supersede.set_defaults(handler=memory_supersede)
+
+    roadmap = top.add_parser("roadmap")
+    roadmap_sub = roadmap.add_subparsers(dest="command", required=True)
+    roadmap_index = roadmap_sub.add_parser("index")
+    roadmap_index.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_index)
+    roadmap_list = roadmap_sub.add_parser("list")
+    roadmap_list.add_argument("--kind", choices=sorted(roadmap_lib.ROADMAP_KINDS))
+    roadmap_list.add_argument("--status", choices=sorted(roadmap_lib.ROADMAP_STATUSES))
+    roadmap_list.add_argument("--health", choices=sorted(roadmap_lib.ROADMAP_HEALTH))
+    roadmap_list.add_argument("--owner")
+    roadmap_list.add_argument("--tag")
+    roadmap_list.add_argument("--sprint")
+    roadmap_list.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_list)
+    roadmap_show = roadmap_sub.add_parser("show")
+    roadmap_show.add_argument("roadmap_id")
+    roadmap_show.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_show)
+    roadmap_brief = roadmap_sub.add_parser("brief")
+    roadmap_brief.add_argument("query")
+    roadmap_brief.add_argument("--limit", type=int, default=12)
+    roadmap_brief.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_brief)
+    roadmap_audit = roadmap_sub.add_parser("audit")
+    roadmap_audit.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_audit)
+    link_note = roadmap_sub.add_parser("link-note")
+    link_note.add_argument("note_id")
+    link_note.add_argument("--to", dest="roadmap_id", required=True)
+    link_note.add_argument("--relation", choices=sorted(roadmap_lib.NOTE_RELATIONS), required=True)
+    link_note.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_link_note)
+    roadmap_create = roadmap_sub.add_parser("create")
+    roadmap_create.add_argument("--entry-file", required=True)
+    roadmap_create.add_argument("--goal-id", required=True)
+    roadmap_create.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_create)
+    roadmap_revise = roadmap_sub.add_parser("revise")
+    roadmap_revise.add_argument("roadmap_id")
+    roadmap_revise.add_argument("--entry-file", required=True)
+    roadmap_revise.add_argument("--goal-id", required=True)
+    roadmap_revise.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_revise)
+    roadmap_export = roadmap_sub.add_parser("export")
+    roadmap_export.add_argument("--scope", choices=["committed"], default="committed")
+    roadmap_export.add_argument("--output")
+    roadmap_export.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_export)
+    roadmap_serve = roadmap_sub.add_parser("serve")
+    roadmap_serve.add_argument("--open", action="store_true")
+    roadmap_serve.add_argument("--port", type=int, default=0)
+    roadmap_serve.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_serve)
+    production_audit = roadmap_sub.add_parser("production-audit")
+    production_audit.add_argument("--artifact", required=True)
+    production_audit.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.production_audit)
 
     goal = top.add_parser("goal")
     goal_sub = goal.add_subparsers(dest="command", required=True)

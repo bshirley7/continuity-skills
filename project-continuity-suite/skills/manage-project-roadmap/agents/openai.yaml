@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Project Roadmap"
+  short_description: "Curate and audit project-local roadmap context"
+  default_prompt: "Use $manage-project-roadmap to audit and brief this project roadmap."

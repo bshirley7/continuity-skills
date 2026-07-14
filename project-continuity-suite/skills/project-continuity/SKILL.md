@@ -44,6 +44,7 @@ The answers file may override only:
 - `branch_prefix`
 - `project_instructions` for reviewed repository-specific operating behavior
 - `planning_patterns` modes for evidence triage, decision mapping, delivery slicing, and the preferred tracker provider
+- `roadmap` modes for hybrid planning and hierarchy; read-only local UI, project-inbox sharing, and production exclusion remain fixed
 - `execution_enabled`
 
 The CLI writes `.continuity/project-behavior.json`, synchronizes the effective settings into the project config and manifest, generates `.agents/skills/project-continuity-local/SKILL.md`, and records an ignored append-only configuration audit. Configuration hashes make manual drift fail closed.
@@ -53,6 +54,8 @@ The CLI writes `.continuity/project-behavior.json`, synchronizes the effective s
 - Notes or conversation capture: `$capture-project-note`
 - Classification and queues: `$triage-project-notes`
 - Searchable memory: `$manage-project-memory`
+- Project roadmap and local visual admin: `$manage-project-roadmap`
+- Explicit sanitized developer handoffs: `$share-project-notes`
 - Goal proposals: `$plan-project-goals`
 - Approval, schedule, or manual start: `$dispatch-project-goals`
 - Approved isolated execution: `$execute-project-goal`
@@ -61,3 +64,5 @@ The CLI writes `.continuity/project-behavior.json`, synchronizes the effective s
 Always apply `$project-continuity-local` after the selected task skill. If it is missing or out of sync, stop and run project doctor or guided configuration.
 
 Planning patterns are local capabilities, not imported authorities. Their artifacts stay non-authorizing, enter the goal hash, and cannot publish to an external tracker without separate explicit human approval.
+
+Roadmap IDs and structured roadmap impact are approval-hash inputs. Raw notes stay private; shared packets remain non-authorizing even after a human-reviewed merge.
