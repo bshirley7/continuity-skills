@@ -20,13 +20,14 @@ Every installed skill applies the versioned development assurance standard. The 
 .continuity/project.json                committed enrollment and schedule intent
 .continuity/config.json                 committed project configuration
 .continuity/project-behavior.json        committed recommendations, overrides, and hash
+.continuity/scheduler.json               selected scheduler handoff and registration state
 .continuity/private/                    ignored captures, queues, goals, locks, indexes
 docs/project-memory/                    canonical searchable project memory
 docs/project-roadmap/                   canonical sanitized project roadmap
 .continuity/shared-notes/packets/       reviewed non-authorizing note packets
 ```
 
-The installed control directory also includes project-neutral recurring-action prompt assets. The Codex app owns each developer's actual schedules. A developer-local scheduler discovers enrolled repositories from configured workspace roots, then invokes the skills and CLI installed inside each project. No project paths, notes, memory, or registry are stored in this distribution.
+The installed control directory also includes project-neutral recurring-action prompt assets. The selected Codex, Claude Code, or external scheduler owns each developer's actual schedules. A scheduler discovers enrolled repositories from configured workspace roots, then invokes the skills and CLI installed inside each project. Schedule intent and the selected provider are committed; task registration, machine paths, credentials, notes, memory, and private scheduler state remain developer-local.
 
 Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
@@ -48,7 +49,7 @@ The main skill guides the user through recommended defaults and explicit overrid
 .agents/continuity/bin/continuity --project-root <repository> --json project configure --answers-file <answers.json> --actor <identity>
 ```
 
-Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, human merge, no force-push, and no auto-merge remain fixed.
+Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, human merge, no force-push, and no auto-merge remain fixed.
 
 Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. External tracker publication remains a separate explicit-human-approval action.
 
@@ -83,7 +84,7 @@ continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
 continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --evidence <text>
 ```
 
-Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill, and `project doctor` fails on drift. Keep developer workspace roots and Codex automation records in developer-local configuration, never in this repository.
+Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 
 ## Typical cycle
 

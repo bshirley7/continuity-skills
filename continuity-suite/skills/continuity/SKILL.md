@@ -1,6 +1,6 @@
 ---
 name: continuity
-description: Configure, audit, and route the project-local Continuity suite. Use when installing the suite, changing project-specific schedules or behavior, reviewing recommended defaults and overrides, validating configuration health, or deciding which Continuity skill should handle a request.
+description: Configure, audit, and route the project-local Continuity suite. Use when installing the suite, selecting Codex, Claude Code, Cursor, Windsurf, or generic agent surfaces, changing schedules or project behavior, reviewing defaults and overrides, validating configuration health, or deciding which Continuity skill should handle a request.
 ---
 
 # Continuity
@@ -18,7 +18,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 
 ## Guided setup
 
-1. Inspect the repository's `AGENTS.md`, integration branch, package manager, validation scripts, security tooling, documentation layout, UI/evidence needs, and team timezone.
+1. Inspect the repository's `AGENTS.md`, integration branch, package manager, validation scripts, security tooling, documentation layout, UI/evidence needs, team timezone, preferred agent surfaces, and scheduler owner.
 2. Run the recommendations command. Explain the evidence behind the recommendations and distinguish customizable settings from fixed guardrails.
 3. Ask only the questions needed to resolve project-specific choices. Recommend keeping execution disabled until a separate user approval enables real product-code runs.
 4. Record answers in a temporary JSON file and apply them through the deterministic CLI. Never hand-edit the generated local behavior skill.
@@ -45,9 +45,11 @@ The answers file may override only:
 - `project_instructions` for reviewed repository-specific operating behavior
 - `planning_patterns` modes for evidence triage, decision mapping, delivery slicing, and the preferred tracker provider
 - `roadmap` modes for hybrid planning and hierarchy; read-only local UI, project-inbox sharing, and production exclusion remain fixed
+- `agent_surfaces.primary` and `agent_surfaces.enabled` for Codex, Claude Code, Cursor, Windsurf, or a generic `AGENTS.md` consumer
+- `scheduler.provider` for Codex, Claude Code, an external scheduler, or no scheduler
 - `execution_enabled`
 
-The CLI writes `.continuity/project-behavior.json`, synchronizes the effective settings into the project config and manifest, generates `.agents/skills/continuity-local/SKILL.md`, and records an ignored append-only configuration audit. Configuration hashes make manual drift fail closed.
+The CLI writes `.continuity/project-behavior.json`, synchronizes the effective settings into the project config and manifest, generates `.agents/skills/continuity-local/SKILL.md`, regenerates selected surface adapters, writes `.continuity/scheduler.json`, and records an ignored append-only configuration audit. Configuration hashes make manual drift fail closed. Scheduler configuration records intent but never claims persistent registration occurred.
 
 ## Routing
 

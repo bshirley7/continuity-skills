@@ -36,6 +36,18 @@ LEGACY_SKILL_DIRS = [
     "execute-project-goal",
     "report-project-progress",
 ]
+USER_DEFAULT_FIELDS = {
+    "timezone",
+    "schedules",
+    "max_runtime_minutes",
+    "memory_stale_after_days",
+    "visual_evidence_mode",
+    "branch_prefix",
+    "planning_patterns",
+    "roadmap",
+    "agent_surfaces",
+    "scheduler",
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -45,6 +57,22 @@ def load_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def load_user_defaults(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    record = load_json(path)
+    if record.get("schema_version") != 1 or not isinstance(record.get("settings"), dict):
+        raise RuntimeError(f"Unsupported Continuity user defaults: {path}")
+    unknown = sorted(set(record["settings"]) - USER_DEFAULT_FIELDS)
+    if unknown:
+        raise RuntimeError(f"Unsupported Continuity user default fields: {unknown}")
+    return dict(record["settings"])
+
+
+def portable_user_defaults(settings: dict[str, Any]) -> dict[str, Any]:
+    return {key: settings[key] for key in sorted(USER_DEFAULT_FIELDS) if key in settings}
 
 
 def confined(root: Path, value: str, label: str) -> Path:
@@ -139,13 +167,18 @@ def main() -> int:
     parser.add_argument("--configuration", help="Optional JSON answers for guided project behavior configuration")
     parser.add_argument("--interactive", action="store_true", help="Ask guided project behavior questions after installation")
     parser.add_argument("--validation", action="append", default=[])
-    parser.add_argument("--timezone", default="America/Chicago")
+    parser.add_argument("--timezone", help="IANA timezone; overrides a saved user default")
+    parser.add_argument("--user-defaults", default="~/.continuity/defaults.json", help="Portable user-default profile used to seed new project installs")
+    parser.add_argument("--ignore-user-defaults", action="store_true", help="Do not load or save the user-default profile")
+    parser.add_argument("--save-user-defaults", action="store_true", help="Save portable choices from this install as future user defaults")
     parser.add_argument("--enable-execution", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     if args.interactive and args.configuration:
         raise RuntimeError("Use either --interactive or --configuration, not both")
+    if args.ignore_user_defaults and args.save_user_defaults:
+        raise RuntimeError("Cannot save user defaults while --ignore-user-defaults is active")
 
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args.project_id):
         raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
@@ -158,7 +191,11 @@ def main() -> int:
     git(root, "check-ref-format", "--branch", args.integration_branch)
     commit = git(root, "rev-parse", "HEAD")
     seed = load_json(Path(args.seed).expanduser().resolve()) if args.seed else {}
-    stamp = dt.datetime.now(ZoneInfo(args.timezone)).isoformat(timespec="seconds")
+    user_defaults_path = Path(args.user_defaults).expanduser().resolve()
+    user_defaults_existed = user_defaults_path.exists()
+    user_defaults = {} if args.ignore_user_defaults else load_user_defaults(user_defaults_path)
+    effective_timezone = args.timezone or user_defaults.get("timezone", "America/Chicago")
+    stamp = dt.datetime.now(ZoneInfo(effective_timezone)).isoformat(timespec="seconds")
     entries = seed.get("entries") or [
         {
             "path": "INDEX.md",
@@ -179,13 +216,13 @@ def main() -> int:
         "assurance_standard_version": 2,
         "project_id": args.project_id,
         "integration_branch": args.integration_branch,
-        "timezone": args.timezone,
+        "timezone": effective_timezone,
         "default_start_time": "22:00",
-        "max_runtime_minutes": 360,
+        "max_runtime_minutes": user_defaults.get("max_runtime_minutes", 360),
         "memory_docs": "docs/project-memory",
         "roadmap_docs": "docs/project-roadmap",
         "private_dir": ".continuity/private",
-        "memory_stale_after_days": 90,
+        "memory_stale_after_days": user_defaults.get("memory_stale_after_days", 90),
         "require_remote": True,
         "require_pr": True,
         "require_pr_auth": True,
@@ -195,23 +232,25 @@ def main() -> int:
         "validation_commands": args.validation,
         "security_commands": [],
         "documentation_map": seed.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md", "project-roadmap": "docs/project-roadmap/INDEX.md"}),
-        "visual_evidence_mode": "when-applicable",
-        "branch_prefix": "continuity",
+        "visual_evidence_mode": user_defaults.get("visual_evidence_mode", "when-applicable"),
+        "branch_prefix": user_defaults.get("branch_prefix", "continuity"),
         "project_instructions": [],
-        "planning_patterns": {
+        "planning_patterns": user_defaults.get("planning_patterns", {
             "evidence_triage": "auto",
             "decision_mapping": "auto",
             "delivery_slicing": "auto",
             "tracker_provider": "local",
-        },
-        "roadmap": {
+        }),
+        "roadmap": user_defaults.get("roadmap", {
             "enabled": True,
             "agile_mode": "hybrid",
             "hierarchy": "full",
             "ui_mode": "local-read-only",
             "shared_notes": "explicit-project-inbox",
             "production_distribution": "forbidden",
-        },
+        }),
+        "agent_surfaces": user_defaults.get("agent_surfaces", {"primary": "codex", "enabled": ["codex"]}),
+        "scheduler": user_defaults.get("scheduler", {"provider": "none"}),
         "behavior_config_path": ".continuity/project-behavior.json",
         "behavior_skill_path": ".agents/skills/continuity-local/SKILL.md",
     }
@@ -223,8 +262,10 @@ def main() -> int:
         "continuity_enabled": True,
         "execution_enabled": args.enable_execution,
         "integration_branch": args.integration_branch,
-        "timezone": args.timezone,
-        "schedules": {"review": "20:00", "dispatch": "22:00", "report": "07:00"},
+        "timezone": effective_timezone,
+        "schedules": user_defaults.get("schedules", {"review": "20:00", "dispatch": "22:00", "report": "07:00"}),
+        "agent_surfaces": user_defaults.get("agent_surfaces", {"primary": "codex", "enabled": ["codex"]}),
+        "scheduler": user_defaults.get("scheduler", {"provider": "none"}),
         "max_concurrency": 1,
     }
 
@@ -265,6 +306,8 @@ def main() -> int:
 - Enforce development assurance standard version `2` from `.agents/references/development-assurance-standard.md`; stop when configuration, evidence, or an installed skill is incompatible.
 - Start configuration and workflow routing with `$continuity`; apply the generated `$continuity-local` behavior skill with every task-specific continuity skill.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/continuity/bin/continuity`.
+- Treat `AGENTS.md` and `.agents/` as the canonical cross-surface contract. Use the generated Claude Code, Cursor, or Windsurf adapters selected in `.continuity/project.json`; do not maintain divergent copies by hand.
+- Treat `.continuity/scheduler.json` as a scheduler handoff, not proof that a persistent task was registered. Registration in Codex, Claude Code, or an external scheduler remains an explicit user action.
 - Treat notes as project knowledge first. Capture, classification, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.
 - Before planning or execution, run project-memory and roadmap briefs and cite the memory and roadmap IDs used.
@@ -289,7 +332,7 @@ def main() -> int:
 {IGNORE_END}"""
 
     if args.dry_run:
-        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries)}, indent=2))
+        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries), "user_defaults": str(user_defaults_path), "user_defaults_loaded": bool(user_defaults)}, indent=2))
         return 0
 
     skills_target = root / ".agents" / "skills"
@@ -371,8 +414,15 @@ def main() -> int:
         raise RuntimeError(message)
 
     manifest = load_json(root / ".continuity" / "project.json")
+    save_defaults = not args.ignore_user_defaults and (args.save_user_defaults or (args.interactive and not user_defaults_existed))
+    if save_defaults:
+        behavior = load_json(root / ".continuity" / "project-behavior.json")
+        write_json(
+            user_defaults_path,
+            {"schema_version": 1, "settings": portable_user_defaults(behavior["settings"])},
+        )
     installed_skills = sum(1 for path in skills_target.iterdir() if path.is_dir())
-    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md"}, indent=2))
+    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "user_defaults": str(user_defaults_path), "user_defaults_saved": save_defaults}, indent=2))
     return 0
 
 

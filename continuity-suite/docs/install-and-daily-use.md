@@ -45,6 +45,7 @@ Continuity writes project-local control files into the target project:
 .continuity/project.json                schedule and enrollment manifest
 .continuity/config.json                 project configuration
 .continuity/project-behavior.json       hash-bound project-specific behavior
+.continuity/scheduler.json              scheduler handoff and registration state
 .continuity/private/                    ignored notes, queues, goals, locks, indexes
 docs/project-memory/                    committed searchable memory
 docs/project-roadmap/                   committed roadmap records
@@ -52,6 +53,20 @@ docs/project-roadmap/                   committed roadmap records
 ```
 
 The installer also updates managed blocks in `AGENTS.md` and `.gitignore`.
+
+## User Defaults And Project Isolation
+
+Continuity separates reusable personal defaults from repository-specific controls.
+
+The default user profile is:
+
+```text
+~/.continuity/defaults.json
+```
+
+It may contain only portable preferences: timezone, review/dispatch/report times, runtime and memory-age defaults, visual-evidence mode, branch prefix, planning and roadmap modes, enabled agent surfaces, and scheduler provider. It never contains repository paths, validation or security commands, documentation maps, project instructions, notes, approvals, roadmap records, credentials, execution enrollment, or private state.
+
+The first `--interactive` install saves portable choices automatically when the profile does not exist. Later installs load that profile as their starting point but still generate an isolated project behavior record. Use `--save-user-defaults` to intentionally replace the profile with portable choices from a later install, `--user-defaults <path>` to use a different profile, or `--ignore-user-defaults` for a fully project-only install.
 
 ## Install With Guided Configuration
 
@@ -84,6 +99,8 @@ Goal branch prefix
 Additional project-specific instructions
 Planning pattern modes
 Roadmap behavior
+Primary and enabled agent surfaces
+Persistent scheduler provider
 Execution enabled
 ```
 
@@ -130,6 +147,13 @@ Use `--configuration` for repeatable setup:
     "shared_notes": "explicit-project-inbox",
     "production_distribution": "forbidden"
   },
+  "agent_surfaces": {
+    "primary": "codex",
+    "enabled": ["codex", "claude-code", "cursor", "windsurf"]
+  },
+  "scheduler": {
+    "provider": "codex"
+  },
   "execution_enabled": false
 }
 ```
@@ -165,6 +189,20 @@ For deterministic changes:
 ```
 
 Do not hand-edit `.agents/skills/continuity-local/SKILL.md`. It is generated from `.continuity/project-behavior.json`.
+
+## Choose An Agent Surface
+
+`AGENTS.md`, `.agents/skills/`, and `.agents/continuity/` remain canonical regardless of the selected surface. Continuity generates thin native adapters and regenerates them whenever project configuration changes.
+
+| Surface | Generated project entrypoint | Typical invocation |
+| --- | --- | --- |
+| Codex | `AGENTS.md` and `.agents/skills/` | `$continuity-plan` |
+| Claude Code | `CLAUDE.md` importing `AGENTS.md`, plus `.claude/skills/` | `/continuity-plan` |
+| Cursor | `.cursor/rules/continuity.mdc` and `.cursor/commands/continuity-*.md` | `/continuity-plan` |
+| Windsurf | `AGENTS.md` and `.windsurf/skills/` | `@continuity-plan` |
+| Generic | `AGENTS.md` and the project-local CLI | Ask the agent to use `continuity-plan` |
+
+Choose one primary surface and one or more enabled surfaces. Teams may enable several surfaces in the same repository. Do not edit generated adapter copies directly; update the canonical skill or project behavior and rerun configuration. `project doctor` reports missing adapters.
 
 ## Daily Routine
 
@@ -243,7 +281,18 @@ The project stores schedule intent in `.continuity/project.json`:
 }
 ```
 
-The Codex app or developer-local scheduler owns actual timer setup. Scheduler tasks should use the installed automation prompts under:
+The selected scheduler owns actual persistent task registration. Continuity records one provider in the hash-bound project behavior:
+
+```text
+codex        register Codex scheduled tasks or automations
+claude-code  register Claude Code Desktop tasks or cloud routines
+external     use cron, launchd, GitHub Actions, CI, or another scheduler
+none         keep schedule intent without registering recurring tasks
+```
+
+Selecting a provider does not silently create a machine-level job. `.continuity/scheduler.json` reports either `not-requested` or `requires-user-registration`, identifies the selected surface, and points to the installed prompts. This prevents a project clone from silently changing a developer's machine, account, permissions, or cloud routines.
+
+Scheduler tasks should use:
 
 ```text
 .agents/continuity/automation/nightly-review.md
@@ -261,6 +310,8 @@ continuity --json portfolio queue --root /workspace/root
 
 The scheduler discovers enrolled projects, starts project-scoped tasks, runs project doctor first, and must not centralize raw notes or private state.
 
+For Codex or Claude Code, create the three persistent tasks in that product's scheduling surface using the recorded timezone and times. For an external scheduler, invoke a project-scoped agent session or the portfolio discovery commands from a trusted local wrapper. A plain cron entry that runs only the deterministic CLI can inspect queues and reports, but model-driven review or execution still requires an authenticated agent surface.
+
 ## Execution Layer
 
 The project-specific execution layer is the generated skill:
@@ -269,7 +320,7 @@ The project-specific execution layer is the generated skill:
 .agents/skills/continuity-local/SKILL.md
 ```
 
-Every task-specific Continuity skill must apply `$continuity-local`. It contains the project-specific schedules, validation commands, security commands, documentation map, roadmap behavior, branch prefix, project instructions, and execution enrollment.
+Every task-specific Continuity skill must apply `$continuity-local`. It contains the project-specific schedules, validation commands, security commands, documentation map, roadmap behavior, agent surfaces, scheduler provider, branch prefix, project instructions, and execution enrollment.
 
 Execution remains blocked unless:
 

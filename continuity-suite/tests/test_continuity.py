@@ -872,6 +872,7 @@ class InstallerTest(unittest.TestCase):
                 "main",
                 "--validation",
                 "pnpm typecheck",
+                "--ignore-user-defaults",
             ]
             subprocess.run(command, check=True, capture_output=True, text=True)
             subprocess.run(command, check=True, capture_output=True, text=True)
@@ -898,6 +899,9 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(manifest["project_id"], "sample-project")
             self.assertFalse(manifest["execution_enabled"])
             self.assertEqual(manifest["assurance_standard_version"], 2)
+            self.assertEqual(manifest["agent_surfaces"], {"primary": "codex", "enabled": ["codex"]})
+            self.assertEqual(manifest["scheduler"], {"provider": "none"})
+            self.assertEqual(json.loads((root / ".continuity" / "scheduler.json").read_text(encoding="utf-8"))["registration_state"], "not-requested")
             behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
             self.assertEqual(behavior["fixed_guardrails"]["security_review"], "required")
             self.assertEqual(behavior["fixed_guardrails"]["force_push"], "forbidden")
@@ -942,6 +946,11 @@ class InstallerTest(unittest.TestCase):
                             "delivery_slicing": "auto",
                             "tracker_provider": "local",
                         },
+                        "agent_surfaces": {
+                            "primary": "claude-code",
+                            "enabled": ["codex", "claude-code", "cursor", "windsurf"],
+                        },
+                        "scheduler": {"provider": "claude-code"},
                     }
                 ),
                 encoding="utf-8",
@@ -970,11 +979,46 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(updated_behavior["settings"]["schedules"]["review"], "20:00")
             self.assertEqual(updated_behavior["settings"]["project_instructions"], ["Run backend contract checks before the frontend build."])
             self.assertEqual(updated_behavior["settings"]["planning_patterns"]["evidence_triage"], "required")
+            self.assertEqual(updated_behavior["settings"]["agent_surfaces"]["primary"], "claude-code")
+            self.assertEqual(updated_behavior["settings"]["scheduler"]["provider"], "claude-code")
             local_skill = (root / ".agents" / "skills" / "continuity-local" / "SKILL.md").read_text(encoding="utf-8")
             self.assertIn(updated_behavior["configuration_hash"], local_skill)
+            self.assertIn("@AGENTS.md", (root / "CLAUDE.md").read_text(encoding="utf-8"))
+            self.assertTrue((root / ".claude" / "skills" / "continuity-plan" / "SKILL.md").exists())
+            self.assertTrue((root / ".claude" / "references" / "continuity-contract.md").exists())
+            self.assertTrue((root / ".cursor" / "rules" / "continuity.mdc").exists())
+            self.assertTrue((root / ".cursor" / "commands" / "continuity-plan.md").exists())
+            self.assertTrue((root / ".windsurf" / "skills" / "continuity-plan" / "SKILL.md").exists())
+            self.assertEqual(json.loads((root / ".continuity" / "scheduler.json").read_text(encoding="utf-8"))["registration_state"], "requires-user-registration")
             audit_lines = (root / ".continuity" / "private" / "configuration-audit.jsonl").read_text(encoding="utf-8").splitlines()
             self.assertGreaterEqual(len(audit_lines), 2)
             self.assertEqual(json.loads(audit_lines[-1])["actor"], "test-user")
+            claude_plan = root / ".claude" / "skills" / "continuity-plan" / "SKILL.md"
+            claude_plan.write_text(claude_plan.read_text(encoding="utf-8") + "\nstale adapter\n", encoding="utf-8")
+            stale_adapter_doctor = subprocess.run(
+                [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertFalse(json.loads(stale_adapter_doctor.stdout)["healthy"])
+            self.assertIn("Claude Code skill adapter is missing or stale", stale_adapter_doctor.stdout)
+            subprocess.run(
+                [
+                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "project",
+                    "configure",
+                    "--answers-file",
+                    str(answers_path),
+                    "--actor",
+                    "adapter-repair-test",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
 
             unsafe_answers = Path(temp) / "unsafe-answers.json"
             unsafe_answers.write_text(json.dumps({"force_push": "allowed"}), encoding="utf-8")
@@ -1025,6 +1069,22 @@ class InstallerTest(unittest.TestCase):
             )
             self.assertEqual(rejected_pattern.returncode, 2)
             self.assertIn("planning_patterns.evidence_triage", rejected_pattern.stderr)
+            unsafe_answers.write_text(json.dumps({"agent_surfaces": {"primary": "cursor", "enabled": ["cursor"]}, "scheduler": {"provider": "claude-code"}}), encoding="utf-8")
+            rejected_scheduler = subprocess.run(
+                [
+                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    "--project-root",
+                    str(root),
+                    "project",
+                    "configure",
+                    "--answers-file",
+                    str(unsafe_answers),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(rejected_scheduler.returncode, 2)
+            self.assertIn("scheduler.provider must name an enabled agent surface", rejected_scheduler.stderr)
 
             subprocess.run(command, check=True, capture_output=True, text=True)
             preserved_behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
@@ -1071,6 +1131,60 @@ class InstallerTest(unittest.TestCase):
             )
             records = json.loads(discovered.stdout)
             self.assertEqual([record["project_id"] for record in records], ["sample-project"])
+
+    def test_installer_reuses_portable_user_defaults_without_sharing_project_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            defaults_path = Path(temp) / "continuity-defaults.json"
+            defaults_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "settings": {
+                            "timezone": "UTC",
+                            "schedules": {"review": "18:00", "dispatch": "19:00", "report": "06:30"},
+                            "agent_surfaces": {"primary": "cursor", "enabled": ["cursor", "generic"]},
+                            "scheduler": {"provider": "external"},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            root = Path(temp) / "profile-project"
+            root.mkdir()
+            subprocess.run(["git", "-C", str(root), "init", "-b", "main"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "tests@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Tests"], check=True)
+            (root / "README.md").write_text("# Profile project\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-m", "initial"], check=True, capture_output=True)
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(INSTALLER),
+                    "--project-root",
+                    str(root),
+                    "--project-id",
+                    "profile-project",
+                    "--integration-branch",
+                    "main",
+                    "--user-defaults",
+                    str(defaults_path),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            installed = json.loads(result.stdout)
+            self.assertFalse(installed["user_defaults_saved"])
+            behavior = json.loads((root / ".continuity" / "project-behavior.json").read_text(encoding="utf-8"))
+            self.assertEqual(behavior["settings"]["timezone"], "UTC")
+            self.assertEqual(behavior["settings"]["schedules"]["dispatch"], "19:00")
+            self.assertEqual(behavior["settings"]["agent_surfaces"]["primary"], "cursor")
+            self.assertEqual(behavior["settings"]["scheduler"]["provider"], "external")
+            self.assertTrue((root / ".cursor" / "commands" / "continuity.md").exists())
+            self.assertFalse((root / ".claude" / "skills" / "continuity").exists())
+            self.assertEqual(behavior["settings"]["validation_commands"], [])
+            self.assertEqual(behavior["settings"]["project_instructions"], [])
 
 
 if __name__ == "__main__":

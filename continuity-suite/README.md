@@ -8,6 +8,7 @@ Continuity turns project conversations and notes into searchable memory, roadmap
 - For the full suite contract, installed layout, guardrails, and command reference, read [SUITE.md](SUITE.md).
 - For the safety model every skill follows, read [Continuity Contract](references/continuity-contract.md).
 - For quality and merge gates, read [Testing and Merge Standard](references/testing-and-merge-standard.md).
+- For contribution rules and review expectations, read [Contributing](CONTRIBUTING.md).
 
 ## Short Answer
 
@@ -22,6 +23,8 @@ python3 continuity-suite/installer/install.py \
 ```
 
 After installation, day-to-day use happens inside the project with `$continuity-*` skills and the installed project-local CLI at `.agents/continuity/bin/continuity`.
+
+The guided installer can save portable user defaults in `~/.continuity/defaults.json`, then generate isolated project controls for Codex, Claude Code, Cursor, Windsurf, or another `AGENTS.md`-aware surface. Repository-specific commands, instructions, notes, approvals, roadmap state, and execution enrollment never move into the user-default profile.
 
 ## Daily Skill Calls
 

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity scheduler handoff",
+  "type": "object",
+  "required": ["schema_version", "provider", "registration_state", "primary_surface", "enabled_surfaces", "timezone", "schedules", "prompts", "note"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "provider": {"enum": ["codex", "claude-code", "external", "none"]},
+    "registration_state": {"enum": ["not-requested", "requires-user-registration"]},
+    "primary_surface": {"enum": ["codex", "claude-code", "cursor", "windsurf", "generic"]},
+    "enabled_surfaces": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["codex", "claude-code", "cursor", "windsurf", "generic"]}},
+    "timezone": {"type": "string", "minLength": 1},
+    "schedules": {
+      "type": "object",
+      "required": ["review", "dispatch", "report"],
+      "properties": {
+        "review": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},
+        "dispatch": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},
+        "report": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"}
+      },
+      "additionalProperties": false
+    },
+    "prompts": {
+      "type": "object",
+      "required": ["review", "dispatch", "report"],
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "note": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

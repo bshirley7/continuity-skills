@@ -32,6 +32,10 @@ BEHAVIOR_SCHEMA_VERSION = 2
 BEHAVIOR_PROFILE = "responsible-defaults-v2"
 BEHAVIOR_CONFIG_PATH = ".continuity/project-behavior.json"
 BEHAVIOR_SKILL_PATH = ".agents/skills/continuity-local/SKILL.md"
+AGENT_SURFACES = {"codex", "claude-code", "cursor", "windsurf", "generic"}
+SCHEDULER_PROVIDERS = {"codex", "claude-code", "external", "none"}
+DEFAULT_AGENT_SURFACES = {"primary": "codex", "enabled": ["codex"]}
+DEFAULT_SCHEDULER = {"provider": "none"}
 VISUAL_EVIDENCE_MODES = {"when-applicable", "always", "explanation-allowed"}
 PLANNING_PATTERN_MODES = {"disabled", "auto", "required"}
 TRACKER_PROVIDERS = {"local", "github", "linear", "none"}
@@ -578,6 +582,187 @@ Project settings refine how the suite operates; they never convert notes into au
 '''
 
 
+def replace_managed_block(text: str, start: str, end: str, block: str | None) -> str:
+    if start in text and end in text:
+        before = text.split(start, 1)[0].rstrip()
+        after = text.split(end, 1)[1].lstrip()
+        pieces = [item for item in (before, block.rstrip() if block else "", after) if item]
+        return "\n\n".join(pieces).rstrip() + "\n" if pieces else ""
+    if not block:
+        return text
+    return text.rstrip() + ("\n\n" if text.strip() else "") + block.rstrip() + "\n"
+
+
+def continuity_skill_names(root: Path) -> list[str]:
+    skills_root = root / ".agents" / "skills"
+    return sorted(
+        path.name
+        for path in skills_root.glob("continuity*")
+        if path.is_dir() and (path / "SKILL.md").is_file()
+    )
+
+
+def remove_owned_skill_adapters(target: Path) -> None:
+    if not target.exists():
+        return
+    for path in target.glob("continuity*"):
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        elif path.exists() or path.is_symlink():
+            path.unlink()
+
+
+def remove_owned_reference_adapters(root: Path, surface_root: Path) -> None:
+    source_references = root / ".agents" / "references"
+    target_references = surface_root / "references"
+    if not source_references.is_dir() or not target_references.is_dir():
+        return
+    for source in source_references.rglob("*"):
+        if source.is_file():
+            target = target_references / source.relative_to(source_references)
+            if target.is_file():
+                target.unlink()
+
+
+def directory_fingerprint(path: Path) -> dict[str, str]:
+    if not path.is_dir():
+        return {}
+    return {
+        str(item.relative_to(path)): hashlib.sha256(item.read_bytes()).hexdigest()
+        for item in sorted(path.rglob("*"))
+        if item.is_file() and "__pycache__" not in item.parts and item.suffix != ".pyc"
+    }
+
+
+def directory_contains(source: Path, target: Path) -> bool:
+    source_files = directory_fingerprint(source)
+    target_files = directory_fingerprint(target)
+    return bool(source_files) and all(target_files.get(name) == digest for name, digest in source_files.items())
+
+
+def sync_skill_adapter(root: Path, surface_root: Path) -> None:
+    source_skills = root / ".agents" / "skills"
+    target_skills = surface_root / "skills"
+    target_skills.mkdir(parents=True, exist_ok=True)
+    remove_owned_skill_adapters(target_skills)
+    for name in continuity_skill_names(root):
+        shutil.copytree(source_skills / name, target_skills / name)
+    source_references = root / ".agents" / "references"
+    if source_references.is_dir():
+        shutil.copytree(source_references, surface_root / "references", dirs_exist_ok=True)
+
+
+def render_surface_command(skill_name: str) -> str:
+    return (
+        f"# {skill_name}\n\n"
+        "Read and follow `AGENTS.md`, then read the canonical skill at "
+        f"`.agents/skills/{skill_name}/SKILL.md` and the project-specific "
+        "`.agents/skills/continuity-local/SKILL.md`. Use the project-local CLI at "
+        "`.agents/continuity/bin/continuity`. Preserve all approval, testing, security, "
+        "merge-safety, and human-review gates. Treat any trailing user text as task context.\n"
+    )
+
+
+def scheduler_plan(settings: dict[str, Any]) -> dict[str, Any]:
+    provider = settings["scheduler"]["provider"]
+    return {
+        "schema_version": 1,
+        "provider": provider,
+        "registration_state": "not-requested" if provider == "none" else "requires-user-registration",
+        "primary_surface": settings["agent_surfaces"]["primary"],
+        "enabled_surfaces": settings["agent_surfaces"]["enabled"],
+        "timezone": settings["timezone"],
+        "schedules": settings["schedules"],
+        "prompts": {
+            "review": ".agents/continuity/automation/nightly-review.md",
+            "dispatch": ".agents/continuity/automation/default-dispatch.md",
+            "report": ".agents/continuity/automation/morning-report.md",
+        },
+        "note": "Schedule intent is configured. Persistent registration remains an explicit user action in the selected scheduler.",
+    }
+
+
+def sync_surface_adapters(root: Path, settings: dict[str, Any]) -> None:
+    enabled = set(settings["agent_surfaces"]["enabled"])
+
+    claude_path = root / "CLAUDE.md"
+    claude_text = claude_path.read_text(encoding="utf-8") if claude_path.exists() else ""
+    claude_start = "<!-- continuity:claude:start -->"
+    claude_end = "<!-- continuity:claude:end -->"
+    claude_block = None
+    if "claude-code" in enabled:
+        claude_block = f"{claude_start}\n@AGENTS.md\n{claude_end}"
+        sync_skill_adapter(root, root / ".claude")
+    else:
+        remove_owned_skill_adapters(root / ".claude" / "skills")
+        remove_owned_reference_adapters(root, root / ".claude")
+    updated_claude = replace_managed_block(claude_text, claude_start, claude_end, claude_block)
+    if updated_claude.strip():
+        claude_path.write_text(updated_claude, encoding="utf-8")
+    elif claude_path.exists():
+        claude_path.unlink()
+
+    cursor_commands = root / ".cursor" / "commands"
+    cursor_rule = root / ".cursor" / "rules" / "continuity.mdc"
+    if "cursor" in enabled:
+        cursor_rule.parent.mkdir(parents=True, exist_ok=True)
+        cursor_rule.write_text(
+            "---\ndescription: Apply Continuity project controls and route requests to the installed Continuity workflows.\nglobs:\nalwaysApply: true\n---\n\n"
+            "Read and follow `AGENTS.md`. Continuity skills are canonical under `.agents/skills/`; use `.agents/skills/continuity-local/SKILL.md` with every task-specific Continuity workflow.\n",
+            encoding="utf-8",
+        )
+        cursor_commands.mkdir(parents=True, exist_ok=True)
+        for existing in cursor_commands.glob("continuity*.md"):
+            existing.unlink()
+        for name in continuity_skill_names(root):
+            (cursor_commands / f"{name}.md").write_text(render_surface_command(name), encoding="utf-8")
+    else:
+        if cursor_rule.exists():
+            cursor_rule.unlink()
+        if cursor_commands.exists():
+            for existing in cursor_commands.glob("continuity*.md"):
+                existing.unlink()
+
+    if "windsurf" in enabled:
+        sync_skill_adapter(root, root / ".windsurf")
+    else:
+        remove_owned_skill_adapters(root / ".windsurf" / "skills")
+        remove_owned_reference_adapters(root, root / ".windsurf")
+
+    json_dump(root / ".continuity" / "scheduler.json", scheduler_plan(settings))
+
+
+def surface_adapter_problems(root: Path, settings: dict[str, Any]) -> list[str]:
+    enabled = set(settings["agent_surfaces"]["enabled"])
+    problems: list[str] = []
+    names = continuity_skill_names(root)
+    if "claude-code" in enabled:
+        claude_text = (root / "CLAUDE.md").read_text(encoding="utf-8") if (root / "CLAUDE.md").exists() else ""
+        if "@AGENTS.md" not in claude_text:
+            problems.append("Claude Code adapter is missing its AGENTS.md import")
+        for name in names:
+            if directory_fingerprint(root / ".agents" / "skills" / name) != directory_fingerprint(root / ".claude" / "skills" / name):
+                problems.append(f"Claude Code skill adapter is missing or stale: {name}")
+        if not directory_contains(root / ".agents" / "references", root / ".claude" / "references"):
+            problems.append("Claude Code reference adapter is missing or stale")
+    if "cursor" in enabled:
+        if not (root / ".cursor" / "rules" / "continuity.mdc").is_file():
+            problems.append("Cursor Continuity rule is missing")
+        for name in names:
+            if not (root / ".cursor" / "commands" / f"{name}.md").is_file():
+                problems.append(f"Cursor command adapter is missing: {name}")
+    if "windsurf" in enabled:
+        for name in names:
+            if directory_fingerprint(root / ".agents" / "skills" / name) != directory_fingerprint(root / ".windsurf" / "skills" / name):
+                problems.append(f"Windsurf skill adapter is missing or stale: {name}")
+        if not directory_contains(root / ".agents" / "references", root / ".windsurf" / "references"):
+            problems.append("Windsurf reference adapter is missing or stale")
+    expected_scheduler = scheduler_plan(settings)
+    if json_load(root / ".continuity" / "scheduler.json", {}) != expected_scheduler:
+        problems.append("Scheduler handoff is missing or out of sync")
+    return problems
+
+
 def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     behavior_path = confined_path(root, config.get("behavior_config_path", BEHAVIOR_CONFIG_PATH), "behavior_config_path")
     skill_path = confined_path(root, config.get("behavior_skill_path", BEHAVIOR_SKILL_PATH), "behavior_skill_path")
@@ -615,6 +800,8 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "project_instructions": settings["project_instructions"],
         "planning_patterns": settings["planning_patterns"],
         "roadmap": settings["roadmap"],
+        "agent_surfaces": settings["agent_surfaces"],
+        "scheduler": settings["scheduler"],
         "roadmap_docs": "docs/project-roadmap",
     }
     config_drift = sorted(key for key, value in expected_config.items() if config.get(key) != value)
@@ -637,6 +824,8 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "timezone": settings["timezone"],
         "schedules": settings["schedules"],
         "roadmap": settings["roadmap"],
+        "agent_surfaces": settings["agent_surfaces"],
+        "scheduler": settings["scheduler"],
         "max_concurrency": 1,
         "execution_enabled": settings["execution_enabled"],
     }
@@ -645,6 +834,9 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         raise ContinuityError(f"Project manifest drifted from project behavior: {manifest_drift}")
     if not skill_path.exists() or skill_path.read_text(encoding="utf-8") != render_project_behavior_skill(record):
         raise ContinuityError("Generated project behavior skill is missing or out of sync")
+    adapter_problems = surface_adapter_problems(root, settings)
+    if adapter_problems:
+        raise ContinuityError(f"Agent surface adapters are missing or out of sync: {adapter_problems}")
     return record
 
 
@@ -1875,6 +2067,8 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         settings = dict(existing["settings"])
         settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
         settings.setdefault("roadmap", dict(DEFAULT_ROADMAP_SETTINGS))
+        settings.setdefault("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))
+        settings.setdefault("scheduler", dict(DEFAULT_SCHEDULER))
         documentation_map = dict(settings.get("documentation_map", {}))
         documentation_map.setdefault("project-roadmap", "docs/project-roadmap/INDEX.md")
         settings["documentation_map"] = documentation_map
@@ -1898,6 +2092,8 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         "project_instructions": config.get("project_instructions", []),
         "planning_patterns": config.get("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS)),
         "roadmap": config.get("roadmap", dict(DEFAULT_ROADMAP_SETTINGS)),
+        "agent_surfaces": config.get("agent_surfaces", manifest.get("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))),
+        "scheduler": config.get("scheduler", manifest.get("scheduler", dict(DEFAULT_SCHEDULER))),
         "execution_enabled": bool(manifest.get("execution_enabled", False)),
     }
 
@@ -1908,9 +2104,9 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
     return {
         "integration_branch": current["integration_branch"],
         "timezone": current["timezone"],
-        "schedules": {"review": "20:00", "dispatch": "22:00", "report": "07:00"},
-        "max_runtime_minutes": 360,
-        "memory_stale_after_days": 90,
+        "schedules": current["schedules"],
+        "max_runtime_minutes": current["max_runtime_minutes"],
+        "memory_stale_after_days": current["memory_stale_after_days"],
         "validation_commands": detected or current.get("validation_commands", []),
         "security_commands": current.get("security_commands", []),
         "documentation_map": current.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
@@ -1919,6 +2115,8 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
         "project_instructions": current.get("project_instructions", []),
         "planning_patterns": current.get("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS)),
         "roadmap": current.get("roadmap", dict(DEFAULT_ROADMAP_SETTINGS)),
+        "agent_surfaces": current.get("agent_surfaces", dict(DEFAULT_AGENT_SURFACES)),
+        "scheduler": current.get("scheduler", dict(DEFAULT_SCHEDULER)),
         "execution_enabled": False,
     }
 
@@ -1952,6 +2150,9 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "roadmap.hierarchy",
             "roadmap.ui_mode",
             "roadmap.shared_notes",
+            "agent_surfaces.primary",
+            "agent_surfaces.enabled",
+            "scheduler.provider",
             "execution_enabled",
         ],
         "fixed_guardrails": FIXED_GUARDRAILS,
@@ -1963,6 +2164,8 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "project_instructions": "Add only reviewed repository-specific refinements; fixed guardrails always take precedence.",
             "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless external publication is separately approved.",
             "roadmap": "Use the full hybrid roadmap by default. The sidecar stays read-only, local-clone-only, and excluded from every production distribution.",
+            "agent_surfaces": "Choose one primary surface and every surface that should receive a project-local Continuity adapter. AGENTS.md remains canonical.",
+            "scheduler": "Choose where persistent scheduled actions will be registered. Configuration records intent; registration remains an explicit user action.",
         },
     }
 
@@ -1984,6 +2187,8 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         "project_instructions",
         "planning_patterns",
         "roadmap",
+        "agent_surfaces",
+        "scheduler",
         "execution_enabled",
     }
     unknown = sorted(set(value) - allowed)
@@ -2069,6 +2274,30 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         raise ContinuityError("roadmap.agile_mode is unsupported")
     if roadmap.get("hierarchy") not in {"full", "lightweight"}:
         raise ContinuityError("roadmap.hierarchy is unsupported")
+    agent_surfaces = settings.get("agent_surfaces")
+    if not isinstance(agent_surfaces, dict) or set(agent_surfaces) != {"primary", "enabled"}:
+        raise ContinuityError("agent_surfaces must define exactly primary and enabled")
+    primary_surface = agent_surfaces.get("primary")
+    enabled_surfaces = agent_surfaces.get("enabled")
+    if primary_surface not in AGENT_SURFACES:
+        raise ContinuityError(f"agent_surfaces.primary must be one of {sorted(AGENT_SURFACES)}")
+    if (
+        not isinstance(enabled_surfaces, list)
+        or not enabled_surfaces
+        or any(item not in AGENT_SURFACES for item in enabled_surfaces)
+        or len(enabled_surfaces) != len(set(enabled_surfaces))
+        or primary_surface not in enabled_surfaces
+    ):
+        raise ContinuityError("agent_surfaces.enabled must be a unique non-empty list of supported surfaces containing the primary surface")
+    agent_surfaces["enabled"] = sorted(enabled_surfaces)
+    scheduler = settings.get("scheduler")
+    if not isinstance(scheduler, dict) or set(scheduler) != {"provider"}:
+        raise ContinuityError("scheduler must define exactly provider")
+    provider = scheduler.get("provider")
+    if provider not in SCHEDULER_PROVIDERS:
+        raise ContinuityError(f"scheduler.provider must be one of {sorted(SCHEDULER_PROVIDERS)}")
+    if provider in {"codex", "claude-code"} and provider not in agent_surfaces["enabled"]:
+        raise ContinuityError("scheduler.provider must name an enabled agent surface or use external/none")
     if not isinstance(settings.get("execution_enabled"), bool):
         raise ContinuityError("execution_enabled must be true or false")
     return settings
@@ -2100,8 +2329,7 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
             raise ContinuityError(f"{label} must be valid JSON") from exc
 
     schedules = recommended["schedules"]
-    execution = input("Enable real product-code execution now? [y/N, recommended N]: ").strip().lower()
-    return {
+    answers = {
         "integration_branch": text_answer("Integration branch", recommended["integration_branch"]),
         "timezone": text_answer("IANA timezone", recommended["timezone"]),
         "schedules": {
@@ -2119,8 +2347,12 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         "project_instructions": json_answer("Additional project-specific instructions", recommended["project_instructions"]),
         "planning_patterns": json_answer("Planning pattern modes", recommended["planning_patterns"]),
         "roadmap": json_answer("Roadmap behavior", recommended["roadmap"]),
-        "execution_enabled": execution in {"y", "yes"},
+        "agent_surfaces": json_answer("Agent surfaces (primary and enabled)", recommended["agent_surfaces"]),
+        "scheduler": json_answer("Persistent scheduler provider", recommended["scheduler"]),
     }
+    execution = input("Enable real product-code execution now? [y/N, recommended N]: ").strip().lower()
+    answers["execution_enabled"] = execution in {"y", "yes"}
+    return answers
 
 
 def project_configure(args: argparse.Namespace) -> dict[str, Any]:
@@ -2178,6 +2410,8 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "project_instructions": settings["project_instructions"],
             "planning_patterns": settings["planning_patterns"],
             "roadmap": settings["roadmap"],
+            "agent_surfaces": settings["agent_surfaces"],
+            "scheduler": settings["scheduler"],
             "roadmap_docs": "docs/project-roadmap",
             "behavior_config_path": BEHAVIOR_CONFIG_PATH,
             "behavior_skill_path": BEHAVIOR_SKILL_PATH,
@@ -2196,6 +2430,8 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "timezone": settings["timezone"],
             "schedules": settings["schedules"],
             "roadmap": settings["roadmap"],
+            "agent_surfaces": settings["agent_surfaces"],
+            "scheduler": settings["scheduler"],
             "max_concurrency": 1,
             "execution_enabled": settings["execution_enabled"],
             "behavior_configuration_hash": record["configuration_hash"],
@@ -2210,6 +2446,7 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
     skill_temp = skill_path.with_suffix(".tmp")
     skill_temp.write_text(render_project_behavior_skill(record), encoding="utf-8")
     skill_temp.replace(skill_path)
+    sync_surface_adapters(root, settings)
     changed = (
         before_hash != record["configuration_hash"]
         or before_config_hash != canonical_hash(config)
@@ -2236,6 +2473,8 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
         "changed": changed,
         "overrides": overrides,
         "execution_enabled": settings["execution_enabled"],
+        "agent_surfaces": settings["agent_surfaces"],
+        "scheduler": settings["scheduler"],
         "behavior_skill": BEHAVIOR_SKILL_PATH,
     }
 

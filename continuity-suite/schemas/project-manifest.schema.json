@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Project-local continuity enrollment manifest",
   "type": "object",
-  "required": ["schema_version", "assurance_standard_version", "project_id", "continuity_enabled", "execution_enabled", "integration_branch", "timezone", "schedules", "roadmap", "max_concurrency", "behavior_configuration_hash"],
+  "required": ["schema_version", "assurance_standard_version", "project_id", "continuity_enabled", "execution_enabled", "integration_branch", "timezone", "schedules", "roadmap", "agent_surfaces", "scheduler", "max_concurrency", "behavior_configuration_hash"],
   "properties": {
     "schema_version": {"const": 1},
     "assurance_standard_version": {"const": 2},
@@ -22,6 +22,21 @@
       "additionalProperties": false
     },
     "roadmap": {"$ref": "roadmap-settings.schema.json"},
+    "agent_surfaces": {
+      "type": "object",
+      "required": ["primary", "enabled"],
+      "properties": {
+        "primary": {"enum": ["codex", "claude-code", "cursor", "windsurf", "generic"]},
+        "enabled": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["codex", "claude-code", "cursor", "windsurf", "generic"]}}
+      },
+      "additionalProperties": false
+    },
+    "scheduler": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {"provider": {"enum": ["codex", "claude-code", "external", "none"]}},
+      "additionalProperties": false
+    },
     "max_concurrency": {"type": "integer", "const": 1},
     "behavior_configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
   },

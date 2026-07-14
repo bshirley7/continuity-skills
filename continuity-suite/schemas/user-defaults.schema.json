@@ -1,18 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Project-local continuity behavior",
+  "title": "Continuity portable user defaults",
   "type": "object",
-  "required": ["schema_version", "assurance_standard_version", "project_id", "recommendation_profile", "settings", "overrides", "fixed_guardrails", "configuration_hash"],
+  "required": ["schema_version", "settings"],
   "properties": {
-    "schema_version": {"const": 2},
-    "assurance_standard_version": {"const": 2},
-    "project_id": {"type": "string", "minLength": 1},
-    "recommendation_profile": {"const": "responsible-defaults-v2"},
+    "schema_version": {"const": 1},
     "settings": {
       "type": "object",
-      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "execution_enabled"],
       "properties": {
-        "integration_branch": {"type": "string", "minLength": 1},
         "timezone": {"type": "string", "minLength": 1},
         "schedules": {
           "type": "object",
@@ -26,12 +21,8 @@
         },
         "max_runtime_minutes": {"type": "integer", "minimum": 1, "maximum": 360},
         "memory_stale_after_days": {"type": "integer", "minimum": 1, "maximum": 3650},
-        "validation_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
-        "security_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
-        "documentation_map": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}},
         "visual_evidence_mode": {"enum": ["when-applicable", "always", "explanation-allowed"]},
         "branch_prefix": {"type": "string", "minLength": 1},
-        "project_instructions": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 500}},
         "planning_patterns": {
           "type": "object",
           "required": ["evidence_triage", "decision_mapping", "delivery_slicing", "tracker_provider"],
@@ -58,32 +49,10 @@
           "required": ["provider"],
           "properties": {"provider": {"enum": ["codex", "claude-code", "external", "none"]}},
           "additionalProperties": false
-        },
-        "execution_enabled": {"type": "boolean"}
+        }
       },
       "additionalProperties": false
-    },
-    "overrides": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "fixed_guardrails": {
-      "const": {
-        "ambiguous_notes": "hold-or-context",
-        "canonical_documentation_changes": "approved-goal-only",
-        "code_execution": "approved-and-dispatched-goal-only",
-        "max_code_changing_goals_per_project": 1,
-        "security_review": "required",
-        "merge_safety_review": "required",
-        "human_merge": "required",
-        "force_push": "forbidden",
-        "auto_merge": "forbidden",
-        "planning_artifacts_authorize_execution": false,
-        "external_tracker_publish": "explicit-human-approval-required",
-        "raw_note_transport": "forbidden",
-        "shared_notes_authorize_execution": false,
-        "roadmap_ui_write_methods": "forbidden",
-        "hosted_roadmap_surface": "forbidden"
-      }
-    },
-    "configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+    }
   },
   "additionalProperties": false
 }
