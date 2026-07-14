@@ -244,7 +244,7 @@ Feedback follows the same note path:
 feedback -> $continuity-capture -> $continuity-triage -> memory candidate -> approved memory promotion
 ```
 
-Raw feedback remains private and non-authorizing. Searchable memory contains only curated, sanitized, promoted knowledge.
+Raw feedback remains private and non-authorizing. Trusted-scope memory contains only curated, sanitized, promoted knowledge. Explicit private/all indexing also makes raw captures searchable by text and local concept similarity without treating them as canonical truth.
 
 ## Note Lifecycle
 
@@ -253,6 +253,16 @@ Every captured atomic note has its own timestamps and work status:
 ```text
 created_at       when the atomic note was created or imported
 updated_at       when Continuity last changed its routing or work state
+occurred_at      when the described situation or feedback occurred
+perspective      internal, external, mixed, or unknown
+sentiment        positive, negative, mixed, neutral, or unknown
+occurrence_type  feedback, behavior, decision, change, need, risk, success, failure,
+                 constraint, or observation
+impact           low, medium, high, critical, or unknown
+confidence       low, medium, high, or unknown
+actionability    context, monitor, plan, or urgent-review
+stakeholders     people or groups involved, when known
+themes           stable concepts used for retrieval and pattern aggregation
 routing_status   captured, route, defer, archive, or promote
 work_status      open, deferred, planned, queued, dispatched, running, validating,
                  review-ready, completed, partially-completed, blocked, cancelled,
@@ -260,6 +270,8 @@ work_status      open, deferred, planned, queued, dispatched, running, validatin
 ```
 
 Use `routing_status` to understand where the note went. Use `work_status` to understand whether the underlying work is still incomplete.
+
+Use `memory similar "<situation>" --scope all` for local vector-space concept retrieval across canonical memory and private captures. Use `note patterns` to aggregate repeated stakeholder/theme occurrences and produce recommendations such as preserving repeated positive outcomes, mitigating repeated negative signals, or designing revision-prone work for adaptability. These outputs inform triage and planning only.
 
 Notes do not move to a branch or PR directly. A note that requires action becomes useful for execution only after triage connects it to roadmap context and `$continuity-plan` creates an approval-ready goal. When a goal is created from `source_note_ids`, those notes move to `planned`. Approval moves them to `queued`; dispatch moves them to `dispatched`; execution updates move them through `running`, `validating`, `review-ready`, `partially-completed`, `blocked`, or `cancelled`. Human merge evidence moves review-ready work to `completed`.
 
@@ -313,12 +325,13 @@ Run it at the configured `sweep_minutes` interval. Give the task the developer-l
   --actor <identity>
 ```
 
-The receipt is ignored private state. It contains only provider, task ID, roots, timestamps, and the behavior hash. `project doctor` reports `requires-user-registration`, `registered`, or `stale`, and also fails on stale scheduled runs.
+The receipt is ignored private state. It contains only provider, task ID, roots, timestamps, sweep heartbeat, and the behavior hash. Registration is an expiring lease: `project doctor` reports `requires-user-registration`, `registered`, or `stale`, and fails when the supervisor heartbeat or a scheduled run is stale. A receipt alone is not proof that a provider task is still operating.
 
 Scheduler tasks should use:
 
 ```text
 .agents/continuity/automation/portfolio-supervisor.md
+.agents/continuity/automation/provider-adapter-contract.md
 .agents/continuity/automation/nightly-review.md
 .agents/continuity/automation/default-dispatch.md
 .agents/continuity/automation/morning-report.md
@@ -330,10 +343,11 @@ Portfolio-level scheduler commands operate over developer-configured workspace r
 continuity --json portfolio discover --root /workspace/root
 continuity --json portfolio due --root /workspace/root
 continuity --json portfolio queue --root /workspace/root
-continuity --json portfolio actions --root /workspace/root --root /another/workspace/root
+continuity --json portfolio actions --root /workspace/root --root /another/workspace/root \
+  --supervisor-task-id <registered-task-id> --sweep-id <unique-sweep-id>
 ```
 
-`portfolio actions` calculates what is due from each project's timezone and schedule. It suppresses completed idempotency keys, enforces retry backoff, identifies stale runs, omits dispatch when no approved goal is due, and applies the smallest portfolio concurrency cap across all roots passed in one call. Excess runnable work is returned as `capacity-deferred` for a later sweep. The supervisor starts one project-scoped task per `due` or `retry` action, records `scheduler run-start`, sends heartbeats, and records `scheduler run-finish`. A dispatch run cannot finish successfully until its goal reaches `review-ready`.
+`portfolio actions` refreshes the expiring supervisor heartbeat and calculates what is due from each project's timezone and schedule. It suppresses completed idempotency keys, enforces retry backoff, identifies stale runs, requires the same-date review to succeed before scheduled dispatch, and applies the smallest portfolio concurrency cap against both active runs and unconsumed reservations. Each `due` or `retry` result has a short-lived one-time claim token. Excess work is `capacity-deferred`; dispatch awaiting review is `waiting-for-review`. The child task passes the exact idempotency key and claim token to `scheduler run-start`, which atomically consumes it before work. Fabricated, expired, duplicate, wrong-goal, and over-capacity starts fail closed.
 
 For stale work, run `scheduler recover`. Recovery marks the matching run stale and may block only its matching active goal and release only its matching lock. It does not resume work or infer a decision. For Codex or Claude Code, the supervisor must be able to start authenticated project tasks. An external scheduler must invoke an authenticated agent surface; a plain cron process can calculate due actions but cannot perform model-driven review or implementation by itself.
 
@@ -368,8 +382,11 @@ $continuity-merge
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" test plan <goal-id>
+.agents/continuity/bin/continuity --project-root "$PWD" test run <goal-id> --worktree <worktree> --branch <branch>
 .agents/continuity/bin/continuity --project-root "$PWD" test record <goal-id> --status <passed|failed> --summary "<result>" --update-gates
 ```
+
+`test run` executes configured validation, goal-specific, and security commands directly without shell syntax. It verifies that the worktree belongs to the enrolled repository and is on the branch recorded for the goal, then records argv, output, exit status, approved plan hash, behavior hash, commit, repository identity, and a source fingerprint that includes tracked diffs and untracked-file content. `test record --status passed` and merge assessment fail when that evidence is absent or any binding has changed.
 
 `$continuity-merge` assesses PR readiness and merge safety after the test report passes. It checks branch focus, base freshness, working tree cleanliness, PR evidence, and compliance status:
 

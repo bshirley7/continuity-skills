@@ -23,7 +23,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 2. Preserve a private raw snapshot or source reference.
 3. Split mixed input into atomic items without losing qualifiers, uncertainty, or provenance.
 4. Record source type, reference, timestamps, project mapping, deduplication key, and revision history.
-5. Ensure every atomic item has `created_at`, `updated_at`, `routing_status`, and `work_status`.
+5. Ensure every atomic item has `created_at`, `updated_at`, `occurred_at`, `routing_status`, and `work_status`. Classify internal/external perspective, positive/negative/mixed/neutral sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes conservatively; use unknown values instead of guessing.
 6. Set `execution_authorized: false` on every item.
 7. Use a conservative provisional kind. Leave ambiguous intent for triage.
 8. Attach notes to roadmap IDs only through private `supports`, `contradicts`, `blocks`, `updates`, or `suggests` links; a link does not change committed roadmap truth.

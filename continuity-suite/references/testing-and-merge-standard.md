@@ -5,7 +5,9 @@ Apply this standard to every Continuity execution before PR handoff and merge re
 ## Evergreen test standard
 
 - Start from the approved goal, acceptance criteria, exclusions, cited memory, roadmap IDs, and current diff.
-- Run the configured `validation_commands`, the goal's `required_checks`, and targeted regressions for changed behavior.
+- Run the configured `validation_commands`, the goal's `required_checks`, and configured security commands through `continuity test run` before recording a pass.
+- Execute commands as direct argument arrays without shell operators. Verify that the worktree belongs to the enrolled repository and its actual branch matches the goal execution record. Record output and exit status, and bind the run to repository identity, the approved plan hash, behavior hash, commit, tracked and untracked source fingerprint, and exact command set.
+- Reject a passing report and merge-safety assessment if machine evidence is absent or the source, plan, behavior, or configured commands have changed since the run.
 - Prefer repository-native commands and existing test patterns. Add new tests where behavior changed and the repo has a practical test surface.
 - Cover success, failure, boundary, regression, data integrity, compatibility, accessibility, performance, and privacy concerns when applicable.
 - Include manual or visual verification only as evidence for behavior that cannot be fully covered by automated checks.

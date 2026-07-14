@@ -26,9 +26,14 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 .agents/continuity/bin/continuity --project-root "$PWD" test plan <goal-id> --worktree <execution-worktree>
 ```
 
-3. Run the listed `validation_commands`, goal `required_checks`, configured `security_commands`, and any targeted tests required by the diff.
-4. Perform an evidence-based code review and security review. Capture concrete findings, fixed issues, residual risk, command names, exit status, and relevant artifact paths.
-5. Record the result:
+3. Execute the listed `validation_commands`, goal `required_checks`, and configured `security_commands` through the no-shell machine runner. The runner verifies the enrolled repository, recorded worktree, and actual goal branch, then records argv, output, exit code, plan hash, commit, repository identity, and a tracked-plus-untracked source fingerprint:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" test run <goal-id> --worktree <execution-worktree> --branch <goal-branch>
+```
+
+4. Add any targeted tests required by the diff, update the goal checks when needed, then rerun the machine runner. Perform an evidence-based code review and manual trust-boundary review. Capture concrete findings, fixed issues, and residual risk.
+5. Record the result. A passed record is rejected unless the machine evidence still matches the enrolled repository, goal worktree and branch, approved plan, behavior configuration, configured commands, and current source fingerprint:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" test record <goal-id> \

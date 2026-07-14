@@ -46,12 +46,14 @@ Apply this standard to every continuity skill. Treat it as a minimum; stricter r
 - Record the actor, timestamp, exact command or review method, result, relevant path or commit, and concise interpretation for every applicable gate.
 - Record project configuration changes with previous and resulting hashes, changed fields, generated-skill parity, doctor status, and reviewed Git diff.
 - Use reproducible evidence. A claim such as `looks good`, `tested`, or `secure` is not sufficient by itself.
+- Execute configured validation and security commands directly without shell expansion. Verify the enrolled repository, recorded worktree, and actual goal branch; bind machine evidence to repository identity, approved plan hash, behavior hash, commit, tracked and untracked source fingerprint, and exact command set; reject passing records when any binding is absent or stale.
 - Prefer structured Continuity test and merge reports for code-review, validation, security-review, and merge-safety gates.
 - Mark a gate `not-applicable` only with a concrete, reviewable reason. Missing, unverifiable, stale, or contradictory evidence remains pending or failed.
 - Reconcile final results against source notes, memory and roadmap IDs, approved plan hash, acceptance criteria, exclusions, changed files, validation output, security findings, merge-safety state, and roadmap impact.
 - Keep incomplete or failed work visibly partial or blocked. Human review and merge remain separate recorded actions.
 - Treat off-hours delivery as review preparation. A passing execution becomes `review-ready`; business completion requires next-business-day human review and recorded merge evidence.
-- Record scheduler registration, idempotency key, task ID, heartbeat, attempts, final status, and recovery evidence for every scheduled action. Retry only transient failures within the configured allowance.
+- Treat scheduler registration as an expiring liveness lease. Record task ID and sweep heartbeat, and fail closed when provider, roots, configuration, behavior, task identity, or liveness differs from the current registration.
+- Atomically reserve portfolio capacity before launch, count active runs and outstanding reservations, and require a short-lived one-time claim bound to the exact project, action, idempotency key, and due goal. Record heartbeat, attempts, final status, and recovery evidence for every scheduled action. Retry only transient failures within the configured allowance.
 
 ## Mandatory stop conditions
 

@@ -19,9 +19,10 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 .agents/continuity/bin/continuity --project-root "$PWD" report project
 .agents/continuity/bin/continuity --project-root "$PWD" --json report morning
 .agents/continuity/bin/continuity --project-root "$PWD" memory audit
+.agents/continuity/bin/continuity --project-root "$PWD" note patterns --min-count 2
 ```
 
-The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal or note, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Then include configuration and scheduler health, notes retained as context, documentation candidates, deferred items, open questions, memory and roadmap health, plans awaiting feedback, queues, active runs, tests, security, merge assessment, compliance, and prepared next work.
+The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal or note, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Then include configuration and scheduler liveness, recurring occurrence patterns, notes retained as context, documentation candidates, deferred items, open questions, memory and roadmap health, plans awaiting feedback, queues, active runs, source-bound machine tests, security, merge assessment, compliance, and prepared next work. Pattern recommendations inform human triage and planning; they never authorize execution.
 
 For a portfolio report, discover project-local manifests beneath developer-configured workspace roots. Run each report from that repository using its installed skill and CLI. Aggregate only sanitized summaries; do not centralize raw captures, private ledgers, approvals, or locks.
 

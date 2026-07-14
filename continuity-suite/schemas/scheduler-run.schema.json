@@ -14,6 +14,8 @@
     "attempt": {"type": "integer", "minimum": 1},
     "task_id": {"type": ["string", "null"]},
     "goal_id": {"type": ["string", "null"]},
+    "claim_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sweep_id": {"type": "string", "minLength": 1},
     "summary": {"type": "string", "minLength": 1},
     "recovered_by": {"type": "string"}
   },

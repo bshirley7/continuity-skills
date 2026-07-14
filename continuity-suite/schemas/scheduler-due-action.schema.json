@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity scheduler due-action claim",
+  "type": "object",
+  "required": ["schema_version", "claim_token", "project_id", "action", "idempotency_key", "scheduled_at", "due_goal_ids", "issued_at", "expires_at", "supervisor_task_id", "sweep_id", "behavior_configuration_hash"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "claim_token": {"type": "string", "pattern": "^claim-[a-f0-9]{32}$"},
+    "project_id": {"type": "string", "minLength": 1},
+    "action": {"enum": ["review", "dispatch", "report"]},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "scheduled_at": {"type": "string", "minLength": 1},
+    "due_goal_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "issued_at": {"type": "string", "minLength": 1},
+    "expires_at": {"type": "string", "minLength": 1},
+    "supervisor_task_id": {"type": "string", "minLength": 1},
+    "sweep_id": {"type": "string", "minLength": 1},
+    "behavior_configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

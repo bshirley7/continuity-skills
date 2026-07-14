@@ -5,7 +5,7 @@ description: Index, search, brief, audit, verify, curate, promote, and supersede
 
 # Continuity Memory
 
-Treat committed Markdown under `docs/project-memory/` as canonical. Treat the ignored SQLite FTS5 database as a rebuildable search index.
+Treat committed Markdown under `docs/project-memory/` as canonical. Treat the ignored SQLite FTS5 database as a rebuildable search index. Private/all scope also indexes raw capture items with their structured occurrence dimensions; this makes feedback searchable without promoting it to canonical truth.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `.continuity/config.json`, and the project memory index before acting.
 
@@ -22,11 +22,13 @@ Rebuild the index when needed, then search before planning or execution. Prefer 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" memory index
 .agents/continuity/bin/continuity --project-root "$PWD" memory search "<query>"
+.agents/continuity/bin/continuity --project-root "$PWD" memory similar "<concept or situation>" --scope all
+.agents/continuity/bin/continuity --project-root "$PWD" note patterns
 .agents/continuity/bin/continuity --project-root "$PWD" memory brief "<goal or topic>"
 .agents/continuity/bin/continuity --project-root "$PWD" memory audit
 ```
 
-Default retrieval excludes raw captures and private ledgers. Use an explicit private scope only when the user needs private context.
+Default retrieval excludes raw captures and private ledgers. Use an explicit private/all scope only when the user needs private context. Similarity and pattern results are planning recommendations, never execution authority.
 
 ## Curation
 

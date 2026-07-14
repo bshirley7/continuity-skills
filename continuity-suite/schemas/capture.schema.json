@@ -14,11 +14,22 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["item_id", "kind", "text", "created_at", "updated_at", "routing_status", "work_status", "execution_authorized"],
+        "required": ["item_id", "kind", "text", "created_at", "updated_at", "occurred_at", "routing_status", "work_status", "execution_authorized", "perspective", "sentiment", "occurrence_type", "impact", "confidence", "actionability", "stakeholders", "themes"],
         "properties": {
           "kind": {"enum": ["context", "insight", "decision", "question", "documentation-candidate", "backlog-candidate", "execution-candidate", "explicit-instruction"]},
+          "text": {"type": "string", "minLength": 1},
           "created_at": {"type": "string"},
           "updated_at": {"type": "string"},
+          "occurred_at": {"type": "string", "minLength": 1},
+          "perspective": {"enum": ["internal", "external", "mixed", "unknown"]},
+          "sentiment": {"enum": ["positive", "negative", "mixed", "neutral", "unknown"]},
+          "occurrence_type": {"enum": ["feedback", "behavior", "decision", "change", "need", "risk", "success", "failure", "constraint", "observation"]},
+          "impact": {"enum": ["low", "medium", "high", "critical", "unknown"]},
+          "confidence": {"enum": ["low", "medium", "high", "unknown"]},
+          "actionability": {"enum": ["context", "monitor", "plan", "urgent-review"]},
+          "stakeholders": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "themes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "pattern_key": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
           "routing_status": {"enum": ["captured", "route", "defer", "archive", "promote"]},
           "work_status": {"enum": ["open", "deferred", "planned", "queued", "dispatched", "running", "validating", "completed", "partially-completed", "blocked", "cancelled", "not-applicable", "archived"]},
           "execution_authorized": {"const": false}

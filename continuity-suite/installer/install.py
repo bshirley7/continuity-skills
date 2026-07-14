@@ -323,8 +323,8 @@ def main() -> int:
 - Start configuration and workflow routing with `$continuity`; apply the generated `$continuity-local` behavior skill with every task-specific continuity skill.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/continuity/bin/continuity`.
 - Treat `AGENTS.md` and `.agents/` as the canonical cross-surface contract. Use the generated Claude Code, Cursor, or Windsurf adapters selected in `.continuity/project.json`; do not maintain divergent copies by hand.
-- Treat `.continuity/scheduler.json` as the supervisor handoff. Record the provider task ID and workspace roots with `scheduler register`; project doctor must fail on missing, stale, or unhealthy registration.
-- Treat notes as project knowledge first. Capture, classification, promotion, planning, approval, and dispatch are separate events.
+- Treat `.continuity/scheduler.json` as the supervisor handoff. Record the provider task ID and workspace roots with `scheduler register`; every sweep must refresh supervisor liveness, and project doctor must fail on missing, stale, or unhealthy registration.
+- Treat notes as project knowledge first. Capture occurrence time, internal/external perspective, sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes; capture, classification, pattern review, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.
 - Before planning or execution, run project-memory and roadmap briefs and cite the memory and roadmap IDs used.
 - Keep sanitized canonical roadmap records under `docs/project-roadmap/`; use `$continuity-roadmap` and the ignored local projection for timeline, hierarchy, release, milestone, sprint, board, dependency, risk, and blocker context.
@@ -335,7 +335,7 @@ def main() -> int:
 - Permit one code-changing goal at a time in this project; use isolated worktrees and goal-focused branches.
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
 - Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
-- Use `$continuity-test` for project validation, targeted regressions, code review, and security review reports before PR handoff.
+- Use `$continuity-test` to execute configured validation and security commands and bind their results to the approved plan and current source fingerprint before recording code-review and security evidence.
 - Use `$continuity-merge` for merge-safety assessment and later human-review or merge records. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.
@@ -343,6 +343,7 @@ def main() -> int:
 
     ignore_block = f"""{IGNORE_START}
 .continuity/private/
+.continuity-portfolio/
 .agents/continuity/lib/__pycache__/
 .agents/continuity/lib/*.pyc
 {IGNORE_END}"""

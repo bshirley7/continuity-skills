@@ -8,12 +8,15 @@ be copied into heterogeneous projects without adding a runtime dependency.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
+import fcntl
 import hashlib
 import json
 import os
 import re
 import secrets
+import shlex
 import sqlite3
 import subprocess
 import sys
@@ -110,6 +113,23 @@ NOTE_KINDS = {
     "execution-candidate",
     "explicit-instruction",
 }
+NOTE_PERSPECTIVES = {"internal", "external", "mixed", "unknown"}
+NOTE_SENTIMENTS = {"positive", "negative", "mixed", "neutral", "unknown"}
+NOTE_OCCURRENCE_TYPES = {
+    "feedback",
+    "behavior",
+    "decision",
+    "change",
+    "need",
+    "risk",
+    "success",
+    "failure",
+    "constraint",
+    "observation",
+}
+NOTE_IMPACTS = {"low", "medium", "high", "critical", "unknown"}
+NOTE_CONFIDENCE = {"low", "medium", "high", "unknown"}
+NOTE_ACTIONABILITY = {"context", "monitor", "plan", "urgent-review"}
 NOTE_WORK_STATUSES = {
     "open",
     "deferred",
@@ -202,6 +222,17 @@ def append_jsonl(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(value, sort_keys=True) + "\n")
+
+
+@contextlib.contextmanager
+def exclusive_file_lock(path: Path) -> Iterable[None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
@@ -925,6 +956,37 @@ def render_markdown(metadata: dict[str, Any], body: str) -> str:
     return "\n".join(lines)
 
 
+def normalize_note_dimensions(item: dict[str, Any], occurred_at: str) -> dict[str, Any]:
+    dimensions = {
+        "perspective": item.get("perspective", "unknown"),
+        "sentiment": item.get("sentiment", "unknown"),
+        "occurrence_type": item.get("occurrence_type", "observation"),
+        "impact": item.get("impact", "unknown"),
+        "confidence": item.get("confidence", "unknown"),
+        "actionability": item.get("actionability", "context"),
+    }
+    allowed = {
+        "perspective": NOTE_PERSPECTIVES,
+        "sentiment": NOTE_SENTIMENTS,
+        "occurrence_type": NOTE_OCCURRENCE_TYPES,
+        "impact": NOTE_IMPACTS,
+        "confidence": NOTE_CONFIDENCE,
+        "actionability": NOTE_ACTIONABILITY,
+    }
+    for key, values in allowed.items():
+        if dimensions[key] not in values:
+            raise ContinuityError(f"Invalid note {key}: {dimensions[key]}")
+    for key in ("stakeholders", "themes"):
+        dimensions[key] = sorted(set(validate_string_list(item.get(key, []), f"note {key}")))
+    dimensions["occurred_at"] = item.get("occurred_at") or occurred_at
+    if parse_recorded_time(dimensions["occurred_at"], "UTC") is None:
+        raise ContinuityError("note occurred_at must be an ISO 8601 date or datetime")
+    pattern_key = item.get("pattern_key")
+    if pattern_key is not None:
+        dimensions["pattern_key"] = validate_identifier(str(pattern_key), "note pattern key")
+    return dimensions
+
+
 def note_capture(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     stamp = iso_now(config)
@@ -962,6 +1024,7 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         items.append(
             {
                 **item,
+                **normalize_note_dimensions(item, item_created_at),
                 "item_id": item_id,
                 "kind": kind,
                 "text": item["text"].strip(),
@@ -1096,6 +1159,24 @@ def note_triage(args: argparse.Namespace) -> dict[str, Any]:
         if args.kind not in NOTE_KINDS:
             raise ContinuityError(f"Invalid kind: {args.kind}")
         selected["kind"] = args.kind
+    dimension_updates = {
+        "perspective": args.perspective,
+        "sentiment": args.sentiment,
+        "occurrence_type": args.occurrence_type,
+        "impact": args.impact,
+        "confidence": args.confidence,
+        "actionability": args.actionability,
+    }
+    for key, value in dimension_updates.items():
+        if value is not None:
+            selected[key] = value
+    if args.stakeholder is not None:
+        selected["stakeholders"] = sorted(set(args.stakeholder))
+    if args.theme is not None:
+        selected["themes"] = sorted(set(args.theme))
+    if args.pattern_key is not None:
+        selected["pattern_key"] = validate_identifier(args.pattern_key, "note pattern key")
+    selected.update(normalize_note_dimensions(selected, selected.get("created_at", stamp)))
     selected["routing_status"] = args.action
     selected["execution_authorized"] = False
     selected["updated_at"] = stamp
@@ -1153,6 +1234,74 @@ def note_list(args: argparse.Namespace) -> list[dict[str, Any]]:
     return result
 
 
+def pattern_recommendation(axis: str, occurrence_type: str, sentiments: dict[str, int]) -> str:
+    if occurrence_type in {"change", "behavior"}:
+        return "Design the affected scope for adaptability and isolate likely revision points before implementation."
+    if sentiments.get("negative", 0) > sentiments.get("positive", 0):
+        return "Review the recurring negative signal before the next related roadmap or dispatch decision."
+    if sentiments.get("positive", 0) > 1:
+        return "Preserve and test the behavior producing this repeated positive signal."
+    if occurrence_type == "need":
+        return "Compare this recurring need with current roadmap priority and acceptance criteria."
+    if occurrence_type in {"risk", "failure"}:
+        return "Create or update a bounded mitigation item before related execution continues."
+    return f"Review the recurring {axis} signal during the next planning pass."
+
+
+def note_patterns(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    if args.min_count < 2:
+        raise ContinuityError("Pattern minimum count must be at least 2")
+    notes = note_list(argparse.Namespace(kind=None))
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for note in notes:
+        occurrence = str(note.get("occurrence_type", "observation"))
+        axes: set[str] = set()
+        if note.get("pattern_key"):
+            axes.add(f"pattern:{note['pattern_key']}")
+        axes.update(f"stakeholder:{value}" for value in note.get("stakeholders", []))
+        axes.update(f"theme:{value}" for value in note.get("themes", []))
+        if not axes:
+            axes.add("project:general")
+        for axis in axes:
+            groups.setdefault((axis, occurrence), []).append(note)
+    patterns: list[dict[str, Any]] = []
+    for (axis, occurrence), items in groups.items():
+        if len(items) < args.min_count:
+            continue
+        sentiments = {value: 0 for value in sorted(NOTE_SENTIMENTS)}
+        for item in items:
+            sentiments[str(item.get("sentiment", "unknown"))] += 1
+        timestamps = sorted(str(item.get("occurred_at") or item.get("created_at") or "") for item in items)
+        patterns.append(
+            {
+                "pattern_id": stable_id("pattern", axis, occurrence),
+                "axis": axis,
+                "occurrence_type": occurrence,
+                "count": len(items),
+                "first_seen_at": timestamps[0],
+                "last_seen_at": timestamps[-1],
+                "sentiments": {key: value for key, value in sentiments.items() if value},
+                "max_impact": max(
+                    (str(item.get("impact", "unknown")) for item in items),
+                    key=lambda value: {"unknown": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}.get(value, 0),
+                ),
+                "note_ids": [item["item_id"] for item in items],
+                "recommendation": pattern_recommendation(axis, occurrence, sentiments),
+            }
+        )
+    patterns.sort(key=lambda item: (-item["count"], item["axis"], item["occurrence_type"]))
+    report = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "generated_at": iso_now(config),
+        "minimum_count": args.min_count,
+        "patterns": patterns,
+    }
+    json_dump(private_path(root, config) / "reports" / "note-patterns.json", report)
+    return report
+
+
 def memory_db(root: Path, config: dict[str, Any]) -> Path:
     return private_path(root, config) / "index" / "project-memory.sqlite"
 
@@ -1184,6 +1333,15 @@ def memory_source_fingerprint(root: Path, config: dict[str, Any], scope: str) ->
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             }
         )
+    if scope in {"private", "all"}:
+        for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+            records.append(
+                {
+                    "path": str(path.relative_to(root)),
+                    "scope": "private-capture",
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                }
+            )
     return canonical_hash(records)
 
 
@@ -1247,6 +1405,57 @@ def memory_index(args: argparse.Namespace) -> dict[str, Any]:
             (memory_id, row[3], heading, row[7], row[8], row[9], row[6], body),
         )
         indexed += 1
+    if args.scope in {"private", "all"}:
+        captures_root = private_path(root, config) / "captures"
+        for path in sorted(captures_root.glob("**/*.json")):
+            capture = json_load(path, {})
+            if not isinstance(capture, dict):
+                continue
+            for item in capture.get("items", []):
+                if not isinstance(item, dict) or not isinstance(item.get("item_id"), str):
+                    continue
+                memory_id = item["item_id"]
+                if memory_id in seen:
+                    warnings.append(f"duplicate memory_id {memory_id}: {path.relative_to(root)}")
+                    continue
+                seen.add(memory_id)
+                concepts = [
+                    *item.get("themes", []),
+                    *item.get("stakeholders", []),
+                    f"sentiment:{item.get('sentiment', 'unknown')}",
+                    f"perspective:{item.get('perspective', 'unknown')}",
+                    f"occurrence:{item.get('occurrence_type', 'observation')}",
+                    f"impact:{item.get('impact', 'unknown')}",
+                    f"actionability:{item.get('actionability', 'context')}",
+                ]
+                text = str(item.get("text", ""))
+                title = text[:120] or memory_id
+                relative = f"{path.relative_to(root)}#{memory_id}"
+                row = (
+                    memory_id,
+                    relative,
+                    "",
+                    title,
+                    f"capture:{item.get('kind', 'context')}",
+                    "proposed",
+                    config["project_id"],
+                    text,
+                    json.dumps(concepts),
+                    json.dumps(item.get("themes", [])),
+                    json.dumps([capture.get("source_type"), capture.get("source_ref")]),
+                    str(item.get("updated_at", capture.get("captured_at", ""))),
+                    "",
+                    "",
+                    str(item.get("confidence", "unknown")),
+                    "private",
+                    text,
+                )
+                connection.execute("INSERT INTO memory VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
+                connection.execute(
+                    "INSERT INTO memory_fts VALUES (?,?,?,?,?,?,?,?)",
+                    (memory_id, title, "", text, row[8], row[9], row[6], text),
+                )
+                indexed += 1
     connection.commit()
     connection.close()
     manifest = {
@@ -1319,6 +1528,72 @@ def memory_search(args: argparse.Namespace) -> list[dict[str, Any]]:
         row["citation"] = f"{row['path']}#{slug(row['heading'])}" if row["heading"] else row["path"]
         row.pop("body", None)
     return rows
+
+
+SEMANTIC_CONCEPTS = {
+    "adaptability": {"change", "changed", "revision", "revise", "rework", "flexible", "adaptable", "mind"},
+    "positive-feedback": {"positive", "good", "great", "approved", "success", "liked", "valuable"},
+    "negative-feedback": {"negative", "bad", "failed", "failure", "concern", "problem", "disliked"},
+    "customer-need": {"need", "needs", "request", "requested", "customer", "user", "requirement"},
+    "risk": {"risk", "security", "blocked", "failure", "concern", "unsafe", "vulnerability"},
+    "decision": {"decision", "decide", "approved", "rejected", "choice", "direction"},
+}
+
+
+def semantic_features(text: str) -> dict[str, float]:
+    tokens = [token.lower() for token in re.findall(r"[A-Za-z0-9_-]+", text)]
+    features: dict[str, float] = {}
+    for token in tokens:
+        stem = re.sub(r"(ing|ed|es|s)$", "", token) if len(token) > 4 else token
+        features[f"term:{stem}"] = features.get(f"term:{stem}", 0.0) + 1.0
+    for left, right in zip(tokens, tokens[1:]):
+        features[f"pair:{left}:{right}"] = features.get(f"pair:{left}:{right}", 0.0) + 0.5
+    token_set = set(tokens)
+    for concept, terms in SEMANTIC_CONCEPTS.items():
+        overlap = token_set & terms
+        if overlap:
+            features[f"concept:{concept}"] = float(len(overlap) * 2)
+    return features
+
+
+def cosine_similarity(left: dict[str, float], right: dict[str, float]) -> float:
+    common = set(left) & set(right)
+    numerator = sum(left[key] * right[key] for key in common)
+    left_norm = sum(value * value for value in left.values()) ** 0.5
+    right_norm = sum(value * value for value in right.values()) ** 0.5
+    if not left_norm or not right_norm:
+        return 0.0
+    return numerator / (left_norm * right_norm)
+
+
+def memory_similar(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    if args.limit < 1 or args.min_score < 0 or args.min_score > 1:
+        raise ContinuityError("Similarity limit must be positive and min-score must be between 0 and 1")
+    ensure_index(root, config, args.scope)
+    query_features = semantic_features(args.query)
+    if not query_features:
+        raise ContinuityError("Similarity query contains no semantic features")
+    connection = sqlite3.connect(memory_db(root, config))
+    connection.row_factory = sqlite3.Row
+    where = "" if args.scope == "all" else "WHERE scope = ?"
+    params: tuple[Any, ...] = () if args.scope == "all" else (args.scope,)
+    candidates = [dict(row) for row in connection.execute(f"SELECT * FROM memory {where}", params).fetchall()]
+    connection.close()
+    ranked: list[dict[str, Any]] = []
+    for row in candidates:
+        searchable = " ".join(
+            str(row.get(key, "")) for key in ("title", "summary", "tags", "aliases", "system_name", "body")
+        )
+        score = cosine_similarity(query_features, semantic_features(searchable))
+        if score < args.min_score:
+            continue
+        row["similarity"] = round(score, 4)
+        row["citation"] = row["path"]
+        row.pop("body", None)
+        ranked.append(row)
+    ranked.sort(key=lambda row: (row["similarity"], row.get("updated_at", "")), reverse=True)
+    return ranked[: args.limit]
 
 
 def memory_brief(args: argparse.Namespace) -> str:
@@ -1941,6 +2216,131 @@ def scheduler_runs_path(root: Path, config: dict[str, Any]) -> Path:
     return private_path(root, config) / "scheduler-runs.jsonl"
 
 
+def scheduler_due_actions_path(root: Path, config: dict[str, Any]) -> Path:
+    return private_path(root, config) / "scheduler-due-actions.json"
+
+
+def scheduler_project_lock_path(root: Path, config: dict[str, Any]) -> Path:
+    return private_path(root, config) / "scheduler-state.lock"
+
+
+def registration_workspace_roots(registration: dict[str, Any]) -> list[Path]:
+    roots = registration.get("workspace_roots", [])
+    if not isinstance(roots, list) or not roots or any(not isinstance(item, str) or not item.strip() for item in roots):
+        raise ContinuityError("Scheduler registration has invalid workspace roots")
+    return requested_workspace_roots(roots)
+
+
+def portfolio_control_dir(registration: dict[str, Any]) -> Path:
+    roots = registration_workspace_roots(registration)
+    task_id = validate_task_id(str(registration.get("supervisor_task_id", "")), "supervisor task ID")
+    return portfolio_control_dir_for(roots, task_id)
+
+
+def portfolio_control_dir_for(roots: list[Path], task_id: str) -> Path:
+    identity = canonical_hash({"task_id": task_id, "roots": sorted(str(root) for root in roots)})[:16]
+    return sorted(roots, key=str)[0] / ".continuity-portfolio" / identity
+
+
+def scheduler_liveness_limit(config: dict[str, Any]) -> dt.timedelta:
+    scheduler = normalize_scheduler(config.get("scheduler"))
+    return dt.timedelta(minutes=max(scheduler["stale_after_minutes"], scheduler["sweep_minutes"] * 3))
+
+
+def load_due_actions(root: Path, config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    value = json_load(scheduler_due_actions_path(root, config), {})
+    if not isinstance(value, dict):
+        raise ContinuityError("Scheduler due-action ledger is invalid")
+    return {str(key): item for key, item in value.items() if isinstance(item, dict)}
+
+
+def prune_due_actions(root: Path, config: dict[str, Any], current: dt.datetime) -> dict[str, dict[str, Any]]:
+    actions = load_due_actions(root, config)
+    retained: dict[str, dict[str, Any]] = {}
+    for key, item in actions.items():
+        expires = parse_recorded_time(item.get("expires_at"), config["timezone"])
+        if item.get("consumed_at") or expires is None or expires <= current:
+            continue
+        retained[key] = item
+    if retained != actions:
+        json_dump(scheduler_due_actions_path(root, config), retained)
+    return retained
+
+
+def portfolio_runtime_inventory(
+    projects: Iterable[dict[str, Any]],
+    current: dt.datetime,
+    supervisor_task_id: str,
+    workspace_roots: list[Path],
+) -> tuple[int, int, int, dict[str, tuple[Path, dict[str, Any], dict[str, Any]]]]:
+    active = 0
+    reserved = 0
+    caps: list[int] = []
+    claims: dict[str, tuple[Path, dict[str, Any], dict[str, Any]]] = {}
+    for project in projects:
+        if not project.get("healthy"):
+            continue
+        root = Path(project["path"]).resolve()
+        config = json_load(root / ".continuity" / "config.json", {})
+        if not isinstance(config, dict):
+            continue
+        registration = json_load(scheduler_registration_path(root, config), {})
+        if not isinstance(registration, dict) or registration.get("supervisor_task_id") != supervisor_task_id:
+            continue
+        try:
+            registered_roots = registration_workspace_roots(registration)
+        except ContinuityError:
+            continue
+        if sorted(registered_roots, key=str) != sorted(workspace_roots, key=str):
+            continue
+        caps.append(normalize_scheduler(config.get("scheduler"))["portfolio_max_concurrency"])
+        active += sum(
+            1 for run in scheduler_run_snapshots(root, config).values()
+            if run.get("status") in SCHEDULER_ACTIVE_STATES
+        )
+        with exclusive_file_lock(scheduler_project_lock_path(root, config)):
+            for token, claim in prune_due_actions(root, config, current).items():
+                reserved += 1
+                claims[token] = (root, config, claim)
+    return active, reserved, min(caps) if caps else 0, claims
+
+
+def issue_due_claim(
+    root: Path,
+    config: dict[str, Any],
+    due: dict[str, Any],
+    supervisor_task_id: str,
+    sweep_id: str,
+    current: dt.datetime,
+) -> str:
+    with exclusive_file_lock(scheduler_project_lock_path(root, config)):
+        claims = prune_due_actions(root, config, current)
+        for token, claim in claims.items():
+            if claim.get("idempotency_key") == due["idempotency_key"]:
+                return token
+        scheduler = normalize_scheduler(config.get("scheduler"))
+        token = f"claim-{secrets.token_hex(16)}"
+        claims[token] = {
+            "schema_version": 1,
+            "claim_token": token,
+            "project_id": config["project_id"],
+            "action": due["action"],
+            "idempotency_key": due["idempotency_key"],
+            "scheduled_at": due["scheduled_at"],
+            "due_goal_ids": due.get("due_goal_ids", []),
+            "issued_at": current.astimezone(ZoneInfo(config["timezone"])).isoformat(timespec="seconds"),
+            "expires_at": (
+                current.astimezone(ZoneInfo(config["timezone"]))
+                + dt.timedelta(minutes=max(30, scheduler["sweep_minutes"] * 2))
+            ).isoformat(timespec="seconds"),
+            "supervisor_task_id": supervisor_task_id,
+            "sweep_id": sweep_id,
+            "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+        }
+        json_dump(scheduler_due_actions_path(root, config), claims)
+        return token
+
+
 def parse_recorded_time(value: Any, timezone: str) -> dt.datetime | None:
     if not isinstance(value, str):
         return None
@@ -1992,6 +2392,11 @@ def scheduler_registration_status_for(root: Path, config: dict[str, Any]) -> dic
             problems.append("workspace roots must be non-empty paths")
         elif any(not Path(item).expanduser().resolve().is_dir() or Path(item).expanduser().resolve() == Path("/") for item in roots):
             problems.append("a registered workspace root is missing or unsafe")
+        heartbeat_at = parse_recorded_time(registration.get("last_heartbeat_at"), config["timezone"])
+        if heartbeat_at is None:
+            problems.append("supervisor heartbeat is missing")
+        elif now(config) - heartbeat_at > scheduler_liveness_limit(config):
+            problems.append("supervisor heartbeat is stale")
         if not problems:
             state = "registered"
         else:
@@ -2010,6 +2415,8 @@ def scheduler_registration_status_for(root: Path, config: dict[str, Any]) -> dic
         "state": state,
         "provider": provider,
         "registered_at": registration.get("registered_at") if isinstance(registration, dict) else None,
+        "last_heartbeat_at": registration.get("last_heartbeat_at") if isinstance(registration, dict) else None,
+        "last_sweep_id": registration.get("last_sweep_id") if isinstance(registration, dict) else None,
         "supervisor_task_id": registration.get("supervisor_task_id") if isinstance(registration, dict) else None,
         "workspace_roots": registration.get("workspace_roots", []) if isinstance(registration, dict) else [],
         "active_runs": len(active),
@@ -2069,6 +2476,22 @@ def due_action_for_project(root: Path, config: dict[str, Any], manifest: dict[st
             status = "retry"
     due_goals: list[str] = []
     if action == "dispatch":
+        review_key = f"{manifest['project_id']}:review:{scheduled_at.date().isoformat()}"
+        latest_review, _review_attempts = latest_run_for_key(root, config, review_key)
+        if not latest_review or latest_review.get("status") != "succeeded":
+            return {
+                "project_id": manifest["project_id"],
+                "path": str(root),
+                "action": action,
+                "status": "waiting-for-review",
+                "scheduled_at": scheduled_at.isoformat(timespec="minutes"),
+                "idempotency_key": idempotency_key,
+                "attempt": attempts + 1,
+                "due_goal_ids": [],
+                "portfolio_max_concurrency": scheduler["portfolio_max_concurrency"],
+                "autonomy_envelope": "approved-code",
+                "blocked_by": review_key,
+            }
         previous = os.environ.get("CONTINUITY_PROJECT_ROOT")
         os.environ["CONTINUITY_PROJECT_ROOT"] = str(root)
         try:
@@ -2256,6 +2679,8 @@ def portfolio_actions(args: argparse.Namespace) -> list[dict[str, Any]]:
     workspace_roots = requested_workspace_roots(args.root or [])
     os.environ["CONTINUITY_WORKSPACE_ROOTS"] = os.pathsep.join(str(root) for root in workspace_roots)
     if args.at:
+        if os.environ.get("CONTINUITY_ALLOW_TIME_OVERRIDE") != "1":
+            raise ContinuityError("--at is restricted to explicit test or inspection environments")
         try:
             current = dt.datetime.fromisoformat(args.at)
         except ValueError as exc:
@@ -2264,15 +2689,49 @@ def portfolio_actions(args: argparse.Namespace) -> list[dict[str, Any]]:
             raise ContinuityError("--at must include a timezone offset")
     else:
         current = dt.datetime.now(dt.timezone.utc)
+    sweep_id = args.sweep_id or f"sweep-{secrets.token_hex(8)}"
+    validate_identifier(sweep_id, "supervisor sweep ID")
+    supervisor_task_id = args.supervisor_task_id
+    if supervisor_task_id:
+        validate_task_id(supervisor_task_id, "supervisor task ID")
     actions = [args.action] if args.action else ["review", "dispatch", "report"]
     results: list[dict[str, Any]] = []
-    for project in discover_projects(workspace_roots):
+    projects = discover_projects(workspace_roots)
+    for project in projects:
         if not project.get("healthy"):
             results.append({**project, "action": "health", "status": "blocked"})
             continue
         root = Path(project["path"]).resolve()
         manifest = project["manifest"]
         config = json_load(root / ".continuity" / "config.json", {})
+        provider = normalize_scheduler(config.get("scheduler"))["provider"]
+        if provider != "none":
+            if not supervisor_task_id:
+                results.append(
+                    {
+                        "project_id": project["project_id"],
+                        "path": str(root),
+                        "action": "registration",
+                        "status": "blocked",
+                        "reason": "supervisor task ID is required for a live sweep",
+                    }
+                )
+                continue
+            try:
+                scheduler_supervisor_heartbeat(
+                    root, config, supervisor_task_id, sweep_id, workspace_roots
+                )
+            except ContinuityError as exc:
+                results.append(
+                    {
+                        "project_id": project["project_id"],
+                        "path": str(root),
+                        "action": "registration",
+                        "status": "blocked",
+                        "reason": str(exc),
+                    }
+                )
+                continue
         registration = scheduler_registration_status_for(root, config)
         if registration["state"] not in {"registered", "not-requested"}:
             results.append(
@@ -2289,13 +2748,44 @@ def portfolio_actions(args: argparse.Namespace) -> list[dict[str, Any]]:
             due = due_action_for_project(root, config, manifest, action, current)
             if due:
                 due["scheduler"] = registration
+                if provider == "none" and due.get("status") in {"due", "retry"}:
+                    due["status"] = "manual-only"
                 results.append(due)
     runnable = [item for item in results if item.get("status") in {"due", "retry"}]
     if runnable:
-        capacity = min(int(item["portfolio_max_concurrency"]) for item in runnable)
-        runnable.sort(key=lambda item: (item.get("scheduled_at", ""), item.get("project_id", ""), item.get("action", "")))
-        for item in runnable[capacity:]:
-            item["status"] = "capacity-deferred"
+        if not supervisor_task_id:
+            raise ContinuityError("A supervisor task ID is required to reserve runnable actions")
+        control = portfolio_control_dir_for(workspace_roots, supervisor_task_id)
+        with exclusive_file_lock(control / "portfolio.lock"):
+            active, reserved, capacity, existing_claims = portfolio_runtime_inventory(
+                projects, current, supervisor_task_id, workspace_roots
+            )
+            available = max(0, capacity - active - reserved)
+            runnable.sort(key=lambda item: (item.get("scheduled_at", ""), item.get("project_id", ""), item.get("action", "")))
+            for item in runnable:
+                existing = next(
+                    (
+                        token for token, (_root, _config, claim) in existing_claims.items()
+                        if claim.get("idempotency_key") == item["idempotency_key"]
+                    ),
+                    None,
+                )
+                if existing:
+                    item["claim_token"] = existing
+                    item["reservation_state"] = "existing"
+                elif available > 0:
+                    root = Path(item["path"]).resolve()
+                    config = json_load(root / ".continuity" / "config.json", {})
+                    item["claim_token"] = issue_due_claim(
+                        root, config, item, supervisor_task_id, sweep_id, current
+                    )
+                    item["reservation_state"] = "reserved"
+                    available -= 1
+                else:
+                    item["status"] = "capacity-deferred"
+                item["portfolio_active_runs"] = active
+                item["portfolio_reserved_actions"] = reserved
+                item["portfolio_available_slots"] = available
     return results
 
 
@@ -2802,10 +3292,13 @@ def scheduler_register(args: argparse.Namespace) -> dict[str, Any]:
     if scheduler["provider"] == "none":
         raise ContinuityError("Choose a scheduler provider before recording registration")
     workspace_roots = requested_workspace_roots(args.root or [])
+    registered_at = iso_now(config)
     record = {
         "schema_version": 1,
         "provider": scheduler["provider"],
-        "registered_at": iso_now(config),
+        "registered_at": registered_at,
+        "last_heartbeat_at": registered_at,
+        "last_sweep_id": None,
         "registered_by": args.actor,
         "supervisor_task_id": validate_task_id(args.task_id, "supervisor task ID"),
         "workspace_roots": [str(path) for path in workspace_roots],
@@ -2816,6 +3309,40 @@ def scheduler_register(args: argparse.Namespace) -> dict[str, Any]:
     json_dump(scheduler_registration_path(root, config), record)
     append_jsonl(private_path(root, config) / "events.jsonl", {"at": record["registered_at"], "event": "scheduler.registered", "actor": args.actor, "task_id": args.task_id})
     return scheduler_registration_status_for(root, config)
+
+
+def scheduler_supervisor_heartbeat(
+    root: Path,
+    config: dict[str, Any],
+    task_id: str,
+    sweep_id: str,
+    workspace_roots: list[Path],
+) -> dict[str, Any]:
+    task_id = validate_task_id(task_id, "supervisor task ID")
+    sweep_id = validate_identifier(sweep_id, "supervisor sweep ID")
+    path = scheduler_registration_path(root, config)
+    with exclusive_file_lock(scheduler_project_lock_path(root, config)):
+        registration = json_load(path, {})
+        if not isinstance(registration, dict) or not registration:
+            raise ContinuityError("Scheduler registration is missing")
+        if registration.get("provider") != normalize_scheduler(config.get("scheduler"))["provider"]:
+            raise ContinuityError("Scheduler registration provider does not match configuration")
+        if registration.get("behavior_configuration_hash") != config.get("behavior_configuration_hash"):
+            raise ContinuityError("Scheduler registration is stale for the current behavior configuration")
+        if registration.get("supervisor_task_id") != task_id:
+            raise ContinuityError("Supervisor task ID does not match the registered task")
+        registered_roots = registration_workspace_roots(registration)
+        if sorted(registered_roots, key=str) != sorted(workspace_roots, key=str):
+            raise ContinuityError("Supervisor workspace roots do not match the registered root set")
+        stamp = iso_now(config)
+        registration["last_heartbeat_at"] = stamp
+        registration["last_sweep_id"] = sweep_id
+        json_dump(path, registration)
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": stamp, "event": "scheduler.supervisor-heartbeat", "task_id": task_id, "sweep_id": sweep_id},
+        )
+    return registration
 
 
 def scheduler_unregister(args: argparse.Namespace) -> dict[str, Any]:
@@ -2839,41 +3366,73 @@ def scheduler_status(args: argparse.Namespace) -> dict[str, Any]:
 def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     registration = scheduler_registration_status_for(root, config)
-    if registration["state"] not in {"registered", "not-requested"}:
+    if registration["state"] != "registered":
         raise ContinuityError(f"Scheduler registration is {registration['state']}")
-    expected_prefix = f"{config['project_id']}:{args.action}:"
-    if not args.idempotency_key.startswith(expected_prefix):
-        raise ContinuityError(f"idempotency key must start with {expected_prefix}")
-    latest, attempts = latest_run_for_key(root, config, args.idempotency_key)
-    scheduler = normalize_scheduler(config.get("scheduler"))
-    current = now(config)
-    if latest:
-        latest_at = parse_recorded_time(latest.get("last_event_at"), config["timezone"])
-        if latest.get("status") == "succeeded":
-            raise ContinuityError("This scheduled action already succeeded")
-        if latest.get("status") in SCHEDULER_ACTIVE_STATES and latest_at is not None and current - latest_at <= dt.timedelta(minutes=scheduler["stale_after_minutes"]):
-            raise ContinuityError(f"Scheduled action is already active as {latest['run_id']}")
-        if attempts > scheduler["retry_limit"]:
-            raise ContinuityError("Scheduled action exhausted its retry allowance")
-        if latest_at is not None and latest.get("status") in SCHEDULER_FINAL_STATES and current - latest_at < dt.timedelta(minutes=scheduler["retry_backoff_minutes"]):
-            raise ContinuityError("Scheduled action is still in retry backoff")
-    attempt = attempts + 1
-    run_id = f"run-{secrets.token_hex(8)}"
+    raw_registration = json_load(scheduler_registration_path(root, config), {})
+    workspace_roots = registration_workspace_roots(raw_registration)
+    control = portfolio_control_dir(raw_registration)
     task_id = validate_task_id(args.task_id, "scheduled task ID")
-    event = {
-        "schema_version": 1,
-        "run_id": run_id,
-        "project_id": config["project_id"],
-        "action": args.action,
-        "status": "started",
-        "at": iso_now(config),
-        "idempotency_key": args.idempotency_key,
-        "attempt": attempt,
-        "task_id": task_id,
-        "goal_id": args.goal_id,
-        "summary": args.summary or "Scheduled action started.",
-    }
-    append_jsonl(scheduler_runs_path(root, config), event)
+    current = now(config)
+    with exclusive_file_lock(control / "portfolio.lock"):
+        projects = discover_projects(workspace_roots)
+        active, _reserved, capacity, _claims = portfolio_runtime_inventory(
+            projects,
+            current,
+            str(raw_registration["supervisor_task_id"]),
+            workspace_roots,
+        )
+        if active >= capacity:
+            raise ContinuityError("Portfolio concurrency capacity is exhausted")
+        with exclusive_file_lock(scheduler_project_lock_path(root, config)):
+            claims = prune_due_actions(root, config, current)
+            claim = claims.get(args.claim_token)
+            if not claim:
+                raise ContinuityError("A current one-time due-action claim is required")
+            if claim.get("project_id") != config["project_id"]:
+                raise ContinuityError("Due-action claim belongs to another project")
+            if claim.get("behavior_configuration_hash") != config.get("behavior_configuration_hash"):
+                raise ContinuityError("Due-action claim is stale for the current project behavior")
+            if claim.get("supervisor_task_id") != raw_registration.get("supervisor_task_id"):
+                raise ContinuityError("Due-action claim belongs to another supervisor")
+            if claim.get("action") != args.action or claim.get("idempotency_key") != args.idempotency_key:
+                raise ContinuityError("Due-action claim does not match the requested action")
+            if args.action == "dispatch":
+                if not args.goal_id or args.goal_id not in claim.get("due_goal_ids", []):
+                    raise ContinuityError("Dispatch goal is not authorized by the due-action claim")
+            elif args.goal_id:
+                raise ContinuityError(f"{args.action} runs cannot claim a goal")
+            latest, attempts = latest_run_for_key(root, config, args.idempotency_key)
+            scheduler = normalize_scheduler(config.get("scheduler"))
+            if latest:
+                latest_at = parse_recorded_time(latest.get("last_event_at"), config["timezone"])
+                if latest.get("status") == "succeeded":
+                    raise ContinuityError("This scheduled action already succeeded")
+                if latest.get("status") in SCHEDULER_ACTIVE_STATES and latest_at is not None and current - latest_at <= dt.timedelta(minutes=scheduler["stale_after_minutes"]):
+                    raise ContinuityError(f"Scheduled action is already active as {latest['run_id']}")
+                if attempts > scheduler["retry_limit"]:
+                    raise ContinuityError("Scheduled action exhausted its retry allowance")
+                if latest_at is not None and latest.get("status") in SCHEDULER_FINAL_STATES and current - latest_at < dt.timedelta(minutes=scheduler["retry_backoff_minutes"]):
+                    raise ContinuityError("Scheduled action is still in retry backoff")
+            attempt = attempts + 1
+            run_id = f"run-{secrets.token_hex(8)}"
+            event = {
+                "schema_version": 1,
+                "run_id": run_id,
+                "project_id": config["project_id"],
+                "action": args.action,
+                "status": "started",
+                "at": iso_now(config),
+                "idempotency_key": args.idempotency_key,
+                "attempt": attempt,
+                "task_id": task_id,
+                "goal_id": args.goal_id,
+                "summary": args.summary or "Scheduled action started.",
+                "claim_hash": hashlib.sha256(args.claim_token.encode()).hexdigest(),
+                "sweep_id": claim.get("sweep_id"),
+            }
+            append_jsonl(scheduler_runs_path(root, config), event)
+            claims.pop(args.claim_token, None)
+            json_dump(scheduler_due_actions_path(root, config), claims)
     return event
 
 
@@ -3305,6 +3864,165 @@ def goal_test_commands(config: dict[str, Any], goal: dict[str, Any] | None = Non
     return ordered
 
 
+def worktree_source_snapshot(worktree: Path) -> dict[str, Any]:
+    if not worktree.is_dir():
+        raise ContinuityError(f"Test worktree is unavailable: {worktree}")
+    head = git_result(worktree, "rev-parse", "HEAD")
+    if head.returncode != 0:
+        raise ContinuityError("Test worktree is not a Git repository")
+    status = git_result(worktree, "status", "--porcelain=v1")
+    diff = git_result(worktree, "diff", "--binary", "HEAD")
+    untracked_result = git_result(worktree, "ls-files", "--others", "--exclude-standard", "-z")
+    common_dir_result = git_result(worktree, "rev-parse", "--git-common-dir")
+    branch_result = git_result(worktree, "rev-parse", "--abbrev-ref", "HEAD")
+    if any(result.returncode != 0 for result in (status, diff, untracked_result, common_dir_result, branch_result)):
+        raise ContinuityError("Unable to fingerprint the test worktree")
+    excluded_fragments = (".continuity/private/", ".continuity-portfolio/", "__pycache__/")
+    status_lines = [line for line in status.stdout.splitlines() if not any(value in line for value in excluded_fragments)]
+    untracked: list[dict[str, str]] = []
+    for relative in sorted(value for value in untracked_result.stdout.split("\0") if value):
+        if any(value in relative for value in excluded_fragments):
+            continue
+        path = (worktree / relative).resolve()
+        if path.is_file() and path.is_relative_to(worktree.resolve()):
+            untracked.append({"path": relative, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+    common_dir = Path(common_dir_result.stdout.strip())
+    if not common_dir.is_absolute():
+        common_dir = (worktree / common_dir).resolve()
+    value = {
+        "commit_sha": head.stdout.strip(),
+        "branch": branch_result.stdout.strip(),
+        "repository_fingerprint": hashlib.sha256(str(common_dir).encode()).hexdigest(),
+        "status": "\n".join(status_lines),
+        "diff_sha256": hashlib.sha256(diff.stdout.encode()).hexdigest(),
+        "untracked": untracked,
+    }
+    value["source_fingerprint"] = canonical_hash(value)
+    return value
+
+
+def command_argv(command: str) -> list[str]:
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        raise ContinuityError(f"Invalid configured command: {command}") from exc
+    if not argv:
+        raise ContinuityError("Configured commands cannot be empty")
+    shell_operators = {"|", "||", "&&", ";", ">", ">>", "<", "<<", "&"}
+    if any(token in shell_operators for token in argv) or "=" in argv[0]:
+        raise ContinuityError(f"Configured command must be a direct argv command without shell syntax: {command}")
+    return argv
+
+
+def execute_evidence_command(command: str, worktree: Path, timeout_seconds: int) -> dict[str, Any]:
+    argv = command_argv(command)
+    started = dt.datetime.now(dt.timezone.utc)
+    try:
+        result = subprocess.run(
+            argv,
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            timeout=max(1, timeout_seconds),
+            check=False,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        returncode = result.returncode
+        stdout = result.stdout[-20000:]
+        stderr = result.stderr[-20000:]
+        timed_out = False
+    except subprocess.TimeoutExpired as exc:
+        returncode = 124
+        stdout = (exc.stdout or "")[-20000:] if isinstance(exc.stdout, str) else ""
+        stderr = (exc.stderr or "")[-20000:] if isinstance(exc.stderr, str) else ""
+        timed_out = True
+    finished = dt.datetime.now(dt.timezone.utc)
+    return {
+        "command": command,
+        "argv": argv,
+        "started_at": started.isoformat(timespec="seconds"),
+        "finished_at": finished.isoformat(timespec="seconds"),
+        "duration_seconds": round((finished - started).total_seconds(), 3),
+        "returncode": returncode,
+        "timed_out": timed_out,
+        "stdout": stdout,
+        "stderr": stderr,
+        "passed": returncode == 0,
+    }
+
+
+def test_run(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") not in {"running", "validating"}:
+        raise ContinuityError("Machine tests may run only for a running or validating goal")
+    execution = json_load(directory / "execution.json", {})
+    recorded_worktree = execution.get("worktree") if isinstance(execution, dict) else None
+    worktree = Path(args.worktree or recorded_worktree or root).expanduser().resolve()
+    if recorded_worktree and worktree != Path(recorded_worktree).expanduser().resolve():
+        raise ContinuityError("Test worktree does not match the goal execution record")
+    before = worktree_source_snapshot(worktree)
+    enrolled = worktree_source_snapshot(root)
+    if before["repository_fingerprint"] != enrolled["repository_fingerprint"]:
+        raise ContinuityError("Test worktree does not belong to the enrolled repository")
+    recorded_branch = execution.get("branch") if isinstance(execution, dict) else None
+    expected_branch = args.branch or recorded_branch
+    if not expected_branch:
+        raise ContinuityError("Test branch is missing from the goal execution record")
+    if recorded_branch and args.branch and recorded_branch != args.branch:
+        raise ContinuityError("Test branch does not match the goal execution record")
+    if before["branch"] != expected_branch:
+        raise ContinuityError(f"Test worktree is on {before['branch']}, not {expected_branch}")
+    validation_commands = goal_test_commands(config, goal)
+    security_commands = list(config.get("security_commands", []))
+    results: list[dict[str, Any]] = []
+    failures: list[str] = []
+    if not validation_commands:
+        failures.append("no configured validation commands")
+    deadline = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=goal.get("runtime_limit_minutes", 360))
+    for category, commands in (("validation", validation_commands), ("security", security_commands)):
+        for command in commands:
+            remaining = int((deadline - dt.datetime.now(dt.timezone.utc)).total_seconds())
+            if remaining <= 0:
+                failures.append("machine test runtime limit exhausted")
+                break
+            try:
+                result = execute_evidence_command(command, worktree, remaining)
+            except ContinuityError as exc:
+                failures.append(str(exc))
+                continue
+            result["category"] = category
+            results.append(result)
+            if not result["passed"]:
+                failures.append(f"{category} command failed: {command} (exit {result['returncode']})")
+    after = worktree_source_snapshot(worktree)
+    if before["source_fingerprint"] != after["source_fingerprint"]:
+        failures.append("worktree changed while machine tests were running")
+    report = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "goal_id": args.goal_id,
+        "status": "passed" if not failures else "failed",
+        "actor": args.actor,
+        "updated_at": iso_now(config),
+        "worktree": str(worktree),
+        "branch": before["branch"],
+        "plan_hash": goal.get("plan_hash"),
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+        "commit_sha": after["commit_sha"],
+        "repository_fingerprint": after["repository_fingerprint"],
+        "source_fingerprint": after["source_fingerprint"],
+        "validation_commands": validation_commands,
+        "security_commands": security_commands,
+        "results": results,
+        "failures": failures,
+    }
+    report["evidence_hash"] = canonical_hash(report)
+    json_dump(directory / "machine-test-run.json", report)
+    append_jsonl(private_path(root, config) / "reports" / "machine-test-runs.jsonl", report)
+    return report
+
+
 def test_plan(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     goal: dict[str, Any] | None = None
@@ -3344,19 +4062,44 @@ def test_record(args: argparse.Namespace) -> dict[str, Any]:
     validation_evidence = args.validation_evidence or []
     security_evidence = args.security_evidence or []
     review_evidence = args.code_review_evidence or []
+    machine_run = json_load(directory / "machine-test-run.json", {})
+    machine_worktree = machine_run.get("worktree") if isinstance(machine_run, dict) else None
+    evidence_root = Path(args.worktree or machine_worktree or root).expanduser().resolve()
     if args.status == "passed":
         missing = []
         if not review_evidence:
             missing.append("code-review evidence")
-        if not validation_evidence:
-            missing.append("validation evidence")
         if not security_evidence:
             missing.append("security-review evidence")
+        if not isinstance(machine_run, dict) or machine_run.get("status") != "passed":
+            missing.append("a passed machine test run")
+        else:
+            current_snapshot = worktree_source_snapshot(evidence_root)
+            if machine_worktree and evidence_root != Path(machine_worktree).expanduser().resolve():
+                missing.append("machine evidence for the recorded goal worktree")
+            if machine_run.get("repository_fingerprint") != current_snapshot["repository_fingerprint"]:
+                missing.append("machine evidence for the enrolled repository")
+            if machine_run.get("branch") != current_snapshot["branch"]:
+                missing.append("machine evidence for the current goal branch")
+            if machine_run.get("source_fingerprint") != current_snapshot["source_fingerprint"]:
+                missing.append("machine evidence for the current source fingerprint")
+            if machine_run.get("plan_hash") != goal.get("plan_hash"):
+                missing.append("machine evidence for the approved plan hash")
+            if machine_run.get("behavior_configuration_hash") != config.get("behavior_configuration_hash"):
+                missing.append("machine evidence for the current behavior configuration")
+            if machine_run.get("validation_commands") != goal_test_commands(config, goal):
+                missing.append("machine evidence for every configured validation command")
+            if machine_run.get("security_commands") != list(config.get("security_commands", [])):
+                missing.append("machine evidence for every configured security command")
         if missing:
             raise ContinuityError(f"Cannot record a passed test report without {', '.join(missing)}")
+        validation_evidence = [
+            f"machine-test-run:{machine_run.get('evidence_hash')}",
+            f"source-fingerprint:{machine_run.get('source_fingerprint')}",
+            *validation_evidence,
+        ]
     stamp = iso_now(config)
     artifacts: list[str] = []
-    evidence_root = Path(args.worktree).expanduser().resolve() if args.worktree else root
     for value in args.artifact or []:
         path = Path(value).expanduser().resolve()
         if not path.is_file():
@@ -3375,6 +4118,11 @@ def test_record(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": stamp,
         "worktree": args.worktree,
         "branch": args.branch,
+        "plan_hash": goal.get("plan_hash"),
+        "commit_sha": machine_run.get("commit_sha") if isinstance(machine_run, dict) else None,
+        "repository_fingerprint": machine_run.get("repository_fingerprint") if isinstance(machine_run, dict) else None,
+        "source_fingerprint": machine_run.get("source_fingerprint") if isinstance(machine_run, dict) else None,
+        "machine_evidence_hash": machine_run.get("evidence_hash") if isinstance(machine_run, dict) else None,
         "validation_commands": goal_test_commands(config, goal),
         "security_commands": list(config.get("security_commands", [])),
         "code_review_evidence": review_evidence,
@@ -3450,6 +4198,20 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
         failures.append("latest test report is not passed")
     else:
         evidence.append(f"test-report:{test_report.get('updated_at')}")
+        try:
+            current_snapshot = worktree_source_snapshot(worktree)
+        except ContinuityError as exc:
+            failures.append(str(exc))
+        else:
+            if test_report.get("source_fingerprint") != current_snapshot["source_fingerprint"]:
+                failures.append("latest test report does not match the current source fingerprint")
+            if test_report.get("repository_fingerprint") != current_snapshot["repository_fingerprint"]:
+                failures.append("latest test report does not belong to the current repository")
+            enrolled_snapshot = worktree_source_snapshot(root)
+            if current_snapshot["repository_fingerprint"] != enrolled_snapshot["repository_fingerprint"]:
+                failures.append("merge worktree does not belong to the enrolled repository")
+            if test_report.get("plan_hash") != goal.get("plan_hash"):
+                failures.append("latest test report does not match the approved plan hash")
     compliance = json_load(directory / "compliance.json", {})
     for stage in ("code-review", "validation", "security-review"):
         status = compliance.get("stages", {}).get(stage, {}).get("status")
@@ -3642,6 +4404,7 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
 def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     goals = goal_list(argparse.Namespace(state=None))
     notes = note_list(argparse.Namespace(kind=None))
+    pattern_report = note_patterns(argparse.Namespace(min_count=2))
     decisions_needed: list[dict[str, Any]] = []
     completed_overnight: list[dict[str, Any]] = []
     blocked_or_at_risk: list[dict[str, Any]] = []
@@ -3681,6 +4444,19 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                     "recommendation": "Answer only when it affects an upcoming approved goal.",
                 }
             )
+    for pattern in pattern_report["patterns"]:
+        if pattern["occurrence_type"] not in {"change", "behavior", "risk", "failure"} and pattern["max_impact"] not in {"high", "critical"}:
+            continue
+        decisions_needed.append(
+            {
+                "pattern_id": pattern["pattern_id"],
+                "title": f"Recurring {pattern['occurrence_type']} signal for {pattern['axis']}",
+                "state": "pattern-review",
+                "decision": "Accept the recommendation, defer it, or connect it to a roadmap item.",
+                "recommendation": pattern["recommendation"],
+                "evidence": pattern["note_ids"],
+            }
+        )
     scheduler_health = scheduler_registration_status_for(root, config)
     if scheduler_health["state"] in {"requires-user-registration", "stale"} or scheduler_health["stale_runs"]:
         blocked_or_at_risk.append({"type": "scheduler", "state": scheduler_health["state"], "stale_runs": scheduler_health["stale_runs"], "problems": scheduler_health["problems"]})
@@ -3692,6 +4468,7 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         "completed_overnight": completed_overnight,
         "blocked_or_at_risk": blocked_or_at_risk,
         "prepared_next": prepared_next,
+        "patterns": pattern_report["patterns"],
         "no_action_required": not decisions_needed and not blocked_or_at_risk,
         "scheduler": scheduler_health,
     }
@@ -3841,10 +4618,22 @@ def build_parser() -> argparse.ArgumentParser:
     triage.add_argument("--kind", choices=sorted(NOTE_KINDS))
     triage.add_argument("--action", choices=["route", "defer", "archive", "promote"], default="route")
     triage.add_argument("--review-after")
+    triage.add_argument("--perspective", choices=sorted(NOTE_PERSPECTIVES))
+    triage.add_argument("--sentiment", choices=sorted(NOTE_SENTIMENTS))
+    triage.add_argument("--occurrence-type", choices=sorted(NOTE_OCCURRENCE_TYPES))
+    triage.add_argument("--impact", choices=sorted(NOTE_IMPACTS))
+    triage.add_argument("--confidence", choices=sorted(NOTE_CONFIDENCE))
+    triage.add_argument("--actionability", choices=sorted(NOTE_ACTIONABILITY))
+    triage.add_argument("--stakeholder", action="append")
+    triage.add_argument("--theme", action="append")
+    triage.add_argument("--pattern-key")
     triage.set_defaults(handler=note_triage)
     notes = note_sub.add_parser("list")
     notes.add_argument("--kind", choices=sorted(NOTE_KINDS))
     notes.set_defaults(handler=note_list)
+    patterns = note_sub.add_parser("patterns")
+    patterns.add_argument("--min-count", type=int, default=2)
+    patterns.set_defaults(handler=note_patterns)
     share = note_sub.add_parser("share")
     share_sub = share.add_subparsers(dest="share_command", required=True)
     prepare = share_sub.add_parser("prepare")
@@ -3885,6 +4674,12 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--scope", choices=["trusted", "private", "all"], default="trusted")
     search.add_argument("--limit", type=int, default=10)
     search.set_defaults(handler=memory_search)
+    similar = memory_sub.add_parser("similar")
+    similar.add_argument("query")
+    similar.add_argument("--scope", choices=["trusted", "private", "all"], default="all")
+    similar.add_argument("--limit", type=int, default=10)
+    similar.add_argument("--min-score", type=float, default=0.08)
+    similar.set_defaults(handler=memory_similar)
     brief = memory_sub.add_parser("brief")
     brief.add_argument("query")
     brief.add_argument("--scope", choices=["trusted", "private", "all"], default="trusted")
@@ -4025,6 +4820,12 @@ def build_parser() -> argparse.ArgumentParser:
     test_plan_command.add_argument("goal_id", nargs="?")
     test_plan_command.add_argument("--worktree")
     test_plan_command.set_defaults(handler=test_plan)
+    test_run_command = test_sub.add_parser("run")
+    test_run_command.add_argument("goal_id")
+    test_run_command.add_argument("--worktree")
+    test_run_command.add_argument("--branch")
+    test_run_command.add_argument("--actor", default="continuity-cli")
+    test_run_command.set_defaults(handler=test_run)
     test_record_command = test_sub.add_parser("record")
     test_record_command.add_argument("goal_id")
     test_record_command.add_argument("--status", choices=["passed", "failed"], required=True)
@@ -4111,6 +4912,7 @@ def build_parser() -> argparse.ArgumentParser:
     scheduler_start_command = scheduler_sub.add_parser("run-start")
     scheduler_start_command.add_argument("action", choices=sorted(SCHEDULE_ACTIONS))
     scheduler_start_command.add_argument("--idempotency-key", required=True)
+    scheduler_start_command.add_argument("--claim-token", required=True)
     scheduler_start_command.add_argument("--task-id", required=True)
     scheduler_start_command.add_argument("--goal-id")
     scheduler_start_command.add_argument("--summary")
@@ -4140,6 +4942,8 @@ def build_parser() -> argparse.ArgumentParser:
     portfolio_actions_command.add_argument("--root", action="append", help="Workspace root to scan; repeat for multiple roots")
     portfolio_actions_command.add_argument("--action", choices=sorted(SCHEDULE_ACTIONS))
     portfolio_actions_command.add_argument("--at", help="ISO 8601 time override used for deterministic inspection and tests")
+    portfolio_actions_command.add_argument("--supervisor-task-id", help="Registered provider task ID performing this sweep")
+    portfolio_actions_command.add_argument("--sweep-id", help="Stable ID for this supervisor sweep")
     portfolio_actions_command.set_defaults(handler=portfolio_actions)
     return parser
 

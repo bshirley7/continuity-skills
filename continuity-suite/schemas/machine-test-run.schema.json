@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity machine test run",
+  "type": "object",
+  "required": ["schema_version", "project_id", "goal_id", "status", "actor", "updated_at", "worktree", "branch", "plan_hash", "behavior_configuration_hash", "commit_sha", "repository_fingerprint", "source_fingerprint", "validation_commands", "security_commands", "results", "failures", "evidence_hash"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "goal_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["passed", "failed"]},
+    "actor": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "minLength": 1},
+    "worktree": {"type": "string", "minLength": 1},
+    "branch": {"type": "string", "minLength": 1},
+    "plan_hash": {"type": ["string", "null"]},
+    "behavior_configuration_hash": {"type": ["string", "null"]},
+    "commit_sha": {"type": "string", "pattern": "^[a-f0-9]{40,64}$"},
+    "repository_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "source_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "validation_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "security_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "results": {"type": "array", "items": {"type": "object"}},
+    "failures": {"type": "array", "items": {"type": "string"}},
+    "evidence_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

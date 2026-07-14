@@ -22,12 +22,15 @@ Every installed skill applies the versioned development assurance standard. The 
 .continuity/project-behavior.json        committed recommendations, overrides, and hash
 .continuity/scheduler.json               selected scheduler handoff and registration state
 .continuity/private/                    ignored captures, queues, goals, locks, indexes
+.continuity-portfolio/                  ignored supervisor claims and capacity reservations
 docs/project-memory/                    canonical searchable project memory
 docs/project-roadmap/                   canonical sanitized project roadmap
 .continuity/shared-notes/packets/       reviewed non-authorizing note packets
 ```
 
-The installed control directory also includes a provider-neutral portfolio supervisor prompt. One recurring Codex, Claude Code, or external supervisor polls at the configured interval, calculates per-project due actions from each timezone and schedule, and starts isolated project tasks. Schedule intent and policy are committed; registration receipts, workspace roots, task IDs, heartbeats, run ledgers, credentials, notes, memory, and recovery state remain private and developer-local.
+The installed control directory also includes a provider-neutral portfolio supervisor prompt and adapter contract. One recurring Codex, Claude Code, or external supervisor polls at the configured interval, refreshes an expiring registration heartbeat, calculates per-project due actions from each timezone and schedule, atomically reserves portfolio capacity, and starts isolated project tasks with one-time claims. Active runs plus unconsumed reservations count against the smallest participating project cap. Schedule intent and policy are committed; registration receipts, workspace roots, task IDs, heartbeats, claims, run ledgers, credentials, notes, memory, and recovery state remain private and developer-local.
+
+See `automation/provider-adapter-contract.md` for the provider conformance requirements and proof checklist.
 
 Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
@@ -76,8 +79,11 @@ continuity note share prepare <note-id>... --target-project <current-project> --
 continuity note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text <text>
 continuity note share publish <packet-id>
 continuity note share import
+continuity note patterns --min-count 2
+continuity memory similar "<situation>" --scope all
 
 continuity test plan [goal-id]
+continuity test run <goal-id> --worktree <path> --branch <branch>
 continuity test record <goal-id> --status <passed|failed> --summary <text> --update-gates
 
 continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
@@ -90,14 +96,14 @@ Run the installer again to update an existing installation; it preserves project
 
 1. Invoke `$continuity` for setup or routing and apply `$continuity-local` with the selected task skill.
 2. Invoke `$continuity-capture` in the active project conversation.
-3. Invoke `$continuity-triage`, or allow the nightly review to classify and route items.
-4. Use `$continuity-memory` and `$continuity-roadmap` to retrieve cited context briefs. Use the local read-only roadmap sidecar when visual transport helps.
+3. Invoke `$continuity-triage`, or allow the nightly review to classify and route items. Refine occurrence dimensions and review recurring patterns when useful.
+4. Use `$continuity-memory` and `$continuity-roadmap` to retrieve cited context briefs. Private similarity may inform triage, but only canonical promoted memory is trusted planning evidence. Use the local read-only roadmap sidecar when visual transport helps.
 5. Use `$continuity-share` only for explicitly selected, sanitized, approved developer handoffs.
 6. Use `$continuity-plan` only for selected candidates. Verify action claims, map unresolved decisions for complex work, record `roadmap_ids` and structured `roadmap_impact`, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
 7. Approve an exact goal version; it queues for the project-configured dispatch time.
 8. Use `$continuity-dispatch` to start an approved goal earlier when needed.
 9. Use `$continuity-execute` in the assigned isolated worktree.
-10. Use `$continuity-test` to run configured project checks, targeted regressions, code review, and security review; record a test report before PR handoff.
+10. Use `$continuity-test` to execute configured project and security commands, bind their machine evidence to the current source fingerprint and approved plan, then record code and security review before PR handoff.
 11. Use `$continuity-merge` to assess merge safety before PR handoff and to record later human review or merge evidence.
 12. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
 13. Record human review separately. Only recorded merge evidence moves the goal to `completed`.
@@ -125,7 +131,7 @@ flowchart LR
 
 ## Responsible development compliance
 
-Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks `review-ready` until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. `$continuity-test` and `$continuity-merge` make these gates explicit. Only recorded human merge evidence moves the goal to `completed`.
+Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks `review-ready` until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. A passing validation record requires machine-run evidence that still matches the current source fingerprint, approved plan hash, behavior hash, and configured commands. `$continuity-test` and `$continuity-merge` make these gates explicit. Only recorded human merge evidence moves the goal to `completed`.
 
 The planning patterns were adapted from lessons in Matt Pocock's MIT-licensed `triage`, `wayfinder`, and `to-tickets` skills. See `references/planning-patterns.md` for the reviewed upstream commit, provenance, and continuity-specific safety changes. The upstream skills are not bundled or invoked.
 

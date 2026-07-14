@@ -30,6 +30,18 @@ class ContinuityTest(unittest.TestCase):
         self.git("config", "user.email", "tests@example.invalid")
         self.git("config", "user.name", "Continuity Tests")
         (self.root / "AGENTS.md").write_text("# Test project\n", encoding="utf-8")
+        local_cli = self.root / ".agents" / "continuity" / "bin" / "continuity"
+        local_cli.parent.mkdir(parents=True)
+        local_cli.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        for skill in (SUITE / "skills").iterdir():
+            if skill.is_dir():
+                target = self.root / ".agents" / "skills" / skill.name
+                target.mkdir(parents=True, exist_ok=True)
+                target.joinpath("SKILL.md").write_text("---\nname: fixture\ndescription: fixture\n---\n", encoding="utf-8")
+        (self.root / "test_smoke.py").write_text(
+            "import unittest\n\nclass SmokeTest(unittest.TestCase):\n    def test_fixture(self):\n        self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
         (self.root / ".continuity").mkdir()
         self.config = {
             "schema_version": 1,
@@ -148,7 +160,7 @@ unresolved_gaps: []
             ["python3", str(CLI), "--project-root", str(self.root), "--json", *args],
             capture_output=True,
             text=True,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "CONTINUITY_ALLOW_TIME_OVERRIDE": "1"},
         )
         self.assertEqual(result.returncode, expected, result.stderr or result.stdout)
         return result
@@ -209,6 +221,45 @@ unresolved_gaps: []
         self.assertTrue(all(item["work_status"] == "open" for item in capture["items"]))
         self.assertTrue(all(item["created_at"] and item["updated_at"] for item in capture["items"]))
         self.assertIn(".continuity/private/captures", capture["path"])
+
+    def test_occurrence_dimensions_private_similarity_and_pattern_guidance(self) -> None:
+        payload = {
+            "source_type": "conversation",
+            "source_ref": "thread:pattern",
+            "items": [
+                {
+                    "kind": "insight", "text": "The client changed the navigation requirement again.",
+                    "perspective": "external", "sentiment": "negative", "occurrence_type": "change",
+                    "impact": "high", "confidence": "high", "actionability": "plan",
+                    "stakeholders": ["client-a"], "themes": ["navigation", "adaptability"],
+                },
+                {
+                    "kind": "insight", "text": "Client feedback revised the navigation direction.",
+                    "perspective": "external", "sentiment": "mixed", "occurrence_type": "change",
+                    "impact": "medium", "confidence": "high", "actionability": "monitor",
+                    "stakeholders": ["client-a"], "themes": ["navigation", "adaptability"],
+                },
+                {
+                    "kind": "insight", "text": "The adaptable component handled another client revision well.",
+                    "perspective": "mixed", "sentiment": "positive", "occurrence_type": "change",
+                    "impact": "medium", "confidence": "high", "actionability": "context",
+                    "stakeholders": ["client-a"], "themes": ["navigation", "adaptability"],
+                },
+            ],
+        }
+        path = self.root / "pattern-capture.json"
+        self.write_json(path, payload)
+        capture = json.loads(self.cli("note", "capture", "--items-file", str(path)).stdout)
+        self.assertEqual(capture["items"][0]["perspective"], "external")
+        self.assertEqual(capture["items"][0]["occurrence_type"], "change")
+        patterns = json.loads(self.cli("note", "patterns").stdout)["patterns"]
+        stakeholder = next(item for item in patterns if item["axis"] == "stakeholder:client-a")
+        self.assertEqual(stakeholder["count"], 3)
+        self.assertIn("adaptability", stakeholder["recommendation"])
+        indexed = json.loads(self.cli("memory", "index", "--scope", "all").stdout)
+        self.assertGreaterEqual(indexed["entries"], 5)
+        similar = json.loads(self.cli("memory", "similar", "changing customer requirements", "--scope", "all").stdout)
+        self.assertTrue(any(item["memory_id"] == capture["items"][0]["item_id"] for item in similar))
 
     def test_capture_deduplicates_same_source_and_content(self) -> None:
         first = self.create_capture()
@@ -446,6 +497,14 @@ unresolved_gaps: []
             "python3 -m unittest exited 0",
             expected=2,
         )
+        machine = json.loads(
+            self.cli(
+                "test", "run", goal["goal_id"], "--worktree", str(self.root),
+                "--branch", "continuity/quality-gates",
+            ).stdout
+        )
+        self.assertEqual(machine["status"], "passed", machine)
+        self.assertTrue(machine["source_fingerprint"])
         report = json.loads(
             self.cli(
                 "test",
@@ -529,6 +588,60 @@ unresolved_gaps: []
         self.approve(goal)
         self.cli("run", "update", goal["goal_id"], "--state", "review-ready", "--summary", "claimed", expected=2)
         self.cli("run", "update", goal["goal_id"], "--state", "running", expected=2)
+
+    def test_machine_test_evidence_rejects_source_drift_and_shell_syntax(self) -> None:
+        goal = self.create_goal("Bind machine evidence")
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        self.git("checkout", "-b", "continuity/bind-machine-evidence")
+        self.cli("run", "update", goal["goal_id"], "--state", "running", "--branch", "continuity/bind-machine-evidence")
+        machine = json.loads(
+            self.cli("test", "run", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/bind-machine-evidence").stdout
+        )
+        self.assertEqual(machine["status"], "passed")
+        agents = self.root / "AGENTS.md"
+        original = agents.read_text(encoding="utf-8")
+        agents.write_text(original + "\nChanged after machine evidence.\n", encoding="utf-8")
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "stale claim",
+            "--worktree", str(self.root), "--code-review-evidence", "reviewed",
+            "--security-evidence", "manual trust boundary review", expected=2,
+        )
+        agents.write_text(original, encoding="utf-8")
+        untracked = self.root / "new-untracked-source.txt"
+        untracked.write_text("first version\n", encoding="utf-8")
+        refreshed = json.loads(
+            self.cli(
+                "test", "run", goal["goal_id"], "--worktree", str(self.root),
+                "--branch", "continuity/bind-machine-evidence",
+            ).stdout
+        )
+        self.assertEqual(refreshed["status"], "passed")
+        untracked.write_text("changed after test\n", encoding="utf-8")
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "untracked drift",
+            "--worktree", str(self.root), "--code-review-evidence", "reviewed",
+            "--security-evidence", "manual trust boundary review", expected=2,
+        )
+        untracked.unlink()
+        unrelated = self.root.parent / "unrelated-repository"
+        unrelated.mkdir()
+        subprocess.run(["git", "-C", str(unrelated), "init", "-b", "main"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(unrelated), "config", "user.email", "tests@example.invalid"], check=True)
+        subprocess.run(["git", "-C", str(unrelated), "config", "user.name", "Tests"], check=True)
+        (unrelated / "README.md").write_text("unrelated\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(unrelated), "add", "README.md"], check=True)
+        subprocess.run(["git", "-C", str(unrelated), "commit", "-m", "fixture"], check=True, capture_output=True)
+        self.cli(
+            "test", "run", goal["goal_id"], "--worktree", str(unrelated),
+            "--branch", "main", expected=2,
+        )
+        config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+        config["validation_commands"] = ["python3 -c 'print(1)' && echo unsafe"]
+        self.write_json(self.root / ".continuity" / "config.json", config)
+        unsafe = json.loads(self.cli("test", "run", goal["goal_id"], "--worktree", str(self.root)).stdout)
+        self.assertEqual(unsafe["status"], "failed")
+        self.assertIn("without shell syntax", unsafe["failures"][0])
 
     def test_goal_revision_preserves_history_and_invalidates_approval(self) -> None:
         goal = self.create_goal()
@@ -867,22 +980,44 @@ unresolved_gaps: []
             self.cli("scheduler", "register", "--task-id", "supervisor-fixture", "--root", self.temp.name, "--actor", "fixture-user").stdout
         )
         self.assertEqual(registered["state"], "registered")
+        mismatched_roots = json.loads(
+            self.cli(
+                "portfolio", "actions", "--root", str(self.root), "--action", "review",
+                "--at", "2026-07-15T20:30:00-05:00", "--supervisor-task-id", "supervisor-fixture",
+                "--sweep-id", "sweep-wrong-roots",
+            ).stdout
+        )
+        self.assertEqual(mismatched_roots[0]["status"], "blocked")
+        self.assertIn("workspace roots", mismatched_roots[0]["reason"])
+        def reserve(action: str, at: str, sweep_id: str) -> dict[str, object]:
+            records = json.loads(
+                self.cli(
+                    "portfolio", "actions", "--root", self.temp.name, "--action", action,
+                    "--at", at, "--supervisor-task-id", "supervisor-fixture", "--sweep-id", sweep_id,
+                ).stdout
+            )
+            candidates = [record for record in records if record.get("status") in {"due", "retry"}]
+            self.assertTrue(candidates, records)
+            return candidates[0]
+
+        review_claim = reserve("review", "2026-07-15T20:30:00-05:00", "sweep-review-15")
         run = json.loads(
             self.cli(
-                "scheduler", "run-start", "review", "--idempotency-key", "test-project:review:2026-07-15",
-                "--task-id", "child-task-1",
+                "scheduler", "run-start", "review", "--idempotency-key", review_claim["idempotency_key"],
+                "--claim-token", review_claim["claim_token"], "--task-id", "child-task-1",
             ).stdout
         )
         self.cli("scheduler", "run-heartbeat", run["run_id"], "--summary", "Still reviewing")
         self.cli("scheduler", "run-finish", run["run_id"], "--status", "succeeded", "--summary", "Review completed")
         self.cli(
-            "scheduler", "run-start", "review", "--idempotency-key", "test-project:review:2026-07-15",
-            "--task-id", "duplicate-task", expected=2,
+            "scheduler", "run-start", "review", "--idempotency-key", review_claim["idempotency_key"],
+            "--claim-token", review_claim["claim_token"], "--task-id", "duplicate-task", expected=2,
         )
+        report_claim = reserve("report", "2026-07-16T07:30:00-05:00", "sweep-report-16")
         stale = json.loads(
             self.cli(
-                "scheduler", "run-start", "report", "--idempotency-key", "test-project:report:2026-07-16",
-                "--task-id", "child-task-2",
+                "scheduler", "run-start", "report", "--idempotency-key", report_claim["idempotency_key"],
+                "--claim-token", report_claim["claim_token"], "--task-id", "child-task-2",
             ).stdout
         )
         runs_path = self.root / ".continuity" / "private" / "scheduler-runs.jsonl"
@@ -892,13 +1027,34 @@ unresolved_gaps: []
         self.assertEqual(recovered[0]["status"], "stale")
         goal = self.create_goal("Recover stale execution")
         self.approve(goal)
-        self.cli("goal", "start", goal["goal_id"])
-        execution_run = json.loads(
+        goal_path = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json"
+        queued_goal = json.loads(goal_path.read_text(encoding="utf-8"))
+        queued_goal["scheduled_for"] = "2020-01-01T22:00:00-06:00"
+        self.write_json(goal_path, queued_goal)
+        dispatch_waiting = json.loads(
             self.cli(
-                "scheduler", "run-start", "dispatch", "--idempotency-key", "test-project:dispatch:2026-07-16",
-                "--task-id", "execution-task", "--goal-id", goal["goal_id"],
+                "portfolio", "actions", "--root", self.temp.name, "--action", "dispatch",
+                "--at", "2026-07-16T22:30:00-05:00", "--supervisor-task-id", "supervisor-fixture",
+                "--sweep-id", "sweep-dispatch-waiting",
             ).stdout
         )
+        self.assertEqual(dispatch_waiting[0]["status"], "waiting-for-review")
+        review_16_claim = reserve("review", "2026-07-16T20:30:00-05:00", "sweep-review-16")
+        review_16 = json.loads(
+            self.cli(
+                "scheduler", "run-start", "review", "--idempotency-key", review_16_claim["idempotency_key"],
+                "--claim-token", review_16_claim["claim_token"], "--task-id", "review-task-16",
+            ).stdout
+        )
+        self.cli("scheduler", "run-finish", review_16["run_id"], "--status", "succeeded", "--summary", "Review completed")
+        dispatch_claim = reserve("dispatch", "2026-07-16T22:30:00-05:00", "sweep-dispatch-16")
+        execution_run = json.loads(
+            self.cli(
+                "scheduler", "run-start", "dispatch", "--idempotency-key", dispatch_claim["idempotency_key"],
+                "--claim-token", dispatch_claim["claim_token"], "--task-id", "execution-task", "--goal-id", goal["goal_id"],
+            ).stdout
+        )
+        self.cli("goal", "start", goal["goal_id"])
         self.cli(
             "run", "update", goal["goal_id"], "--state", "running", "--task-id", "execution-task",
             "--branch", "continuity/recover-stale-execution",
@@ -913,9 +1069,33 @@ unresolved_gaps: []
             self.cli("scheduler", "recover", "--run-id", execution_run["run_id"], "--actor", "fixture-user").stdout
         )
         self.assertEqual(execution_recovery[0]["goal_recovery"], "blocked-and-lock-released")
-        recovered_goal = json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json").read_text())
+        recovered_goal = json.loads(goal_path.read_text())
         self.assertEqual(recovered_goal["state"], "blocked")
         self.assertFalse((self.root / ".continuity" / "private" / "project.lock.json").exists())
+        race_claim = reserve("review", "2026-07-19T20:30:00-05:00", "sweep-race")
+        command = [
+            "python3", str(CLI), "--project-root", str(self.root), "--json", "scheduler", "run-start", "review",
+            "--idempotency-key", str(race_claim["idempotency_key"]), "--claim-token", str(race_claim["claim_token"]),
+            "--task-id", "race-child-task",
+        ]
+        first = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        second = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        first_out, first_err = first.communicate(timeout=10)
+        second_out, second_err = second.communicate(timeout=10)
+        self.assertEqual(sorted([first.returncode, second.returncode]), [0, 2], first_err + second_err)
+        successful = json.loads(first_out if first.returncode == 0 else second_out)
+        self.cli("scheduler", "run-finish", successful["run_id"], "--status", "succeeded", "--summary", "Race winner completed")
+        registration_path = self.root / ".continuity" / "private" / "scheduler-registration.json"
+        registration = json.loads(registration_path.read_text(encoding="utf-8"))
+        registration["last_heartbeat_at"] = "2020-01-01T00:00:00-06:00"
+        self.write_json(registration_path, registration)
+        self.assertEqual(json.loads(self.cli("scheduler", "status").stdout)["state"], "stale")
+        self.cli(
+            "portfolio", "actions", "--root", self.temp.name, "--action", "report",
+            "--at", "2026-07-20T07:30:00-05:00", "--supervisor-task-id", "supervisor-fixture",
+            "--sweep-id", "sweep-revive",
+        )
+        self.assertEqual(json.loads(self.cli("scheduler", "status").stdout)["state"], "registered")
 
 
 class InstallerTest(unittest.TestCase):
@@ -977,6 +1157,7 @@ class InstallerTest(unittest.TestCase):
             self.assertFalse((root / ".agents" / "skills" / "manage-project-memory").exists())
             self.assertTrue((root / ".agents" / "continuity" / "bin" / "continuity").exists())
             self.assertTrue((root / ".agents" / "continuity" / "automation" / "nightly-review.md").exists())
+            self.assertTrue((root / ".agents" / "continuity" / "automation" / "provider-adapter-contract.md").exists())
             self.assertFalse((root / ".agents" / "project-continuity").exists())
             self.assertTrue((root / ".agents" / "references" / "development-assurance-standard.md").exists())
             self.assertTrue((root / "docs" / "project-memory" / "INDEX.md").exists())
@@ -1273,10 +1454,12 @@ class InstallerTest(unittest.TestCase):
                 [
                     "python3", str(CLI), "--json", "portfolio", "actions", "--root", temp,
                     "--action", "review", "--at", "2026-07-19T20:30:00-05:00",
+                    "--supervisor-task-id", "supervisor-test-task", "--sweep-id", "installer-sweep-one",
                 ],
                 check=True,
                 capture_output=True,
                 text=True,
+                env={**os.environ, "CONTINUITY_ALLOW_TIME_OVERRIDE": "1"},
             )
             action_records = json.loads(actions.stdout)
             self.assertEqual([record["status"] for record in action_records], ["due", "capacity-deferred"])
@@ -1287,7 +1470,8 @@ class InstallerTest(unittest.TestCase):
                 [
                     str(root / ".agents" / "continuity" / "bin" / "continuity"),
                     "--project-root", str(root), "--json", "scheduler", "run-start", "review",
-                    "--idempotency-key", due_action["idempotency_key"], "--task-id", "review-child-task",
+                    "--idempotency-key", due_action["idempotency_key"], "--claim-token", due_action["claim_token"],
+                    "--task-id", "review-child-task",
                 ],
                 check=True,
                 capture_output=True,
@@ -1306,14 +1490,18 @@ class InstallerTest(unittest.TestCase):
             )
             actions_after_success = subprocess.run(
                 [
-                    "python3", str(CLI), "--json", "portfolio", "actions", "--root", str(root),
+                    "python3", str(CLI), "--json", "portfolio", "actions", "--root", temp,
                     "--action", "review", "--at", "2026-07-19T20:30:00-05:00",
+                    "--supervisor-task-id", "supervisor-test-task", "--sweep-id", "installer-sweep-two",
                 ],
                 check=True,
                 capture_output=True,
                 text=True,
+                env={**os.environ, "CONTINUITY_ALLOW_TIME_OVERRIDE": "1"},
             )
-            self.assertEqual(json.loads(actions_after_success.stdout), [])
+            after_records = json.loads(actions_after_success.stdout)
+            self.assertFalse(any(record.get("project_id") == "sample-project" for record in after_records))
+            self.assertTrue(any(record.get("project_id") == "sample-project-two" for record in after_records))
 
     def test_installer_reuses_portable_user_defaults_without_sharing_project_controls(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

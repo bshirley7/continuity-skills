@@ -30,6 +30,7 @@ Split mixed items first. Preserve source relationships. When intent is ambiguous
 - Route execution candidates and explicit instructions to planning.
 - Archive duplicates or superseded items with provenance instead of deleting history.
 - Preserve `created_at`, update `updated_at`, and maintain `work_status` on every routed item. Use `deferred` for later review, `archived` for superseded or non-actionable items, and leave action candidates `open` until a goal moves them to `planned`, `queued`, `dispatched`, or an execution result.
+- Preserve and refine occurrence dimensions when evidence supports them. Run `note patterns` during scheduled review; recurring signals may recommend adaptability, preservation, mitigation, or roadmap comparison but never authorize work.
 - Import shared-note packets into private triage, deduplicate them, and preserve `execution_authorized: false`. Contradictions and stale roadmap links require human review rather than automatic reconciliation.
 
 ## Evidence triage for action candidates

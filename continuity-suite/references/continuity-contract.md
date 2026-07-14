@@ -22,7 +22,9 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 - Keep skills, configuration, schedule intent, notes, memory, approvals, execution, and evidence authoritative inside the enrolled project.
 - Treat any developer-local scheduler as a discovery and triggering layer only. It may aggregate sanitized reports but must not own project instructions or private state.
 - Register one provider-owned portfolio supervisor in developer-local state. It must calculate due project actions from each project's timezone and schedule, enforce idempotency, retries, stale-run recovery, and portfolio concurrency, and start an isolated project task for every due action.
-- Keep scheduler registration receipts, workspace roots, run events, task IDs, heartbeats, and recovery records private and project-local. A selected provider without a current registration receipt is unhealthy.
+- Treat registration as a lease, not proof of permanent health. Every authenticated sweep must refresh the matching task, provider, workspace-root, configuration-hash, and behavior-hash heartbeat. Expired or mismatched liveness is unhealthy.
+- Reserve due work atomically under the shared portfolio lock. Count active runs and unconsumed reservations against capacity, issue short-lived one-time claims, and require the child task to consume the exact project, action, idempotency key, due goal, and supervisor claim before it starts.
+- Keep scheduler registration receipts, workspace roots, run events, task IDs, heartbeats, claims, and recovery records private and project-local.
 - Keep raw captures, queues, approvals, generated indexes, configuration audit records, and task locks under `.continuity/private/`.
 - Keep trusted, sanitized project memory under `docs/project-memory/`.
 - Keep canonical, sanitized roadmap Markdown under `docs/project-roadmap/`; ignored SQLite and JSON projections may merge committed records with local goal and note-link context.
@@ -33,6 +35,8 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 ## Note classifications
 
 Use exactly one primary classification for every atomic item: `context`, `insight`, `decision`, `question`, `documentation-candidate`, `backlog-candidate`, `execution-candidate`, or `explicit-instruction`.
+
+Preserve the capture time and classify occurrence type, internal/external perspective, sentiment, impact, confidence, actionability, stakeholders, themes, and any explicit pattern key. Positive outcomes are evidence worth preserving, not noise. Repeated changes, behaviors, needs, risks, and failures should inform adaptability and future planning without becoming automatic instructions.
 
 Set `execution_authorized: false` during capture and triage. Classify ambiguity as context, a question, or a held candidate.
 
@@ -85,6 +89,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 - Review the diff for correctness, maintainability, accessibility, performance, privacy, and security as applicable.
 - Run project-prescribed tests, type checks, builds, linters, format checks, and targeted regression tests.
 - Run evidence-based security review for touched languages and frameworks. Check secrets, dependencies, data handling, authentication/authorization, injection, unsafe paths, subprocess use, migrations, and supply-chain changes as relevant.
+- Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. A passing report or merge assessment must reject absent or stale machine evidence.
 - Record quality evidence through the structured test report and merge-safety evidence through the structured merge assessment when those skills are installed.
 - Use parameterized APIs and subprocess argument arrays. Never construct shell commands from captured note text.
 - Never log, commit, or place secrets or raw private captures in PR documentation.
@@ -94,7 +99,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 
 ## Memory contract
 
-Committed Markdown is canonical. SQLite FTS5 is a rebuildable ignored index. Every structured entry records stable ID, title, type, system, summary, status, tags, aliases, timestamps, verified code state, sources, relationships, confidence, and unresolved gaps.
+Committed Markdown is canonical trusted memory. SQLite FTS5 and local similarity features are rebuildable ignored indexes. Private/all-scope retrieval may include raw captures and their occurrence dimensions for triage and pattern analysis, but those results are not trusted planning evidence until promotion. Every structured canonical entry records stable ID, title, type, system, summary, status, tags, aliases, timestamps, verified code state, sources, relationships, confidence, and unresolved gaps.
 
 Use statuses `current`, `proposed`, `disputed`, `superseded`, or `historical`. Supersede rather than delete. Default search includes trusted memory only.
 
