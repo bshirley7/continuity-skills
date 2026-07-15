@@ -543,6 +543,7 @@ def main() -> int:
     ignore_block = f"""{IGNORE_START}
 .continuity/private/
 .continuity-portfolio/
+.continuity-write.lock
 .continuity/state.lock
 .agents/continuity/lib/__pycache__/
 .agents/continuity/lib/*.pyc
@@ -561,6 +562,7 @@ def main() -> int:
         ".gitignore",
         ".agents/continuity",
         ".agents/references",
+        ".claude/commands",
         ".continuity/config.json",
         ".continuity/project.json",
         ".continuity/project-behavior.json",

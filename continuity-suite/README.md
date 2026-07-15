@@ -29,6 +29,7 @@ python3 continuity-suite/installer/install.py \
 ```
 
 After installation, day-to-day use happens inside the project with `$continuity-*` skills and the installed project-local CLI at `.agents/continuity/bin/continuity`.
+The installer also creates `.claude/commands/continuity-*.md` and `.cursor/commands/continuity-*.md` shims so compatible hosts can invoke the same workflows as slash commands such as `/continuity-capture` and `/continuity-triage`.
 
 The guided installer can save portable user defaults in `~/.continuity/defaults.json`, then generate isolated project controls for Codex, Claude Code, Cursor, Windsurf, or another `AGENTS.md`-aware surface. One provider-owned portfolio supervisor calculates due actions, refreshes an expiring heartbeat, atomically reserves capacity, and issues one-time project claims. Repository-specific commands, instructions, notes, approvals, roadmap state, and execution enrollment never move into the user-default profile.
 

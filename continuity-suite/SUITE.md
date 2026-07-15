@@ -19,6 +19,8 @@ Every installed skill applies the versioned development assurance standard. The 
 .agents/references/continuity-contract.md
 .agents/references/development-assurance-standard.md
 .agents/references/testing-and-merge-standard.md
+.claude/commands/continuity-*.md Claude Code slash-command shims
+.cursor/commands/continuity-*.md Cursor slash-command shims
 .continuity/project.json                committed enrollment and schedule intent
 .continuity/config.json                 committed project configuration
 .continuity/project-behavior.json        committed recommendations, overrides, and hash

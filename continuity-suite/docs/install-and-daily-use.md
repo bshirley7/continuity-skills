@@ -46,6 +46,8 @@ Continuity writes project-local control files into the target project:
 .agents/references/decision-lenses.md
 .agents/references/output-quality-rubrics.md
 .agents/skills/continuity-*/references/  applied examples and stage guidance
+.claude/commands/continuity-*.md        slash-command shims, for example /continuity-capture
+.cursor/commands/continuity-*.md        slash-command shims, for example /continuity-triage
 .continuity/project.json                schedule and enrollment manifest
 .continuity/config.json                 project configuration
 .continuity/project-behavior.json       hash-bound project-specific behavior
@@ -224,13 +226,13 @@ Do not hand-edit `.agents/skills/continuity-local/SKILL.md`. It is generated fro
 
 | Surface | Generated project entrypoint | Typical invocation |
 | --- | --- | --- |
-| Codex | `AGENTS.md` and `.agents/skills/` | `$continuity-plan` |
-| Claude Code | `CLAUDE.md` importing `AGENTS.md`, plus `.claude/skills/` | `/continuity-plan` |
-| Cursor | `.cursor/rules/continuity.mdc` and `.cursor/commands/continuity-*.md` | `/continuity-plan` |
+| Codex | `AGENTS.md`, `.agents/skills/`, plus installed slash-command shims for compatible hosts | `$continuity-plan` or `/continuity-plan` where slash commands are supported |
+| Claude Code | Default `.claude/commands/continuity-*.md`; enabling the surface also adds `CLAUDE.md` and `.claude/skills/` | `/continuity-plan` |
+| Cursor | Default `.cursor/commands/continuity-*.md`; enabling the surface also adds `.cursor/rules/continuity.mdc` | `/continuity-plan` |
 | Windsurf | `AGENTS.md` and `.windsurf/skills/` | `@continuity-plan` |
 | Generic | `AGENTS.md` and the project-local CLI | Ask the agent to use `continuity-plan` |
 
-Choose one primary surface and one or more enabled surfaces. Teams may enable several surfaces in the same repository. Do not edit generated adapter copies directly; update the canonical skill or project behavior and rerun configuration. `project doctor` reports missing adapters.
+Choose one primary surface and one or more enabled surfaces. Teams may enable several surfaces in the same repository. Slash-command shims are installed for every project so `/continuity-capture`, `/continuity-triage`, and the other Continuity workflows can route back to the canonical `.agents/skills/` contracts without duplicating skill source. Do not edit generated adapter copies directly; update the canonical skill or project behavior and rerun configuration. `project doctor` reports missing adapters.
 
 ## Daily Routine
 
@@ -239,26 +241,36 @@ Use these skill calls in normal work:
 ```text
 Morning:
   $continuity-report
+  /continuity-report
   continuity workflow status
 
 During the day:
   $continuity-capture
+  /continuity-capture
 
 When notes need sorting:
   $continuity-triage
+  /continuity-triage
 
 When planning work:
   $continuity-memory
   $continuity-roadmap
   $continuity-plan
+  /continuity-memory
+  /continuity-roadmap
+  /continuity-plan
 
 When a plan is explicitly approved:
   $continuity-dispatch
+  /continuity-dispatch
 
 When an approved dispatched goal is assigned:
   $continuity-execute
   $continuity-test
   $continuity-merge
+  /continuity-execute
+  /continuity-test
+  /continuity-merge
 ```
 
 Feedback follows the same note path:
