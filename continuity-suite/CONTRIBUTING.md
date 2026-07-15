@@ -33,7 +33,7 @@ Recommended local checks:
 ```text
 python3 -m py_compile continuity-suite/bin/continuity continuity-suite/lib/roadmap.py continuity-suite/lib/shared_notes.py continuity-suite/installer/install.py
 python3 -m unittest discover -s continuity-suite/tests -v
-python3 /Users/zoidberg/.codex/skills/.system/skill-creator/scripts/quick_validate.py continuity-suite/skills/<skill-name>
+python3 /path/to/skill-creator/scripts/quick_validate.py continuity-suite/skills/<skill-name>
 ```
 
 If the skill validator cannot run because `PyYAML` is missing, install it in the active Python environment or state that validation gap explicitly.

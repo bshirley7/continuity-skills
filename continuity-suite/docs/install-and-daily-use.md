@@ -1,17 +1,17 @@
 # Install and Daily Use
 
-This guide explains where to run Continuity installation, what gets installed into a project, how to choose schedules and project requirements, and how to use the installed skills in a daily routine.
+This guide explains where to run Continuity installation, what gets installed into a project, how to choose schedules and project requirements, and how to use the installed skills in a daily routine. Read [Continuity Operating Workflow](operating-workflow.md) for the complete day-to-night-to-morning process, authority model, recovery behavior, and operational readiness checklist.
 
 ## Where To Run Installation
 
 Run the installer from the Continuity suite checkout and pass the target project path with `--project-root`.
 
-Example from this repository:
+Example from a Continuity suite checkout:
 
 ```text
-cd /Volumes/OPENFRONT/00_skills
+cd /path/to/continuity-checkout
 python3 continuity-suite/installer/install.py \
-  --project-root /Volumes/OPENFRONT/example-project \
+  --project-root /path/to/project \
   --project-id example-project \
   --integration-branch main \
   --validation "pnpm typecheck" \
@@ -21,8 +21,8 @@ python3 continuity-suite/installer/install.py \
 If your terminal is already inside the target project, you can still run the installer by using the absolute path to the suite:
 
 ```text
-cd /Volumes/OPENFRONT/example-project
-python3 /Volumes/OPENFRONT/00_skills/continuity-suite/installer/install.py \
+cd /path/to/project
+python3 /path/to/continuity-checkout/continuity-suite/installer/install.py \
   --project-root "$PWD" \
   --project-id example-project \
   --integration-branch main \
@@ -74,7 +74,7 @@ Use `--interactive` when you want the installer to ask for schedules and project
 
 ```text
 python3 continuity-suite/installer/install.py \
-  --project-root /Volumes/OPENFRONT/example-project \
+  --project-root /path/to/project \
   --project-id example-project \
   --integration-branch main \
   --interactive \
@@ -168,7 +168,7 @@ Then run:
 
 ```text
 python3 continuity-suite/installer/install.py \
-  --project-root /Volumes/OPENFRONT/example-project \
+  --project-root /path/to/project \
   --project-id example-project \
   --integration-branch main \
   --configuration /path/to/answers.json

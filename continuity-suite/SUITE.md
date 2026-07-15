@@ -2,6 +2,8 @@
 
 This suite turns project conversations and notes into searchable knowledge, reviewable goals, safely sequenced execution, and evidence-backed reports.
 
+For the detailed human and agent operating sequence across projects, campaigns, and objectives, read [Operating Workflow](docs/operating-workflow.md).
+
 ## Operating boundary
 
 Notes are knowledge first. Capture and triage never authorize documentation or code changes. An executable goal requires a decision-complete plan, exact version approval, a valid plan hash, successful preflight, and explicit dispatch.
@@ -99,6 +101,8 @@ continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --
 Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 
 ## Typical cycle
+
+The steps below are the concise reference. [Operating Workflow](docs/operating-workflow.md) explains authority, scheduler activation, commands, failure handling, rework, and morning review in detail.
 
 1. Invoke `$continuity` for setup or routing and apply `$continuity-local` with the selected task skill.
 2. Invoke `$continuity-capture` in the active project conversation.

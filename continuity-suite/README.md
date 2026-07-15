@@ -5,6 +5,7 @@ Continuity turns project conversations and notes into searchable memory, roadmap
 ## Start Here
 
 - For the exact installation and daily-use workflow, read [Install and Daily Use](docs/install-and-daily-use.md).
+- For the complete day-to-night-to-morning operating model, read [Operating Workflow](docs/operating-workflow.md).
 - For the full suite contract, installed layout, guardrails, and command reference, read [SUITE.md](SUITE.md).
 - For the safety model every skill follows, read [Continuity Contract](references/continuity-contract.md).
 - For quality and merge gates, read [Testing and Merge Standard](references/testing-and-merge-standard.md).
