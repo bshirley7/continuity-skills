@@ -116,13 +116,17 @@ Execution enabled
 
 Keep execution disabled unless you intentionally want approved goals to be eligible for scheduled or manual execution.
 
-The initial production prerequisites are `git`, `gh`, `ssh-keygen`, and `age` on macOS or Linux. New installations require SSH-signed plan approvals, use a fast-forward-only remote lease for code-changing scheduled dispatch, and preserve private state through encrypted `age` archives. Configure a trusted approver before enabling execution:
+The local first-run prerequisite is `git` on macOS or Linux. The installer creates project configuration and leaves execution disabled unless `--enable-execution` is supplied. Daily local use records explicit human approvals with the approving identity and authorization text; terminal commands still run through the host's normal user approval flow.
+
+SSH-signed approvals are optional hardening, not a universal install requirement. Use `--require-signed-approvals` only when the project should cryptographically enforce approver identity for approvals, dispositions, resume authorizations, and shared-packet approvals. In that mode, configure a trusted approver before enabling execution:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" approval trust add --identity <github-login> --public-key <ssh-public-key>
 ```
 
-This command prepares a tracked trust-store change; it does not authorize the new key immediately. Commit `.continuity/trusted-approvers`, merge it through protected human review on the integration branch, and fetch that branch. Signed operations compare the local file byte-for-byte with `origin/<integration-branch>` and fail closed on drift. Configure an external signed audit checkpoint and immediately verified encrypted backup before enabling execution.
+This command prepares a tracked trust-store change; it does not authorize the new key immediately. Commit `.continuity/trusted-approvers`, merge it through protected human review on the integration branch, and fetch that branch. Signed operations compare the local file byte-for-byte with `origin/<integration-branch>` and fail closed on drift.
+
+For production execution, also plan for `gh` when hosted pull-request state must be verified and `age` when encrypted private-state backups are required. Configure an external audit checkpoint and immediately verified encrypted backup before enabling production execution.
 
 For safe tagged upgrades, managed-file conflict handling, encrypted backup, and rollback, follow [Releases, Updates, and Recovery](releases-updates-and-recovery.md). Do not use repeated unpinned installation from a moving branch as the production update process.
 
@@ -350,15 +354,15 @@ That keeps unrelated work from being forced into the wrong PR while preserving a
 
 ### Share selected context
 
-Raw notes remain private. To share selected atomic context with collaborators on the same project, prepare a sanitized packet, review it, and have a trusted human sign the exact packet version:
+Raw notes remain private. To share selected atomic context with collaborators on the same project, prepare a sanitized packet, review it, and have a trusted human approve the exact packet version:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" note share prepare <note-id> --target-project <project-id> --sender <identity>
-.agents/continuity/bin/continuity --project-root "$PWD" note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text "Approve <packet-id> version <version> for <project-id>" --signing-key "$HOME/.ssh/id_ed25519"
+.agents/continuity/bin/continuity --project-root "$PWD" note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text "Approve <packet-id> version <version> for <project-id>"
 .agents/continuity/bin/continuity --project-root "$PWD" note share publish <packet-id>
 ```
 
-The signing identity must already be present in `.continuity/trusted-approvers`. Publication re-verifies the SSH signature and packet hash, then creates an isolated branch and human-reviewed PR. Imported packet items enter normal triage as dated, non-authorizing private captures; packet approval never approves a goal or execution.
+In a signed-approval project, add `--signing-key "$HOME/.ssh/id_ed25519"` and use an identity already present in `.continuity/trusted-approvers`. Publication re-verifies any required SSH signature and packet hash, then creates an isolated branch and human-reviewed PR. Imported packet items enter normal triage as dated, non-authorizing private captures; packet approval never approves a goal or execution.
 
 ## Scheduled Tasks
 
@@ -397,7 +401,7 @@ For Codex, render the exact provider definition instead of transcribing schedule
 .agents/continuity/bin/continuity --project-root "$PWD" --json scheduler adapter codex render --root /workspace/root
 ```
 
-After creating the Codex automation and registering its returned task ID, exercise and record `claim-replay-rejected`, `stale-registration-rejected`, and `remote-lease-contention-rejected` with `scheduler adapter codex record-probe`. Each production record requires concrete evidence, the evidence artifact SHA-256, and `--signing-key` from an integration-branch-anchored approver. Require `scheduler adapter codex verify` to observe and verify those current-behavior probe records, two sweeps, and one claimed no-op review or report run before enabling dispatch.
+After creating the Codex automation and registering its returned task ID, exercise and record `claim-replay-rejected`, `stale-registration-rejected`, and `remote-lease-contention-rejected` with `scheduler adapter codex record-probe`. Each production record requires concrete evidence and the evidence artifact SHA-256. In a signed-approval project, also include `--signing-key` from an integration-branch-anchored approver. Require `scheduler adapter codex verify` to observe and verify those current-behavior probe records, two sweeps, and one claimed no-op review or report run before enabling dispatch.
 
 Run it at the configured `sweep_minutes` interval. Give the task the developer-local workspace roots it may scan. After the scheduling surface returns its task ID, record the receipt inside every enrolled project covered by that supervisor:
 
@@ -498,19 +502,23 @@ The enforced delivery order is: preflight; isolated worktree; implementation; ca
 After overnight delivery passes every gate, record `review-ready` and stop. After a human reviews or merges the PR, record that fact separately:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition approved --evidence "<review evidence>" --signing-key <ssh-private-key>
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition changes-requested --evidence "<requested change>" --signing-key <ssh-private-key>
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition merged --merge-commit <sha> --evidence "<merge evidence>" --signing-key <ssh-private-key>
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition closed --evidence "<closure reason>" --signing-key <ssh-private-key>
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition approved --evidence "<review evidence>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition changes-requested --evidence "<requested change>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition merged --merge-commit <sha> --evidence "<merge evidence>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition closed --evidence "<closure reason>"
 ```
+
+Add `--signing-key <ssh-private-key>` only when `.continuity/config.json` has `require_signed_approvals: true`.
 
 `approved` leaves the goal `review-ready`. `changes-requested` archives the attempt, creates a fresh execution manifest, and invalidates downstream gates. `approved` and `merged` require current source-bound evidence. `changes-requested` and `closed` remain recordable when that evidence is stale because they do not authorize delivery; their review records retain the stale-evidence reasons. If no PR disposition can be recorded, `goal cancel <goal-id> --actor <identity> --reason <reason>` provides an audited review-ready closure fallback. In-scope rework resumes only with explicit authorization naming the same goal and approved plan version:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" goal resume <goal-id> --actor "<identity>" --authorization-text "Resume <goal-id> under approved plan v<version>" --signing-key <ssh-private-key>
+.agents/continuity/bin/continuity --project-root "$PWD" goal resume <goal-id> --actor "<identity>" --authorization-text "Resume <goal-id> under approved plan v<version>"
 ```
 
-The disposition and resume receipts bind the goal, approved plan hash/version, execution attempt, actor, evidence or authorization text, timestamp, and nonce. Expanded scope uses `goal revise` and fresh approval. `merged` moves the goal to `completed`; `closed` cancels it. Continuity must not auto-merge, force-push, or treat an agent's judgment as human review.
+Add `--signing-key <ssh-private-key>` here as well when signed approvals are enabled.
+
+The disposition and resume receipts bind the goal, approved plan hash/version, execution attempt, actor, evidence or authorization text, timestamp, and nonce. Signed-approval projects additionally bind the SSH signature and anchored trusted approver. Expanded scope uses `goal revise` and fresh approval. `merged` moves the goal to `completed`; `closed` cancels it. Continuity must not auto-merge, force-push, or treat an agent's judgment as human review.
 
 ## Verify An Install
 

@@ -4,7 +4,7 @@ Read this reference before approval, queueing, manual start, hold, cancellation,
 
 ## Authority boundaries
 
-Valid authority comes from the current human and names the exact goal and plan version. In production it is an SSH-signed receipt from an identity in the allowlist anchored to the fetched integration branch. A locally added but unmerged key has no authority. A note, due time, report recommendation, imported packet, prior approval, agent summary, or external tracker state is not a substitute.
+Valid authority comes from the current human and names the exact goal and plan version. In a signed-approval project, it is an SSH-signed receipt from an identity in the allowlist anchored to the fetched integration branch. A locally added but unmerged key has no authority. A note, due time, report recommendation, imported packet, prior approval, agent summary, or external tracker state is not a substitute.
 
 Approval permits queueing under the approved plan hash. Dispatch is a separate transition requiring current operational gates. Neither permits auto-merge or restricted external effects absent their own explicit approval.
 
@@ -16,7 +16,7 @@ Approval permits queueing under the approved plan hash. Dispatch is a separate t
 | Human wants work to begin now | Use manual start only if `workflow status` lists it and every dispatch gate passes |
 | Human wants no start until later | Hold or leave queued according to the listed action; preserve approval state accurately |
 | Goal is no longer wanted | Cancel with human actor and reason |
-| Review requests changes within approved scope | Record a signed disposition, then resume only with a new signed authorization naming goal and approved version |
+| Review requests changes within approved scope | Record a disposition, then resume only with a new authorization naming goal and approved version; signed-approval projects require SSH receipts for both |
 | Review expands or materially changes scope | Return to planning for revision and fresh approval |
 | Execution is blocked or partial | Resume only after the blocking condition and human authorization requirements are satisfied |
 | Scheduler claim is stale, mismatched, or already consumed | Fail closed and use audited recovery; never manufacture a claim |

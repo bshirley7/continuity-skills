@@ -80,7 +80,7 @@ continuity roadmap serve --open
 continuity roadmap production-audit --artifact <build-or-package>
 
 continuity note share prepare <note-id>... --target-project <current-project> --sender <identity>
-continuity note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text <text> --signing-key <ssh-private-key>
+continuity note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text <text> [--signing-key <ssh-private-key>]
 continuity note share publish <packet-id>
 continuity note share import
 continuity note queue --queue <knowledge|questions|documentation|backlog|planning>

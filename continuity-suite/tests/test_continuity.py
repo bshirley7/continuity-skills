@@ -2208,6 +2208,37 @@ class ReferenceTest(unittest.TestCase):
 
 
 class InstallerTest(unittest.TestCase):
+    def test_installer_signed_approval_opt_in_creates_trust_store(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "project"
+            root.mkdir()
+            subprocess.run(["git", "-C", str(root), "init", "-b", "main"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "tests@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Tests"], check=True)
+            (root / "README.md").write_text("# Project\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-m", "initial"], check=True, capture_output=True)
+            subprocess.run(
+                [
+                    "python3",
+                    str(INSTALLER),
+                    "--project-root",
+                    str(root),
+                    "--project-id",
+                    "signed-project",
+                    "--integration-branch",
+                    "main",
+                    "--ignore-user-defaults",
+                    "--require-signed-approvals",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+            self.assertTrue(config["require_signed_approvals"])
+            self.assertTrue((root / ".continuity" / "trusted-approvers").is_file())
+
     def test_installer_rolls_back_every_fault_injection_stage(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "project"
@@ -2320,6 +2351,15 @@ class InstallerTest(unittest.TestCase):
                 "--ignore-user-defaults",
             ]
             subprocess.run(command, check=True, capture_output=True, text=True)
+            config_after_first_install = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+            self.assertFalse(config_after_first_install["require_signed_approvals"])
+            self.assertFalse((root / ".continuity" / "trusted-approvers").exists())
+            config_after_first_install["require_signed_approvals"] = True
+            (root / ".continuity" / "config.json").write_text(json.dumps(config_after_first_install, indent=2) + "\n", encoding="utf-8")
+            (root / ".continuity" / "trusted-approvers").write_text(
+                "# Add trusted SSH approvers with `continuity approval trust add`.\n",
+                encoding="utf-8",
+            )
             subprocess.run(command, check=True, capture_output=True, text=True)
             agents = (root / "AGENTS.md").read_text(encoding="utf-8")
             self.assertEqual(agents.count("continuity:start"), 1)
@@ -2388,6 +2428,7 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(config["assurance_standard_version"], 2)
             self.assertEqual(config["behavior_configuration_hash"], behavior["configuration_hash"])
             self.assertEqual(config["behavior_skill_path"], ".agents/skills/continuity-local/SKILL.md")
+            self.assertFalse(config["require_signed_approvals"])
             recommendations = subprocess.run(
                 [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "recommendations"],
                 check=True,

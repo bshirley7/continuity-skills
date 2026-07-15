@@ -429,8 +429,7 @@ After reviewing the pull request and evidence, record one factually accurate dis
   --pr-url <pull-request-url> \
   --merged-by "human identity" \
   --disposition <approved|changes-requested|merged|closed> \
-  --evidence "review evidence" \
-  --signing-key <trusted-ssh-private-key>
+  --evidence "review evidence"
 ```
 
 Disposition behavior:
@@ -459,11 +458,10 @@ For an in-scope correction, explicitly resume the same plan version:
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" goal resume <goal-id> \
   --actor "human identity" \
-  --authorization-text "Resume <goal-id> under approved plan v1" \
-  --signing-key <trusted-ssh-private-key>
+  --authorization-text "Resume <goal-id> under approved plan v1"
 ```
 
-The signed resume receipt binds the goal, approved plan hash/version, execution attempt, actor, authorization text, timestamp, scope assertion, and nonce. The prior attempt remains archived. Dispatch, preflight, execution, tests, merge assessment, and review evidence must be regenerated for the new attempt.
+The resume receipt binds the goal, approved plan hash/version, execution attempt, actor, authorization text, timestamp, scope assertion, and nonce. In a signed-approval project, add `--signing-key <trusted-ssh-private-key>` so the receipt also binds a trusted SSH approver. The prior attempt remains archived. Dispatch, preflight, execution, tests, merge assessment, and review evidence must be regenerated for the new attempt.
 
 For changed or expanded scope, revise the plan instead:
 

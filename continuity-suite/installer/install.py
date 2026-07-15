@@ -248,6 +248,20 @@ def scheduler_defaults(value: Any) -> dict[str, Any]:
     return scheduler
 
 
+def trusted_approver_entries_exist(root: Path, relative: str) -> bool:
+    try:
+        path = confined(root, relative, "approval_allowed_signers")
+    except RuntimeError:
+        return True
+    if not path.exists():
+        return False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            return True
+    return False
+
+
 def confined(root: Path, value: str, label: str) -> Path:
     relative = Path(value)
     if relative.is_absolute():
@@ -345,6 +359,7 @@ def main() -> int:
     parser.add_argument("--ignore-user-defaults", action="store_true", help="Do not load or save the user-default profile")
     parser.add_argument("--save-user-defaults", action="store_true", help="Save portable choices from this install as future user defaults")
     parser.add_argument("--enable-execution", action="store_true")
+    parser.add_argument("--require-signed-approvals", action="store_true", help="Require SSH-signed approval, disposition, resume, and packet receipts for this project")
     parser.add_argument("--overwrite-managed", action="store_true", help="Replace modified suite-managed files after snapshotting them")
     parser.add_argument("--rollback-snapshot", help="Restore a named snapshot under .continuity/private/upgrades")
     parser.add_argument("--dry-run", action="store_true")
@@ -425,7 +440,7 @@ def main() -> int:
         "require_execution_artifacts": True,
         "require_isolated_worktree": True,
         "refresh_base_on_preflight": True,
-        "require_signed_approvals": True,
+        "require_signed_approvals": bool(args.require_signed_approvals),
         "approval_allowed_signers": ".continuity/trusted-approvers",
         "github_required_checks": [],
         "github_required_reviewers": 1,
@@ -494,8 +509,15 @@ def main() -> int:
         })
         config["behavior_config_path"] = ".continuity/project-behavior.json"
         config["behavior_skill_path"] = ".agents/skills/continuity-local/SKILL.md"
-        config.setdefault("require_signed_approvals", True)
         config.setdefault("approval_allowed_signers", ".continuity/trusted-approvers")
+        existing_signers = existing_config.get("approval_allowed_signers", ".continuity/trusted-approvers")
+        config["require_signed_approvals"] = bool(
+            args.require_signed_approvals
+            or (
+                existing_config.get("require_signed_approvals", False)
+                and trusted_approver_entries_exist(root, existing_signers)
+            )
+        )
         config.setdefault("github_required_checks", [])
         config.setdefault("github_required_reviewers", 1)
         config.setdefault("require_remote_lease", True)
@@ -531,11 +553,11 @@ def main() -> int:
 - Keep planning artifacts local by default. Publishing issues to an external tracker requires separate explicit human approval.
 - Permit one code-changing goal at a time in this project; use isolated worktrees and goal-focused branches.
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
-- Treat `.continuity/trusted-approvers` as a pending tracked configuration until protected human review merges it to the integration branch and that branch is fetched. Signed operations must reject a local allowlist that differs from the fetched integration-branch anchor.
-- Require the signed external audit checkpoint and immediately verified encrypted backup configured by the project before enabling production execution. Backup, restore, and checkpoint creation require quiescent project state.
+- Record explicit human approvals with the approving identity and authorization text. When `.continuity/config.json` sets `require_signed_approvals: true`, require SSH-signed receipts and treat `.continuity/trusted-approvers` as pending tracked configuration until protected human review merges it to the integration branch and that branch is fetched.
+- Require the external audit checkpoint and immediately verified encrypted backup configured by the project before enabling production execution. Backup, restore, and checkpoint creation require quiescent project state.
 - Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
 - Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts before committing and running the final source-bound `$continuity-test`. Push that exact tested commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
-- Record human review as `approved`, `changes-requested`, `merged`, or `closed` with a trusted SSH-signed disposition receipt. In-scope requested changes require a separate signed resume authorization naming the goal and approved plan version; expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
+- Record human review as `approved`, `changes-requested`, `merged`, or `closed` with explicit evidence. In signed-approval projects, those dispositions and in-scope resume authorizations must carry trusted SSH-signed receipts. Expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.
 {AGENTS_END}"""
@@ -625,7 +647,7 @@ def main() -> int:
         mode=0o644,
     )
     allowed_signers = root / config["approval_allowed_signers"]
-    if not allowed_signers.exists():
+    if config.get("require_signed_approvals", False) and not allowed_signers.exists():
         runtime_lib.atomic_write_text(allowed_signers, "# Add trusted SSH approvers with `continuity approval trust add`.\n", mode=0o644)
     install_fault("project-contract")
 

@@ -17,7 +17,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md) whenever routing
 - Preserve the fixed guardrails for note authorization, exact-plan approval, one code-changing goal per project, security review, merge safety, next-business-day human review, restricted external side effects, force-push, and auto-merge. Project overrides may refine behavior but may not weaken these controls.
 - Audit every configuration change with the previous and resulting hash, actor, changed fields, effective values, generated-skill parity, project doctor result, and Git diff review.
 - Stop on unsafe paths, invalid Git references, unknown timezones, malformed commands, unsupported assurance versions, configuration drift, or a requested guardrail bypass.
-- Treat tagged release manifests, managed-file hashes, update snapshots, signed approvals, encrypted backups, and remote leases as machine authority. Never bypass drift, signature, attestation, or restore validation from prose.
+- Treat tagged release manifests, managed-file hashes, update snapshots, approval receipts, encrypted backups, and remote leases as machine authority. Never bypass drift, required signatures, attestation, or restore validation from prose.
 
 ## Guided setup
 

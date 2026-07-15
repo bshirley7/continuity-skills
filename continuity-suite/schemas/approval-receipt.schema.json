@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Continuity signed approval receipt",
+  "title": "Continuity approval receipt",
   "type": "object",
   "required": ["schema_version", "project_id", "goal_id", "plan_version", "plan_hash", "approved_at", "approved_by", "authorization_text", "nonce", "signature_format"],
   "properties": {

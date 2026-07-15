@@ -23,7 +23,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 - Packets contain sanitized atomic content only. Raw snapshots and private ledgers never travel through Git.
 - V1 packets target the current project inbox; named-recipient and cross-project routing are not implemented.
 - Packet versions are immutable after approval. Any edit produces a new version and invalidates prior approval.
-- Signed packet approval binds the packet ID, exact version, target project, content hash, approver identity, approval text, time, and nonce. `publish` re-verifies that receipt against the project allowlist and fails closed on a missing, stale, modified, or untrusted signature.
+- Packet approval binds the packet ID, exact version, target project, content hash, approver identity, approval text, time, and nonce. In a signed-approval project, `publish` re-verifies that receipt against the project allowlist and fails closed on a missing, stale, modified, or untrusted signature.
 - Every packet sets `execution_authorized: false`; packets never update another developer's private state or authorize code, systems, goals, roadmap truth, or memory.
 - Never force-push, auto-merge, embed credentials, publish from a dirty checkout, or bypass remote, authentication, privacy, or security checks.
 

@@ -8,7 +8,7 @@ Choose work that has bounded files, explicit acceptance criteria, fast validatio
 
 ## One-time readiness
 
-1. Install the reviewed `v0.1.0-rc.1` release and run the post-update acceptance commands.
+1. Install the reviewed `v0.1.0-rc.1` release with `--require-signed-approvals` and run the post-update acceptance commands.
 2. Configure Codex as the primary agent surface and scheduler provider. Set `github_required_checks` to the exact hosted check-run names required by the project repository and keep at least one required approving reviewer.
 3. Add a trusted SSH approver:
 

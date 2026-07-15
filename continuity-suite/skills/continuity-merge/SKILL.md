@@ -45,11 +45,10 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
   --merged-by "<human identity>" \
   --disposition <approved|changes-requested|merged|closed> \
   --merge-commit <sha-only-if-merged> \
-  --evidence "<review or merge evidence>" \
-  --signing-key <trusted-ssh-private-key>
+  --evidence "<review or merge evidence>"
 ```
 
-Record only facts that happened. Every disposition in a signed-approval project requires an SSH receipt bound to the anchored trust store, exact goal, approved plan hash/version, execution attempt, actor, evidence, timestamp, and nonce. For `approved` or `merged`, the CLI also verifies the current `gh` identity, GitHub review decision, unique approving reviewer threshold, checks, PR base, and merge commit as applicable. If the human has not reviewed or merged, leave `human-review` pending.
+Record only facts that happened. In a signed-approval project, add `--signing-key <trusted-ssh-private-key>` so every disposition has an SSH receipt bound to the anchored trust store, exact goal, approved plan hash/version, execution attempt, actor, evidence, timestamp, and nonce. For `approved` or `merged`, the CLI also verifies the current `gh` identity, GitHub review decision, unique approving reviewer threshold, checks, PR base, and merge commit as applicable. If the human has not reviewed or merged, leave `human-review` pending.
 
 ## Handoff
 

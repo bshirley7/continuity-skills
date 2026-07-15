@@ -25,7 +25,7 @@ Do not infer disposition from comments, check status, approval rules, or the exi
 
 ## Rework examples
 
-In scope: adjust the approved label order. Archive the attempt, invalidate downstream evidence, obtain a signed resume authorization, and retest.
+In scope: adjust the approved label order. Archive the attempt, invalidate downstream evidence, obtain explicit resume authorization, and retest. In a signed-approval project, record that authorization with the human's trusted SSH key.
 
 Changed scope: add user-configurable layouts. Revise the plan, reassess risks and slices, and obtain fresh approval.
 
