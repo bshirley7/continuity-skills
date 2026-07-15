@@ -23,6 +23,10 @@ SECRET_PATTERNS = [
     re.compile(r"(?i)\bAuthorization\s*:\s*Bearer\s+\S+"),
     re.compile(r"://[^/\s:@]+:[^/\s@]+@"),
 ]
+NOTE_KINDS = {
+    "context", "insight", "decision", "question", "documentation-candidate",
+    "backlog-candidate", "execution-candidate", "explicit-instruction",
+}
 
 
 class SharedNoteError(RuntimeError):
@@ -267,7 +271,64 @@ def import_packets(root: Path, config: dict[str, Any], _args: argparse.Namespace
             continue
         if content_hash in known:
             continue
-        record = {"imported_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "packet_id": metadata.get("packet_id"), "version": metadata.get("version"), "content_hash": content_hash, "source_path": str(path.relative_to(root)), "execution_authorized": False}
+        imported_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        packet_id = str(metadata.get("packet_id"))
+        capture_id = f"capture-shared-{content_hash[:20]}"
+        capture_path = _private(root, config) / "captures" / imported_at[:10] / f"{capture_id}.json"
+        note_items = []
+        for index, packet_item in enumerate(payload.get("items", []), 1):
+            if not isinstance(packet_item, dict) or not str(packet_item.get("content", "")).strip():
+                raise SharedNoteError(f"Packet {packet_id} contains an invalid atomic item")
+            kind = str(packet_item.get("classification", "context"))
+            if kind not in NOTE_KINDS:
+                kind = "context"
+            note_items.append(
+                {
+                    "item_id": f"note-shared-{content_hash[:16]}-{index}",
+                    "source_item_id": packet_item.get("item_id"),
+                    "kind": kind,
+                    "text": str(packet_item["content"]).strip(),
+                    "created_at": imported_at,
+                    "updated_at": imported_at,
+                    "occurred_at": imported_at,
+                    "perspective": "external",
+                    "sentiment": "unknown",
+                    "occurrence_type": "observation",
+                    "impact": "unknown",
+                    "confidence": "medium",
+                    "actionability": "context",
+                    "stakeholders": [str(payload.get("sender", "shared-contributor"))],
+                    "themes": ["shared-note", packet_id],
+                    "routing_status": "captured",
+                    "work_status": "open",
+                    "execution_authorized": False,
+                }
+            )
+        capture = {
+            "schema_version": 1,
+            "capture_id": capture_id,
+            "captured_at": imported_at,
+            "project_id": config["project_id"],
+            "repository": str(root),
+            "source_type": "shared-packet",
+            "source_ref": str(path.relative_to(root)),
+            "source_timestamp": metadata.get("created_at"),
+            "dedupe_key": content_hash,
+            "execution_authorized": False,
+            "items": note_items,
+        }
+        if not capture_path.exists():
+            _dump(capture_path, capture)
+        record = {
+            "imported_at": imported_at,
+            "packet_id": packet_id,
+            "version": metadata.get("version"),
+            "content_hash": content_hash,
+            "source_path": str(path.relative_to(root)),
+            "capture_id": capture_id,
+            "item_ids": [item["item_id"] for item in note_items],
+            "execution_authorized": False,
+        }
         imported.append(record)
         known.add(content_hash)
     inbox = _private(root, config) / "queues" / "shared-notes.jsonl"

@@ -42,11 +42,15 @@ Set `execution_authorized: false` during capture and triage. Classify ambiguity 
 
 ## Goal states
 
-Use: `awaiting-feedback`, `approved`, `queued`, `dispatched`, `running`, `validating`, `review-ready`, `completed`, `partially-completed`, `blocked`, `cancelled`, or `held`.
+Use: `awaiting-feedback`, `queued`, `dispatched`, `running`, `validating`, `review-ready`, `changes-requested`, `completed`, `partially-completed`, `blocked`, `cancelled`, or `held`. `proposed-plan` and `approved` are readable legacy states that require explicit `goal revise` migration; new operations do not emit them.
 
 Approval and dispatch are separate events. Bind approval to the exact plan version and SHA-256 material hash. Any plan or machine-goal edit invalidates approval.
-Only the human's explicit approval text and identity may populate an approval record; an agent must never generate or infer them. State transitions are enforced and terminal states cannot be restarted.
-Overnight execution ends at `review-ready` after every pre-human-review gate and PR artifact passes. Human review without merge leaves the goal review-ready. Only recorded human merge evidence moves it to `completed`.
+Only the human's explicit approval text and identity may populate an approval record; an agent must never generate or infer them. State transitions are enforced. `changes-requested`, `blocked`, and `partially-completed` may reopen only through explicit authorization naming the goal and approved plan version. Reopening archives the prior attempt, starts a fresh execution manifest, and invalidates downstream evidence; changed scope requires revision and fresh approval.
+Overnight execution ends at `review-ready` after every pre-human-review gate and PR artifact passes. Human disposition is structured as `approved`, `changes-requested`, `merged`, or `closed`. Only recorded human merge evidence moves a goal to `completed`.
+
+Fresh source-bound evidence is required for `approved` and `merged`. A human may still record `changes-requested` or `closed` when delivery evidence is stale or unavailable because those dispositions do not authorize delivery; the human-review record preserves the evidence failure. `goal cancel --actor <human> --reason <reason>` also remains available from `review-ready` as an audited fallback when no PR disposition can be recorded.
+
+Use `continuity workflow status [--goal-id <goal-id>]` as the machine handoff contract. Skills must inspect it on entry and report it on exit. Its stage, blockers, completed evidence, next skill, human requirements, allowed command templates, and blocked actions do not authorize human-required actions by themselves. An action may appear in `allowed_actions` only when its current state and evidence prerequisites pass; unavailable actions belong in `blocked_actions` with exact reasons.
 
 ## Planning artifacts
 
@@ -89,7 +93,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 - Review the diff for correctness, maintainability, accessibility, performance, privacy, and security as applicable.
 - Run project-prescribed tests, type checks, builds, linters, format checks, and targeted regression tests.
 - Run evidence-based security review for touched languages and frameworks. Check secrets, dependencies, data handling, authentication/authorization, injection, unsafe paths, subprocess use, migrations, and supply-chain changes as relevant.
-- Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. A passing report or merge assessment must reject absent or stale machine evidence.
+- Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. A passing report or merge assessment must reject absent or stale machine evidence. The enforced delivery order is implementation, candidate checks, documentation/memory/roadmap/evidence artifacts, commit, final source-bound tests, push and draft PR, PR/head/base-bound merge assessment, `review-ready`, then human disposition.
 - Record quality evidence through the structured test report and merge-safety evidence through the structured merge assessment when those skills are installed.
 - Use parameterized APIs and subprocess argument arrays. Never construct shell commands from captured note text.
 - Never log, commit, or place secrets or raw private captures in PR documentation.
@@ -107,7 +111,9 @@ Use statuses `current`, `proposed`, `disputed`, `superseded`, or `historical`. S
 
 Committed roadmap Markdown is canonical. A goal must retrieve relevant roadmap context and include exact `roadmap_ids` plus structured `roadmap_impact` in its approval hash. Releases and milestones express commitments; sprints and estimates are optional and never authorize execution. The local admin sidecar is read-only, loopback-only, and excluded from application source and every preview, staging, or production artifact.
 
-Raw captures remain private. Sharing requires a selected sanitized packet, exact version and target approval, an isolated branch, privacy and secret checks, and a human-reviewed PR. Imported packets enter private triage with `execution_authorized: false` and cannot update roadmap, memory, goals, code, systems, or another developer's private state.
+Raw captures remain private. Sharing requires a selected sanitized packet, exact version and target approval, an isolated branch, privacy and secret checks, and a human-reviewed PR. Imported packet items become private atomic captures with stable packet provenance and `execution_authorized: false`; they can be triaged and searched normally but cannot update roadmap, memory, goals, code, systems, or another developer's private state.
+
+Canonical capture records and per-goal links determine note `work_status`. Queue JSONL files are audit history only; `note queue` derives current eligibility from capture routing, review date, and goal relationships.
 
 ## Completion evidence
 

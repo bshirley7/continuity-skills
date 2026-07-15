@@ -13,6 +13,7 @@
     "worktree": {"type": ["string", "null"]},
     "branch": {"type": ["string", "null"]},
     "plan_hash": {"type": ["string", "null"]},
+    "behavior_configuration_hash": {"type": ["string", "null"]},
     "commit_sha": {"type": ["string", "null"]},
     "repository_fingerprint": {"type": ["string", "null"]},
     "source_fingerprint": {"type": ["string", "null"]},

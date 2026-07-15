@@ -8,7 +8,7 @@
     "capture_id": {"type": "string"},
     "captured_at": {"type": "string"},
     "project_id": {"type": "string"},
-    "source_type": {"enum": ["conversation", "manual", "file", "notion", "linear"]},
+    "source_type": {"enum": ["conversation", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"]},
     "execution_authorized": {"const": false},
     "items": {
       "type": "array",
@@ -31,7 +31,11 @@
           "themes": {"type": "array", "items": {"type": "string", "minLength": 1}},
           "pattern_key": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
           "routing_status": {"enum": ["captured", "route", "defer", "archive", "promote"]},
-          "work_status": {"enum": ["open", "deferred", "planned", "queued", "dispatched", "running", "validating", "completed", "partially-completed", "blocked", "cancelled", "not-applicable", "archived"]},
+          "work_status": {"enum": ["open", "deferred", "planned", "queued", "dispatched", "running", "validating", "review-ready", "completed", "partially-completed", "blocked", "cancelled", "not-applicable", "archived"]},
+          "routing_work_status": {"enum": ["open", "deferred", "completed", "not-applicable", "archived"]},
+          "related_goal_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "goal_links": {"type": "object"},
+          "goal_links_migrated_at": {"type": "string", "minLength": 1},
           "execution_authorized": {"const": false}
         }
       }

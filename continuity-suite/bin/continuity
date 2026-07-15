@@ -156,8 +156,39 @@ GOAL_STATES = {
     "dispatched",
     "running",
     "validating",
+    "changes-requested",
     *TERMINAL_STATES,
     "held",
+}
+LEGACY_GOAL_STATES = {"proposed-plan", "approved"}
+REWORK_STATES = {"changes-requested", "blocked", "partially-completed"}
+DOWNSTREAM_COMPLIANCE_STAGES = [
+    "execution-preflight",
+    "implementation",
+    "code-review",
+    "validation",
+    "security-review",
+    "merge-safety",
+    "documentation",
+    "memory-impact",
+    "roadmap-impact",
+    "final-alignment",
+    "human-review",
+]
+NOTE_GOAL_STATUS_MAP = {
+    "awaiting-feedback": "planned",
+    "approved": "queued",
+    "queued": "queued",
+    "held": "deferred",
+    "dispatched": "dispatched",
+    "running": "running",
+    "validating": "validating",
+    "review-ready": "review-ready",
+    "changes-requested": "planned",
+    "completed": "completed",
+    "partially-completed": "partially-completed",
+    "blocked": "blocked",
+    "cancelled": "cancelled",
 }
 COMPLIANCE_STAGES = [
     "capture-triage",
@@ -1006,7 +1037,7 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
             "items": [{"kind": "context", "text": text}],
         }
     source_type = payload.get("source_type", args.source_type or "conversation")
-    if source_type not in {"conversation", "manual", "file", "notion", "linear"}:
+    if source_type not in {"conversation", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"}:
         raise ContinuityError(f"Unsupported source_type: {source_type}")
     raw_items = payload["items"]
     items: list[dict[str, Any]] = []
@@ -1086,9 +1117,118 @@ def find_capture(root: Path, config: dict[str, Any], capture_id: str) -> Path:
     return matches[0]
 
 
-def update_note_work_status(root: Path, config: dict[str, Any], item_ids: Iterable[str], work_status: str, *, goal_id: str | None = None) -> list[dict[str, str]]:
-    if work_status not in NOTE_WORK_STATUSES:
-        raise ContinuityError(f"Invalid note work status: {work_status}")
+def derived_note_work_status(item: dict[str, Any]) -> str:
+    links = item.get("goal_links", {})
+    if not isinstance(links, dict) or not links:
+        return str(item.get("routing_work_status", item.get("work_status", "open")))
+    statuses = [
+        NOTE_GOAL_STATUS_MAP.get(str(link.get("state")), "open")
+        for link in links.values()
+        if isinstance(link, dict)
+    ]
+    active_priority = {
+        "running": 90,
+        "validating": 85,
+        "dispatched": 80,
+        "queued": 70,
+        "planned": 60,
+        "review-ready": 50,
+        "deferred": 40,
+    }
+    active = [status for status in statuses if status in active_priority]
+    if active:
+        return max(active, key=lambda status: active_priority[status])
+    if statuses and all(status == "completed" for status in statuses):
+        return "completed"
+    for status in ("partially-completed", "blocked", "completed", "cancelled"):
+        if status in statuses:
+            return status
+    return str(item.get("routing_work_status", item.get("work_status", "open")))
+
+
+def hydrate_note_goal_links(root: Path, config: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
+    links = item.get("goal_links")
+    if isinstance(links, dict):
+        return links
+    current_status = str(item.get("work_status", "open"))
+    if "routing_work_status" not in item:
+        item["routing_work_status"] = current_status if current_status in {"open", "deferred", "archived", "not-applicable"} else "open"
+    hydrated: dict[str, Any] = {}
+    for goal_id in item.get("related_goal_ids", []):
+        if not isinstance(goal_id, str) or not goal_id:
+            continue
+        goal = json_load(goal_dir(root, config, goal_id) / "goal.json", {})
+        if isinstance(goal, dict) and goal.get("state"):
+            hydrated[goal_id] = {"state": goal["state"], "updated_at": goal.get("updated_at")}
+    item["goal_links"] = hydrated
+    return hydrated
+
+
+def legacy_note_link_ids(root: Path, config: dict[str, Any]) -> list[str]:
+    legacy: list[str] = []
+    for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(path, {})
+        if not isinstance(capture, dict):
+            continue
+        for item in capture.get("items", []):
+            if (
+                isinstance(item, dict)
+                and item.get("related_goal_ids")
+                and "goal_links" not in item
+            ):
+                legacy.append(str(item.get("item_id") or f"{capture.get('capture_id')}:unknown"))
+    return legacy
+
+
+def note_migrate_links(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    stamp = iso_now(config)
+    migrated: list[dict[str, Any]] = []
+    for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(path, {})
+        if not isinstance(capture, dict):
+            continue
+        changed = False
+        for item in capture.get("items", []):
+            if not isinstance(item, dict) or not item.get("related_goal_ids") or "goal_links" in item:
+                continue
+            previous = str(item.get("work_status", "open"))
+            links = hydrate_note_goal_links(root, config, item)
+            item["work_status"] = derived_note_work_status(item)
+            item["updated_at"] = stamp
+            item["goal_links_migrated_at"] = stamp
+            if previous != item["work_status"]:
+                item.setdefault("work_status_history", []).append(
+                    {"at": stamp, "from": previous, "to": item["work_status"], "actor": args.actor}
+                )
+            migrated.append(
+                {
+                    "capture_id": capture.get("capture_id"),
+                    "item_id": item.get("item_id"),
+                    "goal_ids": sorted(links),
+                    "work_status": item["work_status"],
+                }
+            )
+            changed = True
+        if changed:
+            json_dump(path, capture)
+    if migrated:
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": stamp, "event": "note.goal-links-migrated", "actor": args.actor, "items": migrated},
+        )
+    return {"migrated": len(migrated), "items": migrated, "remaining_legacy_note_ids": legacy_note_link_ids(root, config)}
+
+
+def update_note_goal_links(
+    root: Path,
+    config: dict[str, Any],
+    item_ids: Iterable[str],
+    goal_id: str,
+    goal_state: str | None,
+    *,
+    remove: bool = False,
+) -> list[dict[str, str]]:
     targets = {item_id for item_id in item_ids if item_id}
     if not targets:
         return []
@@ -1102,22 +1242,44 @@ def update_note_work_status(root: Path, config: dict[str, Any], item_ids: Iterab
         for item in capture.get("items", []):
             if not isinstance(item, dict) or item.get("item_id") not in targets:
                 continue
-            previous = item.get("work_status", "open")
-            item.setdefault("created_at", capture.get("captured_at", stamp))
-            item["updated_at"] = stamp
-            item["work_status"] = work_status
-            item["execution_authorized"] = False
-            if goal_id:
+            previous = str(item.get("work_status", "open"))
+            links = hydrate_note_goal_links(root, config, item)
+            item.setdefault("routing_work_status", previous)
+            if remove:
+                prior = links.get(goal_id, {})
+                links[goal_id] = {
+                    "state": "unlinked",
+                    "previous_state": prior.get("state") if isinstance(prior, dict) else None,
+                    "updated_at": stamp,
+                }
+            else:
+                links[goal_id] = {"state": goal_state, "updated_at": stamp}
                 related = item.setdefault("related_goal_ids", [])
                 if goal_id not in related:
                     related.append(goal_id)
-            item.setdefault("work_status_history", []).append({"at": stamp, "from": previous, "to": work_status, "goal_id": goal_id})
-            updated.append({"capture_id": str(capture.get("capture_id", "")), "item_id": str(item["item_id"]), "work_status": work_status})
+            item.setdefault("created_at", capture.get("captured_at", stamp))
+            item["updated_at"] = stamp
+            item["work_status"] = derived_note_work_status(item)
+            item["execution_authorized"] = False
+            if previous != item["work_status"] or remove:
+                item.setdefault("work_status_history", []).append(
+                    {"at": stamp, "from": previous, "to": item["work_status"], "goal_id": goal_id}
+                )
+            updated.append(
+                {
+                    "capture_id": str(capture.get("capture_id", "")),
+                    "item_id": str(item["item_id"]),
+                    "work_status": item["work_status"],
+                }
+            )
             changed = True
         if changed:
             json_dump(path, capture)
     if updated:
-        append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "note.work-status", "goal_id": goal_id, "items": updated})
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": stamp, "event": "note.goal-link", "goal_id": goal_id, "state": goal_state, "removed": remove, "items": updated},
+        )
     return updated
 
 
@@ -1145,6 +1307,10 @@ def note_triage(args: argparse.Namespace) -> dict[str, Any]:
             break
     if selected is None:
         raise ContinuityError(f"Unknown item {args.item_id}")
+    if args.action == "defer" and not args.review_after:
+        raise ContinuityError("Deferred notes require --review-after")
+    if args.review_after and parse_recorded_time(args.review_after, config["timezone"]) is None:
+        raise ContinuityError("Note review date must be an ISO 8601 date-time")
     stamp = iso_now(config)
     selected.setdefault("created_at", capture.get("captured_at", stamp))
     selected.setdefault("work_status", "open")
@@ -1183,10 +1349,14 @@ def note_triage(args: argparse.Namespace) -> dict[str, Any]:
     if args.review_after:
         selected["review_after"] = args.review_after
     if args.action == "defer":
-        selected["work_status"] = "deferred"
+        selected["routing_work_status"] = "deferred"
     elif args.action == "archive":
-        selected["work_status"] = "archived"
+        selected["routing_work_status"] = "archived"
         selected.pop("queue", None)
+    else:
+        selected["routing_work_status"] = "open"
+    hydrate_note_goal_links(root, config, selected)
+    selected["work_status"] = derived_note_work_status(selected)
     if args.action in {"route", "defer", "promote"}:
         queue = route_for_kind(selected["kind"])
         selected["queue"] = queue
@@ -1230,8 +1400,67 @@ def note_list(args: argparse.Namespace) -> list[dict[str, Any]]:
         for item in capture.get("items", []):
             if args.kind and item.get("kind") != args.kind:
                 continue
-            result.append({"capture_id": capture["capture_id"], **item})
+            current = dict(item)
+            hydrate_note_goal_links(root, config, current)
+            current["work_status"] = derived_note_work_status(current)
+            result.append({"capture_id": capture["capture_id"], **current})
     return result
+
+
+def note_queue(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    current = now(config)
+    result: list[dict[str, Any]] = []
+    for item in note_list(argparse.Namespace(kind=None)):
+        if item.get("routing_status") not in {"route", "defer", "promote"}:
+            continue
+        queue = route_for_kind(str(item.get("kind")))
+        if args.queue and queue != args.queue:
+            continue
+        status = str(item.get("work_status", "open"))
+        if args.status == "eligible":
+            if status not in {"open", "deferred"}:
+                continue
+            review_after = parse_recorded_time(item.get("review_after"), config["timezone"])
+            if status == "deferred" and (review_after is None or review_after > current):
+                continue
+        result.append({**item, "queue": queue})
+    result.sort(key=lambda item: (item.get("review_after") or "", item.get("created_at") or "", item["item_id"]))
+    return result
+
+
+def note_resolve(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    path = find_capture(root, config, args.capture_id)
+    capture = json_load(path, {})
+    if not isinstance(capture, dict):
+        raise ContinuityError("Capture is invalid")
+    item = next((value for value in capture.get("items", []) if value.get("item_id") == args.item_id), None)
+    if not isinstance(item, dict):
+        raise ContinuityError(f"Capture {args.capture_id} has no item {args.item_id}")
+    links = hydrate_note_goal_links(root, config, item)
+    if isinstance(links, dict) and any(
+        isinstance(link, dict) and link.get("state") not in {"completed", "cancelled"}
+        for link in links.values()
+    ):
+        raise ContinuityError("A note linked to active goals must be resolved through the goal lifecycle")
+    stamp = iso_now(config)
+    previous = str(item.get("work_status", "open"))
+    item["work_status"] = "completed"
+    item["routing_work_status"] = "completed"
+    item["updated_at"] = stamp
+    item.setdefault("resolution_history", []).append(
+        {"at": stamp, "actor": args.actor, "resolution": args.resolution, "previous_status": previous}
+    )
+    item.setdefault("work_status_history", []).append(
+        {"at": stamp, "from": previous, "to": "completed", "actor": args.actor}
+    )
+    json_dump(path, capture)
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {"at": stamp, "event": "note.resolved", "capture_id": args.capture_id, "item_id": args.item_id, "actor": args.actor},
+    )
+    return {"capture_id": args.capture_id, **item}
 
 
 def pattern_recommendation(axis: str, occurrence_type: str, sentiments: dict[str, int]) -> str:
@@ -1300,6 +1529,36 @@ def note_patterns(args: argparse.Namespace) -> dict[str, Any]:
     }
     json_dump(private_path(root, config) / "reports" / "note-patterns.json", report)
     return report
+
+
+def note_pattern_review(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    if args.disposition == "deferred" and not args.review_after:
+        raise ContinuityError("Deferred pattern review requires --review-after")
+    if args.review_after and parse_recorded_time(args.review_after, config["timezone"]) is None:
+        raise ContinuityError("Pattern review date must be an ISO 8601 date-time")
+    report = note_patterns(argparse.Namespace(min_count=args.min_count))
+    pattern = next((item for item in report["patterns"] if item["pattern_id"] == args.pattern_id), None)
+    if pattern is None:
+        raise ContinuityError(f"Unknown current pattern: {args.pattern_id}")
+    record = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "pattern_id": args.pattern_id,
+        "pattern_hash": canonical_hash(pattern),
+        "disposition": args.disposition,
+        "actor": args.actor,
+        "evidence": args.evidence,
+        "roadmap_ids": args.roadmap_id or [],
+        "review_after": args.review_after if args.disposition == "deferred" else None,
+        "recorded_at": iso_now(config),
+    }
+    append_jsonl(private_path(root, config) / "reports" / "pattern-dispositions.jsonl", record)
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {"at": record["recorded_at"], "event": "note.pattern-review", "pattern_id": args.pattern_id, "disposition": args.disposition},
+    )
+    return record
 
 
 def memory_db(root: Path, config: dict[str, Any]) -> Path:
@@ -2004,7 +2263,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         }
     json_dump(directory / "compliance.json", compliance)
     (directory / "feedback.jsonl").touch()
-    update_note_work_status(root, config, goal["source_note_ids"], "planned", goal_id=goal_id)
+    update_note_goal_links(root, config, goal["source_note_ids"], goal_id, "awaiting-feedback")
     append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.created", "goal_id": goal_id})
     return goal
 
@@ -2043,18 +2302,97 @@ def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple
         raise ContinuityError("Approval is stale because the plan or goal record changed")
     if goal.get("state") in {"approved", "queued"} and goal.get("roadmap_fingerprint") != roadmap_fingerprint(root, config, goal.get("roadmap_ids", [])):
         raise ContinuityError("Approval is stale because retrieved roadmap context changed")
-    if goal.get("state") not in {"approved", "queued", "dispatched", "running", "validating"}:
+    if goal.get("state") not in {"approved", "queued", "dispatched", "running", "validating", "review-ready", *REWORK_STATES}:
         raise ContinuityError(f"Goal state {goal.get('state')} is not approved")
     return goal, approval
+
+
+def archive_execution_attempt(directory: Path, goal: dict[str, Any], reason: str, actor: str) -> Path | None:
+    evidence_files = (
+        "goal.json",
+        "plan.md",
+        "approval.json",
+        "compliance.json",
+        "dispatch.json",
+        "execution.json",
+        "preflight.json",
+        "machine-test-run.json",
+        "test-report.json",
+        "merge-assessment.json",
+        "human-review.json",
+        "checkpoints.jsonl",
+    )
+    existing = [name for name in evidence_files if (directory / name).exists()]
+    if not existing:
+        return None
+    attempt = int(goal.get("execution_attempt", 1))
+    target = directory / "attempts" / f"attempt-{attempt}"
+    if target.exists():
+        raise ContinuityError(f"Execution attempt archive already exists: {target}")
+    target.mkdir(parents=True)
+    for name in existing:
+        shutil.copy2(directory / name, target / name)
+    json_dump(
+        target / "archive.json",
+        {"attempt": attempt, "reason": reason, "actor": actor, "archived_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")},
+    )
+    return target
+
+
+def reset_execution_evidence(
+    directory: Path,
+    goal: dict[str, Any],
+    config: dict[str, Any],
+    reason: str,
+    actor: str,
+    *,
+    increment_attempt: bool = True,
+) -> None:
+    archive_execution_attempt(directory, goal, reason, actor)
+    stamp = iso_now(config)
+    compliance = json_load(directory / "compliance.json", {})
+    for stage in DOWNSTREAM_COMPLIANCE_STAGES:
+        compliance.setdefault("stages", {})[stage] = {
+            "status": "pending",
+            "evidence": [reason],
+            "actor": actor,
+            "updated_at": stamp,
+        }
+    compliance["updated_at"] = stamp
+    json_dump(directory / "compliance.json", compliance)
+    for name in (
+        "dispatch.json",
+        "preflight.json",
+        "machine-test-run.json",
+        "test-report.json",
+        "merge-assessment.json",
+        "human-review.json",
+        "checkpoints.jsonl",
+    ):
+        (directory / name).unlink(missing_ok=True)
+    current_attempt = int(goal.get("execution_attempt", 1))
+    next_attempt = current_attempt + 1 if increment_attempt else current_attempt
+    json_dump(
+        directory / "execution.json",
+        {
+            "goal_id": goal["goal_id"],
+            "state": "rework-queued",
+            "execution_attempt": next_attempt,
+            "updated_at": stamp,
+        },
+    )
+    if increment_attempt:
+        goal["execution_attempt"] = next_attempt
 
 
 def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
-    if goal.get("state") not in {"awaiting-feedback", "queued", "held"}:
+    if goal.get("state") not in {"awaiting-feedback", "queued", "held", *REWORK_STATES, *LEGACY_GOAL_STATES}:
         raise ContinuityError(f"Goal in state {goal.get('state')} cannot be revised")
     if goal.get("state") == "held" and goal.get("held_from") not in {"awaiting-feedback", "queued"}:
         raise ContinuityError("Only a pre-execution held goal can be revised")
+    previous_source_note_ids = list(goal.get("source_note_ids", []))
     payload = json_load(Path(args.goal_file).expanduser())
     if not isinstance(payload, dict):
         raise ContinuityError("Revision file must be a JSON object")
@@ -2107,6 +2445,8 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     json_dump(revision_root / "goal.json", json_load(directory / "goal.json", {}))
     if (directory / "approval.json").exists():
         shutil.copy2(directory / "approval.json", revision_root / "approval.json")
+    if goal.get("state") in REWORK_STATES and goal.get("state") != "changes-requested":
+        reset_execution_evidence(directory, goal, config, f"Execution evidence invalidated by plan revision: {args.summary}", args.author)
     plan_source = plan if plan is not None else (directory / "plan.md").read_text(encoding="utf-8")
     (directory / "plan.md").write_text(with_planning_artifacts(plan_source, goal), encoding="utf-8")
     goal["plan_version"] += 1
@@ -2132,7 +2472,10 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     }
     compliance["updated_at"] = goal["updated_at"]
     json_dump(directory / "compliance.json", compliance)
-    update_note_work_status(root, config, goal.get("source_note_ids", []), "planned", goal_id=goal["goal_id"])
+    removed_note_ids = set(previous_source_note_ids) - set(goal.get("source_note_ids", []))
+    if removed_note_ids:
+        update_note_goal_links(root, config, removed_note_ids, goal["goal_id"], None, remove=True)
+    update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "awaiting-feedback")
     append_jsonl(directory / "feedback.jsonl", {"at": goal["updated_at"], "author": args.author, "type": "revision", "text": args.summary})
     return goal
 
@@ -2186,7 +2529,7 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
     goal["scheduled_for"] = scheduled_for
     goal["updated_at"] = stamp
     json_dump(directory / "goal.json", goal)
-    update_note_work_status(root, config, goal.get("source_note_ids", []), "queued", goal_id=goal["goal_id"])
+    update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "queued")
     append_jsonl(directory / "feedback.jsonl", {"at": stamp, "author": args.approved_by, "type": "approval", "text": approval["authorization_text"]})
     append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.approved", "goal_id": goal["goal_id"], "scheduled_for": goal["scheduled_for"]})
     return {"goal": goal, "approval": approval}
@@ -3283,6 +3626,24 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     if scheduler_health["stale_runs"]:
         record["healthy"] = False
         record["problems"].append(f"scheduler has stale runs: {scheduler_health['stale_runs']}")
+    legacy_goal_ids = []
+    for goal_path in sorted((private_path(root, config) / "goals").glob("*/goal.json")):
+        goal = json_load(goal_path, {})
+        if isinstance(goal, dict) and goal.get("state") in LEGACY_GOAL_STATES:
+            legacy_goal_ids.append(str(goal.get("goal_id") or goal_path.parent.name))
+    record["legacy_goal_ids"] = legacy_goal_ids
+    if legacy_goal_ids:
+        record["healthy"] = False
+        record["problems"].append(
+            f"legacy goal states require explicit goal revise migration: {legacy_goal_ids}"
+        )
+    legacy_note_ids = legacy_note_link_ids(root, config)
+    record["legacy_note_ids"] = legacy_note_ids
+    if legacy_note_ids:
+        record["healthy"] = False
+        record["problems"].append(
+            f"legacy note links require explicit note migrate-links migration: {legacy_note_ids}"
+        )
     return record
 
 
@@ -3515,7 +3876,7 @@ def scheduler_recover(args: argparse.Namespace) -> list[dict[str, Any]]:
             json_dump(directory / "goal.json", goal)
             execution.update({"goal_id": goal_id, "state": "blocked", "updated_at": stamp, "summary": args.summary})
             json_dump(directory / "execution.json", execution)
-            update_note_work_status(root, config, goal.get("source_note_ids", []), "blocked", goal_id=goal_id)
+            update_note_goal_links(root, config, goal.get("source_note_ids", []), goal_id, "blocked")
             lock_path = private_path(root, config) / "project.lock.json"
             lock = json_load(lock_path, {})
             if isinstance(lock, dict) and lock.get("goal_id") == goal_id:
@@ -3654,6 +4015,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
     if blocked:
         raise ContinuityError(f"Unmet dependencies: {blocked}")
     stamp = iso_now(config)
+    goal.setdefault("execution_attempt", 1)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
     if hasattr(os, "O_NOFOLLOW"):
@@ -3673,7 +4035,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
     goal["dispatched_at"] = stamp
     goal["updated_at"] = stamp
     json_dump(directory / "goal.json", goal)
-    update_note_work_status(root, config, goal.get("source_note_ids", []), "dispatched", goal_id=goal["goal_id"])
+    update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "dispatched")
     prompt = {
         "goal_id": goal["goal_id"],
         "project_id": config["project_id"],
@@ -3692,6 +4054,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "roadmap_ids": goal.get("roadmap_ids", []),
         "roadmap_impact": goal.get("roadmap_impact", {}),
         "runtime_limit_minutes": goal["runtime_limit_minutes"],
+        "execution_attempt": goal["execution_attempt"],
         "required_checks": config.get("validation_commands", []) + goal.get("required_checks", []),
         "required_security_checks": config.get("security_commands", []),
         "documentation_map": config.get("documentation_map", {}),
@@ -3745,11 +4108,41 @@ def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
         goal["held_from"] = current
         target = "held"
     elif transition == "resume":
-        if current != "held":
+        if current == "held":
+            target = goal.pop("held_from", None)
+            if target not in {"awaiting-feedback", "queued"}:
+                raise ContinuityError("Held goal has no valid prior state")
+        elif current in REWORK_STATES:
+            if not args.authorization_text:
+                raise ContinuityError("Resuming execution requires explicit human authorization")
+            expected = re.compile(
+                rf"\b{re.escape(goal['goal_id'])}\b.*\bplan\s+v{goal['plan_version']}\b",
+                re.IGNORECASE,
+            )
+            if not expected.search(args.authorization_text):
+                raise ContinuityError("Resume authorization must name the goal ID and approved plan version")
+            _approved_goal, _approval = validate_approval(root, config, args.goal_id)
+            if current != "changes-requested":
+                reset_execution_evidence(
+                    directory,
+                    goal,
+                    config,
+                    f"Execution attempt reopened from {current}: {args.authorization_text}",
+                    args.actor,
+                )
+                goal["updated_at"] = iso_now(config)
+                json_dump(directory / "goal.json", goal)
+            preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id))
+            if not preflight["passed"]:
+                raise ContinuityError(f"Cannot resume; execution preflight failed: {preflight['failures']}")
+            target = "queued"
+            goal["scheduled_for"] = parse_schedule(args.schedule, config) if args.schedule else next_default_start(config)
+            append_jsonl(
+                directory / "feedback.jsonl",
+                {"at": iso_now(config), "author": args.actor, "type": "resume-authorization", "text": args.authorization_text},
+            )
+        else:
             raise ContinuityError(f"Goal in state {current} cannot be resumed")
-        target = goal.pop("held_from", None)
-        if target not in {"awaiting-feedback", "queued"}:
-            raise ContinuityError("Held goal has no valid prior state")
         if target == "queued":
             approval = json_load(directory / "approval.json", {})
             if (
@@ -3759,8 +4152,10 @@ def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
             ):
                 raise ContinuityError("Held goal approval is missing or stale")
     else:
-        if current not in {"proposed-plan", "awaiting-feedback", "approved", "queued", "held"}:
+        if current not in {"proposed-plan", "awaiting-feedback", "approved", "queued", "held", "review-ready", *REWORK_STATES}:
             raise ContinuityError("Active execution must be stopped before recording cancellation")
+        if current == "review-ready" and not getattr(args, "reason", None):
+            raise ContinuityError("Cancelling review-ready work requires --reason")
         target = "cancelled"
     stamp = iso_now(config)
     lock_path = private_path(root, config) / "project.lock.json"
@@ -3772,6 +4167,30 @@ def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
     if transition == "resume" and target == "queued" and not goal.get("scheduled_for"):
         goal["scheduled_for"] = next_default_start(config)
     json_dump(directory / "goal.json", goal)
+    update_note_goal_links(root, config, goal.get("source_note_ids", []), args.goal_id, target)
+    if transition == "cancel" and current == "review-ready":
+        actor = getattr(args, "actor", "human")
+        reason = str(args.reason)
+        capture = capture_goal_feedback(root, config, args.goal_id, "closed", [reason], actor)
+        review = {
+            "project_id": config["project_id"],
+            "goal_id": args.goal_id,
+            "status": "closed",
+            "updated_at": stamp,
+            "actor": actor,
+            "merged_by": actor,
+            "pr_url": None,
+            "merge_commit": None,
+            "evidence": [reason],
+            "review_evidence_current": False,
+            "stale_evidence": ["review-ready goal cancelled without current delivery disposition evidence"],
+            "feedback_capture_id": capture["capture_id"],
+            "human_merge_required": True,
+            "auto_merge_used": False,
+        }
+        json_dump(directory / "human-review.json", review)
+        record_compliance_stage(root, config, directory, goal, "human-review", "passed", [reason], actor)
+        append_jsonl(private_path(root, config) / "reports" / "human-reviews.jsonl", review)
     append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": f"goal.{transition}", "goal_id": args.goal_id})
     return goal
 
@@ -3781,7 +4200,82 @@ def goal_feedback(args: argparse.Namespace) -> dict[str, Any]:
     directory, _goal = load_goal(root, config, args.goal_id)
     event = {"at": iso_now(config), "author": args.author, "type": "feedback", "text": args.text}
     append_jsonl(directory / "feedback.jsonl", event)
-    return event
+    capture = capture_goal_feedback(
+        root,
+        config,
+        args.goal_id,
+        "feedback",
+        [args.text],
+        args.author,
+        args.sentiment,
+        args.perspective,
+    )
+    return {**event, "capture_id": capture["capture_id"], "note_ids": [item["item_id"] for item in capture["items"]]}
+
+
+def capture_goal_feedback(
+    root: Path,
+    config: dict[str, Any],
+    goal_id: str,
+    disposition: str,
+    evidence: list[str],
+    actor: str,
+    sentiment: str = "unknown",
+    perspective: str = "unknown",
+) -> dict[str, Any]:
+    stamp = iso_now(config)
+    _directory, linked_goal = load_goal(root, config, goal_id)
+    link_state = {
+        "merged": "completed",
+        "changes-requested": "changes-requested",
+        "closed": "cancelled",
+    }.get(disposition, str(linked_goal.get("state", "review-ready")))
+    text = "\n".join(value.strip() for value in evidence if value.strip()) or f"Human disposition: {disposition}"
+    item_id = stable_id("note", goal_id, disposition, stamp, text)
+    occurrence_type = "success" if disposition in {"approved", "merged"} else "feedback"
+    capture_id = stable_id("capture", config["project_id"], goal_id, disposition, stamp)
+    item = {
+        "item_id": item_id,
+        "kind": "context",
+        "text": text,
+        "created_at": stamp,
+        "updated_at": stamp,
+        "occurred_at": stamp,
+        "perspective": perspective,
+        "sentiment": sentiment,
+        "occurrence_type": occurrence_type,
+        "impact": "unknown",
+        "confidence": "high",
+        "actionability": "plan" if disposition == "changes-requested" else "context",
+        "stakeholders": [actor],
+        "themes": ["human-review", disposition],
+        "routing_status": "captured",
+        "routing_work_status": "open",
+        "work_status": NOTE_GOAL_STATUS_MAP.get(link_state, "open"),
+        "related_goal_ids": [goal_id],
+        "goal_links": {goal_id: {"state": link_state, "updated_at": stamp}},
+        "execution_authorized": False,
+    }
+    capture = {
+        "schema_version": SCHEMA_VERSION,
+        "capture_id": capture_id,
+        "captured_at": stamp,
+        "project_id": config["project_id"],
+        "repository": str(root),
+        "source_type": "goal-feedback",
+        "source_ref": f"goal:{goal_id}:{disposition}",
+        "source_timestamp": stamp,
+        "dedupe_key": canonical_hash({"goal_id": goal_id, "disposition": disposition, "at": stamp, "text": text}),
+        "execution_authorized": False,
+        "items": [item],
+    }
+    target = private_path(root, config) / "captures" / stamp[:10] / f"{capture_id}.json"
+    json_dump(target, capture)
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {"at": stamp, "event": "goal.feedback-captured", "goal_id": goal_id, "disposition": disposition, "capture_id": capture_id},
+    )
+    return capture
 
 
 def goal_list(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -3815,6 +4309,233 @@ def goal_due(args: argparse.Namespace) -> list[dict[str, Any]]:
             if all(state == "completed" for state in states.values()):
                 due.append(goal)
     return due
+
+
+def workflow_action(
+    disposition: str,
+    skill: str,
+    command: str,
+    *,
+    human_required: bool = False,
+    requirements: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "disposition": disposition,
+        "skill": skill,
+        "command": command,
+        "human_required": human_required,
+        "requirements": requirements or [],
+    }
+
+
+def blocked_workflow_action(action: dict[str, Any], failures: Iterable[str]) -> dict[str, Any]:
+    return {**action, "blocked_by": list(failures)}
+
+
+def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str, Any]) -> dict[str, Any]:
+    goal_id = goal["goal_id"]
+    directory = goal_dir(root, config, goal_id)
+    state = str(goal.get("state"))
+    compliance = json_load(directory / "compliance.json", {})
+    stages = compliance.get("stages", {}) if isinstance(compliance, dict) else {}
+    failed = sorted(stage for stage, detail in stages.items() if detail.get("status") == "failed")
+    pending = sorted(stage for stage, detail in stages.items() if detail.get("status") == "pending")
+    completed = sorted(stage for stage, detail in stages.items() if detail.get("status") in {"passed", "not-applicable"})
+    test_report = json_load(directory / "test-report.json", {})
+    merge_report = json_load(directory / "merge-assessment.json", {})
+    execution = json_load(directory / "execution.json", {})
+    actions: list[dict[str, Any]] = []
+    blocked_actions: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    current_stage = state
+    next_skill: str | None = None
+    prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+    if state in LEGACY_GOAL_STATES:
+        blockers.append(f"legacy goal state requires explicit migration: {state}")
+        current_stage = "legacy-state"
+        next_skill = "continuity-plan"
+        actions.append(workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True))
+    elif state == "awaiting-feedback":
+        current_stage = "plan-review"
+        next_skill = "continuity-dispatch"
+        actions.extend(
+            [
+                workflow_action("approve", "continuity-dispatch", f'{prefix} goal approve {goal_id} --version {goal["plan_version"]} --approved-by <human> --authorization-text "Approve {goal_id} plan v{goal["plan_version"]}"', human_required=True, requirements=["decision-complete plan"]),
+                workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True),
+                workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
+                workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
+            ]
+        )
+    elif state == "held":
+        current_stage = "held"
+        next_skill = "continuity-dispatch"
+        actions.extend(
+            [
+                workflow_action("resume", "continuity-dispatch", f"{prefix} goal resume {goal_id}", human_required=True),
+                workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
+            ]
+        )
+    elif state == "queued":
+        current_stage = "dispatch-ready"
+        next_skill = "continuity-dispatch"
+        actions.extend(
+            [
+                workflow_action("start-now", "continuity-dispatch", f"{prefix} goal start {goal_id}", human_required=True, requirements=["preflight passes"]),
+                workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
+                workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
+            ]
+        )
+    elif state == "dispatched":
+        current_stage = "execution-start"
+        next_skill = "continuity-execute"
+        actions.append(workflow_action("begin-execution", "continuity-execute", f"{prefix} run update {goal_id} --state running --worktree <worktree> --branch <branch>", requirements=["isolated worktree", "matching dispatch"] ))
+    elif state == "running":
+        current_stage = "implementation"
+        next_skill = "continuity-execute"
+        actions.append(workflow_action("continue", "continuity-execute", f"{prefix} execution checkpoint {goal_id} --phase <phase> --summary <summary> --alignment <alignment>"))
+        actions.append(workflow_action("validate", "continuity-test", f"{prefix} run update {goal_id} --state validating"))
+    elif state == "validating":
+        if test_report.get("status") != "passed":
+            current_stage = "quality-gates"
+            next_skill = "continuity-test"
+            actions.append(workflow_action("run-tests", "continuity-test", f"{prefix} test run {goal_id} --worktree <worktree> --branch <branch>"))
+        elif (test_failures := current_test_evidence_failures(root, config, directory, goal)):
+            current_stage = "quality-gates"
+            next_skill = "continuity-test"
+            blockers.extend(test_failures)
+            actions.append(workflow_action("rerun-tests", "continuity-test", f"{prefix} test run {goal_id} --worktree <worktree> --branch <branch>"))
+        elif merge_report.get("status") != "passed":
+            current_stage = "merge-safety"
+            next_skill = "continuity-merge"
+            actions.append(workflow_action("assess-merge", "continuity-merge", f"{prefix} merge assess {goal_id} --worktree <worktree> --branch <branch> --pr-url <pr-url> --update-gate"))
+        elif (review_failures := current_review_evidence_failures(root, config, directory, goal)):
+            current_stage = "merge-safety"
+            next_skill = "continuity-merge"
+            blockers.extend(review_failures)
+            actions.append(workflow_action("reassess-merge", "continuity-merge", f"{prefix} merge assess {goal_id} --worktree <worktree> --branch <branch> --pr-url <pr-url> --update-gate"))
+        else:
+            current_stage = "review-ready-transition"
+            next_skill = "continuity-execute"
+            actions.append(workflow_action("mark-review-ready", "continuity-execute", f"{prefix} run update {goal_id} --state review-ready --summary <summary> --pr-url <pr-url> --artifact <artifact>"))
+    elif state == "review-ready":
+        current_stage = "human-review"
+        next_skill = "continuity-merge"
+        common = f'{prefix} merge record-human {goal_id} --pr-url <pr-url> --merged-by <human> --evidence <evidence>'
+        disposition_actions = {
+            "approved": workflow_action("approved", "continuity-merge", f"{common} --disposition approved", human_required=True),
+            "changes-requested": workflow_action("changes-requested", "continuity-merge", f"{common} --disposition changes-requested", human_required=True),
+            "merged": workflow_action("merged", "continuity-merge", f"{common} --disposition merged --merge-commit <sha>", human_required=True),
+            "closed": workflow_action("closed", "continuity-merge", f"{common} --disposition closed", human_required=True),
+        }
+        stale_evidence = current_review_evidence_failures(root, config, directory, goal)
+        actions.extend([disposition_actions["changes-requested"], disposition_actions["closed"]])
+        if stale_evidence:
+            blockers.extend(stale_evidence)
+            blocked_actions.extend(
+                blocked_workflow_action(disposition_actions[disposition], stale_evidence)
+                for disposition in ("approved", "merged")
+            )
+        else:
+            actions.extend([disposition_actions["approved"], disposition_actions["merged"]])
+    elif state in REWORK_STATES:
+        current_stage = "human-remediation"
+        next_skill = "continuity-dispatch"
+        resume_action = workflow_action("resume-in-scope", "continuity-dispatch", f'{prefix} goal resume {goal_id} --authorization-text "Resume {goal_id} under approved plan v{goal["plan_version"]}" --actor <human>', human_required=True, requirements=["scope unchanged", "preflight passes"])
+        try:
+            validate_approval(root, config, goal_id)
+        except ContinuityError as exc:
+            blockers.append(str(exc))
+            blocked_actions.append(blocked_workflow_action(resume_action, [str(exc)]))
+        else:
+            actions.append(resume_action)
+        actions.extend(
+            [
+                workflow_action("revise-scope", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True),
+                workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
+            ]
+        )
+    elif state == "completed":
+        current_stage = "completed"
+        next_skill = "continuity-report"
+    elif state == "cancelled":
+        current_stage = "cancelled"
+        next_skill = "continuity-report"
+    if failed:
+        blockers.extend(f"failed compliance stage: {stage}" for stage in failed)
+    prior_attempts = []
+    for attempt_path in sorted((directory / "attempts").glob("attempt-*")):
+        archive = json_load(attempt_path / "archive.json", {})
+        prior_attempts.append(
+            {
+                "attempt": archive.get("attempt"),
+                "reason": archive.get("reason"),
+                "actor": archive.get("actor"),
+                "archived_at": archive.get("archived_at"),
+                "path": str(attempt_path.relative_to(root)),
+            }
+        )
+    return {
+        "goal_id": goal_id,
+        "title": goal.get("title"),
+        "state": state,
+        "current_stage": current_stage,
+        "next_skill": next_skill,
+        "blockers": blockers,
+        "allowed_actions": actions,
+        "blocked_actions": blocked_actions,
+        "human_requirements": [action["disposition"] for action in actions if action["human_required"]],
+        "completed_prerequisites": completed,
+        "pending_compliance": pending,
+        "failed_compliance": failed,
+        "execution_attempt": int(goal.get("execution_attempt", 1)),
+        "evidence": {
+            "plan_hash": goal.get("plan_hash"),
+            "test_status": test_report.get("status") if isinstance(test_report, dict) else None,
+            "test_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
+            "merge_status": merge_report.get("status") if isinstance(merge_report, dict) else None,
+            "pr_url": execution.get("pr_url") if isinstance(execution, dict) else None,
+            "prior_attempts": prior_attempts,
+        },
+    }
+
+
+def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    goals = goal_list(argparse.Namespace(state=None))
+    if args.goal_id:
+        matches = [goal for goal in goals if goal.get("goal_id") == args.goal_id]
+        if len(matches) != 1:
+            raise ContinuityError(f"Unknown goal {args.goal_id}")
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "goal": workflow_status_for_goal(root, config, matches[0]),
+        }
+    queue_names = ("knowledge", "questions", "documentation", "backlog", "planning")
+    queue_counts = {
+        name: len(note_queue(argparse.Namespace(queue=name, status="eligible")))
+        for name in queue_names
+    }
+    goal_records = [workflow_status_for_goal(root, config, goal) for goal in goals]
+    goal_records.sort(key=lambda value: (value["state"], value["goal_id"]))
+    if queue_counts["planning"] or queue_counts["backlog"]:
+        next_skill = "continuity-plan"
+    elif queue_counts["documentation"] or queue_counts["knowledge"]:
+        next_skill = "continuity-memory"
+    elif queue_counts["questions"]:
+        next_skill = "continuity-triage"
+    else:
+        next_skill = "continuity-report"
+    return {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "generated_at": iso_now(config),
+        "next_skill": next_skill,
+        "queue_counts": queue_counts,
+        "goals": goal_records,
+        "legacy_goal_ids": [record["goal_id"] for record in goal_records if record["state"] in LEGACY_GOAL_STATES],
+    }
 
 
 def record_compliance_stage(
@@ -4081,6 +4802,8 @@ def test_record(args: argparse.Namespace) -> dict[str, Any]:
                 missing.append("machine evidence for the enrolled repository")
             if machine_run.get("branch") != current_snapshot["branch"]:
                 missing.append("machine evidence for the current goal branch")
+            if machine_run.get("commit_sha") != current_snapshot["commit_sha"]:
+                missing.append("machine evidence for the current commit")
             if machine_run.get("source_fingerprint") != current_snapshot["source_fingerprint"]:
                 missing.append("machine evidence for the current source fingerprint")
             if machine_run.get("plan_hash") != goal.get("plan_hash"):
@@ -4116,9 +4839,10 @@ def test_record(args: argparse.Namespace) -> dict[str, Any]:
         "summary": args.summary,
         "actor": args.actor,
         "updated_at": stamp,
-        "worktree": args.worktree,
-        "branch": args.branch,
+        "worktree": args.worktree or machine_run.get("worktree"),
+        "branch": args.branch or machine_run.get("branch"),
         "plan_hash": goal.get("plan_hash"),
+        "behavior_configuration_hash": machine_run.get("behavior_configuration_hash") if isinstance(machine_run, dict) else None,
         "commit_sha": machine_run.get("commit_sha") if isinstance(machine_run, dict) else None,
         "repository_fingerprint": machine_run.get("repository_fingerprint") if isinstance(machine_run, dict) else None,
         "source_fingerprint": machine_run.get("source_fingerprint") if isinstance(machine_run, dict) else None,
@@ -4143,6 +4867,81 @@ def test_record(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def current_test_evidence_failures(
+    root: Path,
+    config: dict[str, Any],
+    directory: Path,
+    goal: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    execution = json_load(directory / "execution.json", {})
+    test_report = json_load(directory / "test-report.json", {})
+    if not isinstance(test_report, dict) or test_report.get("status") != "passed":
+        failures.append("current passed test report is missing")
+    if failures:
+        return failures
+    if not isinstance(execution, dict):
+        execution = {}
+    worktree = Path(execution.get("worktree") or root).expanduser().resolve()
+    try:
+        snapshot = worktree_source_snapshot(worktree)
+    except ContinuityError as exc:
+        return [str(exc)]
+    bindings = {
+        "test source fingerprint": (test_report.get("source_fingerprint"), snapshot["source_fingerprint"]),
+        "test repository": (test_report.get("repository_fingerprint"), snapshot["repository_fingerprint"]),
+        "test commit": (test_report.get("commit_sha"), snapshot["commit_sha"]),
+        "test branch": (test_report.get("branch"), snapshot["branch"]),
+        "execution branch": (execution.get("branch"), snapshot["branch"]),
+        "test plan": (test_report.get("plan_hash"), goal.get("plan_hash")),
+        "test behavior": (test_report.get("behavior_configuration_hash"), config.get("behavior_configuration_hash")),
+    }
+    for label, (recorded, current) in bindings.items():
+        if recorded != current:
+            failures.append(f"{label} evidence is stale")
+    return failures
+
+
+def current_review_evidence_failures(
+    root: Path,
+    config: dict[str, Any],
+    directory: Path,
+    goal: dict[str, Any],
+) -> list[str]:
+    failures = current_test_evidence_failures(root, config, directory, goal)
+    merge_report = json_load(directory / "merge-assessment.json", {})
+    if not isinstance(merge_report, dict) or merge_report.get("status") != "passed":
+        failures.append("current passed merge assessment is missing")
+    if failures:
+        return failures
+    execution = json_load(directory / "execution.json", {})
+    if not isinstance(execution, dict):
+        execution = {}
+    worktree = Path(execution.get("worktree") or merge_report.get("worktree") or root).expanduser().resolve()
+    try:
+        snapshot = worktree_source_snapshot(worktree)
+    except ContinuityError as exc:
+        return [str(exc)]
+    bindings = {
+        "merge head": (merge_report.get("head_sha"), snapshot["commit_sha"]),
+        "merge branch": (merge_report.get("branch"), snapshot["branch"]),
+        "merge base": (merge_report.get("base"), config.get("integration_branch")),
+    }
+    for label, (recorded, current) in bindings.items():
+        if recorded != current:
+            failures.append(f"{label} evidence is stale")
+    if config.get("require_remote", True) and merge_report.get("remote_head_sha") != snapshot["commit_sha"]:
+        failures.append("remote branch evidence is stale")
+    if config.get("require_pr", True):
+        if merge_report.get("pr_head_sha") != snapshot["commit_sha"]:
+            failures.append("PR head evidence is stale")
+        if merge_report.get("pr_base") != config.get("integration_branch"):
+            failures.append("PR base evidence is stale")
+        if merge_report.get("pr_url") != execution.get("pr_url"):
+            failures.append("PR URL evidence is stale")
+    return failures
+
+
 def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
@@ -4153,6 +4952,10 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
     worktree = Path(args.worktree or execution.get("worktree") or root).expanduser().resolve()
     failures: list[str] = []
     evidence = list(args.evidence or [])
+    head_sha: str | None = None
+    remote_head_sha: str | None = None
+    pr_head_sha: str | None = None
+    pr_base: str | None = None
     if not branch:
         failures.append("goal branch is missing")
     elif branch == base:
@@ -4188,11 +4991,43 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
                     evidence.append(f"merge-base-check:unavailable:{base}")
                 else:
                     evidence.append(f"merge-base:{merge_base.stdout.strip()}")
+            head_result = git_result(worktree, "rev-parse", "HEAD")
+            head_sha = head_result.stdout.strip() if head_result.returncode == 0 else None
+            if not head_sha:
+                failures.append("unable to resolve the goal branch head commit")
+            elif config.get("require_remote", True) and branch:
+                remote_head = git_result(worktree, "rev-parse", f"origin/{branch}")
+                if remote_head.returncode != 0:
+                    failures.append(f"remote branch origin/{branch} is unavailable")
+                else:
+                    remote_head_sha = remote_head.stdout.strip()
+                if remote_head_sha and remote_head_sha != head_sha:
+                    failures.append("remote branch head does not match the tested local commit")
+                elif remote_head_sha:
+                    evidence.append(f"remote-head:{head_sha}")
     if config.get("require_pr", True):
         if not pr_url:
             failures.append("PR URL is required")
         elif not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/pull/\d+", str(pr_url)):
             failures.append("PR URL is not a GitHub pull request URL")
+        else:
+            try:
+                pr_details = github_pr_details(root, str(pr_url), ["state", "headRefName", "baseRefName", "headRefOid"])
+            except ContinuityError as exc:
+                failures.append(str(exc))
+            else:
+                pr_head_sha = pr_details.get("headRefOid")
+                pr_base = pr_details.get("baseRefName")
+                if pr_details.get("state") != "OPEN":
+                    failures.append("PR must be open during merge-safety assessment")
+                if pr_details.get("headRefName") != branch:
+                    failures.append("PR head branch does not match the goal branch")
+                if pr_details.get("baseRefName") != base:
+                    failures.append("PR base branch does not match the configured integration branch")
+                if head_sha and pr_details.get("headRefOid") != head_sha:
+                    failures.append("PR head commit does not match the tested local commit")
+                if not failures:
+                    evidence.append(f"pr-head:{pr_details.get('headRefOid')}")
     test_report = json_load(directory / "test-report.json", {})
     if not isinstance(test_report, dict) or test_report.get("status") != "passed":
         failures.append("latest test report is not passed")
@@ -4212,6 +5047,8 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
                 failures.append("merge worktree does not belong to the enrolled repository")
             if test_report.get("plan_hash") != goal.get("plan_hash"):
                 failures.append("latest test report does not match the approved plan hash")
+            if test_report.get("commit_sha") != current_snapshot["commit_sha"]:
+                failures.append("latest test report does not match the current commit")
     compliance = json_load(directory / "compliance.json", {})
     for stage in ("code-review", "validation", "security-review"):
         status = compliance.get("stages", {}).get(stage, {}).get("status")
@@ -4231,6 +5068,10 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
         "actor": args.actor,
         "branch": branch,
         "base": base,
+        "head_sha": head_sha,
+        "remote_head_sha": remote_head_sha,
+        "pr_head_sha": pr_head_sha,
+        "pr_base": pr_base,
         "pr_url": pr_url,
         "worktree": str(worktree),
         "failures": failures,
@@ -4249,38 +5090,107 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def github_pr_details(root: Path, pr_url: str, fields: list[str]) -> dict[str, Any]:
+    gh = shutil.which("gh")
+    if not gh:
+        raise ContinuityError("GitHub CLI is required to verify PR state")
+    result = subprocess.run(
+        [gh, "pr", "view", pr_url, "--json", ",".join(fields)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ContinuityError(f"Unable to verify GitHub PR: {result.stderr.strip() or result.stdout.strip()}")
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ContinuityError("GitHub PR verification returned invalid JSON") from exc
+    if not isinstance(value, dict):
+        raise ContinuityError("GitHub PR verification returned an invalid record")
+    return value
+
+
 def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
-    if args.merge_commit and goal.get("state") != "review-ready":
-        raise ContinuityError("Only review-ready work can be recorded as human-merged")
+    if goal.get("state") != "review-ready":
+        raise ContinuityError("Human PR disposition requires review-ready work")
+    stale_evidence = current_review_evidence_failures(root, config, directory, goal)
+    if stale_evidence and args.disposition in {"approved", "merged"}:
+        raise ContinuityError(f"Human PR disposition requires current review evidence: {stale_evidence}")
     if not args.evidence:
         raise ContinuityError("Human merge review requires evidence")
     if config.get("require_pr", True) and not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/pull/\d+", args.pr_url):
         raise ContinuityError("A valid GitHub PR URL is required")
+    if args.disposition == "merged" and not args.merge_commit:
+        raise ContinuityError("Merged disposition requires --merge-commit")
+    if args.disposition != "merged" and args.merge_commit:
+        raise ContinuityError("--merge-commit is valid only with disposition merged")
+    if config.get("require_pr", True) and args.disposition in {"approved", "merged"}:
+        details = github_pr_details(root, args.pr_url, ["state", "mergeCommit", "headRefName", "baseRefName"])
+        if details.get("baseRefName") != config.get("integration_branch"):
+            raise ContinuityError("PR base does not match the configured integration branch")
+        if args.disposition == "merged":
+            merge_oid = (details.get("mergeCommit") or {}).get("oid")
+            if details.get("state") != "MERGED" or merge_oid != args.merge_commit:
+                raise ContinuityError("Merged disposition does not match the verified PR merge commit")
     stamp = iso_now(config)
     report = {
         "project_id": config["project_id"],
         "goal_id": args.goal_id,
-        "status": "merged" if args.merge_commit else "reviewed",
+        "status": args.disposition,
         "updated_at": stamp,
         "actor": args.actor,
         "pr_url": args.pr_url,
         "merged_by": args.merged_by,
         "merge_commit": args.merge_commit,
         "evidence": args.evidence,
+        "review_evidence_current": not stale_evidence,
+        "stale_evidence": stale_evidence,
         "human_merge_required": True,
         "auto_merge_used": False,
     }
     json_dump(directory / "human-review.json", report)
-    append_jsonl(private_path(root, config) / "reports" / "human-reviews.jsonl", report)
     record_compliance_stage(root, config, directory, goal, "human-review", "passed", args.evidence, args.actor)
-    if args.merge_commit:
+    capture = capture_goal_feedback(
+        root,
+        config,
+        args.goal_id,
+        args.disposition,
+        args.evidence,
+        args.merged_by,
+        args.sentiment,
+        args.perspective,
+    )
+    report["feedback_capture_id"] = capture["capture_id"]
+    json_dump(directory / "human-review.json", report)
+    if args.disposition == "merged":
         goal["state"] = "completed"
         goal["updated_at"] = stamp
         goal["completed_at"] = stamp
         json_dump(directory / "goal.json", goal)
-        update_note_work_status(root, config, goal.get("source_note_ids", []), "completed", goal_id=args.goal_id)
+        update_note_goal_links(root, config, goal.get("source_note_ids", []), args.goal_id, "completed")
+    elif args.disposition == "changes-requested":
+        reset_execution_evidence(
+            directory,
+            goal,
+            config,
+            "Human review requested in-scope changes; downstream evidence must be regenerated.",
+            args.merged_by,
+        )
+        goal["state"] = "changes-requested"
+        goal["updated_at"] = stamp
+        json_dump(directory / "goal.json", goal)
+        update_note_goal_links(root, config, goal.get("source_note_ids", []), args.goal_id, "changes-requested")
+    elif args.disposition == "closed":
+        goal["state"] = "cancelled"
+        goal["updated_at"] = stamp
+        json_dump(directory / "goal.json", goal)
+        update_note_goal_links(root, config, goal.get("source_note_ids", []), args.goal_id, "cancelled")
+    append_jsonl(private_path(root, config) / "reports" / "human-reviews.jsonl", report)
     append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "merge.human-review", "goal_id": args.goal_id, "status": report["status"]})
     return report
 
@@ -4335,6 +5245,9 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
         }
         if incomplete:
             raise ContinuityError(f"Cannot mark review-ready; compliance stages incomplete: {incomplete}")
+        stale_evidence = current_review_evidence_failures(root, config, directory, goal)
+        if stale_evidence:
+            raise ContinuityError(f"Cannot mark review-ready; current test or merge evidence failed: {stale_evidence}")
     stamp = iso_now(config)
     manifest = json_load(directory / "execution.json", {})
     artifacts = dict(manifest.get("artifacts", {}))
@@ -4391,7 +5304,7 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
     goal["state"] = args.state
     goal["updated_at"] = stamp
     json_dump(directory / "goal.json", goal)
-    update_note_work_status(root, config, goal.get("source_note_ids", []), args.state, goal_id=args.goal_id)
+    update_note_goal_links(root, config, goal.get("source_note_ids", []), args.goal_id, args.state)
     if args.state in TERMINAL_STATES:
         lock_path = private_path(root, config) / "project.lock.json"
         lock = json_load(lock_path)
@@ -4405,14 +5318,44 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
     goals = goal_list(argparse.Namespace(state=None))
     notes = note_list(argparse.Namespace(kind=None))
     pattern_report = note_patterns(argparse.Namespace(min_count=2))
+    workflow_records = {goal["goal_id"]: workflow_status_for_goal(root, config, goal) for goal in goals}
+    queue_names = ("knowledge", "questions", "documentation", "backlog", "planning")
+    queue_counts = {name: len(note_queue(argparse.Namespace(queue=name, status="eligible"))) for name in queue_names}
+    memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
+    roadmap_report = json_load(private_path(root, config) / "reports" / "roadmap-health.json", {})
+    active_runs = [
+        run for run in scheduler_run_snapshots(root, config).values()
+        if run.get("status") in SCHEDULER_ACTIVE_STATES
+    ]
+    active_runs.sort(key=lambda value: value.get("last_event_at", ""), reverse=True)
+    current_time = now(config)
+    pattern_dispositions: dict[str, dict[str, Any]] = {}
+    for disposition in iter_jsonl(private_path(root, config) / "reports" / "pattern-dispositions.jsonl"):
+        pattern_id = disposition.get("pattern_id")
+        if isinstance(pattern_id, str):
+            pattern_dispositions[pattern_id] = disposition
     decisions_needed: list[dict[str, Any]] = []
     completed_overnight: list[dict[str, Any]] = []
     blocked_or_at_risk: list[dict[str, Any]] = []
     prepared_next: list[dict[str, Any]] = []
+    goal_statuses: list[dict[str, Any]] = []
     overnight_cutoff = now(config) - dt.timedelta(hours=24)
     for goal in sorted(goals, key=lambda value: value.get("updated_at", ""), reverse=True):
         directory = goal_dir(root, config, goal["goal_id"])
         execution = json_load(directory / "execution.json", {})
+        compliance = json_load(directory / "compliance.json", {})
+        test_report = json_load(directory / "test-report.json", {})
+        machine_run = json_load(directory / "machine-test-run.json", {})
+        merge_report = json_load(directory / "merge-assessment.json", {})
+        human_review = json_load(directory / "human-review.json", {})
+        evidence_files = [
+            name for name in (
+                "goal.json", "plan.md", "approval.json", "dispatch.json", "execution.json", "preflight.json",
+                "machine-test-run.json", "test-report.json", "merge-assessment.json", "human-review.json", "compliance.json",
+            )
+            if (directory / name).exists()
+        ]
+        workflow = workflow_records[goal["goal_id"]]
         detail = {
             "goal_id": goal["goal_id"],
             "title": goal["title"],
@@ -4420,21 +5363,63 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
             "updated_at": goal.get("updated_at"),
             "pr_url": execution.get("pr_url") if isinstance(execution, dict) else None,
             "summary": execution.get("summary") if isinstance(execution, dict) else None,
+            "workflow": workflow,
+            "allowed_dispositions": workflow["allowed_actions"],
+            "blocked_dispositions": workflow["blocked_actions"],
+            "evidence_references": [str((directory / name).relative_to(root)) for name in evidence_files],
         }
-        if goal["state"] == "review-ready":
-            decisions_needed.append({**detail, "decision": "Review the draft PR and record human disposition.", "recommendation": "Review evidence, then merge or request revisions."})
-        elif goal["state"] in {"proposed-plan", "awaiting-feedback"}:
-            prepared_next.append(detail)
-            decisions_needed.append({**detail, "decision": "Approve, revise, hold, or reject this exact plan version.", "recommendation": "Approve only when scope and business outcome are decision-complete."})
-        elif goal["state"] in {"blocked", "partially-completed"}:
+        stages = compliance.get("stages", {}) if isinstance(compliance, dict) else {}
+        goal_statuses.append(
+            {
+                **detail,
+                "active_run_ids": [run["run_id"] for run in active_runs if run.get("goal_id") == goal["goal_id"]],
+                "machine_evidence": {
+                    "status": machine_run.get("status") if isinstance(machine_run, dict) else None,
+                    "evidence_hash": machine_run.get("evidence_hash") if isinstance(machine_run, dict) else None,
+                    "commit_sha": machine_run.get("commit_sha") if isinstance(machine_run, dict) else None,
+                    "source_fingerprint": machine_run.get("source_fingerprint") if isinstance(machine_run, dict) else None,
+                },
+                "test": {
+                    "status": test_report.get("status") if isinstance(test_report, dict) else None,
+                    "commit_sha": test_report.get("commit_sha") if isinstance(test_report, dict) else None,
+                    "machine_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
+                },
+                "security": stages.get("security-review", {"status": "pending", "evidence": []}),
+                "merge": {
+                    "status": merge_report.get("status") if isinstance(merge_report, dict) else None,
+                    "head_sha": merge_report.get("head_sha") if isinstance(merge_report, dict) else None,
+                    "pr_url": merge_report.get("pr_url") if isinstance(merge_report, dict) else None,
+                },
+                "human_review": {
+                    "disposition": human_review.get("status") if isinstance(human_review, dict) else None,
+                    "actor": human_review.get("merged_by") if isinstance(human_review, dict) else None,
+                    "feedback_capture_id": human_review.get("feedback_capture_id") if isinstance(human_review, dict) else None,
+                },
+                "compliance": {
+                    "pending": workflow["pending_compliance"],
+                    "failed": workflow["failed_compliance"],
+                },
+            }
+        )
+        if workflow["blockers"] and goal["state"] not in REWORK_STATES:
             blocked_or_at_risk.append(detail)
-            decisions_needed.append({**detail, "decision": "Choose remediation, rescheduling, or cancellation.", "recommendation": "Resolve the recorded blocker before further dispatch."})
+        if goal["state"] == "review-ready":
+            decisions_needed.append({**detail, "decision": "Review the draft PR and record a human disposition.", "recommendation": "Review current source-bound evidence before choosing an allowed disposition."})
+        elif goal["state"] in {"proposed-plan", "approved", "awaiting-feedback"}:
+            prepared_next.append(detail)
+            decisions_needed.append({**detail, "decision": "Review this exact plan version or migrate its legacy state.", "recommendation": "Approve only when scope and business outcome are decision-complete."})
+        elif goal["state"] in REWORK_STATES:
+            blocked_or_at_risk.append(detail)
+            decisions_needed.append({**detail, "decision": "Choose an allowed rework, revision, or cancellation disposition.", "recommendation": "Resume only when feedback remains inside the approved plan; revise expanded scope."})
         elif goal["state"] == "completed":
             completed_at = parse_recorded_time(goal.get("completed_at"), config["timezone"])
             if completed_at is not None and completed_at >= overnight_cutoff:
                 completed_overnight.append(detail)
     for note in notes:
         if note.get("kind") == "question" and note.get("work_status") in {"open", "deferred"}:
+            review_after = parse_recorded_time(note.get("review_after"), config["timezone"])
+            if note.get("work_status") == "deferred" and review_after is not None and review_after > current_time:
+                continue
             decisions_needed.append(
                 {
                     "note_id": note.get("item_id"),
@@ -4442,11 +5427,24 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                     "state": note.get("work_status"),
                     "decision": "Answer or defer the open project question.",
                     "recommendation": "Answer only when it affects an upcoming approved goal.",
+                    "allowed_dispositions": [
+                        workflow_action("answered", "continuity-triage", f'.agents/continuity/bin/continuity --project-root "$PWD" note resolve {note["capture_id"]} {note["item_id"]} --resolution <answer> --actor <human>', human_required=True),
+                        workflow_action("deferred", "continuity-triage", f'.agents/continuity/bin/continuity --project-root "$PWD" note triage {note["capture_id"]} {note["item_id"]} --action defer --review-after <iso-date-time>', human_required=True),
+                        workflow_action("archived", "continuity-triage", f'.agents/continuity/bin/continuity --project-root "$PWD" note triage {note["capture_id"]} {note["item_id"]} --action archive', human_required=True),
+                    ],
                 }
             )
     for pattern in pattern_report["patterns"]:
         if pattern["occurrence_type"] not in {"change", "behavior", "risk", "failure"} and pattern["max_impact"] not in {"high", "critical"}:
             continue
+        disposition = pattern_dispositions.get(pattern["pattern_id"])
+        if disposition and disposition.get("pattern_hash") == canonical_hash(pattern):
+            if disposition.get("disposition") in {"accepted", "dismissed"}:
+                continue
+            if disposition.get("disposition") == "deferred":
+                review_after = parse_recorded_time(disposition.get("review_after"), config["timezone"])
+                if review_after is not None and review_after > current_time:
+                    continue
         decisions_needed.append(
             {
                 "pattern_id": pattern["pattern_id"],
@@ -4455,6 +5453,12 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                 "decision": "Accept the recommendation, defer it, or connect it to a roadmap item.",
                 "recommendation": pattern["recommendation"],
                 "evidence": pattern["note_ids"],
+                "allowed_dispositions": [
+                    workflow_action(disposition_name, "continuity-triage", f'.agents/continuity/bin/continuity --project-root "$PWD" note pattern-review {pattern["pattern_id"]} --disposition {disposition_name} --actor <human> --evidence <reason>{" --review-after <iso-date-time>" if disposition_name == "deferred" else ""}', human_required=True)
+                    for disposition_name in ("accepted", "deferred", "dismissed")
+                ] + [
+                    workflow_action("accepted-and-linked", "continuity-roadmap", f'.agents/continuity/bin/continuity --project-root "$PWD" note pattern-review {pattern["pattern_id"]} --disposition accepted --actor <human> --evidence <reason> --roadmap-id <roadmap-id>', human_required=True)
+                ],
             }
         )
     scheduler_health = scheduler_registration_status_for(root, config)
@@ -4469,6 +5473,18 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         "blocked_or_at_risk": blocked_or_at_risk,
         "prepared_next": prepared_next,
         "patterns": pattern_report["patterns"],
+        "workflow_status": goal_statuses,
+        "queue_counts": queue_counts,
+        "memory_health": {
+            "status": "healthy" if memory_report.get("healthy") else ("unhealthy" if memory_report else "not-audited"),
+            "report": memory_report,
+        },
+        "roadmap_health": {
+            "status": "healthy" if roadmap_report.get("healthy") else ("unhealthy" if roadmap_report else "not-audited"),
+            "report": roadmap_report,
+        },
+        "active_runs": active_runs,
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "no_action_required": not decisions_needed and not blocked_or_at_risk,
         "scheduler": scheduler_health,
     }
@@ -4505,6 +5521,8 @@ def report_project(args: argparse.Namespace) -> str:
     for item in decision_report["decisions_needed"]:
         identifier = item.get("goal_id") or item.get("note_id") or "project"
         lines.append(f"- **{identifier}** — {item.get('title', 'Operational decision')} — {item['decision']} Recommendation: {item['recommendation']}")
+        for action in item.get("allowed_dispositions", []):
+            lines.append(f"  - `{action.get('disposition')}`: `{action.get('command')}`")
     lines.extend(["", "## Completed overnight", ""])
     if not decision_report["completed_overnight"]:
         lines.append("- No work was recorded as human-complete during this reporting window.")
@@ -4631,9 +5649,31 @@ def build_parser() -> argparse.ArgumentParser:
     notes = note_sub.add_parser("list")
     notes.add_argument("--kind", choices=sorted(NOTE_KINDS))
     notes.set_defaults(handler=note_list)
+    queue = note_sub.add_parser("queue")
+    queue.add_argument("--queue", choices=["knowledge", "questions", "documentation", "backlog", "planning"])
+    queue.add_argument("--status", choices=["eligible", "all"], default="eligible")
+    queue.set_defaults(handler=note_queue)
+    resolve = note_sub.add_parser("resolve")
+    resolve.add_argument("capture_id")
+    resolve.add_argument("item_id")
+    resolve.add_argument("--resolution", required=True)
+    resolve.add_argument("--actor", default="human")
+    resolve.set_defaults(handler=note_resolve)
+    migrate_links = note_sub.add_parser("migrate-links")
+    migrate_links.add_argument("--actor", default="human")
+    migrate_links.set_defaults(handler=note_migrate_links)
     patterns = note_sub.add_parser("patterns")
     patterns.add_argument("--min-count", type=int, default=2)
     patterns.set_defaults(handler=note_patterns)
+    pattern_review = note_sub.add_parser("pattern-review")
+    pattern_review.add_argument("pattern_id")
+    pattern_review.add_argument("--disposition", choices=["accepted", "deferred", "dismissed"], required=True)
+    pattern_review.add_argument("--actor", default="human")
+    pattern_review.add_argument("--evidence", action="append", required=True)
+    pattern_review.add_argument("--roadmap-id", action="append")
+    pattern_review.add_argument("--review-after")
+    pattern_review.add_argument("--min-count", type=int, default=2)
+    pattern_review.set_defaults(handler=note_pattern_review)
     share = note_sub.add_parser("share")
     share_sub = share.add_subparsers(dest="share_command", required=True)
     prepare = share_sub.add_parser("prepare")
@@ -4782,11 +5822,20 @@ def build_parser() -> argparse.ArgumentParser:
     for name in ("hold", "cancel", "resume"):
         transition = goal_sub.add_parser(name)
         transition.add_argument("goal_id")
+        if name == "resume":
+            transition.add_argument("--authorization-text")
+            transition.add_argument("--actor", default="human")
+            transition.add_argument("--schedule")
+        elif name == "cancel":
+            transition.add_argument("--actor", default="human")
+            transition.add_argument("--reason")
         transition.set_defaults(handler=goal_transition, transition=name)
     feedback = goal_sub.add_parser("feedback")
     feedback.add_argument("goal_id")
     feedback.add_argument("--author", default="user")
     feedback.add_argument("--text", required=True)
+    feedback.add_argument("--sentiment", choices=sorted(NOTE_SENTIMENTS), default="unknown")
+    feedback.add_argument("--perspective", choices=sorted(NOTE_PERSPECTIVES), default="unknown")
     feedback.set_defaults(handler=goal_feedback)
     goals = goal_sub.add_parser("list")
     goals.add_argument("--state", choices=sorted(GOAL_STATES))
@@ -4858,9 +5907,12 @@ def build_parser() -> argparse.ArgumentParser:
     human_merge.add_argument("goal_id")
     human_merge.add_argument("--pr-url", required=True)
     human_merge.add_argument("--merged-by", required=True)
+    human_merge.add_argument("--disposition", choices=["approved", "changes-requested", "merged", "closed"], required=True)
     human_merge.add_argument("--merge-commit")
     human_merge.add_argument("--evidence", action="append", required=True)
     human_merge.add_argument("--actor", default="human")
+    human_merge.add_argument("--sentiment", choices=sorted(NOTE_SENTIMENTS), default="unknown")
+    human_merge.add_argument("--perspective", choices=sorted(NOTE_PERSPECTIVES), default="unknown")
     human_merge.set_defaults(handler=merge_record_human)
 
     execution = top.add_parser("execution")
@@ -4882,6 +5934,12 @@ def build_parser() -> argparse.ArgumentParser:
     project.set_defaults(handler=report_project)
     morning = report_sub.add_parser("morning")
     morning.set_defaults(handler=report_morning)
+
+    workflow = top.add_parser("workflow")
+    workflow_sub = workflow.add_subparsers(dest="command", required=True)
+    workflow_status_command = workflow_sub.add_parser("status")
+    workflow_status_command.add_argument("--goal-id")
+    workflow_status_command.set_defaults(handler=workflow_status)
 
     project_admin = top.add_parser("project")
     project_admin_sub = project_admin.add_subparsers(dest="command", required=True)

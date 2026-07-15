@@ -1,6 +1,6 @@
 ---
 name: continuity-merge
-description: Assess PR readiness, merge safety, base freshness, human-review evidence, and post-review merge records for Continuity goals. Use before push or PR handoff, after tests pass, when preparing a branch for review, or when recording that a human reviewed or merged a PR.
+description: Assess PR readiness, merge safety, base freshness, human-review evidence, and post-review dispositions for Continuity goals. Use after the final tested commit is pushed to a draft PR, or when recording that a human approved, requested changes, merged, or closed a PR.
 ---
 
 # Continuity Merge
@@ -20,7 +20,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 ## Workflow
 
 1. Run `continuity project doctor`.
-2. Confirm the latest `$continuity-test` report passed or record why PR handoff is blocked.
+2. Confirm the latest `$continuity-test` report passed for the current clean local commit, and that the same commit is pushed as the draft PR head.
 3. Assess merge safety:
 
 ```text
@@ -34,14 +34,19 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 
 4. If the assessment fails, keep the PR draft or blocked and route unrelated follow-up into notes, roadmap, or a later goal.
 5. If the assessment passes, hand off for human PR review. Completion may be review-ready, but merge remains a human action.
-6. After a human review or merge, record the evidence. A review without a merge leaves the goal `review-ready`; a recorded merge commit moves it to `completed`:
+6. After human review, record exactly one disposition: `approved` leaves the goal `review-ready`; `changes-requested` archives the attempt, starts a fresh execution manifest, invalidates downstream evidence, and opens controlled rework; `merged` moves it to `completed`; `closed` cancels it. Fresh source-bound evidence is mandatory for `approved` and `merged`. Record `changes-requested` or `closed` even when delivery evidence is stale, preserving the stale-evidence reasons because neither disposition authorizes delivery.
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> \
   --pr-url <pull-request-url> \
   --merged-by "<human identity>" \
-  --merge-commit <sha-if-merged> \
+  --disposition <approved|changes-requested|merged|closed> \
+  --merge-commit <sha-only-if-merged> \
   --evidence "<review or merge evidence>"
 ```
 
 Record only facts that happened. If the human has not reviewed or merged, leave `human-review` pending.
+
+## Handoff
+
+Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Follow only `allowed_actions`; report `blocked_actions` and their evidence failures without attempting them. `changes-requested` returns to `$continuity-dispatch` for explicit in-scope resume or `$continuity-plan` for scope revision; no review disposition authorizes auto-merge.

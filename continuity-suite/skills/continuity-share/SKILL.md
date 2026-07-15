@@ -23,3 +23,9 @@ Read `.agents/references/continuity-contract.md`, `.agents/references/developmen
 - Packet versions are immutable after approval. Any edit produces a new version and invalidates prior approval.
 - Every packet sets `execution_authorized: false`; packets never update another developer's private state or authorize code, systems, goals, roadmap truth, or memory.
 - Never force-push, auto-merge, embed credentials, publish from a dirty checkout, or bypass remote, authentication, privacy, or security checks.
+
+Imported packet items become private atomic captures with stable packet provenance and `execution_authorized: false`; they enter the same `note triage`, search, pattern, memory, and planning flow as local captures.
+
+## Handoff
+
+Run `continuity workflow status` on entry and exit. A successful import hands off to `$continuity-triage`; a prepared or published packet remains a sharing workflow and cannot advance a product goal.

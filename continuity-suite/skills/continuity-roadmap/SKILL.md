@@ -24,3 +24,7 @@ Read `.agents/references/continuity-contract.md`, `.agents/references/developmen
 - Surface cycles, orphans, unknown dependencies, contradictory note links, stale references, invalid dates, and missing milestone health.
 - Do not add a product route, hosted endpoint, remote script, write API, or persistent browser token.
 - Before delivery, run repository validation, security review, merge-safety review, and `continuity roadmap production-audit --artifact <build-or-package>` when application artifacts exist.
+
+## Handoff
+
+Run `continuity workflow status` on entry and exit. Planning receives exact roadmap IDs and health evidence. Execution may update roadmap records only when the approved goal hash names the corresponding structured impact; otherwise return the discovery to triage or planning.

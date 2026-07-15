@@ -32,15 +32,21 @@ Verify the isolated worktree, integration branch and remote base, scope, approva
    Follow the approved delivery frontier: start only slices whose blockers are complete, and never interpret an unresolved decision-map item as implementation discretion.
 2. Add focused tests and keep types, interfaces, migrations, compatibility, accessibility, performance, and privacy correct as applicable.
 3. Record alignment checkpoints after major phases. Route discoveries into feedback or new candidates.
-4. Apply `$continuity-test` for deliberate code review, configured validation, targeted regressions, configured security commands, and evidence-based security review.
-5. Apply `$continuity-merge` to refresh or verify the integration branch, assess conflicts and mergeability, and rerun affected checks before PR handoff.
-6. Record failures as findings, blockers, or partial completion instead of pushing them into review.
-7. Update approved documentation, roadmap, and project memory; audit for drift and contradictions.
-8. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, and exclusions. Scan product artifacts to prove the roadmap sidecar remains excluded.
-9. Record evidence in every compliance stage. A failed or pending gate prevents completion and review-ready status.
+4. Run candidate tests while implementation is still changing; fix findings and rerun focused checks.
+5. Update approved documentation, roadmap, project memory, and the six execution evidence artifacts. Audit for drift and contradictions.
+6. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, and exclusions. Scan product artifacts to prove the roadmap sidecar remains excluded.
+7. Commit every implementation and evidence artifact. The worktree must be clean before final evidence is enrolled.
+8. Apply `$continuity-test` for the final source-bound test run and evidence record. Any tracked or untracked change, commit, branch change, plan change, behavior change, or configured-command change makes it stale.
+9. Push the exact tested commit and create or update the draft PR.
+10. Apply `$continuity-merge` against the tested local head, remote branch, PR head, and configured base.
+11. Record evidence in every compliance stage and mark `review-ready`. A failed or pending gate prevents review handoff.
 
 Use `goal gate`, `execution checkpoint`, and `run update` to record evidence. When recording `running`, provide the actual isolated `--worktree` and `--branch`. When completing, provide the PR URL, summary, and each report with `--artifact <absolute-path>`. Stop safely at the runtime limit.
 
 ## Delivery
 
 Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark `review-ready` only after `$continuity-test`, `$continuity-merge`, and all pre-human-review compliance stages pass. Stop there for next-business-day human disposition; only recorded human merge evidence may mark the goal `completed`. Never auto-merge or force-push.
+
+## Handoff
+
+Run `continuity workflow status --goal-id <goal-id>` before preflight, after each major stage, and on exit. Follow its next skill and blockers. Never continue from `changes-requested`, `blocked`, or `partially-completed` until `$continuity-dispatch` records a valid human disposition.

@@ -217,6 +217,7 @@ Use these skill calls in normal work:
 ```text
 Morning:
   $continuity-report
+  continuity workflow status
 
 During the day:
   $continuity-capture
@@ -246,6 +247,15 @@ feedback -> $continuity-capture -> $continuity-triage -> memory candidate -> app
 
 Raw feedback remains private and non-authorizing. Trusted-scope memory contains only curated, sanitized, promoted knowledge. Explicit private/all indexing also makes raw captures searchable by text and local concept similarity without treating them as canonical truth.
 
+Use the machine handoff before and after any skill:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --goal-id <goal-id>
+```
+
+It reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. It never crosses an approval or review boundary automatically.
+
 ## Note Lifecycle
 
 Every captured atomic note has its own timestamps and work status:
@@ -273,7 +283,9 @@ Use `routing_status` to understand where the note went. Use `work_status` to und
 
 Use `memory similar "<situation>" --scope all` for local vector-space concept retrieval across canonical memory and private captures. Use `note patterns` to aggregate repeated stakeholder/theme occurrences and produce recommendations such as preserving repeated positive outcomes, mitigating repeated negative signals, or designing revision-prone work for adaptability. These outputs inform triage and planning only.
 
-Notes do not move to a branch or PR directly. A note that requires action becomes useful for execution only after triage connects it to roadmap context and `$continuity-plan` creates an approval-ready goal. When a goal is created from `source_note_ids`, those notes move to `planned`. Approval moves them to `queued`; dispatch moves them to `dispatched`; execution updates move them through `running`, `validating`, `review-ready`, `partially-completed`, `blocked`, or `cancelled`. Human merge evidence moves review-ready work to `completed`.
+Notes do not move to a branch or PR directly. A note that requires action becomes useful for execution only after triage connects it to roadmap context and `$continuity-plan` creates an approval-ready goal. When a goal is created from `source_note_ids`, each note gains a per-goal lifecycle link. Its displayed `work_status` is derived across all current links, so hold, resume, cancellation, revision, rework, multi-goal use, and completion preserve history without disagreeing with the goal records. Human merge evidence moves review-ready work to `completed`.
+
+Use `note queue --queue <knowledge|questions|documentation|backlog|planning>` for current work. Files under `.continuity/private/queues/` are append-only audit snapshots, not authoritative planning inputs. Use `note resolve` for an answered standalone question and `note pattern-review` to record a human pattern disposition. Deferred patterns require `--review-after <iso-date-time>`. Accepted and dismissed patterns remain out of morning decisions until their evidence hash changes; deferred questions and patterns return when due. If `project doctor` reports `legacy_note_ids`, run `note migrate-links --actor <identity>` and confirm a second run migrates zero items.
 
 If a note is too separate from the current branch or PR, keep it open, deferred, or roadmap-linked for a later pass. The user can later retrieve incomplete roadmap-linked work and manually run:
 
@@ -388,7 +400,9 @@ $continuity-merge
 
 `test run` executes configured validation, goal-specific, and security commands directly without shell syntax. It verifies that the worktree belongs to the enrolled repository and is on the branch recorded for the goal, then records argv, output, exit status, approved plan hash, behavior hash, commit, repository identity, and a source fingerprint that includes tracked diffs and untracked-file content. `test record --status passed` and merge assessment fail when that evidence is absent or any binding has changed.
 
-`$continuity-merge` assesses PR readiness and merge safety after the test report passes. It checks branch focus, base freshness, working tree cleanliness, PR evidence, and compliance status:
+The enforced delivery order is: preflight; isolated worktree; implementation; candidate checks; documentation, memory, roadmap, and evidence artifacts; commit; final source-bound test run; push and draft PR; PR/head/base-bound merge assessment; `review-ready`; human disposition. Any source or branch change after the final run makes its evidence stale.
+
+`$continuity-merge` assesses PR readiness and merge safety only after the final tested commit is pushed to a draft PR. It checks branch focus, base freshness, working tree cleanliness, remote and PR head identity, PR base, evidence, and compliance status:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" merge assess <goal-id> --branch <branch> --pr-url <pull-request-url> --update-gate
@@ -397,11 +411,19 @@ $continuity-merge
 After overnight delivery passes every gate, record `review-ready` and stop. After a human reviews or merges the PR, record that fact separately:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --evidence "<review evidence>"
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --merge-commit <sha> --evidence "<merge evidence>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition approved --evidence "<review evidence>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition changes-requested --evidence "<requested change>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition merged --merge-commit <sha> --evidence "<merge evidence>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition closed --evidence "<closure reason>"
 ```
 
-Review without a merge leaves the goal `review-ready`. A recorded merge commit moves it to `completed`. Continuity can report readiness, failures, and missing evidence. It must not auto-merge, force-push, or treat an agent's judgment as human review.
+`approved` leaves the goal `review-ready`. `changes-requested` archives the attempt, creates a fresh execution manifest, and invalidates downstream gates. `approved` and `merged` require current source-bound evidence. `changes-requested` and `closed` remain recordable when that evidence is stale because they do not authorize delivery; their review records retain the stale-evidence reasons. If no PR disposition can be recorded, `goal cancel <goal-id> --actor <identity> --reason <reason>` provides an audited review-ready closure fallback. In-scope rework resumes only with explicit authorization naming the same goal and approved plan version:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" goal resume <goal-id> --actor "<identity>" --authorization-text "Resume <goal-id> under approved plan v<version>"
+```
+
+Expanded scope uses `goal revise` and fresh approval. `merged` moves the goal to `completed`; `closed` cancels it. Continuity must not auto-merge, force-push, or treat an agent's judgment as human review.
 
 ## Verify An Install
 

@@ -321,6 +321,7 @@ def main() -> int:
 - Integration branch: use the value in `.continuity/project.json`; project configuration may change it through the guided workflow.
 - Enforce development assurance standard version `2` from `.agents/references/development-assurance-standard.md`; stop when configuration, evidence, or an installed skill is incompatible.
 - Start configuration and workflow routing with `$continuity`; apply the generated `$continuity-local` behavior skill with every task-specific continuity skill.
+- Use `continuity workflow status [--goal-id <goal-id>]` before and after every task skill as the machine handoff for stage, blockers, next skill, human requirements, and allowed commands.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/continuity/bin/continuity`.
 - Treat `AGENTS.md` and `.agents/` as the canonical cross-surface contract. Use the generated Claude Code, Cursor, or Windsurf adapters selected in `.continuity/project.json`; do not maintain divergent copies by hand.
 - Treat `.continuity/scheduler.json` as the supervisor handoff. Record the provider task ID and workspace roots with `scheduler register`; every sweep must refresh supervisor liveness, and project doctor must fail on missing, stale, or unhealthy registration.
@@ -335,8 +336,8 @@ def main() -> int:
 - Permit one code-changing goal at a time in this project; use isolated worktrees and goal-focused branches.
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
 - Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
-- Use `$continuity-test` to execute configured validation and security commands and bind their results to the approved plan and current source fingerprint before recording code-review and security evidence.
-- Use `$continuity-merge` for merge-safety assessment and later human-review or merge records. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
+- Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts before committing and running the final source-bound `$continuity-test`. Push that exact tested commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
+- Record human review as `approved`, `changes-requested`, `merged`, or `closed`. In-scope requested changes require explicit resume authorization naming the goal and approved plan version; expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.
 {AGENTS_END}"""

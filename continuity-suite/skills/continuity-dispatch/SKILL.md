@@ -40,3 +40,9 @@ Use `goal revise <goal-id> --goal-file <revision.json> --author <identity> --sum
 Before dispatch, require the project-local manifest to have both `continuity_enabled` and `execution_enabled`, then enforce approval hash, dependencies, integration branch, `AGENTS.md`, remote requirements, compliance evidence, runtime allowance, and the project lock. Allow different projects concurrently but one code-changing goal per project. Manual start never bypasses guardrails.
 
 For scheduled work, require the same-date review to have succeeded and pass the supervisor-issued claim token, exact idempotency key, action, and due goal to `scheduler run-start`. The start must atomically consume that short-lived claim and must fail closed if portfolio active-plus-reserved capacity is exhausted. Send heartbeats and finish the run explicitly. Once execution begins, the assigned task must execute `continuity test run`, use `$continuity-test` to record its source-bound machine evidence before PR handoff, and use `$continuity-merge` before marking merge safety passed. Successful overnight delivery ends at `review-ready`; failed quality or merge-safety reports keep the goal validating, blocked, or partially completed. Only later human merge evidence moves it to `completed`.
+
+For `changes-requested`, `blocked`, or `partially-completed`, resume only with explicit human authorization naming the goal and approved plan version. In-scope rework archives the prior attempt, invalidates downstream evidence, and requeues the same goal. Scope expansion requires `goal revise` and fresh approval. Cancellation remains available and audited.
+
+## Handoff
+
+Run `continuity workflow status --goal-id <goal-id>` before every transition and after it. Dispatch only when the status lists that action. A dispatched goal hands off to `$continuity-execute`; a human-required or blocked state remains with the user and morning report.

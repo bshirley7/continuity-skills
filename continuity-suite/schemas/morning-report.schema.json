@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Continuity morning decision report",
   "type": "object",
-  "required": ["schema_version", "project_id", "generated_at", "decisions_needed", "completed_overnight", "blocked_or_at_risk", "prepared_next", "patterns", "no_action_required", "scheduler"],
+  "required": ["schema_version", "project_id", "generated_at", "decisions_needed", "completed_overnight", "blocked_or_at_risk", "prepared_next", "patterns", "workflow_status", "queue_counts", "memory_health", "roadmap_health", "active_runs", "behavior_configuration_hash", "no_action_required", "scheduler"],
   "properties": {
     "schema_version": {"const": 1},
     "project_id": {"type": "string", "minLength": 1},
@@ -12,6 +12,23 @@
     "blocked_or_at_risk": {"type": "array", "items": {"type": "object"}},
     "prepared_next": {"type": "array", "items": {"type": "object"}},
     "patterns": {"type": "array", "items": {"type": "object"}},
+    "workflow_status": {"type": "array", "items": {"type": "object"}},
+    "queue_counts": {
+      "type": "object",
+      "required": ["knowledge", "questions", "documentation", "backlog", "planning"],
+      "properties": {
+        "knowledge": {"type": "integer", "minimum": 0},
+        "questions": {"type": "integer", "minimum": 0},
+        "documentation": {"type": "integer", "minimum": 0},
+        "backlog": {"type": "integer", "minimum": 0},
+        "planning": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "memory_health": {"type": "object"},
+    "roadmap_health": {"type": "object"},
+    "active_runs": {"type": "array", "items": {"type": "object"}},
+    "behavior_configuration_hash": {"type": ["string", "null"]},
     "no_action_required": {"type": "boolean"},
     "scheduler": {"type": "object"}
   },

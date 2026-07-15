@@ -71,3 +71,7 @@ Always apply `$continuity-local` after the selected task skill. If it is missing
 Planning patterns are local capabilities, not imported authorities. Their artifacts stay non-authorizing, enter the goal hash, and cannot publish to an external tracker without separate explicit human approval.
 
 Roadmap IDs and structured roadmap impact are approval-hash inputs. Raw notes stay private; shared packets remain non-authorizing even after a human-reviewed merge.
+
+## Machine handoff
+
+Run `continuity workflow status` before routing and again after the selected skill finishes. For goal-specific work, use `continuity workflow status --goal-id <goal-id>`. Treat its stage, blockers, next skill, human requirements, and command templates as the shared lifecycle contract; never cross a human-required action automatically.

@@ -44,6 +44,8 @@ $continuity-report    summarize status, blockers, memory, roadmap, and evidence
 $continuity-share     prepare sanitized note packets for explicit sharing
 ```
 
+Every skill uses `continuity workflow status [--goal-id <goal-id>]` as its shared machine handoff. The command identifies the current stage, blockers, next skill, human requirements, currently valid disposition templates, and blocked actions with their live evidence failures without crossing human approval gates.
+
 Notes and feedback are captured first with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata. Private search, similarity, and pattern review can use those captures immediately; only reviewed and promoted records enter canonical trusted project memory.
 
-Overnight code delivery stops at `review-ready`. The morning report surfaces decisions, completed work, and blockers; only recorded human merge evidence marks a goal `completed`.
+Overnight code delivery stops at `review-ready`. The morning report surfaces per-goal evidence and exact human dispositions: approve, request changes, record merge, or close. In-scope requested changes reopen the same goal through explicit authorization; expanded scope requires revision and fresh approval. Only recorded human merge evidence marks a goal `completed`.

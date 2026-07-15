@@ -27,3 +27,9 @@ The morning report is mandatory even when no goal ran. Lead with `decisions_need
 For a portfolio report, discover project-local manifests beneath developer-configured workspace roots. Run each report from that repository using its installed skill and CLI. Aggregate only sanitized summaries; do not centralize raw captures, private ledgers, approvals, or locks.
 
 Never claim completion, mergeability, security, or review readiness without evidence. Publish a completion report immediately when work ends and preserve later feedback for the next cycle.
+
+Every reported decision must include `allowed_dispositions` copied from the machine workflow contract or a valid note disposition command. Include `blocked_dispositions` and exact evidence failures separately; never present them as executable. Honor future `review_after` dates and the latest matching pattern disposition so deferred, accepted, or dismissed decisions do not recur prematurely. Include per-goal workflow stage, current machine evidence, security and merge state, compliance blockers, evidence references, queue counts, memory and roadmap health, and active scheduler runs. Do not emit prose-only remediation.
+
+## Handoff
+
+Run `continuity workflow status` before generating a report and after any human disposition is recorded. Reports recommend the returned next skill and exact command template but never execute a human-required action.

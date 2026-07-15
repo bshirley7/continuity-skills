@@ -256,6 +256,35 @@ unresolved_gaps: []
         stakeholder = next(item for item in patterns if item["axis"] == "stakeholder:client-a")
         self.assertEqual(stakeholder["count"], 3)
         self.assertIn("adaptability", stakeholder["recommendation"])
+        disposition = json.loads(
+            self.cli(
+                "note", "pattern-review", stakeholder["pattern_id"], "--disposition", "accepted",
+                "--actor", "fixture-user", "--evidence", "Adaptability is a current planning concern.",
+            ).stdout
+        )
+        self.assertEqual(len(disposition["pattern_hash"]), 64)
+        self.assertEqual(disposition["disposition"], "accepted")
+        accepted_morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertNotIn(stakeholder["pattern_id"], {item.get("pattern_id") for item in accepted_morning["decisions_needed"]})
+        self.cli(
+            "note", "pattern-review", stakeholder["pattern_id"], "--disposition", "deferred",
+            "--actor", "fixture-user", "--evidence", "Review later.", expected=2,
+        )
+        deferred = json.loads(
+            self.cli(
+                "note", "pattern-review", stakeholder["pattern_id"], "--disposition", "deferred",
+                "--actor", "fixture-user", "--evidence", "Review later.", "--review-after", "2099-01-01T09:00:00-06:00",
+            ).stdout
+        )
+        self.assertEqual(deferred["review_after"], "2099-01-01T09:00:00-06:00")
+        deferred_morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertNotIn(stakeholder["pattern_id"], {item.get("pattern_id") for item in deferred_morning["decisions_needed"]})
+        self.cli(
+            "note", "pattern-review", stakeholder["pattern_id"], "--disposition", "deferred",
+            "--actor", "fixture-user", "--evidence", "Review is due.", "--review-after", "2020-01-01T09:00:00-06:00",
+        )
+        due_morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertIn(stakeholder["pattern_id"], {item.get("pattern_id") for item in due_morning["decisions_needed"]})
         indexed = json.loads(self.cli("memory", "index", "--scope", "all").stdout)
         self.assertGreaterEqual(indexed["entries"], 5)
         similar = json.loads(self.cli("memory", "similar", "changing customer requirements", "--scope", "all").stdout)
@@ -280,10 +309,97 @@ unresolved_gaps: []
         self.cli("note", "triage", capture["capture_id"], item["item_id"], "--kind", "explicit-instruction", "--action", "promote")
         queue = self.root / ".continuity" / "private" / "queues" / "planning.jsonl"
         self.assertEqual(len(queue.read_text(encoding="utf-8").splitlines()), 1)
+        self.cli(
+            "note", "triage", capture["capture_id"], capture["items"][2]["item_id"],
+            "--kind", "question", "--action", "defer", expected=2,
+        )
         deferred = json.loads(
-            self.cli("note", "triage", capture["capture_id"], capture["items"][2]["item_id"], "--kind", "question", "--action", "defer", "--review-after", "2026-07-21").stdout
+            self.cli("note", "triage", capture["capture_id"], capture["items"][2]["item_id"], "--kind", "question", "--action", "defer", "--review-after", "2099-07-21").stdout
         )
         self.assertEqual(deferred["work_status"], "deferred")
+        deferred_question = capture["items"][2]["item_id"]
+        morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertNotIn(deferred_question, {item.get("note_id") for item in morning["decisions_needed"]})
+
+    def test_derived_note_queue_ignores_stale_snapshots_and_resolves_questions(self) -> None:
+        capture = self.create_capture()
+        instruction = capture["items"][3]
+        self.cli("note", "triage", capture["capture_id"], instruction["item_id"], "--action", "promote")
+        self.assertEqual(len(json.loads(self.cli("note", "queue", "--queue", "planning").stdout)), 1)
+        goal = self.create_goal("Queue truth", [instruction["item_id"]])
+        self.assertEqual(json.loads(self.cli("note", "queue", "--queue", "planning").stdout), [])
+        queue_history = self.root / ".continuity" / "private" / "queues" / "planning.jsonl"
+        self.assertTrue(queue_history.read_text(encoding="utf-8").strip())
+        question = capture["items"][2]
+        self.cli("note", "triage", capture["capture_id"], question["item_id"], "--kind", "question", "--action", "route")
+        resolved = json.loads(
+            self.cli("note", "resolve", capture["capture_id"], question["item_id"], "--resolution", "Keep it internal.", "--actor", "fixture-user").stdout
+        )
+        self.assertEqual(resolved["work_status"], "completed")
+        self.assertEqual(json.loads(self.cli("note", "queue", "--queue", "questions").stdout), [])
+        self.assertEqual(goal["state"], "awaiting-feedback")
+
+    def test_note_status_is_derived_across_hold_resume_cancel_and_revision(self) -> None:
+        capture = self.create_capture()
+        note_id = capture["items"][3]["item_id"]
+        first = self.create_goal("First note goal", [note_id])
+        second = self.create_goal("Second note goal", [note_id])
+        self.approve(first)
+        self.cli("goal", "hold", first["goal_id"])
+        held = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == note_id)
+        self.assertEqual(held["work_status"], "planned")
+        self.cli("goal", "resume", first["goal_id"])
+        self.cli("goal", "cancel", second["goal_id"])
+        linked = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == note_id)
+        self.assertEqual(linked["work_status"], "queued")
+        self.cli("goal", "cancel", first["goal_id"])
+        cancelled = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == note_id)
+        self.assertEqual(cancelled["work_status"], "cancelled")
+        third = self.create_goal("Revision removes note", [note_id])
+        revision = self.root / "remove-source-note.json"
+        self.write_json(revision, {"source_note_ids": ["replacement-note-id"]})
+        self.cli(
+            "goal", "revise", third["goal_id"], "--goal-file", str(revision),
+            "--author", "fixture-user", "--summary", "Move the note to another aligned goal",
+        )
+        revised_note = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == note_id)
+        self.assertEqual(revised_note["goal_links"][third["goal_id"]]["state"], "unlinked")
+        self.assertIn(third["goal_id"], revised_note["related_goal_ids"])
+        standalone_note_id = capture["items"][0]["item_id"]
+        fourth = self.create_goal("Standalone revision", [standalone_note_id])
+        self.write_json(revision, {"source_note_ids": []})
+        self.cli(
+            "goal", "revise", fourth["goal_id"], "--goal-file", str(revision),
+            "--author", "fixture-user", "--summary", "Remove the only source note",
+        )
+        standalone = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == standalone_note_id)
+        self.assertEqual(standalone["work_status"], "open")
+        self.assertEqual(standalone["goal_links"][fourth["goal_id"]]["state"], "unlinked")
+
+    def test_legacy_note_links_block_resolution_and_migrate_idempotently(self) -> None:
+        capture = self.create_capture()
+        note_id = capture["items"][2]["item_id"]
+        goal = self.create_goal("Legacy note migration", [note_id])
+        capture_path = next((self.root / ".continuity" / "private" / "captures").glob("**/*.json"))
+        stored = json.loads(capture_path.read_text(encoding="utf-8"))
+        item = next(value for value in stored["items"] if value["item_id"] == note_id)
+        item.pop("goal_links", None)
+        self.write_json(capture_path, stored)
+        self.cli(
+            "note", "resolve", capture["capture_id"], note_id,
+            "--resolution", "Should remain attached to active work.", expected=2,
+        )
+        doctor = json.loads(self.cli("project", "doctor").stdout)
+        self.assertIn(note_id, doctor["legacy_note_ids"])
+        migrated = json.loads(self.cli("note", "migrate-links", "--actor", "fixture-user").stdout)
+        self.assertEqual(migrated["migrated"], 1)
+        self.assertEqual(migrated["remaining_legacy_note_ids"], [])
+        repeated = json.loads(self.cli("note", "migrate-links", "--actor", "fixture-user").stdout)
+        self.assertEqual(repeated["migrated"], 0)
+        persisted = json.loads(capture_path.read_text(encoding="utf-8"))
+        migrated_item = next(value for value in persisted["items"] if value["item_id"] == note_id)
+        self.assertEqual(migrated_item["goal_links"][goal["goal_id"]]["state"], "awaiting-feedback")
+        self.assertIn("goal_links_migrated_at", migrated_item)
 
     def test_memory_index_search_brief_and_default_privacy(self) -> None:
         indexed = json.loads(self.cli("memory", "index").stdout)
@@ -440,17 +556,28 @@ unresolved_gaps: []
         self.assertEqual(lock["goal_id"], first["goal_id"])
 
     def test_completion_requires_all_responsible_stages(self) -> None:
-        goal = self.create_goal()
+        capture = self.create_capture()
+        source_note_id = capture["items"][3]["item_id"]
+        goal = self.create_goal(source_note_ids=[source_note_id])
+        (self.root / "capture.json").unlink()
+        (self.root / "goal-Improve-bridge-safety.json").unlink()
         self.approve(goal)
         self.cli("goal", "start", goal["goal_id"])
+        self.git("checkout", "-b", "continuity/test")
         self.cli("run", "update", goal["goal_id"], "--state", "running", "--branch", "continuity/test")
         self.cli("run", "update", goal["goal_id"], "--state", "review-ready", expected=2)
+        self.cli("test", "run", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/test")
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "Evidence passed",
+            "--worktree", str(self.root), "--branch", "continuity/test",
+            "--code-review-evidence", "diff reviewed", "--security-evidence", "trust boundaries reviewed", "--update-gates",
+        )
+        self.cli(
+            "merge", "assess", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/test",
+            "--evidence", "clean branch reviewed", "--update-gate",
+        )
         stages = [
             "implementation",
-            "code-review",
-            "validation",
-            "security-review",
-            "merge-safety",
             "documentation",
             "memory-impact",
             "roadmap-impact",
@@ -465,10 +592,12 @@ unresolved_gaps: []
         self.assertEqual(goal_record["state"], "review-ready")
         self.cli(
             "merge", "record-human", goal["goal_id"], "--pr-url", "https://github.com/example/project/pull/1",
-            "--merged-by", "fixture-user", "--merge-commit", "abc123", "--evidence", "Human reviewed and merged PR #1",
+            "--merged-by", "fixture-user", "--disposition", "merged", "--merge-commit", "abc123", "--evidence", "Human reviewed and merged PR #1",
         )
         completed_goal = json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json").read_text())
         self.assertEqual(completed_goal["state"], "completed")
+        completed_note = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == source_note_id)
+        self.assertEqual(completed_note["work_status"], "completed")
         self.cli("goal", "start", goal["goal_id"], expected=2)
 
     def test_quality_and_merge_reports_update_gates_and_morning_status(self) -> None:
@@ -533,6 +662,32 @@ unresolved_gaps: []
         self.assertEqual(compliance["stages"]["code-review"]["status"], "passed")
         self.assertEqual(compliance["stages"]["validation"]["status"], "passed")
         self.assertEqual(compliance["stages"]["security-review"]["status"], "passed")
+        fake_bin = self.root.parent / "fake-bin"
+        fake_bin.mkdir()
+        fake_gh = fake_bin / "gh"
+        fake_gh.write_text(
+            "#!/bin/sh\nprintf '%s\\n' '{\"state\":\"OPEN\",\"headRefName\":\"continuity/quality-gates\",\"baseRefName\":\"main\",\"headRefOid\":\"deadbeef\"}'\n",
+            encoding="utf-8",
+        )
+        fake_gh.chmod(0o755)
+        original_path = os.environ.get("PATH", "")
+        pr_config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+        pr_config["require_pr"] = True
+        self.write_json(self.root / ".continuity" / "config.json", pr_config)
+        os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
+        try:
+            mismatch = json.loads(
+                self.cli(
+                    "merge", "assess", goal["goal_id"], "--branch", "continuity/quality-gates",
+                    "--worktree", str(self.root), "--pr-url", "https://github.com/example/project/pull/1",
+                ).stdout
+            )
+            self.assertEqual(mismatch["status"], "failed")
+            self.assertIn("PR head commit does not match the tested local commit", mismatch["failures"])
+        finally:
+            os.environ["PATH"] = original_path
+            pr_config["require_pr"] = False
+            self.write_json(self.root / ".continuity" / "config.json", pr_config)
         merge = json.loads(
             self.cli(
                 "merge",
@@ -559,6 +714,11 @@ unresolved_gaps: []
         self.assertEqual(review_ready["state"], "review-ready")
         morning = json.loads(self.cli("report", "morning").stdout)
         self.assertEqual(morning["decisions_needed"][0]["goal_id"], goal["goal_id"])
+        self.assertEqual(morning["workflow_status"][0]["workflow"]["current_stage"], "human-review")
+        self.assertEqual({item["disposition"] for item in morning["decisions_needed"][0]["allowed_dispositions"]}, {"approved", "changes-requested", "merged", "closed"})
+        self.assertIn("queue_counts", morning)
+        self.assertIn("memory_health", morning)
+        self.assertIn("roadmap_health", morning)
         human = json.loads(
             self.cli(
                 "merge",
@@ -568,6 +728,8 @@ unresolved_gaps: []
                 "https://github.com/example/project/pull/1",
                 "--merged-by",
                 "fixture-user",
+                "--disposition",
+                "merged",
                 "--merge-commit",
                 "abc123",
                 "--evidence",
@@ -582,6 +744,160 @@ unresolved_gaps: []
         project_report = self.cli("report", "project").stdout
         self.assertIn("Latest test report", project_report)
         self.assertIn("Latest merge assessment", project_report)
+
+    def test_workflow_status_and_changes_requested_reopen_same_goal(self) -> None:
+        capture = self.create_capture()
+        note_id = capture["items"][3]["item_id"]
+        self.cli("note", "triage", capture["capture_id"], note_id, "--action", "promote")
+        goal = self.create_goal("Review rework", [note_id])
+        (self.root / "capture.json").unlink()
+        (self.root / "goal-Review-rework.json").unlink()
+        initial = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
+        self.assertEqual(initial["current_stage"], "plan-review")
+        self.assertEqual({action["disposition"] for action in initial["allowed_actions"]}, {"approve", "revise", "hold", "cancel"})
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        self.git("checkout", "-b", "continuity/review-rework")
+        self.cli("run", "update", goal["goal_id"], "--state", "running", "--branch", "continuity/review-rework")
+        attempt_artifact = self.root / "attempt-evidence.md"
+        attempt_artifact.write_text("attempt one evidence\n", encoding="utf-8")
+        self.git("add", "attempt-evidence.md")
+        self.git("commit", "-m", "add attempt evidence")
+        self.cli("test", "run", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/review-rework")
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "Current evidence",
+            "--worktree", str(self.root), "--branch", "continuity/review-rework",
+            "--code-review-evidence", "diff reviewed", "--security-evidence", "trust boundaries reviewed", "--update-gates",
+        )
+        self.cli(
+            "merge", "assess", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/review-rework",
+            "--evidence", "clean branch reviewed", "--update-gate",
+        )
+        for stage in ("implementation", "documentation", "memory-impact", "roadmap-impact", "final-alignment"):
+            self.cli("goal", "gate", goal["goal_id"], stage, "--status", "passed", "--evidence", f"fixture:{stage}")
+        self.cli("run", "update", goal["goal_id"], "--state", "validating")
+        self.cli(
+            "run", "update", goal["goal_id"], "--state", "review-ready", "--summary", "Ready for review",
+            "--artifact", str(attempt_artifact),
+        )
+        stale_source = self.root / "changed-after-review.txt"
+        stale_source.write_text("stale review evidence\n", encoding="utf-8")
+        self.cli(
+            "merge", "record-human", goal["goal_id"], "--pr-url", "https://github.com/example/project/pull/2",
+            "--merged-by", "fixture-user", "--disposition", "approved", "--evidence", "Approve stale work.",
+            expected=2,
+        )
+        stale_status = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
+        self.assertEqual({action["disposition"] for action in stale_status["allowed_actions"]}, {"changes-requested", "closed"})
+        self.assertEqual({action["disposition"] for action in stale_status["blocked_actions"]}, {"approved", "merged"})
+        stale_morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertIn(goal["goal_id"], {item.get("goal_id") for item in stale_morning["blocked_or_at_risk"]})
+        disposition = json.loads(
+            self.cli(
+                "merge", "record-human", goal["goal_id"], "--pr-url", "https://github.com/example/project/pull/2",
+                "--merged-by", "fixture-user", "--disposition", "changes-requested", "--evidence", "Adjust the in-scope error copy.",
+            ).stdout
+        )
+        self.assertEqual(disposition["status"], "changes-requested")
+        goal_dir = self.root / ".continuity" / "private" / "goals" / goal["goal_id"]
+        changed = json.loads((goal_dir / "goal.json").read_text(encoding="utf-8"))
+        self.assertEqual(changed["state"], "changes-requested")
+        self.assertEqual(changed["execution_attempt"], 2)
+        self.assertTrue((goal_dir / "attempts" / "attempt-1" / "test-report.json").exists())
+        self.assertTrue((goal_dir / "attempts" / "attempt-1" / "compliance.json").exists())
+        self.assertFalse((goal_dir / "test-report.json").exists())
+        current_execution = json.loads((goal_dir / "execution.json").read_text(encoding="utf-8"))
+        self.assertEqual(current_execution["state"], "rework-queued")
+        self.assertEqual(current_execution["execution_attempt"], 2)
+        self.assertNotIn("artifacts", current_execution)
+        self.assertNotIn("started_at", current_execution)
+        self.assertNotIn("branch", current_execution)
+        self.assertNotIn("worktree", current_execution)
+        archived_execution = json.loads((goal_dir / "attempts" / "attempt-1" / "execution.json").read_text(encoding="utf-8"))
+        self.assertIn("attempt-evidence.md", archived_execution["artifacts"])
+        status = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
+        self.assertEqual({action["disposition"] for action in status["allowed_actions"]}, {"resume-in-scope", "revise-scope", "cancel"})
+        self.assertEqual(set(status["human_requirements"]), {"resume-in-scope", "revise-scope", "cancel"})
+        self.assertEqual(status["evidence"]["prior_attempts"][0]["attempt"], 1)
+        stale_source.unlink()
+        self.cli("goal", "resume", goal["goal_id"], expected=2)
+        resumed = json.loads(
+            self.cli(
+                "goal", "resume", goal["goal_id"], "--actor", "fixture-user",
+                "--authorization-text", f"Resume {goal['goal_id']} under approved plan v1",
+            ).stdout
+        )
+        self.assertEqual(resumed["state"], "queued")
+        self.assertEqual(resumed["execution_attempt"], 2)
+        linked_note = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == note_id)
+        self.assertEqual(linked_note["work_status"], "queued")
+        feedback = [item for item in json.loads(self.cli("note", "list").stdout) if item.get("occurrence_type") == "feedback"]
+        self.assertTrue(any(goal["goal_id"] in item.get("related_goal_ids", []) for item in feedback))
+
+    def test_review_ready_can_close_or_cancel_without_current_delivery_evidence(self) -> None:
+        closed_goal = self.create_goal("Close stale review")
+        closed_path = self.root / ".continuity" / "private" / "goals" / closed_goal["goal_id"] / "goal.json"
+        closed_record = json.loads(closed_path.read_text(encoding="utf-8"))
+        closed_record["state"] = "review-ready"
+        self.write_json(closed_path, closed_record)
+        closed = json.loads(
+            self.cli(
+                "merge", "record-human", closed_goal["goal_id"],
+                "--pr-url", "https://github.com/example/project/pull/3", "--merged-by", "fixture-user",
+                "--disposition", "closed", "--evidence", "Human closed stale review work.",
+            ).stdout
+        )
+        self.assertEqual(closed["status"], "closed")
+        self.assertFalse(closed["review_evidence_current"])
+        self.assertTrue(closed["stale_evidence"])
+        self.assertEqual(json.loads(closed_path.read_text(encoding="utf-8"))["state"], "cancelled")
+
+        cancelled_goal = self.create_goal("Cancel stale review")
+        cancelled_path = self.root / ".continuity" / "private" / "goals" / cancelled_goal["goal_id"] / "goal.json"
+        cancelled_record = json.loads(cancelled_path.read_text(encoding="utf-8"))
+        cancelled_record["state"] = "review-ready"
+        self.write_json(cancelled_path, cancelled_record)
+        self.cli("goal", "cancel", cancelled_goal["goal_id"], expected=2)
+        cancelled = json.loads(
+            self.cli(
+                "goal", "cancel", cancelled_goal["goal_id"], "--actor", "fixture-user",
+                "--reason", "Human cancelled review-ready work without delivery.",
+            ).stdout
+        )
+        self.assertEqual(cancelled["state"], "cancelled")
+        cancelled_review = json.loads(
+            (self.root / ".continuity" / "private" / "goals" / cancelled_goal["goal_id"] / "human-review.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(cancelled_review["status"], "closed")
+
+    def test_scope_revision_and_blocked_recovery_require_explicit_human_action(self) -> None:
+        goal = self.create_goal("Blocked recovery")
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        self.cli("run", "update", goal["goal_id"], "--state", "blocked", "--summary", "Dependency unavailable")
+        self.cli("goal", "resume", goal["goal_id"], expected=2)
+        resumed = json.loads(
+            self.cli(
+                "goal", "resume", goal["goal_id"], "--actor", "fixture-user",
+                "--authorization-text", f"Resume {goal['goal_id']} under approved plan v1",
+            ).stdout
+        )
+        self.assertEqual(resumed["state"], "queued")
+        preflight = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "preflight.json"
+        self.assertTrue(preflight.exists())
+        self.assertTrue(json.loads(preflight.read_text(encoding="utf-8"))["passed"])
+        revision_path = self.root / "scope-revision.json"
+        self.write_json(revision_path, {"scope": "Expanded scope requiring a new approval."})
+        revised = json.loads(
+            self.cli("goal", "revise", goal["goal_id"], "--goal-file", str(revision_path), "--author", "fixture-user", "--summary", "Scope expanded").stdout
+        )
+        self.assertEqual(revised["plan_version"], 2)
+        self.assertEqual(revised["state"], "awaiting-feedback")
+        self.assertFalse((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "approval.json").exists())
+        self.cli(
+            "goal", "resume", goal["goal_id"], "--actor", "fixture-user",
+            "--authorization-text", f"Resume {goal['goal_id']} under approved plan v1", expected=2,
+        )
 
     def test_queued_goal_cannot_skip_execution_or_restart_terminal(self) -> None:
         goal = self.create_goal()
@@ -624,6 +940,27 @@ unresolved_gaps: []
             "--security-evidence", "manual trust boundary review", expected=2,
         )
         untracked.unlink()
+        current_machine = json.loads(
+            self.cli(
+                "test", "run", goal["goal_id"], "--worktree", str(self.root),
+                "--branch", "continuity/bind-machine-evidence",
+            ).stdout
+        )
+        self.assertEqual(current_machine["status"], "passed")
+        self.git("checkout", "-b", "continuity/different-branch")
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "branch drift",
+            "--worktree", str(self.root), "--code-review-evidence", "reviewed",
+            "--security-evidence", "manual trust boundary review", expected=2,
+        )
+        self.git("checkout", "continuity/bind-machine-evidence")
+        self.cli("test", "run", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/bind-machine-evidence")
+        self.git("commit", "--allow-empty", "-m", "Change commit identity")
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "commit drift",
+            "--worktree", str(self.root), "--code-review-evidence", "reviewed",
+            "--security-evidence", "manual trust boundary review", expected=2,
+        )
         unrelated = self.root.parent / "unrelated-repository"
         unrelated.mkdir()
         subprocess.run(["git", "-C", str(unrelated), "init", "-b", "main"], check=True, capture_output=True)
@@ -654,6 +991,26 @@ unresolved_gaps: []
         goal_dir = self.root / ".continuity" / "private" / "goals" / goal["goal_id"]
         self.assertTrue((goal_dir / "revisions" / "v1" / "plan.md").exists())
         self.assertFalse((goal_dir / "approval.json").exists())
+
+    def test_doctor_flags_legacy_goal_state_for_explicit_revision(self) -> None:
+        goal = self.create_goal("Legacy migration")
+        goal_path = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json"
+        legacy = json.loads(goal_path.read_text(encoding="utf-8"))
+        legacy["state"] = "proposed-plan"
+        self.write_json(goal_path, legacy)
+        doctor = json.loads(self.cli("project", "doctor").stdout)
+        self.assertIn(goal["goal_id"], doctor["legacy_goal_ids"])
+        self.assertFalse(doctor["healthy"])
+        revision = self.root / "legacy-revision.json"
+        self.write_json(revision, {"scope": "Explicitly migrated legacy scope."})
+        migrated = json.loads(
+            self.cli(
+                "goal", "revise", goal["goal_id"], "--goal-file", str(revision),
+                "--author", "fixture-user", "--summary", "Migrate legacy state",
+            ).stdout
+        )
+        self.assertEqual(migrated["state"], "awaiting-feedback")
+        self.assertEqual(migrated["plan_version"], 2)
 
     def test_planning_patterns_are_validated_hashed_and_non_authorizing(self) -> None:
         payload = {
@@ -903,6 +1260,16 @@ unresolved_gaps: []
         second = json.loads(self.cli("note", "share", "import").stdout)
         self.assertEqual(len(first["imported"]), 1)
         self.assertEqual(len(second["imported"]), 0)
+        imported = first["imported"][0]
+        self.assertTrue(imported["capture_id"])
+        routed = json.loads(
+            self.cli(
+                "note", "triage", imported["capture_id"], imported["item_ids"][0],
+                "--kind", "context", "--action", "route",
+            ).stdout
+        )
+        self.assertEqual(routed["queue"], "knowledge")
+        self.assertFalse(routed["execution_authorized"])
 
     def test_sidecar_is_loopback_authorized_read_only_and_strict(self) -> None:
         self.write_roadmap("program-core", "Core program", "program", "active")

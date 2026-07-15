@@ -41,3 +41,9 @@ Create a validated goal JSON payload, then run:
 Any revision uses `goal revise`, creates an archived prior version, and invalidates prior approval. Surface blocking decisions instead of guessing.
 
 Do not publish decision or delivery tickets externally as a side effect of planning. Local artifacts are the default. GitHub, Linear, or another tracker requires a separate explicit human publication approval; tracker-ready never means execution-ready.
+
+`proposed-plan` and `approved` are legacy readable states only. New goals emit `awaiting-feedback`, and approval emits `queued`. Migrate a legacy goal through an explicit `goal revise` and fresh approval; `project doctor` reports any legacy records.
+
+## Handoff
+
+Run `continuity workflow status` on entry and `continuity workflow status --goal-id <goal-id>` after creation or revision. Hand off an `awaiting-feedback` goal to `$continuity-dispatch` for one of the machine-listed human actions; never infer approval.

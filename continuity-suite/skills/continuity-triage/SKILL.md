@@ -49,3 +49,9 @@ Use:
 ```
 
 Report classifications, ambiguities, duplicates, and items needing judgment. A valid review may propose no work.
+
+Use `note queue --queue <knowledge|questions|documentation|backlog|planning>` as the current queue. Queue JSONL files are append-only audit history and must not drive planning after a note is reclassified, deferred, linked to a goal, completed, or cancelled. Resolve answered standalone questions with `note resolve`; active goal links fail closed. Require `--review-after` whenever deferring a note or pattern. Accepted and dismissed patterns remain suppressed until their evidence hash changes; deferred questions and patterns return only when due. If `project doctor` reports legacy note links, run `note migrate-links --actor <human>` and review the idempotent migration result.
+
+## Handoff
+
+Run `continuity workflow status` on entry and exit. Follow its derived queue counts and `next_skill`: knowledge or documentation normally moves to `$continuity-memory`, planning or backlog to `$continuity-plan`, and unresolved questions remain with `$continuity-triage` or `$continuity-report` for human disposition.

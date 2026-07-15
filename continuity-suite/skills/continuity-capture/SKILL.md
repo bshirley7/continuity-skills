@@ -38,3 +38,7 @@ Prepare an items JSON object, then run:
 ```
 
 Never place raw private content in committed project documentation.
+
+## Handoff
+
+Run `continuity workflow status` before capture and after returning capture and item IDs. The normal next stage is `$continuity-triage`; capture itself never changes the machine-reported goal stage or authorizes a command.

@@ -41,3 +41,7 @@ Never silently overwrite changed understanding. Supersede the prior entry and pr
 ```
 
 Mark unverifiable knowledge disputed, historical, or stale. Report contradictions, missing coverage, duplicate IDs, verification age, and malformed entries.
+
+## Handoff
+
+Run `continuity workflow status` on entry and exit. Pass exact memory IDs, freshness findings, contradictions, and unresolved gaps to `$continuity-roadmap` or `$continuity-plan`; do not convert a memory finding into execution authority.

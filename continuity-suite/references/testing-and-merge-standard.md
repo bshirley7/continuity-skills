@@ -5,9 +5,9 @@ Apply this standard to every Continuity execution before PR handoff and merge re
 ## Evergreen test standard
 
 - Start from the approved goal, acceptance criteria, exclusions, cited memory, roadmap IDs, and current diff.
-- Run the configured `validation_commands`, the goal's `required_checks`, and configured security commands through `continuity test run` before recording a pass.
+- Run candidate checks during implementation, but run the authoritative configured `validation_commands`, goal `required_checks`, and security commands through `continuity test run` only after documentation, memory, roadmap, and evidence artifacts are committed.
 - Execute commands as direct argument arrays without shell operators. Verify that the worktree belongs to the enrolled repository and its actual branch matches the goal execution record. Record output and exit status, and bind the run to repository identity, the approved plan hash, behavior hash, commit, tracked and untracked source fingerprint, and exact command set.
-- Reject a passing report and merge-safety assessment if machine evidence is absent or the source, plan, behavior, or configured commands have changed since the run.
+- Reject a passing report and merge-safety assessment if machine evidence is absent or any tracked or untracked source, commit, branch, plan, behavior, or configured command has changed since the run.
 - Prefer repository-native commands and existing test patterns. Add new tests where behavior changed and the repo has a practical test surface.
 - Cover success, failure, boundary, regression, data integrity, compatibility, accessibility, performance, and privacy concerns when applicable.
 - Include manual or visual verification only as evidence for behavior that cannot be fully covered by automated checks.
@@ -33,6 +33,7 @@ Apply this standard to every Continuity execution before PR handoff and merge re
 - Refresh or verify the integration base before PR handoff.
 - Confirm the goal branch is focused, reviewable, and not the integration branch.
 - Confirm the working tree has no unrelated product changes and no private Continuity state staged for commit.
+- Confirm the tested local head equals the pushed remote branch and draft PR head, and that the PR base equals the configured integration branch.
 - Confirm tests, code review, validation, security review, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable.
 - Keep incomplete, failed, or blocked work in a draft PR with visible blockers.
 - Human PR review and merge are separate from automated delivery. Continuity must stop at `review-ready`, must not auto-merge or force-push, and may record `completed` only after human merge evidence.

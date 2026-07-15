@@ -79,15 +79,21 @@ continuity note share prepare <note-id>... --target-project <current-project> --
 continuity note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text <text>
 continuity note share publish <packet-id>
 continuity note share import
+continuity note queue --queue <knowledge|questions|documentation|backlog|planning>
+continuity note resolve <capture-id> <item-id> --resolution <text> --actor <human>
 continuity note patterns --min-count 2
+continuity note pattern-review <pattern-id> --disposition <accepted|deferred|dismissed> --actor <human> --evidence <text> [--review-after <iso-date-time>]
+continuity note migrate-links --actor <human>
 continuity memory similar "<situation>" --scope all
+
+continuity workflow status [--goal-id <goal-id>]
 
 continuity test plan [goal-id]
 continuity test run <goal-id> --worktree <path> --branch <branch>
 continuity test record <goal-id> --status <passed|failed> --summary <text> --update-gates
 
 continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
-continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --evidence <text>
+continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --disposition <approved|changes-requested|merged|closed> --evidence <text>
 ```
 
 Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
@@ -102,11 +108,11 @@ Run the installer again to update an existing installation; it preserves project
 6. Use `$continuity-plan` only for selected candidates. Verify action claims, map unresolved decisions for complex work, record `roadmap_ids` and structured `roadmap_impact`, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
 7. Approve an exact goal version; it queues for the project-configured dispatch time.
 8. Use `$continuity-dispatch` to start an approved goal earlier when needed.
-9. Use `$continuity-execute` in the assigned isolated worktree.
-10. Use `$continuity-test` to execute configured project and security commands, bind their machine evidence to the current source fingerprint and approved plan, then record code and security review before PR handoff.
-11. Use `$continuity-merge` to assess merge safety before PR handoff and to record later human review or merge evidence.
+9. Use `$continuity-execute` in the assigned isolated worktree. Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts, then commit them.
+10. Use `$continuity-test` for the final source-bound run on that committed state, then push the tested commit and create or update the draft PR.
+11. Use `$continuity-merge` to bind merge safety to the local head, remote head, PR head, and configured base, then record the later human disposition.
 12. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
-13. Record human review separately. Only recorded merge evidence moves the goal to `completed`.
+13. Record human review separately as `approved`, `changes-requested`, `merged`, or `closed`. In-scope changes reopen the same goal with explicit authorization; scope changes require revision and fresh approval. Only recorded merge evidence moves the goal to `completed`.
 
 ```mermaid
 flowchart LR
