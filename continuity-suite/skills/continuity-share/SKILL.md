@@ -7,6 +7,8 @@ description: Prepare, approve, publish, and import sanitized project note packet
 
 Read `.agents/references/continuity-contract.md`, `.agents/references/development-assurance-standard.md`, and `$continuity-local` before acting.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [sanitization and import](references/sanitization-and-import.md) before preparing, reviewing, publishing, or importing a packet. Apply the privacy, provenance, and recipient-need sections of [decision lenses](../../references/decision-lenses.md).
+
 ## Workflow
 
 1. Select private atomic note IDs; never select an entire raw capture by implication.
@@ -28,4 +30,4 @@ Imported packet items become private atomic captures with stable packet provenan
 
 ## Handoff
 
-Run `continuity workflow status` on entry and exit. A successful import hands off to `$continuity-triage`; a prepared or published packet remains a sharing workflow and cannot advance a product goal.
+Run project-level `continuity workflow status` before selection, `continuity workflow status --packet-id <packet-id>` after preparation or publication, and `continuity workflow status --note-id <imported-note-id>` after import. Imported notes begin a new private dated lifecycle and must pass normal triage and relationship confirmation. A prepared or published packet remains a sharing workflow and cannot advance a product goal.

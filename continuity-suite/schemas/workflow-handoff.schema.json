@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity subject handoff",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "stage",
+    "subject_ids",
+    "inputs_used",
+    "outputs_created",
+    "decisions",
+    "evidence",
+    "blockers",
+    "authorization",
+    "next_skill",
+    "allowed_actions",
+    "blocked_actions",
+    "human_requirements"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "stage": {"type": "string", "minLength": 1},
+    "subject_ids": {"type": "object"},
+    "inputs_used": {"type": "array", "items": {"type": "string"}},
+    "outputs_created": {"type": "array", "items": {"type": "string"}},
+    "decisions": {"type": "array", "items": {"type": "object"}},
+    "evidence": {"type": "object"},
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "authorization": {
+      "type": "object",
+      "required": ["execution_authorized", "human_required"],
+      "properties": {
+        "execution_authorized": {"type": "boolean"},
+        "human_required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "next_skill": {"type": ["string", "null"]},
+    "allowed_actions": {"type": "array", "items": {"type": "object"}},
+    "blocked_actions": {"type": "array", "items": {"type": "object"}},
+    "human_requirements": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

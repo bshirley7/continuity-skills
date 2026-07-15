@@ -9,6 +9,8 @@ Report recorded state without converting notes, feedback, or pending plans into 
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, project manifests, feedback, evidence, compliance ledgers, and `.continuity/config.json`.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [morning report examples](references/morning-report-examples.md) before generating a morning or completion report. Apply the **Evidence and confidence**, **Business outcome**, and **Security and privacy** lenses as relevant; use the local examples for decision value and exception salience.
+
 ## Required assurance
 
 - Derive every status, completion, validation, security, mergeability, and memory claim from recorded evidence; distinguish passed, pending, failed, blocked, partial, and not-applicable states precisely.
@@ -22,7 +24,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 .agents/continuity/bin/continuity --project-root "$PWD" note patterns --min-count 2
 ```
 
-The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal or note, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Then include configuration and scheduler liveness, recurring occurrence patterns, notes retained as context, documentation candidates, deferred items, open questions, memory and roadmap health, plans awaiting feedback, queues, active runs, source-bound machine tests, security, merge assessment, compliance, and prepared next work. Pattern recommendations inform human triage and planning; they never authorize execution.
+The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal or note, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Include note counts by exact lifecycle stage, stage-entry dates, later-work anchors, blocked or remediation tracks, and confidence-qualified unconfirmed relationship suggestions alongside configuration, scheduler, memory, roadmap, test, security, merge, and compliance health. Cap relationship decisions at the suite limit; broader low-confidence results belong in explicit triage. Suggestions never authorize execution.
 
 For a portfolio report, discover project-local manifests beneath developer-configured workspace roots. Run each report from that repository using its installed skill and CLI. Aggregate only sanitized summaries; do not centralize raw captures, private ledgers, approvals, or locks.
 

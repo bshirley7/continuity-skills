@@ -9,6 +9,8 @@ Use this skill for merge-safety and human-review records. Continuity may assess 
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the testing and merge standard](../../references/testing-and-merge-standard.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, the approved plan, latest test report, and compliance ledger before acting.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [review and disposition](references/review-and-disposition.md) before assessment or human-review recording. Apply the **Evidence and confidence** and **Delivery and rollback** lenses; use the local disposition guide for the human boundary.
+
 ## Required assurance
 
 - Require a passed Continuity test report before recording merge-safety as passed.
@@ -49,4 +51,4 @@ Record only facts that happened. If the human has not reviewed or merged, leave 
 
 ## Handoff
 
-Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Follow only `allowed_actions`; report `blocked_actions` and their evidence failures without attempting them. `changes-requested` returns to `$continuity-dispatch` for explicit in-scope resume or `$continuity-plan` for scope revision; no review disposition authorizes auto-merge.
+Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Human review and merge evidence determine the linked note's dated human-review, remediation, cancellation, or completion stage; do not write it independently. Follow only `allowed_actions`; report blocked actions without attempting them. Scope changes return to planning, and no disposition authorizes auto-merge.

@@ -1,0 +1,35 @@
+{
+  "source_type": "conversation",
+  "source_ref": "conversation:synthetic-review",
+  "source_timestamp": "2026-01-15T16:30:00-06:00",
+  "items": [
+    {
+      "kind": "insight",
+      "text": "The current review screen remains easy to scan.",
+      "occurred_at": "2026-01-15T16:25:00-06:00",
+      "occurred_at_confidence": "exact",
+      "perspective": "external",
+      "sentiment": "positive",
+      "occurrence_type": "feedback",
+      "impact": "medium",
+      "confidence": "high",
+      "actionability": "context",
+      "stakeholders": ["reviewer"],
+      "themes": ["review-workflow", "scanability"]
+    },
+    {
+      "kind": "execution-candidate",
+      "text": "Reorganize the status labels while preserving scanability.",
+      "occurred_at": "2026-01-15T16:30:00-06:00",
+      "occurred_at_confidence": "capture-time",
+      "perspective": "external",
+      "sentiment": "neutral",
+      "occurrence_type": "need",
+      "impact": "medium",
+      "confidence": "medium",
+      "actionability": "plan",
+      "stakeholders": ["reviewer"],
+      "themes": ["review-workflow", "status-labels"]
+    }
+  ]
+}

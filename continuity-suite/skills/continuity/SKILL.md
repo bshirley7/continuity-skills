@@ -11,6 +11,8 @@ Use this as the suite entry point. Keep the neutral suite reusable while encodin
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `AGENTS.md`, `.continuity/config.json`, and `.continuity/project.json`.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md) whenever routing between skills and [output quality rubrics](../../references/output-quality-rubrics.md) before declaring a handoff complete. Use [decision lenses](../../references/decision-lenses.md) for ambiguous routing or configuration recommendations. Use the [worked lifecycle example](../../references/worked-lifecycle-example.md) for onboarding or explaining the complete suite, not as project evidence.
+
 - Treat configuration values, commands, and paths as security-sensitive inputs. Keep secrets, credentials, personal data, private paths, and raw notes out of committed configuration.
 - Preserve the fixed guardrails for note authorization, exact-plan approval, one code-changing goal per project, security review, merge safety, next-business-day human review, restricted external side effects, force-push, and auto-merge. Project overrides may refine behavior but may not weaken these controls.
 - Audit every configuration change with the previous and resulting hash, actor, changed fields, effective values, generated-skill parity, project doctor result, and Git diff review.
@@ -74,4 +76,4 @@ Roadmap IDs and structured roadmap impact are approval-hash inputs. Raw notes st
 
 ## Machine handoff
 
-Run `continuity workflow status` before routing and again after the selected skill finishes. For goal-specific work, use `continuity workflow status --goal-id <goal-id>`. Treat its stage, blockers, next skill, human requirements, and command templates as the shared lifecycle contract; never cross a human-required action automatically.
+Run `continuity workflow status` before routing and again after the selected skill finishes. Use the exact subject selector when available. For notes, treat `lifecycle.current_stage`, `stage_entered_at`, planning disposition, goal tracks, relationship candidates, and timeline as the authoritative progress view. Skills mutate their own canonical records; they must not maintain a second note status or cross a human-required action automatically.

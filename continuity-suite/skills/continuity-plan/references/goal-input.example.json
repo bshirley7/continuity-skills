@@ -1,0 +1,99 @@
+{
+  "goal_id": "goal-reference-example",
+  "title": "Reorganize status labels without reducing scanability",
+  "scope": "Update the existing status-label grouping boundary while preserving the current review workflow and scan order.",
+  "exclusions": [
+    "Do not redesign the full review screen.",
+    "Do not add user-defined layouts."
+  ],
+  "acceptance_criteria": [
+    "All required statuses remain visible.",
+    "Labels follow the approved grouping order.",
+    "Existing keyboard behavior remains unchanged.",
+    "Configured validation and security checks pass."
+  ],
+  "depends_on": [],
+  "source_note_ids": [],
+  "note_dispositions": [],
+  "memory_ids": [],
+  "roadmap_ids": [],
+  "roadmap_impact": {
+    "entries": [],
+    "documentation_required": false,
+    "summary": "The goal uses roadmap context only and does not change a committed roadmap record."
+  },
+  "documentation_updates": [
+    "Update behavior documentation only when the grouping contract is documented."
+  ],
+  "required_checks": [
+    "Run focused status-grouping regression tests.",
+    "Run the repository validation commands."
+  ],
+  "runtime_limit_minutes": 120,
+  "triage_brief": {
+    "summary": "Current scanability is successful, while the requested grouping differs from current behavior.",
+    "classification": "execution-candidate",
+    "claim_status": "confirmed",
+    "current_behavior": "Status labels use the existing grouping and the review screen is easy to scan.",
+    "desired_behavior": "Use the approved grouping while preserving scan order and interaction behavior.",
+    "acceptance_criteria": [
+      "Required statuses remain visible.",
+      "The approved grouping is observable."
+    ],
+    "scope_exclusions": [
+      "User-defined layouts are excluded."
+    ],
+    "evidence": [
+      "Synthetic source feedback preserves scanability as a non-regression constraint.",
+      "Synthetic repository inspection confirms one existing grouping boundary."
+    ],
+    "codebase_checks": {
+      "redundancy": {
+        "status": "clear",
+        "evidence": [
+          "No existing implementation matches the requested grouping."
+        ]
+      },
+      "prior_decisions": {
+        "status": "clear",
+        "evidence": [
+          "No prior decision conflicts with the bounded change."
+        ]
+      }
+    },
+    "execution_authorized": false
+  },
+  "decision_map": {
+    "destination": "A review screen with the approved status grouping and preserved scanability.",
+    "decisions": [
+      {
+        "decision_id": "decision-grouping-boundary",
+        "title": "Keep adaptability bounded",
+        "question": "Should the change use the existing grouping boundary or introduce general customization?",
+        "status": "resolved",
+        "blocked_by": [],
+        "resolution": "Use the existing grouping boundary; general customization is out of scope."
+      }
+    ],
+    "unresolved_territory": [],
+    "out_of_scope": [
+      "General layout customization"
+    ],
+    "execution_authorized": false
+  },
+  "delivery_slices": [
+    {
+      "ticket_id": "slice-status-grouping",
+      "title": "Deliver the approved status grouping",
+      "delivers": "A focused grouping change with regression evidence and no broader layout changes.",
+      "acceptance_criteria": [
+        "Grouping and non-regression checks pass."
+      ],
+      "blocked_by": [],
+      "status": "planning-candidate",
+      "execution_authorized": false
+    }
+  ],
+  "plan_reviewed": true,
+  "plan_review_evidence": "Reviewed for outcome, scope, decisions, validation, security, rollback, and unattended suitability."
+}

@@ -9,6 +9,8 @@ Never execute a captured note, planning candidate, unapproved plan, or merely qu
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$continuity-local`, `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory and roadmap briefs, and compliance ledger.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [execution evidence](references/execution-evidence.md) before preflight and final handoff. Select applicable engineering, security, reliability, delivery, and adaptability questions from [decision lenses](../../references/decision-lenses.md).
+
 ## Required assurance
 
 - Identify every touched language, framework, trust boundary, input, credential, data store, external action, and migration; apply the repository's current security and engineering guidance for each.
@@ -49,4 +51,4 @@ Create `request-alignment.md`, `implementation-report.md`, `validation-and-secur
 
 ## Handoff
 
-Run `continuity workflow status --goal-id <goal-id>` before preflight, after each major stage, and on exit. Follow its next skill and blockers. Never continue from `changes-requested`, `blocked`, or `partially-completed` until `$continuity-dispatch` records a valid human disposition.
+Run `continuity workflow status --goal-id <goal-id>` before preflight, after each major stage, and on exit. Record canonical execution checkpoints and goal transitions; never write note status directly. Linked note stages and dates derive from those records. Never continue from `changes-requested`, `blocked`, or `partially-completed` until `$continuity-dispatch` records a valid human disposition.

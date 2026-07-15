@@ -86,7 +86,7 @@ def _clean_metadata(value: Any, label: str, *, optional: bool = False) -> str | 
 
 
 def _payload(packet: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in packet.items() if key not in {"content_hash", "approval", "private_path"}}
+    return {key: value for key, value in packet.items() if key not in {"content_hash", "approval", "publication", "private_path"}}
 
 
 def _packet_path(root: Path, config: dict[str, Any], packet_id: str) -> Path:
@@ -191,7 +191,8 @@ def _run(root: Path, *args: str, timeout: int = 60) -> str:
 
 
 def publish(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
-    packet = _load(_packet_path(root, config, args.packet_id), {})
+    packet_path = _packet_path(root, config, args.packet_id)
+    packet = _load(packet_path, {})
     approval = packet.get("approval")
     if not approval or approval.get("content_hash") != packet.get("content_hash") or approval.get("version") != packet.get("version"):
         raise SharedNoteError("Publish requires an exact current packet approval")
@@ -224,7 +225,76 @@ def publish(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
         raise SharedNoteError(f"Publish stopped; inspect retained worktree {worktree}: {exc}") from exc
     _run(root, "git", "worktree", "remove", str(worktree))
     temp.rmdir()
-    return {"published": True, "branch": branch, "path": str(relative), "pr_url": pr_url, "execution_authorized": False}
+    publication = {
+        "published_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "branch": branch,
+        "path": str(relative),
+        "pr_url": pr_url,
+        "version": packet["version"],
+        "content_hash": packet["content_hash"],
+    }
+    packet["publication"] = publication
+    _dump(packet_path, packet)
+    return {"published": True, **publication, "execution_authorized": False}
+
+
+def status(root: Path, config: dict[str, Any], packet_id: str) -> dict[str, Any]:
+    packet = _load(_packet_path(root, config, packet_id), {})
+    if not packet:
+        raise SharedNoteError(f"Unknown packet {packet_id}")
+    current_hash = _canonical_hash(_payload(packet))
+    approval = packet.get("approval") if isinstance(packet.get("approval"), dict) else {}
+    approval_current = bool(
+        approval
+        and approval.get("content_hash") == packet.get("content_hash") == current_hash
+        and approval.get("version") == packet.get("version")
+    )
+    publication = packet.get("publication") if isinstance(packet.get("publication"), dict) else None
+    publication_current = bool(
+        publication
+        and publication.get("content_hash") == packet.get("content_hash")
+        and publication.get("version") == packet.get("version")
+    )
+    committed_paths = sorted(
+        str(path.relative_to(root))
+        for path in (root / ".continuity" / "shared-notes" / "packets").glob(f"**/{packet_id}-v{packet.get('version')}.md")
+    )
+    imports: list[dict[str, Any]] = []
+    inbox = _private(root, config) / "queues" / "shared-notes.jsonl"
+    if inbox.is_file():
+        for line in inbox.read_text(encoding="utf-8").splitlines():
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(record, dict) and record.get("content_hash") == packet.get("content_hash"):
+                imports.append(record)
+    state = "prepared"
+    if approval_current:
+        state = "approved"
+    if publication_current:
+        state = "published"
+    if committed_paths:
+        state = "merged"
+    if imports:
+        state = "imported"
+    blockers = []
+    if packet.get("content_hash") != current_hash:
+        blockers.append("packet content hash is stale")
+    return {
+        "packet_id": packet_id,
+        "version": packet.get("version"),
+        "target_project_id": packet.get("target_project_id"),
+        "content_hash": packet.get("content_hash"),
+        "note_ids": [str(item.get("item_id")) for item in packet.get("items", []) if isinstance(item, dict)],
+        "state": state,
+        "approval_current": approval_current,
+        "publication": publication if publication_current else None,
+        "committed_paths": committed_paths,
+        "imports": imports,
+        "blockers": blockers,
+        "execution_authorized": False,
+    }
 
 
 def _metadata(path: Path) -> dict[str, Any]:
@@ -291,6 +361,7 @@ def import_packets(root: Path, config: dict[str, Any], _args: argparse.Namespace
                     "created_at": imported_at,
                     "updated_at": imported_at,
                     "occurred_at": imported_at,
+                    "occurred_at_confidence": "capture-time",
                     "perspective": "external",
                     "sentiment": "unknown",
                     "occurrence_type": "observation",

@@ -50,13 +50,14 @@ Overnight execution ends at `review-ready` after every pre-human-review gate and
 
 Fresh source-bound evidence is required for `approved` and `merged`. A human may still record `changes-requested` or `closed` when delivery evidence is stale or unavailable because those dispositions do not authorize delivery; the human-review record preserves the evidence failure. `goal cancel --actor <human> --reason <reason>` also remains available from `review-ready` as an audited fallback when no PR disposition can be recorded.
 
-Use `continuity workflow status [--goal-id <goal-id>]` as the machine handoff contract. Skills must inspect it on entry and report it on exit. Its stage, blockers, completed evidence, next skill, human requirements, allowed command templates, and blocked actions do not authorize human-required actions by themselves. An action may appear in `allowed_actions` only when its current state and evidence prerequisites pass; unavailable actions belong in `blocked_actions` with exact reasons.
+Use `continuity workflow status` as the machine handoff contract. Select an exact capture, note, memory, roadmap, packet, or goal whenever an ID is available; project-wide status is routing context only. Skills must inspect the applicable status on entry and report it on exit. Its stage, subject IDs, inputs, outputs, decisions, blockers, evidence, next skill, human requirements, allowed command templates, and blocked actions do not authorize human-required actions by themselves. An action may appear in `allowed_actions` only when its current state and evidence prerequisites pass; unavailable actions belong in `blocked_actions` with exact reasons.
 
 ## Planning artifacts
 
 - Use an evidence triage brief to verify action candidates against current behavior, existing implementations, and prior decisions.
 - Use a decision map when a destination still contains material unresolved decisions. Human-required decisions cannot be answered by the agent or treated as execution discretion.
 - Use acyclic, dependency-aware end-to-end delivery slices for multi-part outcomes. Every slice remains `planning-candidate` and `execution_authorized: false` before parent-goal approval and dispatch.
+- Give every source note exactly one approval-hashed disposition: `current-goal`, `later`, `context-only`, or `duplicate`. New goal and scope-changing revision inputs fail closed when dispositions are omitted. Later work requires a review date or roadmap anchor. Only current-goal notes adopt goal execution state.
 - Include planning artifacts in the immutable goal material hash. Changing content or edges invalidates approval.
 - Keep artifacts local by default. A configured external tracker is a preferred surface only; creating or modifying tracker items requires separate explicit human approval.
 
@@ -113,7 +114,9 @@ Committed roadmap Markdown is canonical. A goal must retrieve relevant roadmap c
 
 Raw captures remain private. Sharing requires a selected sanitized packet, exact version and target approval, an isolated branch, privacy and secret checks, and a human-reviewed PR. Imported packet items become private atomic captures with stable packet provenance and `execution_authorized: false`; they can be triaged and searched normally but cannot update roadmap, memory, goals, code, systems, or another developer's private state.
 
-Canonical capture records and per-goal links determine note `work_status`. Queue JSONL files are audit history only; `note queue` derives current eligibility from capture routing, review date, and goal relationships.
+Canonical capture records, plan-hashed note dispositions, per-goal links, goal records, compliance evidence, test and merge reports, and the append-only event ledger determine note lifecycle. `work_status` remains a compatibility summary. `workflow status --note-id` derives the exact stage, stage-entry time, planning disposition, per-goal tracks, local relationship suggestions, and timeline without creating a second mutable status. Goal execution events enter a note timeline only for a `current-goal` link, on or after that link's `decided_at`, and for the applicable plan version. Queue JSONL files are audit history only.
+
+Local similarity may recommend related nonterminal goals. A recommendation never creates scope. Current-goal inclusion requires goal creation or revision and fresh approval; explicit later, context-only, or duplicate relationships remain non-authorizing. Morning reports surface only medium- or high-confidence candidates and cap the number requiring human review; the direct related-goals command remains available for broader investigation.
 
 ## Completion evidence
 

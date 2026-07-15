@@ -21,6 +21,7 @@
           "created_at": {"type": "string"},
           "updated_at": {"type": "string"},
           "occurred_at": {"type": "string", "minLength": 1},
+          "occurred_at_confidence": {"enum": ["exact", "approximate", "capture-time", "unknown"]},
           "perspective": {"enum": ["internal", "external", "mixed", "unknown"]},
           "sentiment": {"enum": ["positive", "negative", "mixed", "neutral", "unknown"]},
           "occurrence_type": {"enum": ["feedback", "behavior", "decision", "change", "need", "risk", "success", "failure", "constraint", "observation"]},
@@ -34,7 +35,26 @@
           "work_status": {"enum": ["open", "deferred", "planned", "queued", "dispatched", "running", "validating", "review-ready", "completed", "partially-completed", "blocked", "cancelled", "not-applicable", "archived"]},
           "routing_work_status": {"enum": ["open", "deferred", "completed", "not-applicable", "archived"]},
           "related_goal_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
-          "goal_links": {"type": "object"},
+          "goal_links": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "state": {"type": ["string", "null"]},
+                "previous_state": {"type": ["string", "null"]},
+                "disposition": {"enum": ["current-goal", "later", "context-only", "duplicate"]},
+                "reason": {"type": "string"},
+                "plan_version": {"type": "integer", "minimum": 1},
+                "decided_at": {"type": "string"},
+                "updated_at": {"type": ["string", "null"]},
+                "review_after": {"type": ["string", "null"]},
+                "roadmap_id": {"type": ["string", "null"]},
+                "canonical_note_id": {"type": ["string", "null"]},
+                "delivery_slice_ids": {"type": "array", "items": {"type": "string"}}
+              },
+              "additionalProperties": true
+            }
+          },
           "goal_links_migrated_at": {"type": "string", "minLength": 1},
           "execution_authorized": {"const": false}
         }

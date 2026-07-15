@@ -9,6 +9,8 @@ Planning does not authorize work. Create a decision-complete proposal and leave 
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, and the documentation map.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [goal planning lenses](references/goal-planning-lenses.md) for every goal proposal. Use the [CLI-valid synthetic goal input](references/goal-input.example.json) when a machine-shaped example is needed. Select the applicable cross-functional questions from [decision lenses](../../references/decision-lenses.md); do not add irrelevant sections merely for completeness.
+
 ## Required assurance
 
 - Identify applicable repository, language, framework, privacy, security, compatibility, migration, accessibility, performance, validation, rollout, and rollback standards before proposing execution.
@@ -25,11 +27,12 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 6. Distinguish context, trusted memory, roadmap context, new insights, proposed instructions, scope, exclusions, dependencies, decisions, documentation impact, structured roadmap impact, acceptance, validation, security, merge-safety, and evidence.
 7. Apply repository architecture and developer best practices. Review the plan for correctness, maintainability, privacy, security, testing, rollout, and rollback implications.
 8. Set unattended suitability and runtime, defaulting to six hours.
-9. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `roadmap_ids`, and `roadmap_impact`; the CLI validates them, renders them into the plan, and includes them in the approval hash.
-10. Record evidence for `capture-triage`, `memory-retrieval`, `roadmap-retrieval`, and `plan-review` compliance stages.
-11. Leave the goal `awaiting-feedback`.
+9. Give every `source_note_id` exactly one explicit `note_disposition`: `current-goal`, `later`, `context-only`, or `duplicate`. Omission fails closed for new goals and source-changing revisions. Later work requires `review_after` or a roadmap anchor. Map current-goal notes to delivery slices when applicable and state why every disposition was selected.
+10. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `note_dispositions`, `roadmap_ids`, and `roadmap_impact`; the CLI validates them, renders them into the plan, and includes them in the approval hash.
+11. Record evidence for `capture-triage`, `memory-retrieval`, `roadmap-retrieval`, and `plan-review` compliance stages.
+12. Leave the goal `awaiting-feedback`.
 
-When a goal is created from `source_note_ids`, those source notes are marked `work_status: planned`. Approval and dispatch move them to `queued` and `dispatched`; execution updates later mark them `running`, `validating`, `review-ready`, `partially-completed`, `blocked`, or `cancelled`. Human merge evidence alone moves review-ready notes to `completed`. Notes that do not belong in the current branch or PR should remain open, deferred, or roadmap-linked for a later aligned pass.
+Only `current-goal` notes adopt the goal's delivery state. Inclusion in a plan means `planned`, never `in progress`; that begins only when the canonical run reaches `running`. Later, context-only, and duplicate notes remain outside approved execution scope. Human merge evidence alone moves current-goal notes to `completed`.
 
 Create a validated goal JSON payload, then run:
 

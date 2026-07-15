@@ -83,12 +83,14 @@ continuity note share publish <packet-id>
 continuity note share import
 continuity note queue --queue <knowledge|questions|documentation|backlog|planning>
 continuity note resolve <capture-id> <item-id> --resolution <text> --actor <human>
+continuity note related-goals <note-id> [--limit 5] [--min-score 0.08]
+continuity note relate <note-id> --goal-id <goal-id> --disposition <later|context-only|duplicate> --reason <reason> [--review-after <iso-date-time> | --roadmap-id <roadmap-id>] --actor <human>
 continuity note patterns --min-count 2
 continuity note pattern-review <pattern-id> --disposition <accepted|deferred|dismissed> --actor <human> --evidence <text> [--review-after <iso-date-time>]
 continuity note migrate-links --actor <human>
 continuity memory similar "<situation>" --scope all
 
-continuity workflow status [--goal-id <goal-id>]
+continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id> | --roadmap-id <id> | --packet-id <id> | --goal-id <id>]
 
 continuity test plan [goal-id]
 continuity test run <goal-id> --worktree <path> --branch <branch>

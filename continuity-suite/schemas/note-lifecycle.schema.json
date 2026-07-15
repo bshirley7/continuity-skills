@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity derived note lifecycle",
+  "type": "object",
+  "required": ["summary_status", "current_stage", "stage_entered_at", "routing", "planning_disposition", "goal_tracks", "relationship_candidates", "timeline"],
+  "properties": {
+    "summary_status": {"type": "string"},
+    "current_stage": {"type": "string", "minLength": 1},
+    "stage_entered_at": {"type": "string", "minLength": 1},
+    "routing": {
+      "type": "object",
+      "required": ["status", "queue", "review_after"],
+      "properties": {
+        "status": {"type": "string"},
+        "queue": {"type": ["string", "null"]},
+        "review_after": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "planning_disposition": {"enum": ["not-considered", "current-goal", "later", "context-only", "duplicate"]},
+    "goal_tracks": {"type": "array", "items": {"type": "object"}},
+    "relationship_candidates": {"type": "array", "items": {"type": "object"}},
+    "timeline": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

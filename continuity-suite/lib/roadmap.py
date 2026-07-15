@@ -170,7 +170,7 @@ def entries(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
-def audit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+def audit(root: Path, config: dict[str, Any], *, persist: bool = True) -> dict[str, Any]:
     issues: dict[str, list[Any]] = {name: [] for name in ("invalid", "duplicates", "unknown_parents", "unknown_dependencies", "unknown_links", "cycles", "orphans", "milestone_health", "sprint", "estimates", "dates", "contradictions", "stale_note_links")}
     normalized: list[dict[str, Any]] = []
     seen: dict[str, str] = {}
@@ -238,7 +238,8 @@ def audit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
             issues["contradictions"].append(link)
     report = {"generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "entries": len(normalized), **issues}
     report["healthy"] = not any(issues.values())
-    _dump(_private(root, config) / "reports" / "roadmap-health.json", report)
+    if persist:
+        _dump(_private(root, config) / "reports" / "roadmap-health.json", report)
     return report
 
 
@@ -321,7 +322,7 @@ def _goal_allows(root: Path, config: dict[str, Any], goal_id: str, roadmap_id: s
         raise RoadmapError("Roadmap goal approval version is stale")
     immutable_keys = {
         "schema_version", "goal_id", "project_id", "title", "plan_version", "priority", "depends_on",
-        "source_note_ids", "memory_ids", "roadmap_ids", "roadmap_impact", "roadmap_fingerprint", "scope", "exclusions",
+        "source_note_ids", "note_dispositions", "memory_ids", "roadmap_ids", "roadmap_impact", "roadmap_fingerprint", "scope", "exclusions",
         "acceptance_criteria", "documentation_updates", "required_checks", "runtime_limit_minutes",
         "triage_brief", "decision_map", "delivery_slices",
     }

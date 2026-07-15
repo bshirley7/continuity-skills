@@ -7,6 +7,8 @@ description: Create, retrieve, audit, reconcile, export, and visualize committed
 
 Read `.agents/references/continuity-contract.md`, `.agents/references/development-assurance-standard.md`, and `$continuity-local` before acting.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [roadmap modeling](references/roadmap-modeling.md) before selecting hierarchy, reporting health, or recording impact. Apply the **Business outcome**, **Engineering and architecture**, and **Delivery and rollback** lenses as relevant.
+
 ## Workflow
 
 1. Run `continuity project doctor` and `continuity roadmap audit`.
@@ -27,4 +29,4 @@ Read `.agents/references/continuity-contract.md`, `.agents/references/developmen
 
 ## Handoff
 
-Run `continuity workflow status` on entry and exit. Planning receives exact roadmap IDs and health evidence. Execution may update roadmap records only when the approved goal hash names the corresponding structured impact; otherwise return the discovery to triage or planning.
+Run `continuity workflow status --roadmap-id <roadmap-id>` for each selected record on entry and exit. A note disposition of `later` may use a roadmap ID as its durable follow-up anchor without entering current execution scope. Planning receives exact roadmap IDs and health evidence. Execution may update roadmap records only when the approved goal hash names the corresponding structured impact.

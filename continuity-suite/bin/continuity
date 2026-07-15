@@ -129,7 +129,13 @@ NOTE_OCCURRENCE_TYPES = {
 }
 NOTE_IMPACTS = {"low", "medium", "high", "critical", "unknown"}
 NOTE_CONFIDENCE = {"low", "medium", "high", "unknown"}
+NOTE_OCCURRED_AT_CONFIDENCE = {"exact", "approximate", "capture-time", "unknown"}
 NOTE_ACTIONABILITY = {"context", "monitor", "plan", "urgent-review"}
+NOTE_PLANNING_DISPOSITIONS = {"current-goal", "later", "context-only", "duplicate"}
+RELATED_GOAL_DEFAULT_MIN_SCORE = 0.08
+RELATED_GOAL_REPORT_MIN_SCORE = 0.20
+RELATED_GOAL_MAX_RESULTS = 25
+RELATED_GOAL_REPORT_LIMIT = 20
 NOTE_WORK_STATUSES = {
     "open",
     "deferred",
@@ -490,6 +496,91 @@ def validate_delivery_slices(value: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def validate_note_dispositions(
+    value: Any,
+    source_note_ids: list[str],
+    delivery_slices: list[dict[str, Any]],
+    roadmap_ids: list[str],
+) -> list[dict[str, Any]]:
+    if value is None:
+        if source_note_ids:
+            raise ContinuityError(
+                "note_dispositions is required when source_note_ids are present; "
+                "classify every note as current-goal, later, context-only, or duplicate"
+            )
+        value = []
+    if not isinstance(value, list):
+        raise ContinuityError("note_dispositions must be a JSON array")
+    slice_ids = {str(item["ticket_id"]) for item in delivery_slices}
+    source_ids = set(source_note_ids)
+    seen: set[str] = set()
+    normalized: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ContinuityError("Each note disposition must be a JSON object")
+        note_id = validate_identifier(str(item.get("note_id", "")), "note disposition note ID")
+        if note_id in seen:
+            raise ContinuityError(f"Duplicate note disposition: {note_id}")
+        seen.add(note_id)
+        disposition = str(item.get("disposition", ""))
+        if disposition not in NOTE_PLANNING_DISPOSITIONS:
+            raise ContinuityError(f"Unsupported note disposition: {disposition}")
+        reason = item.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ContinuityError(f"Note disposition {note_id} requires a reason")
+        delivery_slice_ids = validate_string_list(
+            item.get("delivery_slice_ids", []),
+            f"Note disposition {note_id}.delivery_slice_ids",
+        )
+        unknown_slices = sorted(set(delivery_slice_ids) - slice_ids)
+        if unknown_slices:
+            raise ContinuityError(f"Note disposition {note_id} references unknown delivery slices: {unknown_slices}")
+        review_after = item.get("review_after")
+        if review_after is not None and not isinstance(review_after, str):
+            raise ContinuityError(f"Note disposition {note_id}.review_after must be an ISO date-time or null")
+        roadmap_id = item.get("roadmap_id")
+        if roadmap_id is not None:
+            roadmap_id = validate_identifier(str(roadmap_id), "note disposition roadmap ID")
+            if roadmap_id not in roadmap_ids:
+                raise ContinuityError(f"Note disposition {note_id} roadmap ID is absent from roadmap_ids")
+        canonical_note_id = item.get("canonical_note_id")
+        if canonical_note_id is not None:
+            canonical_note_id = validate_identifier(str(canonical_note_id), "canonical note ID")
+        if disposition == "current-goal":
+            if review_after is not None or roadmap_id is not None or canonical_note_id is not None:
+                raise ContinuityError(f"Current-goal note disposition {note_id} cannot define later or duplicate fields")
+        elif disposition == "later":
+            if not review_after and not roadmap_id:
+                raise ContinuityError(f"Later note disposition {note_id} requires review_after or roadmap_id")
+            if delivery_slice_ids or canonical_note_id is not None:
+                raise ContinuityError(f"Later note disposition {note_id} cannot enter a delivery slice or duplicate another note")
+        elif disposition == "context-only":
+            if delivery_slice_ids or review_after is not None or roadmap_id is not None or canonical_note_id is not None:
+                raise ContinuityError(f"Context-only note disposition {note_id} cannot define execution, later, or duplicate fields")
+        elif disposition == "duplicate":
+            if not canonical_note_id or canonical_note_id == note_id:
+                raise ContinuityError(f"Duplicate note disposition {note_id} requires a different canonical_note_id")
+            if delivery_slice_ids or review_after is not None or roadmap_id is not None:
+                raise ContinuityError(f"Duplicate note disposition {note_id} cannot define execution or later fields")
+        normalized.append(
+            {
+                "note_id": note_id,
+                "disposition": disposition,
+                "reason": reason.strip(),
+                "delivery_slice_ids": delivery_slice_ids,
+                "review_after": review_after,
+                "roadmap_id": roadmap_id,
+                "canonical_note_id": canonical_note_id,
+                "execution_authorized": False,
+            }
+        )
+    if seen != source_ids:
+        raise ContinuityError(
+            f"note_dispositions must cover source_note_ids exactly; missing={sorted(source_ids - seen)}, extra={sorted(seen - source_ids)}"
+        )
+    return normalized
+
+
 def validate_roadmap_impact(value: Any, roadmap_ids: list[str]) -> dict[str, Any]:
     if value is None:
         return {"entries": [], "documentation_required": False, "summary": "No roadmap change planned."}
@@ -597,6 +688,23 @@ def render_planning_artifacts(goal: dict[str, Any]) -> str:
         for item in slices:
             blockers = ", ".join(item.get("blocked_by", [])) or "none"
             lines.append(f"- **{item['title']}** (`{item['ticket_id']}`; blocked by: {blockers}) — {item['delivers']}")
+    note_dispositions = goal.get("note_dispositions", [])
+    lines.extend(["", "### Note dispositions", ""])
+    if note_dispositions:
+        for item in note_dispositions:
+            details = []
+            if item.get("delivery_slice_ids"):
+                details.append(f"slices: {', '.join(item['delivery_slice_ids'])}")
+            if item.get("review_after"):
+                details.append(f"review after: {item['review_after']}")
+            if item.get("roadmap_id"):
+                details.append(f"roadmap: {item['roadmap_id']}")
+            if item.get("canonical_note_id"):
+                details.append(f"canonical note: {item['canonical_note_id']}")
+            suffix = f"; {'; '.join(details)}" if details else ""
+            lines.append(f"- `{item['note_id']}` — **{item['disposition']}**{suffix} — {item['reason']}")
+    else:
+        lines.append("- No captured note is attached to this goal.")
     roadmap_ids = goal.get("roadmap_ids", [])
     impact = goal.get("roadmap_impact", {})
     lines.extend(["", "### Roadmap context and impact", "", f"Retrieved roadmap IDs: {', '.join(roadmap_ids) or 'none'}"])
@@ -1012,6 +1120,12 @@ def normalize_note_dimensions(item: dict[str, Any], occurred_at: str) -> dict[st
     dimensions["occurred_at"] = item.get("occurred_at") or occurred_at
     if parse_recorded_time(dimensions["occurred_at"], "UTC") is None:
         raise ContinuityError("note occurred_at must be an ISO 8601 date or datetime")
+    occurred_at_confidence = item.get("occurred_at_confidence") or (
+        "exact" if item.get("occurred_at") else "capture-time"
+    )
+    if occurred_at_confidence not in NOTE_OCCURRED_AT_CONFIDENCE:
+        raise ContinuityError(f"Invalid note occurred_at confidence: {occurred_at_confidence}")
+    dimensions["occurred_at_confidence"] = occurred_at_confidence
     pattern_key = item.get("pattern_key")
     if pattern_key is not None:
         dimensions["pattern_key"] = validate_identifier(str(pattern_key), "note pattern key")
@@ -1117,14 +1231,70 @@ def find_capture(root: Path, config: dict[str, Any], capture_id: str) -> Path:
     return matches[0]
 
 
-def derived_note_work_status(item: dict[str, Any]) -> str:
+def find_note_item(root: Path, config: dict[str, Any], item_id: str) -> tuple[Path, dict[str, Any], dict[str, Any]]:
+    validate_identifier(item_id, "note ID")
+    matches: list[tuple[Path, dict[str, Any], dict[str, Any]]] = []
+    for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(path, {})
+        if not isinstance(capture, dict):
+            continue
+        for item in capture.get("items", []):
+            if isinstance(item, dict) and item.get("item_id") == item_id:
+                current = dict(item)
+                hydrate_note_goal_links(root, config, current)
+                current["work_status"] = derived_note_work_status(current, now(config))
+                matches.append((path, capture, current))
+    if len(matches) != 1:
+        raise ContinuityError(f"Expected one note {item_id}; found {len(matches)}")
+    return matches[0]
+
+
+def validate_note_disposition_targets(root: Path, config: dict[str, Any], dispositions: list[dict[str, Any]]) -> None:
+    for item in dispositions:
+        try:
+            find_note_item(root, config, str(item["note_id"]))
+        except ContinuityError as exc:
+            raise ContinuityError(f"Goal references an unavailable source note {item['note_id']}") from exc
+        if item.get("canonical_note_id"):
+            try:
+                find_note_item(root, config, str(item["canonical_note_id"]))
+            except ContinuityError as exc:
+                raise ContinuityError(
+                    f"Duplicate disposition references an unavailable canonical note {item['canonical_note_id']}"
+                ) from exc
+
+
+def note_link_disposition(link: dict[str, Any]) -> str:
+    disposition = str(link.get("disposition", "current-goal"))
+    return disposition if disposition in NOTE_PLANNING_DISPOSITIONS else "current-goal"
+
+
+def note_later_is_due(link: dict[str, Any], current_time: dt.datetime | None) -> bool:
+    if current_time is None or not link.get("review_after"):
+        return False
+    try:
+        review_after = dt.datetime.fromisoformat(str(link["review_after"]))
+    except ValueError:
+        return False
+    if review_after.tzinfo is None:
+        review_after = review_after.replace(tzinfo=current_time.tzinfo)
+    return review_after <= current_time
+
+
+def derived_note_work_status(item: dict[str, Any], current_time: dt.datetime | None = None) -> str:
     links = item.get("goal_links", {})
     if not isinstance(links, dict) or not links:
         return str(item.get("routing_work_status", item.get("work_status", "open")))
-    statuses = [
-        NOTE_GOAL_STATUS_MAP.get(str(link.get("state")), "open")
+    current_goal_links = [
+        link
         for link in links.values()
         if isinstance(link, dict)
+        and link.get("state") != "unlinked"
+        and note_link_disposition(link) == "current-goal"
+    ]
+    statuses = [
+        NOTE_GOAL_STATUS_MAP.get(str(link.get("state")), "open")
+        for link in current_goal_links
     ]
     active_priority = {
         "running": 90,
@@ -1138,11 +1308,25 @@ def derived_note_work_status(item: dict[str, Any]) -> str:
     active = [status for status in statuses if status in active_priority]
     if active:
         return max(active, key=lambda status: active_priority[status])
+    later_links = [
+        link
+        for link in links.values()
+        if isinstance(link, dict)
+        and link.get("state") != "unlinked"
+        and note_link_disposition(link) == "later"
+    ]
+    if later_links:
+        if any(note_later_is_due(link, current_time) for link in later_links):
+            return "open"
+        return "deferred"
     if statuses and all(status == "completed" for status in statuses):
         return "completed"
     for status in ("partially-completed", "blocked", "completed", "cancelled"):
         if status in statuses:
             return status
+    live_links = [link for link in links.values() if isinstance(link, dict) and link.get("state") != "unlinked"]
+    if live_links and all(note_link_disposition(link) == "duplicate" for link in live_links):
+        return "not-applicable"
     return str(item.get("routing_work_status", item.get("work_status", "open")))
 
 
@@ -1159,7 +1343,31 @@ def hydrate_note_goal_links(root: Path, config: dict[str, Any], item: dict[str, 
             continue
         goal = json_load(goal_dir(root, config, goal_id) / "goal.json", {})
         if isinstance(goal, dict) and goal.get("state"):
-            hydrated[goal_id] = {"state": goal["state"], "updated_at": goal.get("updated_at")}
+            planning = next(
+                (
+                    value
+                    for value in goal.get("note_dispositions", [])
+                    if isinstance(value, dict) and value.get("note_id") == item.get("item_id")
+                ),
+                None,
+            )
+            planning = planning or {
+                "disposition": "current-goal",
+                "reason": "Compatibility default for a legacy source-note link.",
+                "delivery_slice_ids": [],
+            }
+            hydrated[goal_id] = {
+                "state": goal["state"],
+                "disposition": planning.get("disposition", "current-goal"),
+                "reason": planning.get("reason"),
+                "delivery_slice_ids": list(planning.get("delivery_slice_ids", [])),
+                "review_after": planning.get("review_after"),
+                "roadmap_id": planning.get("roadmap_id"),
+                "canonical_note_id": planning.get("canonical_note_id"),
+                "plan_version": goal.get("plan_version"),
+                "decided_at": goal.get("created_at") or goal.get("updated_at"),
+                "updated_at": goal.get("updated_at"),
+            }
     item["goal_links"] = hydrated
     return hydrated
 
@@ -1194,7 +1402,7 @@ def note_migrate_links(args: argparse.Namespace) -> dict[str, Any]:
                 continue
             previous = str(item.get("work_status", "open"))
             links = hydrate_note_goal_links(root, config, item)
-            item["work_status"] = derived_note_work_status(item)
+            item["work_status"] = derived_note_work_status(item, now(config))
             item["updated_at"] = stamp
             item["goal_links_migrated_at"] = stamp
             if previous != item["work_status"]:
@@ -1228,12 +1436,19 @@ def update_note_goal_links(
     goal_state: str | None,
     *,
     remove: bool = False,
-) -> list[dict[str, str]]:
+    dispositions: list[dict[str, Any]] | None = None,
+    plan_version: int | None = None,
+) -> list[dict[str, Any]]:
     targets = {item_id for item_id in item_ids if item_id}
     if not targets:
         return []
     stamp = iso_now(config)
-    updated: list[dict[str, str]] = []
+    disposition_map = {
+        str(item["note_id"]): item
+        for item in (dispositions or [])
+        if isinstance(item, dict) and item.get("note_id")
+    }
+    updated: list[dict[str, Any]] = []
     for path in (private_path(root, config) / "captures").glob("**/*.json"):
         capture = json_load(path, {})
         if not isinstance(capture, dict):
@@ -1245,31 +1460,61 @@ def update_note_goal_links(
             previous = str(item.get("work_status", "open"))
             links = hydrate_note_goal_links(root, config, item)
             item.setdefault("routing_work_status", previous)
+            prior = links.get(goal_id, {})
+            prior = prior if isinstance(prior, dict) else {}
             if remove:
-                prior = links.get(goal_id, {})
                 links[goal_id] = {
                     "state": "unlinked",
-                    "previous_state": prior.get("state") if isinstance(prior, dict) else None,
+                    "previous_state": prior.get("state"),
+                    **{key: value for key, value in prior.items() if key not in {"state", "previous_state", "updated_at"}},
                     "updated_at": stamp,
                 }
             else:
-                links[goal_id] = {"state": goal_state, "updated_at": stamp}
+                planning = disposition_map.get(str(item["item_id"]))
+                disposition = str((planning or prior).get("disposition", "current-goal"))
+                decision_material = {
+                    "disposition": disposition,
+                    "reason": (planning or prior).get("reason"),
+                    "delivery_slice_ids": list((planning or prior).get("delivery_slice_ids", [])),
+                    "review_after": (planning or prior).get("review_after"),
+                    "roadmap_id": (planning or prior).get("roadmap_id"),
+                    "canonical_note_id": (planning or prior).get("canonical_note_id"),
+                    "plan_version": plan_version or prior.get("plan_version"),
+                }
+                prior_decision = {key: prior.get(key) for key in decision_material}
+                links[goal_id] = {
+                    "state": goal_state,
+                    **decision_material,
+                    "decided_at": stamp if decision_material != prior_decision else prior.get("decided_at", stamp),
+                    "updated_at": stamp,
+                }
                 related = item.setdefault("related_goal_ids", [])
                 if goal_id not in related:
                     related.append(goal_id)
             item.setdefault("created_at", capture.get("captured_at", stamp))
             item["updated_at"] = stamp
-            item["work_status"] = derived_note_work_status(item)
+            item["work_status"] = derived_note_work_status(item, now(config))
             item["execution_authorized"] = False
-            if previous != item["work_status"] or remove:
+            if previous != item["work_status"] or remove or prior != links[goal_id]:
                 item.setdefault("work_status_history", []).append(
-                    {"at": stamp, "from": previous, "to": item["work_status"], "goal_id": goal_id}
+                    {
+                        "at": stamp,
+                        "from": previous,
+                        "to": item["work_status"],
+                        "goal_id": goal_id,
+                        "goal_state": links[goal_id].get("state"),
+                        "disposition": links[goal_id].get("disposition"),
+                        "plan_version": links[goal_id].get("plan_version"),
+                    }
                 )
             updated.append(
                 {
                     "capture_id": str(capture.get("capture_id", "")),
                     "item_id": str(item["item_id"]),
                     "work_status": item["work_status"],
+                    "disposition": links[goal_id].get("disposition"),
+                    "plan_version": links[goal_id].get("plan_version"),
+                    "decided_at": links[goal_id].get("decided_at"),
                 }
             )
             changed = True
@@ -1332,6 +1577,7 @@ def note_triage(args: argparse.Namespace) -> dict[str, Any]:
         "impact": args.impact,
         "confidence": args.confidence,
         "actionability": args.actionability,
+        "occurred_at_confidence": args.occurred_at_confidence,
     }
     for key, value in dimension_updates.items():
         if value is not None:
@@ -1356,7 +1602,7 @@ def note_triage(args: argparse.Namespace) -> dict[str, Any]:
     else:
         selected["routing_work_status"] = "open"
     hydrate_note_goal_links(root, config, selected)
-    selected["work_status"] = derived_note_work_status(selected)
+    selected["work_status"] = derived_note_work_status(selected, now(config))
     if args.action in {"route", "defer", "promote"}:
         queue = route_for_kind(selected["kind"])
         selected["queue"] = queue
@@ -1402,7 +1648,7 @@ def note_list(args: argparse.Namespace) -> list[dict[str, Any]]:
                 continue
             current = dict(item)
             hydrate_note_goal_links(root, config, current)
-            current["work_status"] = derived_note_work_status(current)
+            current["work_status"] = derived_note_work_status(current, now(config))
             result.append({"capture_id": capture["capture_id"], **current})
     return result
 
@@ -1440,7 +1686,9 @@ def note_resolve(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError(f"Capture {args.capture_id} has no item {args.item_id}")
     links = hydrate_note_goal_links(root, config, item)
     if isinstance(links, dict) and any(
-        isinstance(link, dict) and link.get("state") not in {"completed", "cancelled"}
+        isinstance(link, dict)
+        and note_link_disposition(link) == "current-goal"
+        and link.get("state") not in {"completed", "cancelled", "unlinked"}
         for link in links.values()
     ):
         raise ContinuityError("A note linked to active goals must be resolved through the goal lifecycle")
@@ -1461,6 +1709,138 @@ def note_resolve(args: argparse.Namespace) -> dict[str, Any]:
         {"at": stamp, "event": "note.resolved", "capture_id": args.capture_id, "item_id": args.item_id, "actor": args.actor},
     )
     return {"capture_id": args.capture_id, **item}
+
+
+def related_goal_candidates(
+    root: Path,
+    config: dict[str, Any],
+    item: dict[str, Any],
+    *,
+    limit: int = 5,
+    min_score: float = RELATED_GOAL_DEFAULT_MIN_SCORE,
+    goals: Iterable[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    limit = max(1, min(int(limit), RELATED_GOAL_MAX_RESULTS))
+    min_score = max(0.0, min(float(min_score), 1.0))
+    note_text = " ".join(
+        [
+            str(item.get("text", "")),
+            " ".join(str(value) for value in item.get("themes", [])),
+            str(item.get("occurrence_type", "")),
+        ]
+    )
+    note_features = semantic_features(note_text)
+    links = item.get("goal_links", {}) if isinstance(item.get("goal_links"), dict) else {}
+    candidates: list[dict[str, Any]] = []
+    goal_records = goals
+    if goal_records is None:
+        goal_records = [
+            json_load(goal_path, {})
+            for goal_path in sorted((private_path(root, config) / "goals").glob("*/goal.json"))
+        ]
+    for goal in goal_records:
+        if not isinstance(goal, dict) or goal.get("state") in {"completed", "cancelled"}:
+            continue
+        searchable = " ".join(
+            [
+                str(goal.get("title", "")),
+                str(goal.get("scope", "")),
+                " ".join(str(value) for value in goal.get("acceptance_criteria", [])),
+                " ".join(str(value) for value in goal.get("roadmap_ids", [])),
+                json.dumps(goal.get("triage_brief", {}), sort_keys=True),
+            ]
+        )
+        goal_features = semantic_features(searchable)
+        score = cosine_similarity(note_features, goal_features)
+        if score < min_score:
+            continue
+        shared = sorted(
+            set(note_features).intersection(goal_features),
+            key=lambda value: note_features[value] * goal_features[value],
+            reverse=True,
+        )[:8]
+        existing = links.get(goal.get("goal_id"), {})
+        already_linked = bool(existing) and isinstance(existing, dict) and existing.get("state") not in {None, "unlinked"}
+        candidates.append(
+            {
+                "goal_id": goal.get("goal_id"),
+                "title": goal.get("title"),
+                "goal_state": goal.get("state"),
+                "similarity": round(score, 4),
+                "confidence": "high" if score >= 0.35 else "medium" if score >= RELATED_GOAL_REPORT_MIN_SCORE else "low",
+                "shared_terms": shared,
+                "already_linked": already_linked,
+                "current_disposition": note_link_disposition(existing) if already_linked else None,
+                "execution_authorized": False,
+            }
+        )
+    candidates.sort(key=lambda value: (value["similarity"], str(value["goal_id"])), reverse=True)
+    return candidates[:limit]
+
+
+def note_related_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
+    root, config = load_context()
+    _path, _capture, item = find_note_item(root, config, args.note_id)
+    return related_goal_candidates(root, config, item, limit=args.limit, min_score=args.min_score)
+
+
+def note_relate(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    _path, _capture, item = find_note_item(root, config, args.note_id)
+    _directory, goal = load_goal(root, config, args.goal_id)
+    if args.disposition == "current-goal":
+        raise ContinuityError(
+            "Current-goal scope must be recorded through goal create or goal revise so the note disposition is plan-hashed and reapproved"
+        )
+    if args.note_id in goal.get("source_note_ids", []):
+        raise ContinuityError("A plan-hashed source-note disposition must be changed through goal revise")
+    if goal.get("state") in {"completed", "cancelled"} and args.disposition == "later":
+        raise ContinuityError("Later work cannot be anchored to a completed or cancelled goal; use roadmap or a new goal")
+    planning = validate_note_dispositions(
+        [
+            {
+                "note_id": args.note_id,
+                "disposition": args.disposition,
+                "reason": args.reason,
+                "delivery_slice_ids": [],
+                "review_after": args.review_after,
+                "roadmap_id": args.roadmap_id,
+                "canonical_note_id": args.canonical_note_id,
+            }
+        ],
+        [args.note_id],
+        goal.get("delivery_slices", []),
+        goal.get("roadmap_ids", []),
+    )
+    if args.review_after and parse_recorded_time(args.review_after, config["timezone"]) is None:
+        raise ContinuityError("Relationship review_after must be an ISO date-time")
+    if args.canonical_note_id:
+        find_note_item(root, config, args.canonical_note_id)
+    updated = update_note_goal_links(
+        root,
+        config,
+        [args.note_id],
+        args.goal_id,
+        str(goal.get("state")),
+        dispositions=planning,
+        plan_version=int(goal.get("plan_version", 1)),
+    )
+    if len(updated) != 1:
+        raise ContinuityError(f"Unable to relate note {args.note_id} to goal {args.goal_id}")
+    stamp = iso_now(config)
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "note.related",
+            "item_id": args.note_id,
+            "goal_id": args.goal_id,
+            "disposition": args.disposition,
+            "actor": args.actor,
+        },
+    )
+    _path, capture, current = find_note_item(root, config, args.note_id)
+    return note_workflow_status(root, config, capture, current)
 
 
 def pattern_recommendation(axis: str, occurrence_type: str, sentiments: dict[str, int]) -> str:
@@ -2098,8 +2478,10 @@ def load_goal(root: Path, config: dict[str, Any], goal_id: str) -> tuple[Path, d
 def validate_goal_planning_artifacts(goal: dict[str, Any], *, require_resolved: bool = False) -> None:
     validate_triage_brief(goal.get("triage_brief"))
     decision_map = validate_decision_map(goal.get("decision_map"))
-    validate_delivery_slices(goal.get("delivery_slices"))
+    delivery_slices = validate_delivery_slices(goal.get("delivery_slices"))
     roadmap_ids = validate_string_list(goal.get("roadmap_ids", []), "roadmap_ids")
+    source_note_ids = validate_string_list(goal.get("source_note_ids", []), "source_note_ids")
+    validate_note_dispositions(goal.get("note_dispositions"), source_note_ids, delivery_slices, roadmap_ids)
     validate_roadmap_impact(goal.get("roadmap_impact"), roadmap_ids)
     if require_resolved and decision_map:
         unresolved = [
@@ -2132,6 +2514,7 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
         "priority",
         "depends_on",
         "source_note_ids",
+        "note_dispositions",
         "memory_ids",
         "roadmap_ids",
         "roadmap_impact",
@@ -2188,6 +2571,18 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
     directory = goal_dir(root, config, goal_id)
     if directory.exists():
         raise ContinuityError(f"Goal already exists: {goal_id}")
+    delivery_slices = validate_delivery_slices(payload.get("delivery_slices"))
+    roadmap_ids = payload.get("roadmap_ids", [])
+    note_dispositions = validate_note_dispositions(
+        payload.get("note_dispositions"),
+        payload.get("source_note_ids", []),
+        delivery_slices,
+        roadmap_ids,
+    )
+    for item in note_dispositions:
+        if item.get("review_after") and parse_recorded_time(item["review_after"], config["timezone"]) is None:
+            raise ContinuityError(f"Note disposition {item['note_id']} has an invalid review_after")
+    validate_note_disposition_targets(root, config, note_dispositions)
     goal = {
         "schema_version": SCHEMA_VERSION,
         "goal_id": goal_id,
@@ -2198,9 +2593,10 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "priority": payload.get("priority", "normal"),
         "depends_on": payload.get("depends_on", []),
         "source_note_ids": payload.get("source_note_ids", []),
+        "note_dispositions": note_dispositions,
         "memory_ids": payload.get("memory_ids", []),
-        "roadmap_ids": payload.get("roadmap_ids", []),
-        "roadmap_impact": validate_roadmap_impact(payload.get("roadmap_impact"), payload.get("roadmap_ids", [])),
+        "roadmap_ids": roadmap_ids,
+        "roadmap_impact": validate_roadmap_impact(payload.get("roadmap_impact"), roadmap_ids),
         "scope": payload["scope"],
         "exclusions": payload.get("exclusions", []),
         "acceptance_criteria": payload["acceptance_criteria"],
@@ -2209,7 +2605,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "runtime_limit_minutes": runtime_limit,
         "triage_brief": validate_triage_brief(payload.get("triage_brief")),
         "decision_map": validate_decision_map(payload.get("decision_map")),
-        "delivery_slices": validate_delivery_slices(payload.get("delivery_slices")),
+        "delivery_slices": delivery_slices,
         "created_at": stamp,
         "updated_at": stamp,
     }
@@ -2263,8 +2659,19 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         }
     json_dump(directory / "compliance.json", compliance)
     (directory / "feedback.jsonl").touch()
-    update_note_goal_links(root, config, goal["source_note_ids"], goal_id, "awaiting-feedback")
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.created", "goal_id": goal_id})
+    update_note_goal_links(
+        root,
+        config,
+        goal["source_note_ids"],
+        goal_id,
+        "awaiting-feedback",
+        dispositions=goal["note_dispositions"],
+        plan_version=goal["plan_version"],
+    )
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {"at": stamp, "event": "goal.created", "goal_id": goal_id, "plan_version": goal["plan_version"]},
+    )
     return goal
 
 
@@ -2401,6 +2808,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "priority",
         "depends_on",
         "source_note_ids",
+        "note_dispositions",
         "memory_ids",
         "roadmap_ids",
         "roadmap_impact",
@@ -2417,6 +2825,8 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     for key, value in payload.items():
         if key in allowed:
             goal[key] = value
+    if "source_note_ids" in payload and "note_dispositions" not in payload:
+        goal["note_dispositions"] = None
     for key in ("depends_on", "source_note_ids", "memory_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
         value = goal.get(key)
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
@@ -2432,6 +2842,16 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     goal["triage_brief"] = validate_triage_brief(goal.get("triage_brief"))
     goal["decision_map"] = validate_decision_map(goal.get("decision_map"))
     goal["delivery_slices"] = validate_delivery_slices(goal.get("delivery_slices"))
+    goal["note_dispositions"] = validate_note_dispositions(
+        goal.get("note_dispositions"),
+        goal.get("source_note_ids", []),
+        goal["delivery_slices"],
+        goal.get("roadmap_ids", []),
+    )
+    for item in goal["note_dispositions"]:
+        if item.get("review_after") and parse_recorded_time(item["review_after"], config["timezone"]) is None:
+            raise ContinuityError(f"Note disposition {item['note_id']} has an invalid review_after")
+    validate_note_disposition_targets(root, config, goal["note_dispositions"])
     goal["roadmap_impact"] = validate_roadmap_impact(goal.get("roadmap_impact"), goal.get("roadmap_ids", []))
     validate_goal_roadmap_targets(root, config, goal.get("roadmap_ids", []), goal["roadmap_impact"])
     goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal.get("roadmap_ids", []))
@@ -2475,7 +2895,26 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     removed_note_ids = set(previous_source_note_ids) - set(goal.get("source_note_ids", []))
     if removed_note_ids:
         update_note_goal_links(root, config, removed_note_ids, goal["goal_id"], None, remove=True)
-    update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "awaiting-feedback")
+    update_note_goal_links(
+        root,
+        config,
+        goal.get("source_note_ids", []),
+        goal["goal_id"],
+        "awaiting-feedback",
+        dispositions=goal["note_dispositions"],
+        plan_version=goal["plan_version"],
+    )
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": goal["updated_at"],
+            "event": "goal.revised",
+            "goal_id": goal["goal_id"],
+            "plan_version": goal["plan_version"],
+            "actor": args.author,
+            "summary": args.summary,
+        },
+    )
     append_jsonl(directory / "feedback.jsonl", {"at": goal["updated_at"], "author": args.author, "type": "revision", "text": args.summary})
     return goal
 
@@ -2531,7 +2970,16 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
     json_dump(directory / "goal.json", goal)
     update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "queued")
     append_jsonl(directory / "feedback.jsonl", {"at": stamp, "author": args.approved_by, "type": "approval", "text": approval["authorization_text"]})
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.approved", "goal_id": goal["goal_id"], "scheduled_for": goal["scheduled_for"]})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "goal.approved",
+            "goal_id": goal["goal_id"],
+            "plan_version": goal["plan_version"],
+            "scheduled_for": goal["scheduled_for"],
+        },
+    )
     return {"goal": goal, "approval": approval}
 
 
@@ -3599,6 +4047,69 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def note_lifecycle_audit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    notes: dict[str, dict[str, Any]] = {}
+    problems: list[str] = []
+    for capture_path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(capture_path, {})
+        if not isinstance(capture, dict):
+            continue
+        for item in capture.get("items", []):
+            if not isinstance(item, dict) or not item.get("item_id"):
+                continue
+            note_id = str(item["item_id"])
+            notes[note_id] = item
+            created = parse_recorded_time(item.get("created_at"), config["timezone"])
+            updated = parse_recorded_time(item.get("updated_at"), config["timezone"])
+            if created is None or updated is None:
+                problems.append(f"note {note_id} has a missing or invalid lifecycle timestamp")
+            elif updated < created:
+                problems.append(f"note {note_id} updated_at precedes created_at")
+            links = item.get("goal_links", {})
+            if isinstance(links, dict):
+                for goal_id, link in links.items():
+                    if not isinstance(link, dict):
+                        problems.append(f"note {note_id} has malformed goal link {goal_id}")
+                        continue
+                    for key in ("decided_at", "updated_at"):
+                        if link.get(key) and parse_recorded_time(link.get(key), config["timezone"]) is None:
+                            problems.append(f"note {note_id} goal link {goal_id} has invalid {key}")
+    legacy_disposition_goal_ids: list[str] = []
+    for goal_path in sorted((private_path(root, config) / "goals").glob("*/goal.json")):
+        goal = json_load(goal_path, {})
+        if not isinstance(goal, dict) or not goal.get("goal_id"):
+            continue
+        goal_id = str(goal["goal_id"])
+        source_note_ids = [str(value) for value in goal.get("source_note_ids", [])]
+        if source_note_ids and "note_dispositions" not in goal:
+            legacy_disposition_goal_ids.append(goal_id)
+        try:
+            dispositions = validate_note_dispositions(
+                goal.get("note_dispositions"),
+                source_note_ids,
+                goal.get("delivery_slices", []),
+                goal.get("roadmap_ids", []),
+            )
+        except ContinuityError as exc:
+            problems.append(f"goal {goal_id} has invalid note dispositions: {exc}")
+            continue
+        for disposition in dispositions:
+            note_id = str(disposition["note_id"])
+            note = notes.get(note_id)
+            if note is None:
+                problems.append(f"goal {goal_id} references missing note {note_id}")
+                continue
+            link = note.get("goal_links", {}).get(goal_id) if isinstance(note.get("goal_links"), dict) else None
+            if not isinstance(link, dict) or link.get("state") == "unlinked":
+                problems.append(f"goal {goal_id} note {note_id} lacks a current lifecycle link")
+            elif note_link_disposition(link) != disposition["disposition"]:
+                problems.append(f"goal {goal_id} note {note_id} disposition disagrees with its lifecycle link")
+    return {
+        "legacy_disposition_goal_ids": sorted(legacy_disposition_goal_ids),
+        "problems": sorted(set(problems)),
+    }
+
+
 def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context(validate_behavior=False)
     manifest = load_project_manifest(root)
@@ -3644,6 +4155,18 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
         record["problems"].append(
             f"legacy note links require explicit note migrate-links migration: {legacy_note_ids}"
         )
+    lifecycle = note_lifecycle_audit(root, config)
+    record["legacy_note_disposition_goal_ids"] = lifecycle["legacy_disposition_goal_ids"]
+    record["note_lifecycle_problems"] = lifecycle["problems"]
+    if lifecycle["legacy_disposition_goal_ids"]:
+        record["healthy"] = False
+        record["problems"].append(
+            "legacy goals require explicit note dispositions through goal revise: "
+            f"{lifecycle['legacy_disposition_goal_ids']}"
+        )
+    if lifecycle["problems"]:
+        record["healthy"] = False
+        record["problems"].append(f"note lifecycle audit failed: {lifecycle['problems']}")
     return record
 
 
@@ -4066,7 +4589,10 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "deadline": (now(config) + dt.timedelta(minutes=goal["runtime_limit_minutes"])).isoformat(timespec="seconds"),
     }
     json_dump(directory / "dispatch.json", prompt)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.dispatched", "goal_id": goal["goal_id"]})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {"at": stamp, "event": "goal.dispatched", "goal_id": goal["goal_id"], "plan_version": goal["plan_version"]},
+    )
     return prompt
 
 
@@ -4093,7 +4619,17 @@ def goal_gate(args: argparse.Namespace) -> dict[str, Any]:
     }
     compliance["updated_at"] = stamp
     json_dump(directory / "compliance.json", compliance)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.compliance", "goal_id": args.goal_id, "stage": args.stage, "status": args.status})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "goal.compliance",
+            "goal_id": args.goal_id,
+            "plan_version": goal.get("plan_version"),
+            "stage": args.stage,
+            "status": args.status,
+        },
+    )
     return compliance["stages"][args.stage]
 
 
@@ -4191,7 +4727,10 @@ def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
         json_dump(directory / "human-review.json", review)
         record_compliance_stage(root, config, directory, goal, "human-review", "passed", [reason], actor)
         append_jsonl(private_path(root, config) / "reports" / "human-reviews.jsonl", review)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": f"goal.{transition}", "goal_id": args.goal_id})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {"at": stamp, "event": f"goal.{transition}", "goal_id": args.goal_id, "plan_version": goal.get("plan_version")},
+    )
     return goal
 
 
@@ -4330,6 +4869,494 @@ def workflow_action(
 
 def blocked_workflow_action(action: dict[str, Any], failures: Iterable[str]) -> dict[str, Any]:
     return {**action, "blocked_by": list(failures)}
+
+
+def structured_contains_identifier(value: Any, identifier: str) -> bool:
+    if isinstance(value, dict):
+        return any(structured_contains_identifier(item, identifier) for item in value.values())
+    if isinstance(value, list):
+        return any(structured_contains_identifier(item, identifier) for item in value)
+    return isinstance(value, str) and value == identifier
+
+
+def workflow_handoff_envelope(
+    *,
+    stage: str,
+    subject_ids: dict[str, Any],
+    inputs_used: list[str],
+    outputs_created: list[str],
+    decisions: list[dict[str, Any]],
+    evidence: dict[str, Any],
+    blockers: list[str],
+    next_skill: str | None,
+    allowed_actions: list[dict[str, Any]],
+    execution_authorized: bool,
+    blocked_actions: list[dict[str, Any]] | None = None,
+    human_requirements: list[str] | None = None,
+) -> dict[str, Any]:
+    required_human_actions = human_requirements or [
+        str(action.get("disposition"))
+        for action in allowed_actions
+        if action.get("human_required")
+    ]
+    return {
+        "schema_version": 1,
+        "stage": stage,
+        "subject_ids": subject_ids,
+        "inputs_used": inputs_used,
+        "outputs_created": outputs_created,
+        "decisions": decisions,
+        "evidence": evidence,
+        "blockers": blockers,
+        "authorization": {
+            "execution_authorized": execution_authorized,
+            "human_required": bool(required_human_actions),
+        },
+        "next_skill": next_skill,
+        "allowed_actions": allowed_actions,
+        "blocked_actions": blocked_actions or [],
+        "human_requirements": required_human_actions,
+    }
+
+
+def note_planning_disposition(item: dict[str, Any]) -> str:
+    links = item.get("goal_links", {})
+    if not isinstance(links, dict):
+        return "not-considered"
+    live_links = [
+        link
+        for link in links.values()
+        if isinstance(link, dict) and link.get("state") != "unlinked"
+    ]
+    if any(
+        note_link_disposition(link) == "current-goal" and link.get("state") not in {"completed", "cancelled"}
+        for link in live_links
+    ):
+        return "current-goal"
+    dispositions = [note_link_disposition(link) for link in live_links]
+    for value in ("later", "current-goal", "context-only", "duplicate"):
+        if value in dispositions:
+            return value
+    return "not-considered"
+
+
+def goal_stage_entered_at(root: Path, config: dict[str, Any], goal: dict[str, Any], workflow: dict[str, Any]) -> str | None:
+    directory = goal_dir(root, config, str(goal["goal_id"]))
+    execution = json_load(directory / "execution.json", {})
+    test_report = json_load(directory / "test-report.json", {})
+    merge_report = json_load(directory / "merge-assessment.json", {})
+    human_review = json_load(directory / "human-review.json", {})
+    stage = workflow.get("current_stage")
+    candidates = {
+        "plan-review": [goal.get("updated_at"), goal.get("created_at")],
+        "held": [goal.get("updated_at")],
+        "dispatch-ready": [goal.get("updated_at")],
+        "execution-start": [goal.get("dispatched_at"), goal.get("updated_at")],
+        "implementation": [execution.get("started_at"), execution.get("updated_at")],
+        "quality-gates": [test_report.get("updated_at"), execution.get("updated_at")],
+        "merge-safety": [merge_report.get("updated_at"), test_report.get("updated_at")],
+        "review-ready-transition": [merge_report.get("updated_at"), test_report.get("updated_at")],
+        "human-review": [execution.get("review_ready_at"), goal.get("updated_at")],
+        "human-remediation": [human_review.get("updated_at"), goal.get("updated_at")],
+        "completed": [goal.get("completed_at"), human_review.get("updated_at"), goal.get("updated_at")],
+        "cancelled": [human_review.get("updated_at"), goal.get("updated_at")],
+    }.get(str(stage), [goal.get("updated_at"), goal.get("created_at")])
+    valid = [str(value) for value in candidates if value]
+    return valid[0] if valid else None
+
+
+def note_goal_tracks(root: Path, config: dict[str, Any], item: dict[str, Any]) -> list[dict[str, Any]]:
+    tracks: list[dict[str, Any]] = []
+    links = item.get("goal_links", {})
+    if not isinstance(links, dict):
+        return tracks
+    for goal_id, link in sorted(links.items()):
+        if not isinstance(link, dict) or link.get("state") == "unlinked":
+            continue
+        goal = json_load(goal_dir(root, config, str(goal_id)) / "goal.json", {})
+        if not isinstance(goal, dict) or not goal.get("goal_id"):
+            tracks.append(
+                {
+                    "goal_id": goal_id,
+                    "goal_state": link.get("state"),
+                    "current_stage": "missing-goal",
+                    "stage_entered_at": link.get("updated_at"),
+                    "disposition": note_link_disposition(link),
+                    "reason": link.get("reason"),
+                    "plan_version": link.get("plan_version"),
+                    "decided_at": link.get("decided_at"),
+                    "updated_at": link.get("updated_at"),
+                    "blockers": ["linked goal record is missing"],
+                    "next_skill": "continuity-report",
+                }
+            )
+            continue
+        workflow = workflow_status_for_goal(root, config, goal)
+        tracks.append(
+            {
+                "goal_id": goal_id,
+                "goal_state": goal.get("state"),
+                "current_stage": workflow.get("current_stage"),
+                "stage_entered_at": goal_stage_entered_at(root, config, goal, workflow),
+                "disposition": note_link_disposition(link),
+                "reason": link.get("reason"),
+                "plan_version": link.get("plan_version") or goal.get("plan_version"),
+                "decided_at": link.get("decided_at"),
+                "updated_at": link.get("updated_at"),
+                "review_after": link.get("review_after"),
+                "roadmap_id": link.get("roadmap_id"),
+                "canonical_note_id": link.get("canonical_note_id"),
+                "delivery_slice_ids": list(link.get("delivery_slice_ids", [])),
+                "blockers": workflow.get("blockers", []),
+                "next_skill": workflow.get("next_skill"),
+                "allowed_actions": workflow.get("allowed_actions", []),
+            }
+        )
+    return tracks
+
+
+def note_timeline(
+    root: Path,
+    config: dict[str, Any],
+    capture: dict[str, Any],
+    item: dict[str, Any],
+    goal_tracks: list[dict[str, Any]],
+    *,
+    events: Iterable[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    note_id = str(item["item_id"])
+    capture_id = str(capture["capture_id"])
+    by_goal = {str(track["goal_id"]): track for track in goal_tracks}
+    timeline: list[dict[str, Any]] = []
+    event_records = events if events is not None else iter_jsonl(private_path(root, config) / "events.jsonl")
+    for event in event_records:
+        event_name = str(event.get("event", ""))
+        goal_id = str(event.get("goal_id")) if event.get("goal_id") else None
+        track = by_goal.get(goal_id or "", {})
+        is_note_link_event = event_name in {"note.goal-link", "note.related"}
+        is_goal_lifecycle_event = bool(goal_id and goal_id in by_goal and not is_note_link_event)
+        if is_goal_lifecycle_event:
+            if track.get("disposition") != "current-goal":
+                continue
+            event_at = parse_recorded_time(event.get("at"), config["timezone"])
+            decided_at = parse_recorded_time(track.get("decided_at"), config["timezone"])
+            if event_at is None or (decided_at is not None and event_at < decided_at):
+                continue
+            event_plan_version = event.get("plan_version")
+            track_plan_version = track.get("plan_version")
+            if event_plan_version is not None and track_plan_version is not None and event_plan_version != track_plan_version:
+                continue
+        relevant = (
+            (event.get("item_id") == note_id)
+            or (event_name == "capture.created" and event.get("capture_id") == capture_id)
+            or (is_goal_lifecycle_event and goal_id in by_goal if goal_id else False)
+            or (
+                event_name == "note.goal-link"
+                and any(isinstance(value, dict) and value.get("item_id") == note_id for value in event.get("items", []))
+            )
+        )
+        if not relevant or not event.get("at"):
+            continue
+        stage = None
+        linked_item: dict[str, Any] = {}
+        status = event.get("status") or event.get("state") or event.get("work_status")
+        if event_name == "capture.created":
+            stage = "triage-needed"
+        elif event_name == "note.related":
+            stage = {
+                "later": "planned-later",
+                "context-only": "context-only",
+                "duplicate": "duplicate",
+                "current-goal": "plan-review",
+            }.get(str(event.get("disposition")), "planning-disposition")
+        elif event_name.startswith("note.") and event_name not in {"note.goal-link", "note.goal-links-migrated"}:
+            stage = "note-resolved" if event_name == "note.resolved" else "triage-routed"
+        elif event_name == "note.goal-link":
+            linked_item = next(
+                (
+                    value
+                    for value in event.get("items", [])
+                    if isinstance(value, dict) and value.get("item_id") == note_id
+                ),
+                {},
+            )
+            stage = {
+                "later": "planned-later",
+                "context-only": "context-only",
+                "duplicate": "duplicate",
+                "current-goal": "plan-review",
+                None: "plan-review",
+            }.get(linked_item.get("disposition"), "plan-review")
+        elif event_name in {"note.goal-links-migrated", "goal.created", "goal.revised"}:
+            stage = "plan-review"
+        elif event_name in {"goal.approved", "goal.resume"}:
+            stage = "dispatch-ready"
+        elif event_name == "goal.dispatched":
+            stage = "execution-start"
+        elif event_name == "run.running":
+            stage = "implementation"
+        elif event_name == "run.validating":
+            stage = "quality-gates"
+        elif event_name == "test.report":
+            stage = "merge-safety" if status == "passed" else "quality-gates"
+        elif event_name == "merge.assess":
+            stage = "review-ready-transition" if status == "passed" else "merge-safety"
+        elif event_name == "run.review-ready":
+            stage = "human-review"
+        elif event_name in {"run.blocked", "run.partially-completed"}:
+            stage = "human-remediation"
+        elif event_name in {"run.cancelled", "goal.cancel"}:
+            stage = "cancelled"
+        elif event_name == "merge.human-review":
+            stage = {
+                "merged": "completed",
+                "closed": "cancelled",
+                "changes-requested": "human-remediation",
+                "approved": "human-review",
+            }.get(str(status), "human-review")
+        if not stage:
+            continue
+        timeline.append(
+            {
+                "at": event["at"],
+                "stage": stage,
+                "event": event_name,
+                "goal_id": goal_id,
+                "plan_version": event.get("plan_version") or linked_item.get("plan_version") or track.get("plan_version"),
+                "disposition": event.get("disposition") or linked_item.get("disposition") or track.get("disposition"),
+                "actor": event.get("actor"),
+                "status": status,
+            }
+        )
+    timeline.sort(key=lambda value: (str(value["at"]), str(value["event"]), str(value.get("goal_id") or "")))
+    return timeline
+
+
+def note_workflow_status(
+    root: Path,
+    config: dict[str, Any],
+    capture: dict[str, Any],
+    item: dict[str, Any],
+    *,
+    candidate_goals: Iterable[dict[str, Any]] | None = None,
+    include_timeline: bool = True,
+) -> dict[str, Any]:
+    capture_id = str(capture["capture_id"])
+    note_id = str(item["item_id"])
+    routing_status = str(item.get("routing_status", "captured"))
+    work_status = str(item.get("work_status", "open"))
+    queue = item.get("queue")
+    if routing_status in {"route", "defer", "promote"}:
+        queue = route_for_kind(str(item.get("kind")))
+    prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+    actions: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    outputs = [f"capture:{capture_id}", f"note:{note_id}"]
+    stage = "capture-review"
+    next_skill: str | None = "continuity-triage"
+
+    links = item.get("goal_links", {})
+    planning_disposition = note_planning_disposition(item)
+    goal_tracks = note_goal_tracks(root, config, item)
+    active_goal_tracks = [
+        track
+        for track in goal_tracks
+        if track.get("disposition") == "current-goal" and track.get("goal_state") not in {"completed", "cancelled"}
+    ]
+    relationship_candidates = (
+        []
+        if planning_disposition == "current-goal"
+        else [
+            candidate
+            for candidate in related_goal_candidates(
+                root,
+                config,
+                item,
+                limit=10,
+                min_score=RELATED_GOAL_DEFAULT_MIN_SCORE,
+                goals=candidate_goals,
+            )
+            if not candidate.get("already_linked")
+        ][:5]
+    )
+
+    if active_goal_tracks and work_status not in {"completed", "cancelled", "archived", "not-applicable"}:
+        goal_stages = sorted({str(value["current_stage"]) for value in active_goal_tracks if value.get("current_stage")})
+        stage = goal_stages[0] if len(goal_stages) == 1 else "multi-goal"
+        goal_next_skills = sorted({value["next_skill"] for value in active_goal_tracks if value.get("next_skill")})
+        next_skill = goal_next_skills[0] if len(goal_next_skills) == 1 else "continuity-report"
+        blockers.extend(
+            f"{value['goal_id']}: {blocker}"
+            for value in active_goal_tracks
+            for blocker in value.get("blockers", [])
+        )
+        actions.extend(action for value in active_goal_tracks for action in value.get("allowed_actions", []))
+    elif work_status == "completed":
+        stage = "completed"
+        next_skill = "continuity-report"
+    elif work_status == "cancelled":
+        stage = "cancelled"
+        next_skill = "continuity-report"
+    elif planning_disposition == "later":
+        due = [value for value in goal_tracks if value.get("disposition") == "later" and note_later_is_due(value, now(config))]
+        if due and queue:
+            stage = f"{queue}-ready"
+        else:
+            stage = "planned-later"
+            next_skill = "continuity-report"
+            anchors = [
+                value.get("review_after") or (f"roadmap:{value['roadmap_id']}" if value.get("roadmap_id") else None)
+                for value in goal_tracks
+                if value.get("disposition") == "later"
+            ]
+            blockers.append(f"later work is held until {', '.join(str(value) for value in anchors if value)}")
+    elif planning_disposition == "context-only":
+        stage = "context-only"
+        next_skill = "continuity-memory" if queue in {"knowledge", "documentation"} else "continuity-report"
+    elif planning_disposition == "duplicate":
+        stage = "duplicate"
+        next_skill = "continuity-report"
+    elif routing_status == "captured":
+        actions.append(
+            workflow_action(
+                "triage",
+                "continuity-triage",
+                f"{prefix} note triage {capture_id} {note_id} --kind <kind> --action <route|defer|archive|promote>",
+            )
+        )
+    elif routing_status == "archive" or work_status in {"archived", "not-applicable"}:
+        stage = "archived"
+        next_skill = "continuity-report"
+    elif routing_status == "defer" and work_status == "deferred":
+        review_after = parse_recorded_time(item.get("review_after"), config["timezone"])
+        if review_after is not None and review_after > now(config):
+            stage = "deferred"
+            next_skill = "continuity-report"
+            blockers.append(f"deferred until {item.get('review_after')}")
+        else:
+            stage = f"{queue}-ready"
+    else:
+        stage = f"{queue}-ready" if queue else "triage-review"
+
+    if not actions and not blockers and stage.endswith("-ready") and queue:
+        next_skill = {
+            "knowledge": "continuity-memory",
+            "documentation": "continuity-memory",
+            "questions": "continuity-triage",
+            "backlog": "continuity-plan",
+            "planning": "continuity-plan",
+        }[str(queue)]
+        actions.append(
+            workflow_action(
+                f"review-{queue}",
+                next_skill,
+                f"{prefix} note queue --queue {queue}",
+            )
+        )
+    if relationship_candidates and not any(action.get("disposition") == "inspect-related-goals" for action in actions):
+        actions.append(
+            workflow_action(
+                "inspect-related-goals",
+                "continuity-triage",
+                f"{prefix} note related-goals {note_id}",
+            )
+        )
+
+    timeline = note_timeline(root, config, capture, item, goal_tracks) if include_timeline else []
+    matching_stage_events = [value for value in timeline if value.get("stage") == stage]
+    track_stage_times = [
+        str(value["stage_entered_at"])
+        for value in active_goal_tracks
+        if value.get("current_stage") == stage and value.get("stage_entered_at")
+    ]
+    stage_entered_at = track_stage_times[-1] if track_stage_times else (
+        str(matching_stage_events[-1]["at"]) if matching_stage_events else str(item.get("updated_at") or capture.get("captured_at"))
+    )
+    lifecycle = {
+        "summary_status": work_status,
+        "current_stage": stage,
+        "stage_entered_at": stage_entered_at,
+        "routing": {"status": routing_status, "queue": queue, "review_after": item.get("review_after")},
+        "planning_disposition": planning_disposition,
+        "goal_tracks": goal_tracks,
+        "relationship_candidates": relationship_candidates,
+        "timeline": timeline,
+    }
+    evidence = {
+        "kind": item.get("kind"),
+        "routing_status": routing_status,
+        "queue": queue,
+        "work_status": work_status,
+        "occurred_at": item.get("occurred_at"),
+        "occurred_at_confidence": item.get("occurred_at_confidence", "unknown"),
+        "goal_links": links if isinstance(links, dict) else {},
+        "goal_tracks": goal_tracks,
+        "lifecycle": lifecycle,
+    }
+    decisions = [
+        {"type": "classification", "value": item.get("kind")},
+        {"type": "routing", "value": routing_status, "queue": queue},
+    ]
+    handoff = workflow_handoff_envelope(
+        stage=stage,
+        subject_ids={"capture_id": capture_id, "note_id": note_id},
+        inputs_used=[f"capture:{capture_id}"],
+        outputs_created=outputs,
+        decisions=decisions,
+        evidence=evidence,
+        blockers=blockers,
+        next_skill=next_skill,
+        allowed_actions=actions,
+        execution_authorized=False,
+    )
+    return {
+        "note_id": note_id,
+        "capture_id": capture_id,
+        "current_stage": stage,
+        "next_skill": next_skill,
+        "blockers": blockers,
+        "allowed_actions": actions,
+        "lifecycle": lifecycle,
+        "execution_authorized": False,
+        "handoff": handoff,
+    }
+
+
+def capture_workflow_status(root: Path, config: dict[str, Any], capture: dict[str, Any]) -> dict[str, Any]:
+    items = [
+        note_workflow_status(root, config, capture, {**item, "work_status": derived_note_work_status(item, now(config))})
+        for item in capture.get("items", [])
+        if isinstance(item, dict)
+    ]
+    next_skills = sorted({item["next_skill"] for item in items if item.get("next_skill")})
+    has_capture_review = any(item["current_stage"] == "capture-review" for item in items)
+    next_skill = "continuity-triage" if has_capture_review else (next_skills[0] if len(next_skills) == 1 else "continuity-report")
+    blockers = [f"{item['note_id']}: {blocker}" for item in items for blocker in item.get("blockers", [])]
+    actions = [action for item in items for action in item.get("allowed_actions", [])]
+    capture_id = str(capture["capture_id"])
+    stage = "capture-review" if has_capture_review else "capture-routed"
+    handoff = workflow_handoff_envelope(
+        stage=stage,
+        subject_ids={"capture_id": capture_id, "note_ids": [item["note_id"] for item in items]},
+        inputs_used=[f"capture:{capture_id}"],
+        outputs_created=[f"note:{item['note_id']}" for item in items],
+        decisions=[{"type": "item-routing", "note_id": item["note_id"], "stage": item["current_stage"]} for item in items],
+        evidence={"captured_at": capture.get("captured_at"), "item_count": len(items), "item_handoffs": items},
+        blockers=blockers,
+        next_skill=next_skill,
+        allowed_actions=actions,
+        execution_authorized=False,
+    )
+    return {
+        "capture_id": capture_id,
+        "current_stage": stage,
+        "next_skill": next_skill,
+        "next_skills": next_skills,
+        "blockers": blockers,
+        "items": items,
+        "execution_authorized": False,
+        "handoff": handoff,
+    }
 
 
 def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str, Any]) -> dict[str, Any]:
@@ -4474,6 +5501,31 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
                 "path": str(attempt_path.relative_to(root)),
             }
         )
+    evidence = {
+        "plan_hash": goal.get("plan_hash"),
+        "test_status": test_report.get("status") if isinstance(test_report, dict) else None,
+        "test_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
+        "merge_status": merge_report.get("status") if isinstance(merge_report, dict) else None,
+        "pr_url": execution.get("pr_url") if isinstance(execution, dict) else None,
+        "prior_attempts": prior_attempts,
+    }
+    handoff = workflow_handoff_envelope(
+        stage=current_stage,
+        subject_ids={"goal_id": goal_id},
+        inputs_used=[
+            *[f"note:{value}" for value in goal.get("source_note_ids", [])],
+            *[f"memory:{value}" for value in goal.get("memory_ids", [])],
+            *[f"roadmap:{value}" for value in goal.get("roadmap_ids", [])],
+        ],
+        outputs_created=[f"goal:{goal_id}", f"plan-hash:{goal.get('plan_hash')}"],
+        decisions=[{"type": "goal-state", "value": state}],
+        evidence=evidence,
+        blockers=blockers,
+        next_skill=next_skill,
+        allowed_actions=actions,
+        execution_authorized=state in {"dispatched", "running", "validating"},
+        blocked_actions=blocked_actions,
+    )
     return {
         "goal_id": goal_id,
         "title": goal.get("title"),
@@ -4488,14 +5540,8 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         "pending_compliance": pending,
         "failed_compliance": failed,
         "execution_attempt": int(goal.get("execution_attempt", 1)),
-        "evidence": {
-            "plan_hash": goal.get("plan_hash"),
-            "test_status": test_report.get("status") if isinstance(test_report, dict) else None,
-            "test_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
-            "merge_status": merge_report.get("status") if isinstance(merge_report, dict) else None,
-            "pr_url": execution.get("pr_url") if isinstance(execution, dict) else None,
-            "prior_attempts": prior_attempts,
-        },
+        "evidence": evidence,
+        "handoff": handoff,
     }
 
 
@@ -4512,6 +5558,197 @@ def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
             "generated_at": iso_now(config),
             "goal": workflow_status_for_goal(root, config, matches[0]),
         }
+    if args.capture_id:
+        capture = json_load(find_capture(root, config, args.capture_id), {})
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "capture": capture_workflow_status(root, config, capture),
+        }
+    if args.note_id:
+        _path, capture, item = find_note_item(root, config, args.note_id)
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "note": note_workflow_status(root, config, capture, item),
+        }
+    if args.memory_id:
+        path = find_memory_entry(root, config, args.memory_id)
+        metadata, _body, heading = parse_markdown(path)
+        status = str(metadata.get("status", "proposed"))
+        blockers = []
+        next_skill = "continuity-plan"
+        if status in {"proposed", "disputed", "superseded", "historical"}:
+            next_skill = "continuity-memory"
+            blockers.append(f"memory status is {status}; verify current applicability before planning")
+        verified_at = parse_recorded_time(metadata.get("last_verified_at"), config["timezone"])
+        stale_after = dt.timedelta(days=int(config.get("memory_stale_after_days", 90)))
+        if verified_at is None:
+            next_skill = "continuity-memory"
+            blockers.append("memory verification time is missing or invalid")
+        elif now(config) - verified_at > stale_after:
+            next_skill = "continuity-memory"
+            blockers.append(f"memory verification is older than {stale_after.days} days")
+        prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+        actions = [
+            workflow_action(
+                "retrieve-memory",
+                "continuity-memory",
+                f'{prefix} memory search "{args.memory_id}" --scope trusted',
+            )
+        ]
+        evidence = {
+            "path": str(path.relative_to(root)),
+            "title": metadata.get("title") or heading,
+            "status": status,
+            "confidence": metadata.get("confidence"),
+            "last_verified_at": metadata.get("last_verified_at"),
+            "verified_against": metadata.get("verified_against"),
+            "sources": metadata.get("sources", []),
+            "unresolved_gaps": metadata.get("unresolved_gaps", []),
+        }
+        handoff = workflow_handoff_envelope(
+            stage="memory-current" if status == "current" else "memory-review",
+            subject_ids={"memory_id": args.memory_id},
+            inputs_used=[str(value) for value in metadata.get("sources", [])],
+            outputs_created=[f"memory:{args.memory_id}"],
+            decisions=[{"type": "memory-status", "value": status}],
+            evidence=evidence,
+            blockers=blockers,
+            next_skill=next_skill,
+            allowed_actions=actions,
+            execution_authorized=False,
+        )
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "memory": {"memory_id": args.memory_id, "current_stage": handoff["stage"], "next_skill": next_skill, "blockers": blockers, "allowed_actions": actions, "handoff": handoff},
+        }
+    if args.roadmap_id:
+        matches = [entry for entry in roadmap_lib.entries(root, config) if entry.get("roadmap_id") == args.roadmap_id]
+        if len(matches) != 1:
+            raise ContinuityError(f"Expected one roadmap entry {args.roadmap_id}; found {len(matches)}")
+        entry = matches[0]
+        audit = roadmap_lib.audit(root, config, persist=False)
+        blockers = []
+        for issue_type, issues in audit.items():
+            if not isinstance(issues, list):
+                continue
+            for issue in issues:
+                if structured_contains_identifier(issue, args.roadmap_id):
+                    blockers.append(f"{issue_type}: {json.dumps(issue, sort_keys=True)}")
+        next_skill = "continuity-roadmap" if blockers else "continuity-plan"
+        prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+        actions = [workflow_action("retrieve-roadmap", "continuity-roadmap", f'{prefix} roadmap brief "{args.roadmap_id}"')]
+        evidence = {
+            "path": entry.get("path"),
+            "title": entry.get("title"),
+            "kind": entry.get("kind"),
+            "status": entry.get("status"),
+            "health": entry.get("health"),
+            "parent_ids": entry.get("parent_ids", []),
+            "depends_on": entry.get("depends_on", []),
+            "memory_ids": entry.get("memory_ids", []),
+        }
+        handoff = workflow_handoff_envelope(
+            stage="roadmap-review" if blockers else "roadmap-current",
+            subject_ids={"roadmap_id": args.roadmap_id},
+            inputs_used=[f"memory:{value}" for value in entry.get("memory_ids", [])],
+            outputs_created=[f"roadmap:{args.roadmap_id}"],
+            decisions=[{"type": "roadmap-state", "status": entry.get("status"), "health": entry.get("health")}],
+            evidence=evidence,
+            blockers=blockers,
+            next_skill=next_skill,
+            allowed_actions=actions,
+            execution_authorized=False,
+        )
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "roadmap": {"roadmap_id": args.roadmap_id, "current_stage": handoff["stage"], "next_skill": next_skill, "blockers": blockers, "allowed_actions": actions, "handoff": handoff},
+        }
+    if args.packet_id:
+        packet = shared_notes_lib.status(root, config, args.packet_id)
+        prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+        actions: list[dict[str, Any]] = []
+        blocked_actions: list[dict[str, Any]] = []
+        human_requirements: list[str] = []
+        next_skill = "continuity-share"
+        if packet["state"] == "prepared":
+            actions.append(
+                workflow_action(
+                    "approve-packet",
+                    "continuity-share",
+                    f'{prefix} note share approve {packet["packet_id"]} --version {packet["version"]} --approved-by <human> --authorization-text "Approve {packet["packet_id"]} version {packet["version"]} for {packet["target_project_id"]}"',
+                    human_required=True,
+                )
+            )
+        elif packet["state"] == "approved":
+            actions.append(workflow_action("publish-packet", "continuity-share", f"{prefix} note share publish {packet['packet_id']}"))
+        elif packet["state"] == "published":
+            human_requirements.append("human-reviewed packet PR merge")
+        elif packet["state"] == "merged":
+            actions.append(workflow_action("import-packets", "continuity-share", f"{prefix} note share import"))
+        elif packet["state"] == "imported":
+            next_skill = "continuity-triage"
+            for record in packet.get("imports", []):
+                for note_id in record.get("item_ids", []):
+                    actions.append(
+                        workflow_action(
+                            "triage-imported-note",
+                            "continuity-triage",
+                            f"{prefix} workflow status --note-id {note_id}",
+                        )
+                    )
+        if packet.get("blockers") and actions:
+            blocked_actions = [blocked_workflow_action(action, packet["blockers"]) for action in actions]
+            actions = []
+        evidence = {
+            "version": packet["version"],
+            "content_hash": packet["content_hash"],
+            "target_project_id": packet["target_project_id"],
+            "approval_current": packet["approval_current"],
+            "publication": packet.get("publication"),
+            "committed_paths": packet.get("committed_paths", []),
+            "imports": packet.get("imports", []),
+        }
+        imported_note_ids = [
+            str(note_id)
+            for record in packet.get("imports", [])
+            for note_id in record.get("item_ids", [])
+        ]
+        handoff = workflow_handoff_envelope(
+            stage=f"packet-{packet['state']}",
+            subject_ids={"packet_id": packet["packet_id"], "source_note_ids": packet.get("note_ids", []), "imported_note_ids": imported_note_ids},
+            inputs_used=[f"note:{value}" for value in packet.get("note_ids", [])],
+            outputs_created=[f"packet:{packet['packet_id']}:v{packet['version']}"],
+            decisions=[{"type": "packet-state", "value": packet["state"]}],
+            evidence=evidence,
+            blockers=packet.get("blockers", []),
+            next_skill=next_skill,
+            allowed_actions=actions,
+            execution_authorized=False,
+            blocked_actions=blocked_actions,
+            human_requirements=human_requirements or None,
+        )
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "packet": {
+                **packet,
+                "current_stage": handoff["stage"],
+                "next_skill": next_skill,
+                "allowed_actions": actions,
+                "blocked_actions": blocked_actions,
+                "human_requirements": handoff["human_requirements"],
+                "handoff": handoff,
+            },
+        }
     queue_names = ("knowledge", "questions", "documentation", "backlog", "planning")
     queue_counts = {
         name: len(note_queue(argparse.Namespace(queue=name, status="eligible")))
@@ -4527,6 +5764,18 @@ def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
         next_skill = "continuity-triage"
     else:
         next_skill = "continuity-report"
+    project_handoff = workflow_handoff_envelope(
+        stage="project-routing",
+        subject_ids={"project_id": config["project_id"]},
+        inputs_used=[f"queue:{name}" for name in queue_names],
+        outputs_created=[],
+        decisions=[{"type": "queue-priority", "next_skill": next_skill}],
+        evidence={"queue_counts": queue_counts, "goal_count": len(goal_records)},
+        blockers=[],
+        next_skill=next_skill,
+        allowed_actions=[],
+        execution_authorized=False,
+    )
     return {
         "schema_version": 1,
         "project_id": config["project_id"],
@@ -4535,6 +5784,7 @@ def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
         "queue_counts": queue_counts,
         "goals": goal_records,
         "legacy_goal_ids": [record["goal_id"] for record in goal_records if record["state"] in LEGACY_GOAL_STATES],
+        "handoff": project_handoff,
     }
 
 
@@ -4568,7 +5818,17 @@ def record_compliance_stage(
     }
     compliance["updated_at"] = stamp
     json_dump(directory / "compliance.json", compliance)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "goal.compliance", "goal_id": goal["goal_id"], "stage": stage, "status": status})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "goal.compliance",
+            "goal_id": goal["goal_id"],
+            "plan_version": goal.get("plan_version"),
+            "stage": stage,
+            "status": status,
+        },
+    )
     return compliance["stages"][stage]
 
 
@@ -4863,7 +6123,16 @@ def test_record(args: argparse.Namespace) -> dict[str, Any]:
         record_compliance_stage(root, config, directory, goal, "code-review", gate_status, review_evidence + (args.finding or []), args.actor)
         record_compliance_stage(root, config, directory, goal, "validation", gate_status, validation_evidence, args.actor)
         record_compliance_stage(root, config, directory, goal, "security-review", gate_status, security_evidence, args.actor)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "test.report", "goal_id": args.goal_id, "status": args.status})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "test.report",
+            "goal_id": args.goal_id,
+            "plan_version": goal.get("plan_version"),
+            "status": args.status,
+        },
+    )
     return report
 
 
@@ -5086,7 +6355,16 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
     if args.update_gate:
         gate_status = "passed" if computed_status == "passed" else "failed"
         record_compliance_stage(root, config, directory, goal, "merge-safety", gate_status, evidence + failures, args.actor)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "merge.assess", "goal_id": args.goal_id, "status": computed_status})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "merge.assess",
+            "goal_id": args.goal_id,
+            "plan_version": goal.get("plan_version"),
+            "status": computed_status,
+        },
+    )
     return report
 
 
@@ -5191,7 +6469,16 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
         json_dump(directory / "goal.json", goal)
         update_note_goal_links(root, config, goal.get("source_note_ids", []), args.goal_id, "cancelled")
     append_jsonl(private_path(root, config) / "reports" / "human-reviews.jsonl", report)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "merge.human-review", "goal_id": args.goal_id, "status": report["status"]})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "merge.human-review",
+            "goal_id": args.goal_id,
+            "plan_version": goal.get("plan_version"),
+            "status": report["status"],
+        },
+    )
     return report
 
 
@@ -5310,7 +6597,15 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
         lock = json_load(lock_path)
         if isinstance(lock, dict) and lock.get("goal_id") == args.goal_id:
             lock_path.unlink(missing_ok=True)
-    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": f"run.{args.state}", "goal_id": args.goal_id})
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": f"run.{args.state}",
+            "goal_id": args.goal_id,
+            "plan_version": goal.get("plan_version"),
+        },
+    )
     return manifest
 
 
@@ -5339,6 +6634,9 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
     blocked_or_at_risk: list[dict[str, Any]] = []
     prepared_next: list[dict[str, Any]] = []
     goal_statuses: list[dict[str, Any]] = []
+    note_lifecycles: list[dict[str, Any]] = []
+    note_stage_counts: dict[str, int] = {}
+    unconfirmed_relationships: list[dict[str, Any]] = []
     overnight_cutoff = now(config) - dt.timedelta(hours=24)
     for goal in sorted(goals, key=lambda value: value.get("updated_at", ""), reverse=True):
         directory = goal_dir(root, config, goal["goal_id"])
@@ -5416,6 +6714,83 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
             if completed_at is not None and completed_at >= overnight_cutoff:
                 completed_overnight.append(detail)
     for note in notes:
+        _path, capture, current_note = find_note_item(root, config, str(note["item_id"]))
+        note_status = note_workflow_status(
+            root,
+            config,
+            capture,
+            current_note,
+            candidate_goals=goals,
+            include_timeline=False,
+        )
+        lifecycle = note_status["lifecycle"]
+        stage_name = str(lifecycle["current_stage"])
+        note_stage_counts[stage_name] = note_stage_counts.get(stage_name, 0) + 1
+        note_lifecycles.append(
+            {
+                "note_id": note.get("item_id"),
+                "capture_id": note.get("capture_id"),
+                "kind": note.get("kind"),
+                "summary_status": lifecycle["summary_status"],
+                "current_stage": stage_name,
+                "stage_entered_at": lifecycle["stage_entered_at"],
+                "planning_disposition": lifecycle["planning_disposition"],
+                "goal_tracks": lifecycle["goal_tracks"],
+            }
+        )
+        candidates = lifecycle.get("relationship_candidates", [])
+        if (
+            candidates
+            and float(candidates[0].get("similarity", 0.0)) >= RELATED_GOAL_REPORT_MIN_SCORE
+            and len(unconfirmed_relationships) < RELATED_GOAL_REPORT_LIMIT
+            and lifecycle["planning_disposition"] == "not-considered"
+            and note.get("kind") in {
+            "backlog-candidate", "execution-candidate", "explicit-instruction"
+            }
+        ):
+            candidate_goal_id = str(candidates[0]["goal_id"])
+            relationship = {
+                "note_id": note.get("item_id"),
+                "title": note.get("text"),
+                "state": stage_name,
+                "candidates": candidates,
+                "decision": "Confirm whether this note belongs to a current plan, later work, or context only.",
+                "recommendation": "Inspect the local similarity evidence, then record scope only through planning or an explicit non-authorizing relationship.",
+                "allowed_dispositions": [
+                    workflow_action(
+                        "inspect-related-goals",
+                        "continuity-triage",
+                        f'.agents/continuity/bin/continuity --project-root "$PWD" note related-goals {note["item_id"]}',
+                        human_required=True,
+                    ),
+                    *(
+                        [
+                            workflow_action(
+                                "plan-current-goal",
+                                "continuity-plan",
+                                f'.agents/continuity/bin/continuity --project-root "$PWD" goal revise {candidate_goal_id} --goal-file <revision-with-note-disposition.json> --author <human> --summary <reason>',
+                                human_required=True,
+                            )
+                        ]
+                        if candidates[0].get("goal_state") in {"proposed-plan", "awaiting-feedback", "approved", "queued", "held", *REWORK_STATES}
+                        else []
+                    ),
+                    workflow_action(
+                        "relate-later",
+                        "continuity-triage",
+                        f'.agents/continuity/bin/continuity --project-root "$PWD" note relate {note["item_id"]} --goal-id {candidate_goal_id} --disposition later --reason <reason> --review-after <iso-date-time> --actor <human>',
+                        human_required=True,
+                    ),
+                    workflow_action(
+                        "relate-context-only",
+                        "continuity-triage",
+                        f'.agents/continuity/bin/continuity --project-root "$PWD" note relate {note["item_id"]} --goal-id {candidate_goal_id} --disposition context-only --reason <reason> --actor <human>',
+                        human_required=True,
+                    ),
+                ],
+            }
+            unconfirmed_relationships.append(relationship)
+            decisions_needed.append(relationship)
         if note.get("kind") == "question" and note.get("work_status") in {"open", "deferred"}:
             review_after = parse_recorded_time(note.get("review_after"), config["timezone"])
             if note.get("work_status") == "deferred" and review_after is not None and review_after > current_time:
@@ -5474,6 +6849,11 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         "prepared_next": prepared_next,
         "patterns": pattern_report["patterns"],
         "workflow_status": goal_statuses,
+        "note_lifecycle": {
+            "stage_counts": note_stage_counts,
+            "notes": note_lifecycles,
+            "unconfirmed_relationships": unconfirmed_relationships,
+        },
         "queue_counts": queue_counts,
         "memory_health": {
             "status": "healthy" if memory_report.get("healthy") else ("unhealthy" if memory_report else "not-audited"),
@@ -5549,6 +6929,15 @@ def report_project(args: argparse.Namespace) -> str:
         lines.append("No tracked goals.")
     for state, count in sorted(counts.items()):
         lines.append(f"- {state}: {count}")
+    lines.extend(["", "## Note lifecycle", ""])
+    note_lifecycle = decision_report.get("note_lifecycle", {})
+    stage_counts = note_lifecycle.get("stage_counts", {}) if isinstance(note_lifecycle, dict) else {}
+    if not stage_counts:
+        lines.append("- No captured notes.")
+    for stage, count in sorted(stage_counts.items()):
+        lines.append(f"- {stage}: {count}")
+    for item in note_lifecycle.get("unconfirmed_relationships", []) if isinstance(note_lifecycle, dict) else []:
+        lines.append(f"- **{item['note_id']}** — unconfirmed related-goal suggestion; run the listed inspection disposition.")
     lines.extend(["", "## Goal detail", ""])
     for goal in sorted(goals, key=lambda value: value.get("updated_at", ""), reverse=True):
         compliance = json_load(goal_dir(root, config, goal["goal_id"]) / "compliance.json", {})
@@ -5642,6 +7031,7 @@ def build_parser() -> argparse.ArgumentParser:
     triage.add_argument("--impact", choices=sorted(NOTE_IMPACTS))
     triage.add_argument("--confidence", choices=sorted(NOTE_CONFIDENCE))
     triage.add_argument("--actionability", choices=sorted(NOTE_ACTIONABILITY))
+    triage.add_argument("--occurred-at-confidence", choices=sorted(NOTE_OCCURRED_AT_CONFIDENCE))
     triage.add_argument("--stakeholder", action="append")
     triage.add_argument("--theme", action="append")
     triage.add_argument("--pattern-key")
@@ -5662,6 +7052,21 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_links = note_sub.add_parser("migrate-links")
     migrate_links.add_argument("--actor", default="human")
     migrate_links.set_defaults(handler=note_migrate_links)
+    related_goals = note_sub.add_parser("related-goals")
+    related_goals.add_argument("note_id")
+    related_goals.add_argument("--limit", type=int, default=5)
+    related_goals.add_argument("--min-score", type=float, default=RELATED_GOAL_DEFAULT_MIN_SCORE)
+    related_goals.set_defaults(handler=note_related_goals)
+    relate = note_sub.add_parser("relate")
+    relate.add_argument("note_id")
+    relate.add_argument("--goal-id", required=True)
+    relate.add_argument("--disposition", choices=["later", "context-only", "duplicate"], required=True)
+    relate.add_argument("--reason", required=True)
+    relate.add_argument("--review-after")
+    relate.add_argument("--roadmap-id")
+    relate.add_argument("--canonical-note-id")
+    relate.add_argument("--actor", default="human")
+    relate.set_defaults(handler=note_relate)
     patterns = note_sub.add_parser("patterns")
     patterns.add_argument("--min-count", type=int, default=2)
     patterns.set_defaults(handler=note_patterns)
@@ -5938,7 +7343,13 @@ def build_parser() -> argparse.ArgumentParser:
     workflow = top.add_parser("workflow")
     workflow_sub = workflow.add_subparsers(dest="command", required=True)
     workflow_status_command = workflow_sub.add_parser("status")
-    workflow_status_command.add_argument("--goal-id")
+    workflow_subject = workflow_status_command.add_mutually_exclusive_group()
+    workflow_subject.add_argument("--goal-id")
+    workflow_subject.add_argument("--capture-id")
+    workflow_subject.add_argument("--note-id")
+    workflow_subject.add_argument("--packet-id")
+    workflow_subject.add_argument("--memory-id")
+    workflow_subject.add_argument("--roadmap-id")
     workflow_status_command.set_defaults(handler=workflow_status)
 
     project_admin = top.add_parser("project")

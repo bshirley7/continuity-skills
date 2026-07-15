@@ -9,6 +9,8 @@ Keep approval and dispatch as separate recorded transitions. Never infer either 
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `.continuity/project.json`, and `.continuity/config.json`.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [authorization and recovery](references/authorization-and-recovery.md) before any state transition. Apply the **Evidence and confidence**, **Reliability and operations**, and **Delivery and rollback** lenses when assessing unattended suitability or recovery.
+
 ## Required assurance
 
 - Accept only explicit human approval that names the exact goal and plan version. Never synthesize an approver, approval text, or dispatch instruction.
@@ -45,4 +47,4 @@ For `changes-requested`, `blocked`, or `partially-completed`, resume only with e
 
 ## Handoff
 
-Run `continuity workflow status --goal-id <goal-id>` before every transition and after it. Dispatch only when the status lists that action. A dispatched goal hands off to `$continuity-execute`; a human-required or blocked state remains with the user and morning report.
+Run `continuity workflow status --goal-id <goal-id>` before every transition and after it. Dispatch only when the status lists that action. Update the canonical goal only; linked note lifecycle stages derive from that transition. A dispatched goal hands off to `$continuity-execute`; a human-required or blocked state remains with the user and morning report.

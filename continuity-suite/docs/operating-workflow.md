@@ -429,6 +429,11 @@ Every Continuity skill reads workflow status on entry and reports it on exit:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --capture-id <capture-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --note-id <note-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --memory-id <memory-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --roadmap-id <roadmap-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --packet-id <packet-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --goal-id <goal-id>
 ```
 
@@ -442,12 +447,21 @@ The record includes:
 - `blocked_actions` with reasons
 - Human requirements
 - Execution attempt and evidence references
+- For notes: summary status, exact stage, `stage_entered_at`, routing, planning disposition, per-goal tracks, relationship candidates, and timeline
 
 An allowed action may still name required human values or a live check such as preflight or pull-request verification. Workflow status does not itself authorize a human-required action.
 
+The installed `workflow-handoffs.md` reference explains the machine-derived information envelope each skill passes forward: exact subject IDs, cited inputs, durable outputs, decisions, evidence, blockers, authorization state, next skill, and machine-listed actions. Use the narrowest subject selector so unrelated queue priority cannot redirect the handoff. Each task skill also has a local applied reference covering its boundary cases and examples. These documents interpret the workflow record; the CLI remains authoritative when prose and machine state disagree.
+
+Before handoff, the skill uses the shared output rubric as an internal self-review. Evidence should be traceable, current, bounded, decision-complete, actionable, private, state-accurate, and proportionate to risk. Record actionable findings through existing evidence and compliance fields. A missing dimension blocks only when it maps to an existing gate, acceptance criterion, or project requirement; the rubric creates no parallel approval state.
+
 ## Notes, Patterns, And Long-Term Learning
 
-Note status is derived from both its routing state and all linked goals. A note may be linked to multiple goals without losing history. Hold, resume, cancellation, revision, rework, and completion update the derived status.
+Note lifecycle is derived from routing, approval-hashed note dispositions, all linked goals, compliance, run, test, merge, human-review, and event records. A note may be linked to multiple goals without losing history. Skills update their canonical stage records and never maintain note progress independently.
+
+Every plan assigns each source note exactly one explicit disposition. New goals and source-changing revisions fail closed when any disposition is omitted. `current-goal` follows delivery; `later` requires a review date or roadmap anchor; `context-only` informs without adopting execution state; `duplicate` points to the canonical note. Run `note related-goals` before deciding, but treat similarity as non-authorizing evidence. Morning reports show only confidence-qualified candidates and cap the review list; use the direct command when broader investigation is useful.
+
+Timeline provenance follows the relationship, not merely the current existence of a link. Goal execution events are included only for a `current-goal` relationship, at or after its decision timestamp, and for its plan version. A later, context-only, or duplicate note cannot appear to have participated in implementation, testing, or merge stages.
 
 Use pattern review to handle recurring signals deliberately:
 

@@ -9,6 +9,8 @@ Use this skill as the structured quality gate for a Continuity goal. It compleme
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the testing and merge standard](../../references/testing-and-merge-standard.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, the approved plan, and the current compliance ledger before acting.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [risk-based test design](references/risk-based-test-design.md) when creating or reviewing the quality plan. Select applicable product, engineering, security, privacy, reliability, and delivery questions from [decision lenses](../../references/decision-lenses.md).
+
 ## Required assurance
 
 - Treat configured validation and security commands as project-specific requirements, not suggestions.
@@ -55,4 +57,4 @@ Morning reports should include the latest Continuity test report, failed finding
 
 ## Handoff
 
-Run `continuity workflow status --goal-id <goal-id>` on entry and exit. A failed or stale result returns to `$continuity-execute`; a final passed result on the committed source state permits the push/PR step and then `$continuity-merge`.
+Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Test and compliance evidence determine the linked note's exact derived quality or merge-safety stage; do not maintain a parallel note status. A failed or stale result returns to `$continuity-execute`; a final passed result on the committed source state permits the push/PR step and then `$continuity-merge`.

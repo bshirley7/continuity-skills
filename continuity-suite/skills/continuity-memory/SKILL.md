@@ -9,6 +9,8 @@ Treat committed Markdown under `docs/project-memory/` as canonical. Treat the ig
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `.continuity/config.json`, and the project memory index before acting.
 
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [retrieval and curation](references/retrieval-and-curation.md) before producing a brief or mutating canonical memory. Apply the **Evidence and confidence** lens, including its currency questions.
+
 ## Required assurance
 
 - Commit only sanitized, project-relevant knowledge authorized by an active goal; never promote raw captures, secrets, personal data, or unverifiable claims.
@@ -44,4 +46,4 @@ Mark unverifiable knowledge disputed, historical, or stale. Report contradiction
 
 ## Handoff
 
-Run `continuity workflow status` on entry and exit. Pass exact memory IDs, freshness findings, contradictions, and unresolved gaps to `$continuity-roadmap` or `$continuity-plan`; do not convert a memory finding into execution authority.
+Run `continuity workflow status --memory-id <memory-id>` for each selected canonical entry on entry and exit. Notes marked `context-only` may inform memory without adopting a goal's execution stage. Pass exact memory IDs, freshness findings, contradictions, and unresolved gaps to `$continuity-roadmap` or `$continuity-plan`; do not convert a memory finding into execution authority.

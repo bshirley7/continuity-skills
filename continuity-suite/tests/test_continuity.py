@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -181,13 +182,23 @@ unresolved_gaps: []
         return json.loads(self.cli("note", "capture", "--items-file", str(path)).stdout)
 
     def create_goal(self, title: str = "Improve bridge safety", source_note_ids: list[str] | None = None) -> dict:
+        selected_notes = source_note_ids if source_note_ids is not None else []
         payload = {
             "title": title,
             "scope": "Document and implement the approved bridge safety update.",
             "exclusions": ["Do not replace Electron"],
             "acceptance_criteria": ["Validation passes", "Memory impact is documented"],
             "memory_ids": ["memory-current", "memory-promoted", "memory-replacement"],
-            "source_note_ids": source_note_ids or ["note-1"],
+            "source_note_ids": selected_notes,
+            "note_dispositions": [
+                {
+                    "note_id": note_id,
+                    "disposition": "current-goal",
+                    "reason": "The note is required by the current goal.",
+                    "delivery_slice_ids": [],
+                }
+                for note_id in selected_notes
+            ],
             "documentation_updates": ["docs/project-memory"],
             "plan_reviewed": True,
             "plan_review_evidence": "Reviewed for scope and developer compliance",
@@ -357,7 +368,7 @@ unresolved_gaps: []
         self.assertEqual(cancelled["work_status"], "cancelled")
         third = self.create_goal("Revision removes note", [note_id])
         revision = self.root / "remove-source-note.json"
-        self.write_json(revision, {"source_note_ids": ["replacement-note-id"]})
+        self.write_json(revision, {"source_note_ids": []})
         self.cli(
             "goal", "revise", third["goal_id"], "--goal-file", str(revision),
             "--author", "fixture-user", "--summary", "Move the note to another aligned goal",
@@ -598,6 +609,11 @@ unresolved_gaps: []
         self.assertEqual(completed_goal["state"], "completed")
         completed_note = next(item for item in json.loads(self.cli("note", "list").stdout) if item["item_id"] == source_note_id)
         self.assertEqual(completed_note["work_status"], "completed")
+        completed_lifecycle = json.loads(self.cli("workflow", "status", "--note-id", source_note_id).stdout)["note"]["lifecycle"]
+        self.assertEqual(completed_lifecycle["summary_status"], "completed")
+        self.assertEqual(completed_lifecycle["current_stage"], "completed")
+        self.assertEqual(completed_lifecycle["goal_tracks"][0]["goal_state"], "completed")
+        self.assertIn("completed", {event["stage"] for event in completed_lifecycle["timeline"]})
         self.cli("goal", "start", goal["goal_id"], expected=2)
 
     def test_quality_and_merge_reports_update_gates_and_morning_status(self) -> None:
@@ -1019,7 +1035,8 @@ unresolved_gaps: []
             "scope": "Deliver the approved renderer behavior in safe increments.",
             "acceptance_criteria": ["Each slice is independently verified"],
             "memory_ids": ["memory-current"],
-            "source_note_ids": ["note-patterns"],
+            "source_note_ids": [],
+            "note_dispositions": [],
             "plan_reviewed": True,
             "triage_brief": {
                 "summary": "Verify the renderer request before planning.",
@@ -1085,7 +1102,8 @@ unresolved_gaps: []
             "scope": "Wait for a required product decision.",
             "acceptance_criteria": ["Decision is recorded"],
             "memory_ids": ["memory-current"],
-            "source_note_ids": ["note-unresolved"],
+            "source_note_ids": [],
+            "note_dispositions": [],
             "plan_reviewed": True,
             "decision_map": {
                 "destination": "A decided product behavior.",
@@ -1117,7 +1135,8 @@ unresolved_gaps: []
             "scope": "Keep the human plan aligned with machine planning artifacts.",
             "acceptance_criteria": ["Parity is enforced"],
             "memory_ids": ["memory-current"],
-            "source_note_ids": ["note-parity"],
+            "source_note_ids": [],
+            "note_dispositions": [],
             "plan_reviewed": True,
             "delivery_slices": [{"ticket_id": "slice-parity", "title": "Enforce parity", "delivers": "Matching human and machine plans.", "acceptance_criteria": ["Drift is rejected"], "blocked_by": []}],
         }
@@ -1464,6 +1483,353 @@ unresolved_gaps: []
         )
         self.assertEqual(json.loads(self.cli("scheduler", "status").stdout)["state"], "registered")
 
+    def test_subject_specific_workflow_handoffs_override_project_queue_priority(self) -> None:
+        planning_capture = self.create_capture()
+        planning_note_id = planning_capture["items"][3]["item_id"]
+        self.cli(
+            "note", "triage", planning_capture["capture_id"], planning_note_id,
+            "--kind", "execution-candidate", "--action", "route",
+        )
+        subject_payload = {
+            "source_type": "conversation",
+            "source_ref": "thread:subject-handoff",
+            "items": [{"kind": "context", "text": "Preserve the current review ordering."}],
+        }
+        subject_path = self.root / "subject-capture.json"
+        self.write_json(subject_path, subject_payload)
+        subject_capture = json.loads(self.cli("note", "capture", "--items-file", str(subject_path)).stdout)
+        subject_note_id = subject_capture["items"][0]["item_id"]
+
+        project_status = json.loads(self.cli("workflow", "status").stdout)
+        self.assertEqual(project_status["next_skill"], "continuity-plan")
+        capture_status = json.loads(
+            self.cli("workflow", "status", "--capture-id", subject_capture["capture_id"]).stdout
+        )["capture"]
+        self.assertEqual(capture_status["next_skill"], "continuity-triage")
+        self.assertEqual(capture_status["handoff"]["subject_ids"]["note_ids"], [subject_note_id])
+
+        note_status = json.loads(self.cli("workflow", "status", "--note-id", subject_note_id).stdout)["note"]
+        self.assertEqual(note_status["current_stage"], "capture-review")
+        self.assertEqual(note_status["next_skill"], "continuity-triage")
+        self.assertFalse(note_status["handoff"]["authorization"]["execution_authorized"])
+        self.assertEqual(note_status["handoff"]["evidence"]["occurred_at_confidence"], "capture-time")
+
+        self.cli(
+            "note", "triage", subject_capture["capture_id"], subject_note_id,
+            "--kind", "context", "--action", "route", "--occurred-at-confidence", "approximate",
+        )
+        routed = json.loads(self.cli("workflow", "status", "--note-id", subject_note_id).stdout)["note"]
+        self.assertEqual(routed["current_stage"], "knowledge-ready")
+        self.assertEqual(routed["next_skill"], "continuity-memory")
+        self.assertEqual(routed["handoff"]["evidence"]["occurred_at_confidence"], "approximate")
+
+        handoff_schema = json.loads((SUITE / "schemas" / "workflow-handoff.schema.json").read_text(encoding="utf-8"))
+        self.assertTrue(set(handoff_schema["required"]).issubset(routed["handoff"]))
+        self.assertTrue(set(handoff_schema["properties"]["authorization"]["required"]).issubset(routed["handoff"]["authorization"]))
+
+        memory = json.loads(self.cli("workflow", "status", "--memory-id", "memory-current").stdout)["memory"]
+        self.assertEqual(memory["current_stage"], "memory-current")
+        self.assertEqual(memory["next_skill"], "continuity-plan")
+        historical = json.loads(self.cli("workflow", "status", "--memory-id", "memory-history").stdout)["memory"]
+        self.assertEqual(historical["next_skill"], "continuity-memory")
+        self.assertTrue(historical["blockers"])
+
+        self.write_roadmap("objective-reference", "Reference objective", "program", "active")
+        roadmap = json.loads(self.cli("workflow", "status", "--roadmap-id", "objective-reference").stdout)["roadmap"]
+        self.assertEqual(roadmap["next_skill"], "continuity-plan")
+        self.assertEqual(roadmap["handoff"]["subject_ids"]["roadmap_id"], "objective-reference")
+
+        packet = json.loads(
+            self.cli(
+                "note", "share", "prepare", subject_note_id,
+                "--target-project", "test-project", "--sender", "fixture",
+            ).stdout
+        )
+        packet_status = json.loads(self.cli("workflow", "status", "--packet-id", packet["packet_id"]).stdout)["packet"]
+        self.assertEqual(packet_status["state"], "prepared")
+        self.assertEqual(packet_status["handoff"]["human_requirements"], ["approve-packet"])
+        self.cli(
+            "note", "share", "approve", packet["packet_id"], "--version", str(packet["version"]),
+            "--approved-by", "fixture",
+            "--authorization-text", f"Approve {packet['packet_id']} version {packet['version']} for test-project",
+        )
+        approved_packet = json.loads(self.cli("workflow", "status", "--packet-id", packet["packet_id"]).stdout)["packet"]
+        self.assertEqual(approved_packet["state"], "approved")
+        self.assertEqual({action["disposition"] for action in approved_packet["allowed_actions"]}, {"publish-packet"})
+
+    def test_machine_shaped_reference_examples_are_accepted_by_the_cli(self) -> None:
+        capture_example = SUITE / "skills" / "continuity-capture" / "references" / "capture-input.example.json"
+        capture = json.loads(self.cli("note", "capture", "--items-file", str(capture_example)).stdout)
+        self.assertEqual(len(capture["items"]), 2)
+        self.assertEqual(capture["items"][0]["occurred_at_confidence"], "exact")
+        self.assertEqual(capture["items"][1]["occurred_at_confidence"], "capture-time")
+        self.assertTrue(all(item["execution_authorized"] is False for item in capture["items"]))
+
+        goal_example = SUITE / "skills" / "continuity-plan" / "references" / "goal-input.example.json"
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(goal_example)).stdout)
+        self.assertEqual(goal["state"], "awaiting-feedback")
+        self.assertFalse(goal["triage_brief"]["execution_authorized"])
+        self.assertFalse(goal["decision_map"]["execution_authorized"])
+        self.assertEqual(goal["delivery_slices"][0]["status"], "planning-candidate")
+        status = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
+        self.assertEqual(status["handoff"]["subject_ids"]["goal_id"], goal["goal_id"])
+        self.assertIn("approve", status["handoff"]["human_requirements"])
+
+    def test_note_lifecycle_dispositions_relationships_and_dated_stages(self) -> None:
+        capture = self.create_capture()
+        current_note, later_note, context_note, duplicate_note = (
+            capture["items"][3], capture["items"][2], capture["items"][0], capture["items"][1]
+        )
+        for item in capture["items"]:
+            action = "promote" if item["item_id"] == current_note["item_id"] else "route"
+            self.cli("note", "triage", capture["capture_id"], item["item_id"], "--action", action)
+        payload = {
+            "goal_id": "goal-note-lifecycle",
+            "title": "Preserve the preload bridge lifecycle",
+            "scope": "Implement the approved preload bridge lifecycle behavior.",
+            "acceptance_criteria": ["The bridge lifecycle remains explicit"],
+            "memory_ids": ["memory-current"],
+            "source_note_ids": [item["item_id"] for item in capture["items"]],
+            "note_dispositions": [
+                {"note_id": current_note["item_id"], "disposition": "current-goal", "reason": "Defines the current outcome.", "delivery_slice_ids": ["slice-lifecycle"]},
+                {"note_id": later_note["item_id"], "disposition": "later", "reason": "Belongs in a later planning pass.", "delivery_slice_ids": [], "review_after": "2030-01-02T09:00:00-06:00"},
+                {"note_id": context_note["item_id"], "disposition": "context-only", "reason": "Planning context, not delivery scope.", "delivery_slice_ids": []},
+                {"note_id": duplicate_note["item_id"], "disposition": "duplicate", "reason": "Represented by the canonical instruction.", "delivery_slice_ids": [], "canonical_note_id": current_note["item_id"]},
+            ],
+            "delivery_slices": [
+                {"ticket_id": "slice-lifecycle", "title": "Preserve lifecycle behavior", "delivers": "The explicit bridge lifecycle behavior.", "acceptance_criteria": ["Lifecycle behavior is verified"], "blocked_by": []}
+            ],
+            "plan_reviewed": True,
+        }
+        goal_path = self.root / "goal-note-lifecycle.json"
+        self.write_json(goal_path, payload)
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(goal_path)).stdout)
+        plan = (self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "plan.md").read_text(encoding="utf-8")
+        self.assertIn("Note dispositions", plan)
+        self.assertIn("review after: 2030-01-02T09:00:00-06:00", plan)
+
+        statuses = {
+            item["item_id"]: json.loads(self.cli("workflow", "status", "--note-id", item["item_id"]).stdout)["note"]
+            for item in capture["items"]
+        }
+        self.assertEqual(statuses[current_note["item_id"]]["lifecycle"]["current_stage"], "plan-review")
+        self.assertEqual(statuses[current_note["item_id"]]["lifecycle"]["summary_status"], "planned")
+        self.assertEqual(statuses[later_note["item_id"]]["lifecycle"]["current_stage"], "planned-later")
+        self.assertEqual(statuses[later_note["item_id"]]["lifecycle"]["summary_status"], "deferred")
+        self.assertEqual(statuses[context_note["item_id"]]["lifecycle"]["current_stage"], "context-only")
+        self.assertEqual(statuses[duplicate_note["item_id"]]["lifecycle"]["current_stage"], "duplicate")
+        self.assertTrue(statuses[current_note["item_id"]]["lifecycle"]["stage_entered_at"])
+
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        self.cli("run", "update", goal["goal_id"], "--state", "running", "--branch", "continuity/note-lifecycle")
+        running = json.loads(self.cli("workflow", "status", "--note-id", current_note["item_id"]).stdout)["note"]
+        self.assertEqual(running["lifecycle"]["current_stage"], "implementation")
+        self.assertEqual(running["lifecycle"]["summary_status"], "running")
+        timeline_stages = {item["stage"] for item in running["lifecycle"]["timeline"]}
+        self.assertTrue({"triage-needed", "plan-review", "dispatch-ready", "execution-start", "implementation"}.issubset(timeline_stages))
+        later_running = json.loads(self.cli("workflow", "status", "--note-id", later_note["item_id"]).stdout)["note"]
+        self.assertEqual(later_running["lifecycle"]["current_stage"], "planned-later")
+
+        related_payload = {
+            "source_type": "conversation",
+            "source_ref": "thread:related-goal",
+            "items": [{"item_id": "note-related-lifecycle", "kind": "execution-candidate", "text": "Preserve the preload bridge lifecycle and implement the approved explicit bridge lifecycle behavior."}],
+        }
+        related_path = self.root / "related-note.json"
+        self.write_json(related_path, related_payload)
+        related_capture = json.loads(self.cli("note", "capture", "--items-file", str(related_path)).stdout)
+        related_id = related_capture["items"][0]["item_id"]
+        self.cli("note", "triage", related_capture["capture_id"], related_id, "--action", "promote")
+        candidates = json.loads(self.cli("note", "related-goals", related_id, "--min-score", "0").stdout)
+        self.assertEqual(candidates[0]["goal_id"], goal["goal_id"])
+        default_candidates = json.loads(self.cli("note", "related-goals", related_id).stdout)
+        self.assertTrue(default_candidates, candidates)
+        self.assertFalse(default_candidates[0]["already_linked"], default_candidates)
+        unlinked = json.loads(self.cli("workflow", "status", "--note-id", related_id).stdout)["note"]
+        self.assertEqual(unlinked["lifecycle"]["planning_disposition"], "not-considered")
+        self.assertTrue(unlinked["lifecycle"]["relationship_candidates"], unlinked)
+        morning = json.loads(self.cli("report", "morning").stdout)
+        self.assertIn(
+            related_id,
+            {item["note_id"] for item in morning["note_lifecycle"]["unconfirmed_relationships"]},
+            morning["note_lifecycle"],
+        )
+        self.assertGreaterEqual(morning["note_lifecycle"]["stage_counts"]["implementation"], 1)
+        related = json.loads(
+            self.cli(
+                "note", "relate", related_id, "--goal-id", goal["goal_id"], "--disposition", "context-only",
+                "--reason", "Related context outside approved scope.", "--actor", "fixture-user",
+            ).stdout
+        )
+        self.assertEqual(related["lifecycle"]["planning_disposition"], "context-only")
+        self.assertFalse(related["execution_authorized"])
+        self.assertFalse(
+            {"dispatch-ready", "execution-start", "implementation"}.intersection(
+                event["stage"] for event in related["lifecycle"]["timeline"]
+            ),
+            related["lifecycle"]["timeline"],
+        )
+        stored_goal = json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json").read_text(encoding="utf-8"))
+        self.assertNotIn(related_id, stored_goal["source_note_ids"])
+        due = json.loads(
+            self.cli(
+                "note", "relate", related_id, "--goal-id", goal["goal_id"], "--disposition", "later",
+                "--reason", "Review in a later planning pass.", "--review-after", "2020-01-01T09:00:00-06:00",
+                "--actor", "fixture-user",
+            ).stdout
+        )
+        self.assertEqual(due["lifecycle"]["current_stage"], "planning-ready")
+        self.assertEqual(due["lifecycle"]["summary_status"], "open")
+
+    def test_note_dispositions_fail_closed_and_legacy_records_require_explicit_migration(self) -> None:
+        capture = self.create_capture()
+        note_id = capture["items"][3]["item_id"]
+        base = {
+            "goal_id": "goal-disposition-validation",
+            "title": "Validate note dispositions",
+            "scope": "Validate explicit note planning decisions.",
+            "acceptance_criteria": ["Invalid note decisions fail closed"],
+            "source_note_ids": [note_id],
+        }
+        path = self.root / "goal-disposition-validation.json"
+        self.write_json(path, {**base, "note_dispositions": [{"note_id": note_id, "disposition": "later", "reason": "Later work", "delivery_slice_ids": []}]})
+        self.cli("goal", "create", "--goal-file", str(path), expected=2)
+        self.write_json(path, {**base, "source_note_ids": ["missing-note"], "note_dispositions": [{"note_id": "missing-note", "disposition": "current-goal", "reason": "Invalid source", "delivery_slice_ids": []}]})
+        self.cli("goal", "create", "--goal-file", str(path), expected=2)
+        self.write_json(path, base)
+        self.cli("goal", "create", "--goal-file", str(path), expected=2)
+        self.write_json(
+            path,
+            {
+                **base,
+                "note_dispositions": [
+                    {
+                        "note_id": note_id,
+                        "disposition": "current-goal",
+                        "reason": "Explicitly included in the current goal.",
+                        "delivery_slice_ids": [],
+                    }
+                ],
+            },
+        )
+        created = json.loads(self.cli("goal", "create", "--goal-file", str(path)).stdout)
+        self.assertFalse(created["note_dispositions"][0]["execution_authorized"])
+        goal_path = self.root / ".continuity" / "private" / "goals" / created["goal_id"] / "goal.json"
+        legacy = json.loads(goal_path.read_text(encoding="utf-8"))
+        legacy.pop("note_dispositions")
+        self.write_json(goal_path, legacy)
+        doctor = json.loads(self.cli("project", "doctor").stdout)
+        self.assertIn(created["goal_id"], doctor["legacy_note_disposition_goal_ids"])
+        readable = json.loads(self.cli("workflow", "status", "--note-id", note_id).stdout)["note"]
+        self.assertEqual(readable["lifecycle"]["planning_disposition"], "current-goal")
+        revision = self.root / "normalize-note-dispositions.json"
+        self.write_json(
+            revision,
+            {
+                "note_dispositions": [
+                    {
+                        "note_id": note_id,
+                        "disposition": "later",
+                        "reason": "Move the note to a dated later pass.",
+                        "delivery_slice_ids": [],
+                        "review_after": "2030-02-01T09:00:00-06:00",
+                    }
+                ]
+            },
+        )
+        migrated = json.loads(
+            self.cli(
+                "goal", "revise", created["goal_id"], "--goal-file", str(revision),
+                "--author", "fixture-user", "--summary", "Normalize legacy note dispositions",
+            ).stdout
+        )
+        self.assertEqual(migrated["note_dispositions"][0]["disposition"], "later")
+        self.assertNotEqual(migrated["plan_hash"], created["plan_hash"])
+
+    def test_note_timeline_is_bound_to_relationship_plan_version(self) -> None:
+        capture = self.create_capture()
+        note_id = capture["items"][3]["item_id"]
+        self.cli("note", "triage", capture["capture_id"], note_id, "--action", "promote")
+        goal = self.create_goal("Timeline provenance", [note_id])
+        revision_path = self.root / "timeline-revision.json"
+        self.write_json(
+            revision_path,
+            {
+                "scope": "Implement the explicitly revised bridge safety outcome.",
+                "note_dispositions": [
+                    {
+                        "note_id": note_id,
+                        "disposition": "current-goal",
+                        "reason": "The note remains explicit scope in plan version two.",
+                        "delivery_slice_ids": [],
+                    }
+                ],
+            },
+        )
+        revised = json.loads(
+            self.cli(
+                "goal", "revise", goal["goal_id"], "--goal-file", str(revision_path),
+                "--author", "fixture-user", "--summary", "Clarify the approved scope",
+            ).stdout
+        )
+        self.assertEqual(revised["plan_version"], 2)
+        lifecycle = json.loads(self.cli("workflow", "status", "--note-id", note_id).stdout)["note"]["lifecycle"]
+        goal_events = [event for event in lifecycle["timeline"] if event.get("goal_id") == goal["goal_id"]]
+        lifecycle_events = [event for event in goal_events if event["event"].startswith(("goal.", "run.", "test.", "merge."))]
+        self.assertNotIn("goal.created", {event["event"] for event in lifecycle_events})
+        self.assertIn("goal.revised", {event["event"] for event in lifecycle_events})
+        self.assertTrue(all(event["plan_version"] == 2 for event in lifecycle_events), lifecycle_events)
+
+    def test_note_lifecycle_preserves_multiple_goal_tracks_without_flattening(self) -> None:
+        capture = self.create_capture()
+        note_id = capture["items"][3]["item_id"]
+        self.cli("note", "triage", capture["capture_id"], note_id, "--action", "promote")
+        active = self.create_goal("Active note track", [note_id])
+        self.approve(active)
+        self.cli("goal", "start", active["goal_id"])
+        self.cli("run", "update", active["goal_id"], "--state", "running", "--branch", "continuity/active-note-track")
+        waiting = self.create_goal("Waiting note track", [note_id])
+        lifecycle = json.loads(self.cli("workflow", "status", "--note-id", note_id).stdout)["note"]["lifecycle"]
+        self.assertEqual(lifecycle["summary_status"], "running")
+        self.assertEqual(lifecycle["current_stage"], "multi-goal")
+        tracks = {track["goal_id"]: track for track in lifecycle["goal_tracks"]}
+        self.assertEqual(tracks[active["goal_id"]]["current_stage"], "implementation")
+        self.assertEqual(tracks[waiting["goal_id"]]["current_stage"], "plan-review")
+
+
+class ReferenceTest(unittest.TestCase):
+    def test_skill_references_are_nonempty_linked_and_resolvable(self) -> None:
+        skills_root = SUITE / "skills"
+        shared_references = {
+            "workflow-handoffs.md",
+            "decision-lenses.md",
+            "output-quality-rubrics.md",
+            "worked-lifecycle-example.md",
+        }
+        self.assertTrue(shared_references.issubset({path.name for path in (SUITE / "references").glob("*.md")}))
+
+        for skill_dir in sorted(path for path in skills_root.iterdir() if path.is_dir()):
+            skill_file = skill_dir / "SKILL.md"
+            skill_text = skill_file.read_text(encoding="utf-8")
+            self.assertIn("../../references/workflow-handoffs.md", skill_text, skill_dir.name)
+            self.assertIn("../../references/output-quality-rubrics.md", skill_text, skill_dir.name)
+
+            linked_targets = re.findall(r"\[[^\]]+\]\(([^)]+)\)", skill_text)
+            for target in linked_targets:
+                if "://" in target or target.startswith("#"):
+                    continue
+                resolved = (skill_file.parent / target.split("#", 1)[0]).resolve()
+                self.assertTrue(resolved.is_file(), f"{skill_dir.name} has broken reference link: {target}")
+                self.assertGreater(len(resolved.read_text(encoding="utf-8").strip()), 100, str(resolved))
+
+            if skill_dir.name == "continuity":
+                continue
+            local_references = sorted(path for path in (skill_dir / "references").iterdir() if path.is_file())
+            self.assertTrue(local_references, f"{skill_dir.name} requires an applied reference")
+            for reference in local_references:
+                self.assertIn(f"references/{reference.name}", skill_text, f"{reference} is not linked from SKILL.md")
+
 
 class InstallerTest(unittest.TestCase):
     def test_installer_is_idempotent_and_creates_memory_and_guardrails(self) -> None:
@@ -1527,6 +1893,17 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((root / ".agents" / "continuity" / "automation" / "provider-adapter-contract.md").exists())
             self.assertFalse((root / ".agents" / "project-continuity").exists())
             self.assertTrue((root / ".agents" / "references" / "development-assurance-standard.md").exists())
+            self.assertTrue((root / ".agents" / "references" / "workflow-handoffs.md").exists())
+            self.assertTrue((root / ".agents" / "skills" / "continuity-plan" / "references" / "goal-planning-lenses.md").exists())
+            for source in (SUITE / "references").rglob("*"):
+                if source.is_file():
+                    self.assertTrue((root / ".agents" / "references" / source.relative_to(SUITE / "references")).is_file())
+            for skill_source in (SUITE / "skills").iterdir():
+                if not skill_source.is_dir():
+                    continue
+                for source in (skill_source / "references").glob("*"):
+                    if source.is_file():
+                        self.assertTrue((root / ".agents" / "skills" / skill_source.name / "references" / source.name).is_file())
             self.assertTrue((root / "docs" / "project-memory" / "INDEX.md").exists())
             self.assertTrue((root / "docs" / "project-roadmap" / "INDEX.md").exists())
             self.assertTrue((root / ".agents" / "continuity" / "roadmap-ui" / "app.js").exists())
@@ -1621,10 +1998,23 @@ class InstallerTest(unittest.TestCase):
             self.assertIn(updated_behavior["configuration_hash"], local_skill)
             self.assertIn("@AGENTS.md", (root / "CLAUDE.md").read_text(encoding="utf-8"))
             self.assertTrue((root / ".claude" / "skills" / "continuity-plan" / "SKILL.md").exists())
+            self.assertTrue((root / ".claude" / "skills" / "continuity-plan" / "references" / "goal-planning-lenses.md").exists())
             self.assertTrue((root / ".claude" / "references" / "continuity-contract.md").exists())
+            self.assertTrue((root / ".claude" / "references" / "workflow-handoffs.md").exists())
             self.assertTrue((root / ".cursor" / "rules" / "continuity.mdc").exists())
             self.assertTrue((root / ".cursor" / "commands" / "continuity-plan.md").exists())
             self.assertTrue((root / ".windsurf" / "skills" / "continuity-plan" / "SKILL.md").exists())
+            self.assertTrue((root / ".windsurf" / "skills" / "continuity-plan" / "references" / "goal-planning-lenses.md").exists())
+            for surface_root in (root / ".claude", root / ".windsurf"):
+                for source in (SUITE / "references").rglob("*"):
+                    if source.is_file():
+                        self.assertTrue((surface_root / "references" / source.relative_to(SUITE / "references")).is_file())
+                for skill_source in (SUITE / "skills").iterdir():
+                    if not skill_source.is_dir():
+                        continue
+                    for source in (skill_source / "references").glob("*"):
+                        if source.is_file():
+                            self.assertTrue((surface_root / "skills" / skill_source.name / "references" / source.name).is_file())
             self.assertEqual(json.loads((root / ".continuity" / "scheduler.json").read_text(encoding="utf-8"))["registration_state"], "requires-user-registration")
             registration = subprocess.run(
                 [

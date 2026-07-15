@@ -42,6 +42,10 @@ Continuity writes project-local control files into the target project:
 .agents/references/continuity-contract.md
 .agents/references/development-assurance-standard.md
 .agents/references/testing-and-merge-standard.md
+.agents/references/workflow-handoffs.md
+.agents/references/decision-lenses.md
+.agents/references/output-quality-rubrics.md
+.agents/skills/continuity-*/references/  applied examples and stage guidance
 .continuity/project.json                schedule and enrollment manifest
 .continuity/config.json                 project configuration
 .continuity/project-behavior.json       hash-bound project-specific behavior
@@ -53,6 +57,8 @@ docs/project-roadmap/                   committed roadmap records
 ```
 
 The installer also updates managed blocks in `AGENTS.md` and `.gitignore`.
+
+The shared references define suite-wide contracts, handoffs, lenses, and quality standards. Skill-local references provide applied decision tables and examples for only that stage. Codex and Claude Code adapters receive both sets; Cursor, Windsurf, and generic surfaces route through the same canonical project-local files.
 
 ## User Defaults And Project Isolation
 
@@ -251,8 +257,14 @@ Use the machine handoff before and after any skill:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --note-id <note-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --memory-id <memory-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --roadmap-id <roadmap-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --packet-id <packet-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --goal-id <goal-id>
 ```
+
+Use `--capture-id` immediately after capture to receive all per-item handoffs. Use the narrowest available selector after that. Project-wide status prioritizes the current queues for general routing; it does not override the selected subject's stage or next skill.
 
 It reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. It never crosses an approval or review boundary automatically.
 
@@ -279,13 +291,22 @@ work_status      open, deferred, planned, queued, dispatched, running, validatin
                  not-applicable, or archived
 ```
 
-Use `routing_status` to understand where the note went. Use `work_status` to understand whether the underlying work is still incomplete.
+Use `routing_status` to understand where the note went. Use `work_status` as a compact compatibility summary. Use `workflow status --note-id <note-id>` for the exact current stage, when that stage began, planning disposition, separate goal tracks, relationship candidates, and complete dated timeline.
 
 Use `memory similar "<situation>" --scope all` for local vector-space concept retrieval across canonical memory and private captures. Use `note patterns` to aggregate repeated stakeholder/theme occurrences and produce recommendations such as preserving repeated positive outcomes, mitigating repeated negative signals, or designing revision-prone work for adaptability. These outputs inform triage and planning only.
 
-Notes do not move to a branch or PR directly. A note that requires action becomes useful for execution only after triage connects it to roadmap context and `$continuity-plan` creates an approval-ready goal. When a goal is created from `source_note_ids`, each note gains a per-goal lifecycle link. Its displayed `work_status` is derived across all current links, so hold, resume, cancellation, revision, rework, multi-goal use, and completion preserve history without disagreeing with the goal records. Human merge evidence moves review-ready work to `completed`.
+Notes do not move to a branch or PR directly. During planning, every source note must be explicitly marked `current-goal`, `later`, `context-only`, or `duplicate`, with a reason. New goal inputs fail closed when a source note lacks a disposition; the CLI never silently treats omitted new input as current scope. Later work requires a review date or roadmap anchor. Only current-goal notes become `planned`, and they become `running` only after canonical execution begins. The plan renders these decisions and binds them into its approval hash.
 
-Use `note queue --queue <knowledge|questions|documentation|backlog|planning>` for current work. Files under `.continuity/private/queues/` are append-only audit snapshots, not authoritative planning inputs. Use `note resolve` for an answered standalone question and `note pattern-review` to record a human pattern disposition. Deferred patterns require `--review-after <iso-date-time>`. Accepted and dismissed patterns remain out of morning decisions until their evidence hash changes; deferred questions and patterns return when due. If `project doctor` reports `legacy_note_ids`, run `note migrate-links --actor <identity>` and confirm a second run migrates zero items.
+Use `note related-goals <note-id>` to inspect local similarity suggestions. Similarity never creates a task link. Confirm current scope through `goal create` or `goal revise`; use `note relate` for explicit later, context-only, or duplicate relationships:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" note related-goals <note-id>
+.agents/continuity/bin/continuity --project-root "$PWD" note relate <note-id> --goal-id <goal-id> --disposition later --reason <reason> --review-after <iso-date-time> --actor <human>
+```
+
+The lifecycle timeline is derived from existing capture, triage, goal, compliance, run, test, merge, and human-review timestamps. Goal execution events appear only when the note was `current-goal` for that plan version and the event occurred after the relationship decision. Context-only, later, and duplicate links therefore cannot inherit implementation history. No extra scheduler or parallel status database is required.
+
+Use `note queue --queue <knowledge|questions|documentation|backlog|planning>` for current work. Files under `.continuity/private/queues/` are append-only audit snapshots, not authoritative planning inputs. Later notes return when their review date is due; roadmap-anchored later work remains on its roadmap path. `project doctor` reports legacy links, goals missing explicit note dispositions, missing notes, malformed timestamps, and link disagreements.
 
 If a note is too separate from the current branch or PR, keep it open, deferred, or roadmap-linked for a later pass. The user can later retrieve incomplete roadmap-linked work and manually run:
 

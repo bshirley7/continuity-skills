@@ -8,6 +8,8 @@ Continuity turns project conversations and notes into searchable memory, roadmap
 - For the complete day-to-night-to-morning operating model, read [Operating Workflow](docs/operating-workflow.md).
 - For the full suite contract, installed layout, guardrails, and command reference, read [SUITE.md](SUITE.md).
 - For the safety model every skill follows, read [Continuity Contract](references/continuity-contract.md).
+- For skill inputs, outputs, blockers, and next-stage expectations, read [Workflow Handoffs](references/workflow-handoffs.md).
+- For judgment prompts and measurable output standards, read [Decision Lenses](references/decision-lenses.md) and [Output Quality Rubrics](references/output-quality-rubrics.md).
 - For quality and merge gates, read [Testing and Merge Standard](references/testing-and-merge-standard.md).
 - For Codex, Claude Code, and external scheduler requirements, read [Provider Adapter Contract](automation/provider-adapter-contract.md).
 - For contribution rules and review expectations, read [Contributing](CONTRIBUTING.md).
@@ -45,7 +47,9 @@ $continuity-report    summarize status, blockers, memory, roadmap, and evidence
 $continuity-share     prepare sanitized note packets for explicit sharing
 ```
 
-Every skill uses `continuity workflow status [--goal-id <goal-id>]` as its shared machine handoff. The command identifies the current stage, blockers, next skill, human requirements, currently valid disposition templates, and blocked actions with their live evidence failures without crossing human approval gates.
+Every skill uses `continuity workflow status` as its shared machine handoff. Exact note status includes a derived dated lifecycle, planning disposition, separate goal tracks, and non-authorizing relationship candidates. Plans classify every source note as current-goal, later, context-only, or duplicate; only current-goal notes adopt execution state. Unqualified status remains project routing context only.
+
+Shared references explain that machine contract, while each task skill includes a compact applied guide with decision boundaries, examples, anti-examples, quality checks, and stage-specific handoff requirements. The references improve judgment but never override CLI state or create authorization.
 
 Notes and feedback are captured first with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata. Private search, similarity, and pattern review can use those captures immediately; only reviewed and promoted records enter canonical trusted project memory.
 

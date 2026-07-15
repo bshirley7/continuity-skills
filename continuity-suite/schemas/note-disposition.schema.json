@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity plan note disposition",
+  "type": "object",
+  "required": ["note_id", "disposition", "reason", "delivery_slice_ids", "review_after", "roadmap_id", "canonical_note_id", "execution_authorized"],
+  "properties": {
+    "note_id": {"type": "string", "minLength": 1},
+    "disposition": {"enum": ["current-goal", "later", "context-only", "duplicate"]},
+    "reason": {"type": "string", "minLength": 1},
+    "delivery_slice_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "review_after": {"type": ["string", "null"]},
+    "roadmap_id": {"type": ["string", "null"]},
+    "canonical_note_id": {"type": ["string", "null"]},
+    "execution_authorized": {"const": false}
+  },
+  "additionalProperties": false
+}

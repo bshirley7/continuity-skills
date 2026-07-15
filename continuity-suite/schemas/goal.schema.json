@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Continuity goal",
   "type": "object",
-  "required": ["goal_id", "project_id", "title", "plan_version", "state", "scope", "acceptance_criteria", "runtime_limit_minutes", "roadmap_ids", "roadmap_impact", "roadmap_fingerprint"],
+  "required": ["goal_id", "project_id", "title", "plan_version", "state", "source_note_ids", "note_dispositions", "scope", "acceptance_criteria", "runtime_limit_minutes", "roadmap_ids", "roadmap_impact", "roadmap_fingerprint"],
   "properties": {
     "goal_id": {"type": "string", "minLength": 1},
     "project_id": {"type": "string", "minLength": 1},
@@ -14,6 +14,7 @@
     "runtime_limit_minutes": {"type": "integer", "minimum": 1},
     "depends_on": {"type": "array", "items": {"type": "string"}},
     "source_note_ids": {"type": "array", "items": {"type": "string"}},
+    "note_dispositions": {"type": "array", "items": {"$ref": "note-disposition.schema.json"}},
     "memory_ids": {"type": "array", "items": {"type": "string"}},
     "roadmap_ids": {"type": "array", "items": {"type": "string"}},
     "roadmap_impact": {"$ref": "roadmap-impact.schema.json"},
