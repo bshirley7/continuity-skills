@@ -18,7 +18,18 @@ Choose work that has bounded files, explicit acceptance criteria, fast validatio
   --public-key "$HOME/.ssh/id_ed25519.pub"
 ```
 
-4. Create and verify an encrypted state backup.
+`approval trust add` only prepares a trust-store change. Commit `.continuity/trusted-approvers`, merge it through protected human review on the integration branch, and fetch `origin/<integration-branch>`. Production approval, disposition, backup, and checkpoint verification fail when the local trust store differs from that fetched branch anchor.
+
+4. Create and immediately verify an encrypted state backup, then create the external signed audit checkpoint:
+
+```bash
+.agents/continuity/bin/continuity --project-root "$PWD" state backup \
+  --recipient age1example --verify-identity "$HOME/.config/age/keys.txt" \
+  --signer github-login --signing-key "$HOME/.ssh/id_ed25519"
+
+.agents/continuity/bin/continuity --project-root "$PWD" state checkpoint-create \
+  --signer github-login --signing-key "$HOME/.ssh/id_ed25519"
+```
 5. Render the Codex automation definition:
 
 ```bash
@@ -27,7 +38,7 @@ Choose work that has bounded files, explicit acceptance criteria, fast validatio
 ```
 
 6. Create or update the Codex automation with the exact returned title, interval, roots, and prompt. Register its returned task ID with the returned command.
-7. Observe two sweeps and one claimed review or report no-op, then require this command to become healthy:
+7. Observe two sweeps and one claimed review or report no-op. Exercise claim replay rejection, stale-registration rejection, and second-workstation lease contention in an isolated rehearsal. Record each observed result with `scheduler adapter codex record-probe --probe <probe> --status passed --evidence <evidence> --artifact-sha256 <sha256> --actor <identity> --signing-key <trusted-ssh-private-key>`, then require this command to become healthy:
 
 ```bash
 .agents/continuity/bin/continuity --project-root "$PWD" --json \
@@ -75,11 +86,11 @@ The responsible defaults are review at `20:00`, dispatch at `22:00`, and report 
   --remote origin
 ```
 
-3. The claimed dispatch validates the signed approval, plan and behavior hashes, remote lease, current integration base, dependencies, and one-goal project lock.
+3. `scheduler run-start` binds that lease to the exact goal attempt, provider run, task ID, owner fingerprint, and lease commit. Direct `goal start` enforces the same goal-attempt lease. The claimed dispatch also validates the signed approval, plan and behavior hashes, external audit checkpoint, current integration base, dependencies, and one-goal project lock.
 4. Execution uses an isolated worktree and goal branch. It completes code, documentation, memory, roadmap, and evidence changes before the final commit.
 5. The final test run binds validation and security evidence to the committed source fingerprint.
 6. The tested commit is pushed to a draft pull request. Required GitHub checks must pass and merge conflicts or unresolved change requests must be absent.
-7. The goal moves to `review-ready` and stops. Run completion releases the remote lease. Continuity never merges.
+7. The goal moves to `review-ready` and stops. Only the matching dispatch run may release its bound remote lease. Review or report completion cannot release it. Continuity never merges.
 
 Any missing approval, failed check, stale source binding, lease conflict, scheduler failure, or runtime limit produces a blocked or partial draft handoff instead of inferred continuation.
 
@@ -94,6 +105,8 @@ Generate both project-local detail and the deterministic portfolio-safe summary:
 
 Review the plan identity, note stage, changed files, tests, security evidence, CI state, draft pull request, blockers, and exact allowed dispositions. `approved` and `merged` require the configured number of authenticated GitHub approving reviewers. `changes-requested` reopens only in-scope work; expanded scope requires goal revision and a newly signed approval.
 
+Every `merge record-human` disposition and every in-scope `goal resume` must include `--signing-key <trusted-ssh-private-key>` in a signed-approval project. The resulting receipts bind the goal, plan hash/version, execution attempt, actor, evidence, timestamp, and nonce.
+
 ## Pilot acceptance
 
 The release candidate passes the pilot only when:
@@ -103,6 +116,8 @@ The release candidate passes the pilot only when:
 - No raw note, local path, task identifier, claim, approval text, or private evidence appears in the sanitized portfolio report.
 - A second workstation cannot acquire the active remote lease.
 - The encrypted backup verifies and the update snapshot can be rolled back in a rehearsal.
+- The signed external audit checkpoint verifies and rejects a fully rewritten local ledger.
+- Installer fault injection after every managed stage restores project contracts, generated adapters, configuration, and seeded documentation.
 - The morning human can approve, request changes, merge, or close using a command emitted by workflow status.
 
 After the morning review, record problems as notes, keep execution disabled for unresolved critical or high findings, and publish `v0.1.0` only after the fixes and rollback rehearsal pass.

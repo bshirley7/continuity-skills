@@ -1,6 +1,6 @@
 {
-  "source_type": "conversation",
-  "source_ref": "conversation:synthetic-review",
+  "source_type": "meeting",
+  "source_ref": "meeting:synthetic-review-2026-01-15",
   "source_timestamp": "2026-01-15T16:30:00-06:00",
   "items": [
     {

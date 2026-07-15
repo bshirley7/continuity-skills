@@ -117,7 +117,7 @@ ls .continuity/private/upgrades
   --snapshot 20260715T220000Z
 ```
 
-Rollback restores the files that existed before the update and removes files that the snapshot recorded as absent. Run `suite status` and `project doctor` immediately afterward.
+Rollback restores the files and directories that existed before the update and removes ownership-scoped paths that the snapshot recorded as absent. The transaction includes managed control files, Continuity skills and references, generated Claude/Cursor/Windsurf adapters, project configuration, trust configuration, shared-note structure, and seeded memory and roadmap roots. An armed rollback guard restores this snapshot after a failure at any installation stage. Run `suite status` and `project doctor` immediately afterward.
 
 ## Private-state backup and restore
 
@@ -128,6 +128,7 @@ Keep the `age` identity outside every project repository. Create and verify an e
   --recipient age1example \
   --signer github-login \
   --signing-key "$HOME/.ssh/id_ed25519" \
+  --verify-identity "$HOME/.config/age/keys.txt" \
   --output "$HOME/.continuity/backups/project-before-pilot.tar.gz.age"
 
 .agents/continuity/bin/continuity --project-root "$PWD" state verify \
@@ -147,7 +148,21 @@ Always inspect a restore first:
   --dry-run
 ```
 
-The non-dry restore verifies the trusted SSH signature, project identity, and every payload hash, creates a new signed encrypted safety backup of current state, stages extraction, and replaces private state. It restores no committed application files.
+Backup and restore acquire the project-state lock and refuse to run while a goal, scheduler run, or project execution lock is active. Production backup policy requires immediate decryption and inventory verification through `--verify-identity`. The non-dry restore verifies the integration-branch-anchored SSH trust store, project identity, and every payload hash, creates and verifies a new signed encrypted safety backup of current state, stages extraction, and replaces private state. It restores no committed application files.
+
+## External audit checkpoint
+
+The private JSONL chains detect partial corruption. Anchor their current heads outside the project so a complete local history rewrite is also detectable:
+
+```bash
+.agents/continuity/bin/continuity --project-root "$PWD" state checkpoint-create \
+  --signer github-login \
+  --signing-key "$HOME/.ssh/id_ed25519"
+
+.agents/continuity/bin/continuity --project-root "$PWD" state checkpoint-verify
+```
+
+The default checkpoint is `~/.continuity/audit-checkpoints/<project-id>.json` with a sibling SSH signature. It contains only ledger paths, record counts, and chain heads. It must remain outside the repository and private-state tree. Current ledgers may extend the checkpoint, but truncation or a rewritten prefix fails verification. `project doctor` and execution preflight fail closed when the production checkpoint requirement is enabled and the external anchor is missing or invalid.
 
 ## Post-update acceptance
 

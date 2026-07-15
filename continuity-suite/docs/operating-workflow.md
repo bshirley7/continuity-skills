@@ -147,10 +147,10 @@ To activate scheduled operation:
 
 6. Run `project doctor` and confirm the scheduler state is `registered`.
 7. Observe at least two successful sweeps and one claimed no-op review or report action.
-8. Confirm that a replayed or expired claim is rejected.
+8. Confirm claim replay, stale registration, and second-workstation lease contention are rejected; record each observation with `scheduler adapter codex record-probe` and concrete evidence.
 9. Configure provider-native failure notification where available.
 
-For Codex, generate the provider-native definition with `scheduler adapter codex render`, then require `scheduler adapter codex verify` to pass. Before each scheduled code-changing dispatch, acquire the remote project lease. Review and report actions remain read-only and do not require the execution lease.
+For Codex, generate the provider-native definition with `scheduler adapter codex render`, then require `scheduler adapter codex verify` to pass. Before every code-changing start, acquire the exact goal-attempt remote lease. Scheduled start binds it to the consuming run and task; only that dispatch completion may release it. Review and report actions remain read-only and cannot release the execution lease.
 
 When the scheduler provider is `none`, schedule intent is retained but all review, dispatch, and report commands are manual.
 
@@ -184,6 +184,53 @@ Example:
 ```
 
 Capture does not authorize documentation or implementation.
+
+For pasted meeting notes, treat the message as one source and split it into semantic atomic items before capture. Do not create one item per bullet mechanically: preserve each distinct decision, requirement, positive or negative feedback item, question, risk, and later idea as its own item. Keep related explanation with the item it qualifies. The result is one `capture_mode: batch` record with independently triageable item IDs, a shared meeting reference and source timestamp, and `execution_authorized: false` on every item.
+
+Example batch input:
+
+```json
+{
+  "source_type": "meeting",
+  "source_ref": "meeting:objective-review-2030-04-10",
+  "source_timestamp": "2030-04-10T14:00:00-05:00",
+  "items": [
+    {
+      "kind": "insight",
+      "text": "Reviewers found the status view easier to scan; preserve its density.",
+      "perspective": "external",
+      "sentiment": "positive",
+      "occurrence_type": "feedback",
+      "impact": "medium",
+      "confidence": "high",
+      "actionability": "context",
+      "stakeholders": ["reviewers"],
+      "themes": ["status-view", "scanability"]
+    },
+    {
+      "kind": "execution-candidate",
+      "text": "Move the risk summary above dependencies in the next pass.",
+      "perspective": "external",
+      "sentiment": "neutral",
+      "occurrence_type": "need",
+      "impact": "medium",
+      "confidence": "high",
+      "actionability": "plan",
+      "stakeholders": ["objective-owner"],
+      "themes": ["risk-summary", "dependencies"]
+    }
+  ]
+}
+```
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" note capture \
+  --items-file meeting-notes.json
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status \
+  --capture-id <capture-id>
+```
+
+A batch is limited to 250 items, with 20,000 characters per item. Split larger material by meeting or source instead of truncating it. A single callout remains a normal `capture_mode: singular` capture.
 
 ### 2. Triage each atomic note
 
@@ -382,7 +429,8 @@ After reviewing the pull request and evidence, record one factually accurate dis
   --pr-url <pull-request-url> \
   --merged-by "human identity" \
   --disposition <approved|changes-requested|merged|closed> \
-  --evidence "review evidence"
+  --evidence "review evidence" \
+  --signing-key <trusted-ssh-private-key>
 ```
 
 Disposition behavior:
@@ -411,10 +459,11 @@ For an in-scope correction, explicitly resume the same plan version:
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" goal resume <goal-id> \
   --actor "human identity" \
-  --authorization-text "Resume <goal-id> under approved plan v1"
+  --authorization-text "Resume <goal-id> under approved plan v1" \
+  --signing-key <trusted-ssh-private-key>
 ```
 
-The prior attempt remains archived. Dispatch, preflight, execution, tests, merge assessment, and review evidence must be regenerated for the new attempt.
+The signed resume receipt binds the goal, approved plan hash/version, execution attempt, actor, authorization text, timestamp, scope assertion, and nonce. The prior attempt remains archived. Dispatch, preflight, execution, tests, merge assessment, and review evidence must be regenerated for the new attempt.
 
 For changed or expanded scope, revise the plan instead:
 

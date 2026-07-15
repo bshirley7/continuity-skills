@@ -137,6 +137,8 @@ RELATED_GOAL_DEFAULT_MIN_SCORE = 0.08
 RELATED_GOAL_REPORT_MIN_SCORE = 0.20
 RELATED_GOAL_MAX_RESULTS = 25
 RELATED_GOAL_REPORT_LIMIT = 20
+MAX_CAPTURE_ITEMS = 250
+MAX_NOTE_TEXT_CHARS = 20_000
 NOTE_WORK_STATUSES = {
     "open",
     "deferred",
@@ -169,6 +171,11 @@ GOAL_STATES = {
 }
 LEGACY_GOAL_STATES = {"proposed-plan", "approved"}
 REWORK_STATES = {"changes-requested", "blocked", "partially-completed"}
+CODEX_CONFORMANCE_PROBES = {
+    "claim-replay-rejected",
+    "stale-registration-rejected",
+    "remote-lease-contention-rejected",
+}
 DOWNSTREAM_COMPLIANCE_STAGES = [
     "execution-preflight",
     "implementation",
@@ -1137,18 +1144,24 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         if not text:
             raise ContinuityError("Provide --text, --file, or --items-file")
         payload = {
-            "source_type": "file" if args.file else "manual",
+            "source_type": args.source_type or ("file" if args.file else "manual"),
             "source_ref": args.file or "manual-entry",
             "items": [{"kind": "context", "text": text}],
         }
     source_type = payload.get("source_type", args.source_type or "conversation")
-    if source_type not in {"conversation", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"}:
+    if source_type not in {"conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"}:
         raise ContinuityError(f"Unsupported source_type: {source_type}")
     raw_items = payload["items"]
+    if not raw_items:
+        raise ContinuityError("Capture requires at least one atomic item")
+    if len(raw_items) > MAX_CAPTURE_ITEMS:
+        raise ContinuityError(f"Capture exceeds the {MAX_CAPTURE_ITEMS}-item batch limit; split it by meeting or source")
     items: list[dict[str, Any]] = []
     for index, item in enumerate(raw_items, 1):
         if not isinstance(item, dict) or not str(item.get("text", "")).strip():
             raise ContinuityError(f"Capture item {index} must include text")
+        if len(str(item["text"])) > MAX_NOTE_TEXT_CHARS:
+            raise ContinuityError(f"Capture item {index} exceeds the {MAX_NOTE_TEXT_CHARS}-character limit; split it atomically")
         kind = item.get("kind", "context")
         if kind not in NOTE_KINDS:
             raise ContinuityError(f"Invalid note kind: {kind}")
@@ -1200,6 +1213,8 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         "source_type": source_type,
         "source_ref": payload.get("source_ref", args.source_ref),
         "source_timestamp": payload.get("source_timestamp"),
+        "capture_mode": "batch" if len(items) > 1 else "singular",
+        "item_count": len(items),
         "dedupe_key": dedupe_key,
         "execution_authorized": False,
         "items": items,
@@ -2717,6 +2732,34 @@ def approval_allowed_signers_path(root: Path, config: dict[str, Any]) -> Path:
     return confined_path(root, config.get("approval_allowed_signers", ".continuity/trusted-approvers"), "approval_allowed_signers")
 
 
+def verify_approval_trust_anchor(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    """Bind project-local approvers to the fetched integration branch in production."""
+    allowed = approval_allowed_signers_path(root, config)
+    if not allowed.is_file():
+        raise ContinuityError("Trusted approver allowlist is unavailable")
+    if not config.get("require_remote", True):
+        return {"mode": "local", "path": str(allowed.relative_to(root)), "verified": True}
+    relative = allowed.relative_to(root).as_posix()
+    ref = str(config.get("approval_trust_ref") or f"origin/{config['integration_branch']}")
+    result = git_result(root, "show", f"{ref}:{relative}")
+    if result.returncode != 0:
+        raise ContinuityError(f"Trusted approvers are not anchored at {ref}:{relative}")
+    local = allowed.read_bytes()
+    remote = result.stdout.encode()
+    if local != remote:
+        raise ContinuityError(
+            "Trusted approvers differ from the fetched integration-branch anchor; "
+            "merge the trust change through human review and fetch it before approval"
+        )
+    return {
+        "mode": "integration-branch",
+        "path": relative,
+        "ref": ref,
+        "sha256": hashlib.sha256(local).hexdigest(),
+        "verified": True,
+    }
+
+
 def approval_receipt_payload(approval: dict[str, Any]) -> dict[str, Any]:
     return {
         key: approval[key]
@@ -2741,17 +2784,34 @@ def approval_receipt_bytes(approval: dict[str, Any]) -> bytes:
 
 
 def sign_approval_receipt(approval: dict[str, Any], signing_key: str, signature_path: Path) -> None:
+    sign_receipt_bytes(
+        approval_receipt_bytes(approval),
+        signing_key,
+        signature_path,
+        namespace="continuity-approval",
+        label="approval",
+    )
+
+
+def sign_receipt_bytes(
+    payload: bytes,
+    signing_key: str,
+    signature_path: Path,
+    *,
+    namespace: str,
+    label: str,
+) -> None:
     executable = shutil.which("ssh-keygen")
     if not executable:
-        raise ContinuityError("ssh-keygen is required for signed approvals")
+        raise ContinuityError(f"ssh-keygen is required for signed {label} receipts")
     key = Path(signing_key).expanduser().resolve()
     if not key.is_file():
-        raise ContinuityError(f"Approval signing key is unavailable: {key}")
-    with tempfile.TemporaryDirectory(prefix="continuity-approval-") as temporary:
+        raise ContinuityError(f"{label.title()} signing key is unavailable: {key}")
+    with tempfile.TemporaryDirectory(prefix=f"continuity-{slug(label)}-") as temporary:
         receipt = Path(temporary) / "receipt.json"
-        receipt.write_bytes(approval_receipt_bytes(approval))
+        receipt.write_bytes(payload)
         result = subprocess.run(
-            [executable, "-Y", "sign", "-f", str(key), "-n", "continuity-approval", str(receipt)],
+            [executable, "-Y", "sign", "-f", str(key), "-n", namespace, str(receipt)],
             capture_output=True,
             text=True,
             timeout=60,
@@ -2759,28 +2819,50 @@ def sign_approval_receipt(approval: dict[str, Any], signing_key: str, signature_
         )
         generated = receipt.with_suffix(receipt.suffix + ".sig")
         if result.returncode != 0 or not generated.is_file():
-            raise ContinuityError(f"Unable to sign approval receipt: {result.stderr.strip() or result.stdout.strip()}")
+            raise ContinuityError(f"Unable to sign {label} receipt: {result.stderr.strip() or result.stdout.strip()}")
         runtime_lib.atomic_write_bytes(signature_path, generated.read_bytes())
 
 
-def verify_approval_signature(root: Path, config: dict[str, Any], directory: Path, approval: dict[str, Any]) -> None:
+def verify_receipt_bytes(
+    root: Path,
+    config: dict[str, Any],
+    payload: bytes,
+    signature: Path,
+    identity: str,
+    *,
+    namespace: str,
+    label: str,
+) -> dict[str, Any]:
     executable = shutil.which("ssh-keygen")
     if not executable:
-        raise ContinuityError("ssh-keygen is required to verify approval authority")
+        raise ContinuityError(f"ssh-keygen is required to verify {label} authority")
+    trust = verify_approval_trust_anchor(root, config)
     allowed = approval_allowed_signers_path(root, config)
-    signature = directory / "approval.sig"
-    if not allowed.is_file() or not signature.is_file():
-        raise ContinuityError("Signed approval requires a trusted approver allowlist and approval.sig")
+    if not signature.is_file():
+        raise ContinuityError(f"Signed {label} requires {signature.name}")
     result = subprocess.run(
-        [executable, "-Y", "verify", "-f", str(allowed), "-I", str(approval.get("approved_by", "")), "-n", "continuity-approval", "-s", str(signature)],
-        input=approval_receipt_bytes(approval),
+        [executable, "-Y", "verify", "-f", str(allowed), "-I", identity, "-n", namespace, "-s", str(signature)],
+        input=payload,
         capture_output=True,
         timeout=60,
         check=False,
     )
     if result.returncode != 0:
         message = result.stderr.decode(errors="replace").strip() or result.stdout.decode(errors="replace").strip()
-        raise ContinuityError(f"Approval signature verification failed: {message}")
+        raise ContinuityError(f"{label.title()} signature verification failed: {message}")
+    return trust
+
+
+def verify_approval_signature(root: Path, config: dict[str, Any], directory: Path, approval: dict[str, Any]) -> None:
+    verify_receipt_bytes(
+        root,
+        config,
+        approval_receipt_bytes(approval),
+        directory / "approval.sig",
+        str(approval.get("approved_by", "")),
+        namespace="continuity-approval",
+        label="approval",
+    )
 
 
 def approval_trust_add(args: argparse.Namespace) -> dict[str, Any]:
@@ -2797,7 +2879,13 @@ def approval_trust_add(args: argparse.Namespace) -> dict[str, Any]:
     record = f"{identity} {fields[0]} {fields[1]}"
     retained = [line for line in existing if not line.split(maxsplit=1)[0] == identity]
     runtime_lib.atomic_write_text(allowed, "\n".join([*retained, record]) + "\n", mode=0o644)
-    return {"identity": identity, "allowed_signers": str(allowed.relative_to(root)), "replaced": len(retained) != len(existing)}
+    return {
+        "identity": identity,
+        "allowed_signers": str(allowed.relative_to(root)),
+        "replaced": len(retained) != len(existing),
+        "authorization_state": "pending-integration-branch-anchor" if config.get("require_remote", True) else "local-test-only",
+        "next_step": "Commit this trust change, merge it through protected human review, then fetch the integration branch.",
+    }
 
 
 def approval_trust_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -2819,6 +2907,100 @@ def approval_verify(args: argparse.Namespace) -> dict[str, Any]:
     return {"goal_id": args.goal_id, "approved_by": approval.get("approved_by"), "verified": True, "plan_hash": approval.get("plan_hash")}
 
 
+def disposition_receipt_payload(record: dict[str, Any]) -> dict[str, Any]:
+    keys = (
+        "schema_version",
+        "project_id",
+        "goal_id",
+        "plan_version",
+        "plan_hash",
+        "execution_attempt",
+        "status",
+        "updated_at",
+        "actor",
+        "pr_url",
+        "merge_commit",
+        "evidence",
+        "nonce",
+    )
+    return {key: record[key] for key in keys if key in record}
+
+
+def disposition_receipt_bytes(record: dict[str, Any]) -> bytes:
+    return (runtime_lib.canonical_json(disposition_receipt_payload(record)) + "\n").encode()
+
+
+def resume_receipt_payload(record: dict[str, Any]) -> dict[str, Any]:
+    keys = (
+        "schema_version",
+        "project_id",
+        "goal_id",
+        "plan_version",
+        "plan_hash",
+        "execution_attempt",
+        "prior_state",
+        "scope",
+        "authorized_at",
+        "authorized_by",
+        "authorization_text",
+        "nonce",
+    )
+    return {key: record[key] for key in keys if key in record}
+
+
+def resume_receipt_bytes(record: dict[str, Any]) -> bytes:
+    return (runtime_lib.canonical_json(resume_receipt_payload(record)) + "\n").encode()
+
+
+def record_signed_resume_authorization(
+    root: Path,
+    config: dict[str, Any],
+    directory: Path,
+    goal: dict[str, Any],
+    prior_state: str,
+    actor: str,
+    authorization_text: str,
+    signing_key: str | None,
+) -> dict[str, Any]:
+    receipt = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "goal_id": goal["goal_id"],
+        "plan_version": goal["plan_version"],
+        "plan_hash": goal_material_hash(directory, goal),
+        "execution_attempt": int(goal.get("execution_attempt", 1)),
+        "prior_state": prior_state,
+        "scope": "in-scope",
+        "authorized_at": iso_now(config),
+        "authorized_by": actor,
+        "authorization_text": authorization_text,
+        "nonce": secrets.token_hex(16),
+        "signature_format": "openssh-sshsig-v1" if signing_key else "legacy-unsigned",
+    }
+    signature_path = directory / "resume-authorization.sig"
+    if config.get("require_signed_approvals", False) and not signing_key:
+        raise ContinuityError("This project requires a signed human resume authorization")
+    if signing_key:
+        sign_receipt_bytes(
+            resume_receipt_bytes(receipt),
+            signing_key,
+            signature_path,
+            namespace="continuity-resume",
+            label="resume authorization",
+        )
+        verify_receipt_bytes(
+            root,
+            config,
+            resume_receipt_bytes(receipt),
+            signature_path,
+            actor,
+            namespace="continuity-resume",
+            label="resume authorization",
+        )
+    json_dump(directory / "resume-authorization.json", receipt)
+    return receipt
+
+
 def archive_execution_attempt(directory: Path, goal: dict[str, Any], reason: str, actor: str) -> Path | None:
     evidence_files = (
         "goal.json",
@@ -2832,6 +3014,9 @@ def archive_execution_attempt(directory: Path, goal: dict[str, Any], reason: str
         "test-report.json",
         "merge-assessment.json",
         "human-review.json",
+        "human-review.sig",
+        "resume-authorization.json",
+        "resume-authorization.sig",
         "checkpoints.jsonl",
     )
     existing = [name for name in evidence_files if (directory / name).exists()]
@@ -2879,6 +3064,9 @@ def reset_execution_evidence(
         "test-report.json",
         "merge-assessment.json",
         "human-review.json",
+        "human-review.sig",
+        "resume-authorization.json",
+        "resume-authorization.sig",
         "checkpoints.jsonl",
     ):
         (directory / name).unlink(missing_ok=True)
@@ -3183,6 +3371,7 @@ def portfolio_runtime_inventory(
     current: dt.datetime,
     supervisor_task_id: str,
     workspace_roots: list[Path],
+    locked_project_root: Path | None = None,
 ) -> tuple[int, int, int, dict[str, tuple[Path, dict[str, Any], dict[str, Any]]]]:
     active = 0
     reserved = 0
@@ -3209,10 +3398,17 @@ def portfolio_runtime_inventory(
             1 for run in scheduler_run_snapshots(root, config).values()
             if run.get("status") in SCHEDULER_ACTIVE_STATES
         )
-        with exclusive_file_lock(scheduler_project_lock_path(root, config)):
-            for token, claim in prune_due_actions(root, config, current).items():
-                reserved += 1
-                claims[token] = (root, config, claim)
+        if locked_project_root is not None and root == locked_project_root:
+            with exclusive_file_lock(scheduler_project_lock_path(root, config)):
+                for token, claim in prune_due_actions(root, config, current).items():
+                    reserved += 1
+                    claims[token] = (root, config, claim)
+        else:
+            with exclusive_file_lock(project_state_lock_path(root)):
+                with exclusive_file_lock(scheduler_project_lock_path(root, config)):
+                    for token, claim in prune_due_actions(root, config, current).items():
+                        reserved += 1
+                        claims[token] = (root, config, claim)
     return active, reserved, min(caps) if caps else 0, claims
 
 
@@ -3682,9 +3878,10 @@ def portfolio_actions(args: argparse.Namespace) -> list[dict[str, Any]]:
                 )
                 continue
             try:
-                scheduler_supervisor_heartbeat(
-                    root, config, supervisor_task_id, sweep_id, workspace_roots
-                )
+                with exclusive_file_lock(project_state_lock_path(root)):
+                    scheduler_supervisor_heartbeat(
+                        root, config, supervisor_task_id, sweep_id, workspace_roots
+                    )
             except ContinuityError as exc:
                 results.append(
                     {
@@ -3740,9 +3937,10 @@ def portfolio_actions(args: argparse.Namespace) -> list[dict[str, Any]]:
                 elif available > 0:
                     root = Path(item["path"]).resolve()
                     config = json_load(root / ".continuity" / "config.json", {})
-                    item["claim_token"] = issue_due_claim(
-                        root, config, item, supervisor_task_id, sweep_id, current
-                    )
+                    with exclusive_file_lock(project_state_lock_path(root)):
+                        item["claim_token"] = issue_due_claim(
+                            root, config, item, supervisor_task_id, sweep_id, current
+                        )
                     item["reservation_state"] = "reserved"
                     available -= 1
                 else:
@@ -4487,6 +4685,37 @@ def state_backup_sources(root: Path, config: dict[str, Any]) -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
+def project_state_lock_path(root: Path) -> Path:
+    return root / ".continuity" / "state.lock"
+
+
+def project_quiescence(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    active_goals = []
+    for path in sorted((private_path(root, config) / "goals").glob("*/goal.json")):
+        goal = json_load(path, {})
+        if isinstance(goal, dict) and goal.get("state") in {"dispatched", "running", "validating"}:
+            active_goals.append(goal.get("goal_id"))
+    active_runs = [
+        run["run_id"]
+        for run in scheduler_run_snapshots(root, config).values()
+        if run.get("status") in SCHEDULER_ACTIVE_STATES
+    ]
+    project_lock = json_load(private_path(root, config) / "project.lock.json", {})
+    return {
+        "quiescent": not active_goals and not active_runs and not project_lock,
+        "active_goals": active_goals,
+        "active_scheduler_runs": active_runs,
+        "project_lock": project_lock or None,
+    }
+
+
+def require_project_quiescence(root: Path, config: dict[str, Any], operation: str) -> dict[str, Any]:
+    status = project_quiescence(root, config)
+    if not status["quiescent"]:
+        raise ContinuityError(f"{operation} requires quiescent project state: {status}")
+    return status
+
+
 def default_backup_path(root: Path, config: dict[str, Any]) -> Path:
     stamp = now(config).strftime("%Y%m%dT%H%M%S%z")
     directory = Path.home() / ".continuity" / "backups"
@@ -4496,7 +4725,15 @@ def default_backup_path(root: Path, config: dict[str, Any]) -> Path:
     return candidate
 
 
-def create_state_backup(root: Path, config: dict[str, Any], recipient: str, output_path: Path, signer: str, signing_key: str) -> dict[str, Any]:
+def create_state_backup(
+    root: Path,
+    config: dict[str, Any],
+    recipient: str,
+    output_path: Path,
+    signer: str,
+    signing_key: str,
+    verify_identity: str | None = None,
+) -> dict[str, Any]:
     age = shutil.which("age")
     if not age:
         raise ContinuityError("age is required for encrypted Continuity backups")
@@ -4553,7 +4790,23 @@ def create_state_backup(root: Path, config: dict[str, Any], recipient: str, outp
         )
         if result.returncode != 0:
             raise ContinuityError(f"Encrypted backup failed: {result.stderr.strip() or result.stdout.strip()}")
-    return {"project_id": config["project_id"], "archive": str(output_path), "files": len(inventory), "encrypted": True, "recipient": recipient, "signed_by": signer}
+    verification = None
+    if verify_identity:
+        try:
+            with tempfile.TemporaryDirectory(prefix="continuity-backup-verify-") as temporary:
+                verified = decrypt_and_verify_state_archive(root, config, output_path, verify_identity, Path(temporary))
+                verification = {
+                    "verified": True,
+                    "files": len(verified["manifest"].get("files", {})),
+                    "manifest_created_at": verified["manifest"].get("created_at"),
+                }
+        except Exception:
+            output_path.unlink(missing_ok=True)
+            raise
+    elif config.get("require_verified_backups", False):
+        output_path.unlink(missing_ok=True)
+        raise ContinuityError("Production backup policy requires --verify-identity for immediate restore verification")
+    return {"project_id": config["project_id"], "archive": str(output_path), "archive_sha256": runtime_lib.sha256_file(output_path), "files": len(inventory), "encrypted": True, "recipient": recipient, "signed_by": signer, "verification": verification}
 
 
 def decrypt_and_verify_state_archive(root: Path, config: dict[str, Any], archive: Path, identity: str, destination: Path) -> dict[str, Any]:
@@ -4587,6 +4840,7 @@ def decrypt_and_verify_state_archive(root: Path, config: dict[str, Any], archive
         raise ContinuityError(str(exc)) from exc
     if manifest.get("project_id") != config["project_id"] or manifest.get("format") != "continuity-age-tar-v1":
         raise ContinuityError("Backup belongs to another project or uses an unsupported format")
+    verify_approval_trust_anchor(root, config)
     allowed = approval_allowed_signers_path(root, config)
     signature = extracted / "backup-manifest.json.sig"
     ssh_keygen = shutil.which("ssh-keygen")
@@ -4613,8 +4867,11 @@ def decrypt_and_verify_state_archive(root: Path, config: dict[str, Any], archive
 
 def state_backup(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context(validate_behavior=False)
+    quiescence = require_project_quiescence(root, config, "State backup")
     output_path = Path(args.output).expanduser().resolve() if args.output else default_backup_path(root, config)
-    return create_state_backup(root, config, args.recipient, output_path, args.signer, args.signing_key)
+    result = create_state_backup(root, config, args.recipient, output_path, args.signer, args.signing_key, args.verify_identity)
+    result["quiescence"] = quiescence
+    return result
 
 
 def state_verify(args: argparse.Namespace) -> dict[str, Any]:
@@ -4626,12 +4883,13 @@ def state_verify(args: argparse.Namespace) -> dict[str, Any]:
 
 def state_restore(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context(validate_behavior=False)
+    quiescence = require_project_quiescence(root, config, "State restore")
     archive = Path(args.archive).expanduser().resolve()
     with tempfile.TemporaryDirectory(prefix="continuity-restore-") as temporary:
         verified = decrypt_and_verify_state_archive(root, config, archive, args.identity, Path(temporary))
         if args.dry_run:
             return {"restored": False, "dry_run": True, "project_id": config["project_id"], "files": len(verified["manifest"].get("files", {})), "archive": str(archive)}
-        safety = create_state_backup(root, config, args.recipient, default_backup_path(root, config), args.signer, args.signing_key)
+        safety = create_state_backup(root, config, args.recipient, default_backup_path(root, config), args.signer, args.signing_key, args.identity)
         payload = verified["payload"]
         replacements = [private_path(root, config).relative_to(root), Path(".continuity-portfolio")]
         previous_root = Path(temporary) / "previous"
@@ -4656,7 +4914,113 @@ def state_restore(args: argparse.Namespace) -> dict[str, Any]:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     os.replace(previous, target)
             raise
-        return {"restored": True, "project_id": config["project_id"], "files": len(verified["manifest"].get("files", {})), "archive": str(archive), "safety_backup": safety["archive"]}
+        return {"restored": True, "project_id": config["project_id"], "files": len(verified["manifest"].get("files", {})), "archive": str(archive), "safety_backup": safety["archive"], "quiescence": quiescence}
+
+
+def audit_checkpoint_path(root: Path, config: dict[str, Any], requested: str | None = None) -> Path:
+    configured = requested or config.get("audit_checkpoint_path")
+    if configured:
+        path = Path(str(configured).replace("{project_id}", config["project_id"])).expanduser().resolve()
+    else:
+        path = (Path.home() / ".continuity" / "audit-checkpoints" / f"{config['project_id']}.json").resolve()
+    if path.is_relative_to(root):
+        raise ContinuityError("Audit checkpoints must be stored outside the project repository")
+    return path
+
+
+def audit_checkpoint_ledgers(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+    paths = list(private_path(root, config).rglob("*.jsonl"))
+    portfolio = root / ".continuity-portfolio"
+    if portfolio.exists():
+        paths.extend(portfolio.rglob("*.jsonl"))
+    ledgers = []
+    for path in sorted(set(item.resolve() for item in paths)):
+        status = runtime_lib.verify_jsonl_records(path)
+        ledgers.append(
+            {
+                "path": str(path.relative_to(root)),
+                "records": status["records"],
+                "head_hash": status["head_hash"],
+            }
+        )
+    return ledgers
+
+
+def audit_checkpoint_bytes(record: dict[str, Any]) -> bytes:
+    payload = {key: record[key] for key in ("schema_version", "project_id", "created_at", "created_by", "ledgers", "nonce")}
+    return (runtime_lib.canonical_json(payload) + "\n").encode()
+
+
+def state_checkpoint_create(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    require_project_quiescence(root, config, "Audit checkpoint")
+    output_path = audit_checkpoint_path(root, config, args.output)
+    record = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "created_at": iso_now(config),
+        "created_by": args.signer,
+        "ledgers": audit_checkpoint_ledgers(root, config),
+        "nonce": secrets.token_hex(16),
+        "signature_format": "openssh-sshsig-v1",
+    }
+    signature = output_path.with_suffix(output_path.suffix + ".sig")
+    sign_receipt_bytes(
+        audit_checkpoint_bytes(record),
+        args.signing_key,
+        signature,
+        namespace="continuity-audit-checkpoint",
+        label="audit checkpoint",
+    )
+    verify_receipt_bytes(
+        root,
+        config,
+        audit_checkpoint_bytes(record),
+        signature,
+        args.signer,
+        namespace="continuity-audit-checkpoint",
+        label="audit checkpoint",
+    )
+    runtime_lib.atomic_write_json(output_path, record)
+    return {**record, "path": str(output_path), "signature": str(signature), "verified": True}
+
+
+def verify_audit_checkpoint(root: Path, config: dict[str, Any], requested: str | None = None) -> dict[str, Any]:
+    path = audit_checkpoint_path(root, config, requested)
+    record = json_load(path, {})
+    if not isinstance(record, dict) or record.get("project_id") != config["project_id"]:
+        raise ContinuityError(f"Valid external audit checkpoint is unavailable: {path}")
+    verify_receipt_bytes(
+        root,
+        config,
+        audit_checkpoint_bytes(record),
+        path.with_suffix(path.suffix + ".sig"),
+        str(record.get("created_by", "")),
+        namespace="continuity-audit-checkpoint",
+        label="audit checkpoint",
+    )
+    failures = []
+    for checkpoint in record.get("ledgers", []):
+        relative = str(checkpoint.get("path", ""))
+        ledger = confined_path(root, relative, "audit checkpoint ledger")
+        try:
+            current = runtime_lib.verify_jsonl_records(ledger)
+            anchored = runtime_lib.jsonl_chain_hash_at(ledger, int(checkpoint.get("records", -1)))
+        except (runtime_lib.RuntimeIntegrityError, ValueError) as exc:
+            failures.append(f"{relative}: {exc}")
+            continue
+        if anchored != checkpoint.get("head_hash"):
+            failures.append(f"{relative}: ledger no longer extends the signed checkpoint")
+        elif int(current["records"]) < int(checkpoint.get("records", 0)):
+            failures.append(f"{relative}: ledger was truncated")
+    if failures:
+        raise ContinuityError(f"Audit checkpoint verification failed: {failures}")
+    return {"verified": True, "path": str(path), "created_at": record.get("created_at"), "created_by": record.get("created_by"), "ledgers": len(record.get("ledgers", []))}
+
+
+def state_checkpoint_verify(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    return verify_audit_checkpoint(root, config, args.checkpoint)
 
 
 def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
@@ -4751,6 +5115,20 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     if manifest.get("execution_enabled") and config.get("require_signed_approvals", False) and not approvers:
         record["healthy"] = False
         record["problems"].append("execution is enabled but no trusted SSH approver is configured")
+    if manifest.get("execution_enabled") and config.get("require_signed_approvals", False) and approvers:
+        try:
+            record["approval_trust_anchor"] = verify_approval_trust_anchor(root, config)
+        except ContinuityError as exc:
+            record["healthy"] = False
+            record["approval_trust_anchor"] = {"verified": False, "problem": str(exc)}
+            record["problems"].append(str(exc))
+    if manifest.get("execution_enabled") and config.get("require_audit_checkpoints", False):
+        try:
+            record["audit_checkpoint"] = verify_audit_checkpoint(root, config)
+        except ContinuityError as exc:
+            record["healthy"] = False
+            record["audit_checkpoint"] = {"verified": False, "problem": str(exc)}
+            record["problems"].append(str(exc))
     if manifest.get("execution_enabled") and config.get("require_pr", True) and not config.get("github_required_checks"):
         record["healthy"] = False
         record["problems"].append("execution is enabled but no required GitHub checks are configured")
@@ -4902,6 +5280,10 @@ def scheduler_lease_status(args: argparse.Namespace) -> dict[str, Any]:
 
 def scheduler_lease_acquire(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
+    _directory, goal = load_goal(root, config, args.goal_id)
+    expected_attempt = str(int(goal.get("execution_attempt", 1)))
+    if args.attempt_id and str(args.attempt_id) != expected_attempt:
+        raise ContinuityError(f"Remote lease attempt must match goal execution attempt {expected_attempt}")
     owner_fingerprint = canonical_hash({"owner": args.owner})[:24]
     current_commit, current = remote_lease_record(root, config, args.remote)
     current_expiry = parse_recorded_time(current.get("expires_at"), config["timezone"]) if current else None
@@ -4913,7 +5295,7 @@ def scheduler_lease_acquire(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": 1,
         "project_id": config["project_id"],
         "goal_id": args.goal_id,
-        "attempt_id": args.attempt_id or secrets.token_hex(8),
+        "attempt_id": expected_attempt,
         "owner_fingerprint": owner_fingerprint,
         "status": "active",
         "acquired_at": acquired.isoformat(timespec="seconds"),
@@ -4934,11 +5316,53 @@ def scheduler_lease_acquire(args: argparse.Namespace) -> dict[str, Any]:
     return local
 
 
-def release_active_remote_lease(root: Path, config: dict[str, Any], *, reason: str) -> dict[str, Any] | None:
+def validate_active_remote_lease(
+    root: Path,
+    config: dict[str, Any],
+    goal_id: str,
+    attempt_id: str,
+    *,
+    require_run_id: str | None = None,
+    require_task_id: str | None = None,
+) -> dict[str, Any]:
+    lease = json_load(private_path(root, config) / "remote-lease.json", {})
+    expiry = parse_recorded_time(lease.get("expires_at"), config["timezone"]) if isinstance(lease, dict) else None
+    if not lease or lease.get("status") != "active" or expiry is None or expiry <= now(config):
+        raise ContinuityError("Execution requires an active, unexpired remote project lease")
+    if lease.get("goal_id") != goal_id or str(lease.get("attempt_id")) != str(attempt_id):
+        raise ContinuityError("Remote lease does not match the goal execution attempt")
+    if require_run_id is not None and lease.get("bound_run_id") != require_run_id:
+        raise ContinuityError("Remote lease is not bound to this scheduler run")
+    if require_task_id is not None and lease.get("bound_task_id") != require_task_id:
+        raise ContinuityError("Remote lease is not bound to this scheduler task")
+    remote_commit, remote_record = remote_lease_record(root, config, lease.get("remote", "origin"))
+    if remote_commit != lease.get("lease_commit") or not remote_record or remote_record.get("status") != "active":
+        raise ContinuityError("Remote project lease no longer matches the local acquisition receipt")
+    if remote_record.get("goal_id") != goal_id or str(remote_record.get("attempt_id")) != str(attempt_id):
+        raise ContinuityError("Remote lease record does not match the goal execution attempt")
+    return lease
+
+
+def release_active_remote_lease(
+    root: Path,
+    config: dict[str, Any],
+    *,
+    reason: str,
+    expected_goal_id: str,
+    expected_attempt_id: str,
+    expected_run_id: str | None = None,
+    expected_task_id: str | None = None,
+) -> dict[str, Any] | None:
     local_path = private_path(root, config) / "remote-lease.json"
     local = json_load(local_path, {})
     if not isinstance(local, dict) or local.get("status") != "active":
         return None
+    if local.get("goal_id") != expected_goal_id or str(local.get("attempt_id")) != str(expected_attempt_id):
+        raise ContinuityError("Refusing to release a lease for another goal execution attempt")
+    if expected_run_id is not None and local.get("bound_run_id") != expected_run_id:
+        raise ContinuityError("Refusing to release a lease bound to another scheduler run")
+    if expected_task_id is not None and local.get("bound_task_id") != expected_task_id:
+        raise ContinuityError("Refusing to release a lease bound to another scheduler task")
     remote = local.get("remote", "origin")
     current_commit, current = remote_lease_record(root, config, remote)
     if not current or current_commit != local.get("lease_commit"):
@@ -4961,7 +5385,13 @@ def release_active_remote_lease(root: Path, config: dict[str, Any], *, reason: s
 
 def scheduler_lease_release(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
-    released = release_active_remote_lease(root, config, reason=args.reason)
+    released = release_active_remote_lease(
+        root,
+        config,
+        reason=args.reason,
+        expected_goal_id=args.goal_id,
+        expected_attempt_id=args.attempt_id,
+    )
     if not released:
         raise ContinuityError("No active local remote lease is available to release")
     return released
@@ -5011,8 +5441,14 @@ def scheduler_adapter_codex_verify(args: argparse.Namespace) -> dict[str, Any]:
     snapshots = scheduler_run_snapshots(root, config)
     no_op_runs = [
         run for run in snapshots.values()
-        if run.get("action") in {"review", "report"} and run.get("state") == "succeeded" and not run.get("goal_id")
+        if run.get("action") in {"review", "report"} and run.get("status") == "succeeded" and not run.get("goal_id")
     ]
+    probe_events = list(iter_jsonl(private_path(root, config) / "reports" / "codex-adapter-conformance.jsonl"))
+    latest_probes: dict[str, dict[str, Any]] = {}
+    for event in probe_events:
+        probe = event.get("probe")
+        if probe in CODEX_CONFORMANCE_PROBES:
+            latest_probes[str(probe)] = event
     problems = []
     if normalize_scheduler(config.get("scheduler"))["provider"] != "codex":
         problems.append("scheduler provider is not codex")
@@ -5022,6 +5458,27 @@ def scheduler_adapter_codex_verify(args: argparse.Namespace) -> dict[str, Any]:
         problems.append("fewer than two distinct supervisor sweeps were observed")
     if not no_op_runs:
         problems.append("no successful claimed review or report no-op run was observed")
+    for probe in sorted(CODEX_CONFORMANCE_PROBES):
+        observation = latest_probes.get(probe)
+        if not observation:
+            problems.append(f"missing observed conformance probe: {probe}")
+        elif observation.get("status") != "passed":
+            problems.append(f"conformance probe did not pass: {probe}")
+        elif observation.get("behavior_configuration_hash") != config.get("behavior_configuration_hash"):
+            problems.append(f"conformance probe is stale for project behavior: {probe}")
+        elif config.get("require_signed_approvals", False):
+            try:
+                verify_receipt_bytes(
+                    root,
+                    config,
+                    conformance_probe_bytes(observation),
+                    confined_path(root, str(observation.get("signature_path", "")), "conformance signature"),
+                    str(observation.get("observed_by", "")),
+                    namespace="continuity-adapter-probe",
+                    label="adapter conformance probe",
+                )
+            except ContinuityError as exc:
+                problems.append(f"conformance probe signature is invalid for {probe}: {exc}")
     return {
         "provider": "codex",
         "healthy": not problems,
@@ -5029,9 +5486,71 @@ def scheduler_adapter_codex_verify(args: argparse.Namespace) -> dict[str, Any]:
         "registration": registration,
         "observed_sweeps": len(sweep_ids),
         "observed_no_op_runs": len(no_op_runs),
-        "claim_replay_guard": "enforced-by-run-start-one-time-claim",
-        "stale_registration_guard": "enforced-by-expiring-supervisor-heartbeat",
+        "required_probes": sorted(CODEX_CONFORMANCE_PROBES),
+        "observed_probes": latest_probes,
     }
+
+
+def conformance_probe_bytes(record: dict[str, Any]) -> bytes:
+    keys = (
+        "schema_version",
+        "provider",
+        "probe",
+        "status",
+        "observed_at",
+        "observed_by",
+        "evidence",
+        "artifact_sha256",
+        "behavior_configuration_hash",
+        "nonce",
+    )
+    return (runtime_lib.canonical_json({key: record[key] for key in keys if key in record}) + "\n").encode()
+
+
+def scheduler_adapter_codex_record_probe(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    if normalize_scheduler(config.get("scheduler"))["provider"] != "codex":
+        raise ContinuityError("Codex conformance evidence requires scheduler.provider=codex")
+    if not args.evidence:
+        raise ContinuityError("Conformance probes require concrete evidence")
+    if not re.fullmatch(r"[0-9a-f]{64}", args.artifact_sha256):
+        raise ContinuityError("Conformance probes require a lowercase SHA-256 artifact hash")
+    if config.get("require_signed_approvals", False) and not args.signing_key:
+        raise ContinuityError("Production conformance probes require a trusted SSH signature")
+    record = {
+        "schema_version": 1,
+        "provider": "codex",
+        "probe": args.probe,
+        "status": args.status,
+        "observed_at": iso_now(config),
+        "observed_by": args.actor,
+        "evidence": args.evidence,
+        "artifact_sha256": args.artifact_sha256,
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+        "nonce": secrets.token_hex(16),
+        "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
+    }
+    if args.signing_key:
+        signature = private_path(root, config) / "reports" / "conformance-signatures" / f"{args.probe}-{secrets.token_hex(8)}.sig"
+        sign_receipt_bytes(
+            conformance_probe_bytes(record),
+            args.signing_key,
+            signature,
+            namespace="continuity-adapter-probe",
+            label="adapter conformance probe",
+        )
+        verify_receipt_bytes(
+            root,
+            config,
+            conformance_probe_bytes(record),
+            signature,
+            args.actor,
+            namespace="continuity-adapter-probe",
+            label="adapter conformance probe",
+        )
+        record["signature_path"] = str(signature.relative_to(root))
+    append_jsonl(private_path(root, config) / "reports" / "codex-adapter-conformance.jsonl", record)
+    return record
 
 
 def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
@@ -5043,16 +5562,17 @@ def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
     workspace_roots = registration_workspace_roots(raw_registration)
     control = portfolio_control_dir(raw_registration)
     task_id = validate_task_id(args.task_id, "scheduled task ID")
+    dispatch_lease: dict[str, Any] | None = None
     if config.get("require_remote_lease", False) and args.action == "dispatch":
-        lease = json_load(private_path(root, config) / "remote-lease.json", {})
-        expiry = parse_recorded_time(lease.get("expires_at"), config["timezone"]) if isinstance(lease, dict) else None
-        if not lease or lease.get("status") != "active" or expiry is None or expiry <= now(config):
-            raise ContinuityError("Scheduled work requires an active, unexpired remote project lease")
-        if args.goal_id and lease.get("goal_id") != args.goal_id:
-            raise ContinuityError("Remote lease goal does not match the scheduled goal")
-        remote_commit, remote_record = remote_lease_record(root, config, lease.get("remote", "origin"))
-        if remote_commit != lease.get("lease_commit") or not remote_record or remote_record.get("status") != "active":
-            raise ContinuityError("Remote project lease no longer matches the local acquisition receipt")
+        if not args.goal_id:
+            raise ContinuityError("Scheduled dispatch requires a goal ID")
+        _directory, dispatch_goal = load_goal(root, config, args.goal_id)
+        dispatch_lease = validate_active_remote_lease(
+            root,
+            config,
+            args.goal_id,
+            str(int(dispatch_goal.get("execution_attempt", 1))),
+        )
     current = now(config)
     with exclusive_file_lock(control / "portfolio.lock"):
         projects = discover_projects(workspace_roots)
@@ -5061,6 +5581,7 @@ def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
             current,
             str(raw_registration["supervisor_task_id"]),
             workspace_roots,
+            locked_project_root=root,
         )
         if active >= capacity:
             raise ContinuityError("Portfolio concurrency capacity is exhausted")
@@ -5111,7 +5632,24 @@ def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
                 "claim_hash": hashlib.sha256(args.claim_token.encode()).hexdigest(),
                 "sweep_id": claim.get("sweep_id"),
             }
+            if dispatch_lease is not None:
+                event.update(
+                    {
+                        "lease_attempt_id": dispatch_lease["attempt_id"],
+                        "lease_commit": dispatch_lease["lease_commit"],
+                        "lease_owner_fingerprint": dispatch_lease["owner_fingerprint"],
+                    }
+                )
             append_jsonl(scheduler_runs_path(root, config), event)
+            if dispatch_lease is not None:
+                dispatch_lease.update(
+                    {
+                        "bound_run_id": run_id,
+                        "bound_task_id": task_id,
+                        "bound_idempotency_key": args.idempotency_key,
+                    }
+                )
+                json_dump(private_path(root, config) / "remote-lease.json", dispatch_lease)
             claims.pop(args.claim_token, None)
             json_dump(scheduler_due_actions_path(root, config), claims)
     return event
@@ -5147,8 +5685,20 @@ def scheduler_run_event(args: argparse.Namespace) -> dict[str, Any]:
         "summary": args.summary,
     }
     append_jsonl(scheduler_runs_path(root, config), event)
-    if args.command == "finish" and config.get("require_remote_lease", False):
-        released = release_active_remote_lease(root, config, reason=f"scheduled run {args.status}")
+    if args.command == "finish" and config.get("require_remote_lease", False) and run.get("action") == "dispatch":
+        goal_id = run.get("goal_id")
+        attempt_id = run.get("lease_attempt_id")
+        if not isinstance(goal_id, str) or attempt_id is None:
+            raise ContinuityError("Dispatch run is missing its lease ownership binding")
+        released = release_active_remote_lease(
+            root,
+            config,
+            reason=f"scheduled run {args.status}",
+            expected_goal_id=goal_id,
+            expected_attempt_id=str(attempt_id),
+            expected_run_id=args.run_id,
+            expected_task_id=str(run.get("task_id")),
+        )
         if released:
             event["remote_lease_released"] = released.get("lease_commit")
     return event
@@ -5245,6 +5795,12 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
         evidence.append(f"approval:{approval['plan_hash']}")
     except ContinuityError as exc:
         failures.append(str(exc))
+    if config.get("require_audit_checkpoints", False):
+        try:
+            checkpoint = verify_audit_checkpoint(root, config)
+            evidence.append(f"audit-checkpoint:{checkpoint['created_at']}")
+        except ContinuityError as exc:
+            failures.append(str(exc))
     compliance = json_load(directory / "compliance.json", {})
     for stage in ("memory-retrieval", "roadmap-retrieval", "plan-review", "approval"):
         status = compliance.get("stages", {}).get(stage, {}).get("status")
@@ -5329,6 +5885,14 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
     goal, approval = validate_approval(root, config, args.goal_id)
     if goal.get("state") != "queued":
         raise ContinuityError(f"Only a queued goal can be dispatched; current state is {goal.get('state')}")
+    active_lease = None
+    if config.get("require_remote_lease", False):
+        active_lease = validate_active_remote_lease(
+            root,
+            config,
+            args.goal_id,
+            str(int(goal.get("execution_attempt", 1))),
+        )
     directory = goal_dir(root, config, args.goal_id)
     preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id))
     if not preflight["passed"]:
@@ -5387,6 +5951,11 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "behavior_skill_path": config.get("behavior_skill_path", BEHAVIOR_SKILL_PATH),
         "assurance_standard_version": ASSURANCE_STANDARD_VERSION,
+        "remote_lease": {
+            key: active_lease.get(key)
+            for key in ("goal_id", "attempt_id", "owner_fingerprint", "lease_commit", "bound_run_id", "bound_task_id")
+            if active_lease is not None and active_lease.get(key) is not None
+        },
         "deadline": (now(config) + dt.timedelta(minutes=goal["runtime_limit_minutes"])).isoformat(timespec="seconds"),
     }
     json_dump(directory / "dispatch.json", prompt)
@@ -5459,6 +6028,13 @@ def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
             if not expected.search(args.authorization_text):
                 raise ContinuityError("Resume authorization must name the goal ID and approved plan version")
             _approved_goal, _approval = validate_approval(root, config, args.goal_id)
+            signing_key = getattr(args, "signing_key", None)
+            if config.get("require_signed_approvals", False):
+                if not signing_key:
+                    raise ContinuityError("This project requires a signed human resume authorization")
+                if not Path(signing_key).expanduser().resolve().is_file():
+                    raise ContinuityError("Resume authorization signing key is unavailable")
+                verify_approval_trust_anchor(root, config)
             if current != "changes-requested":
                 reset_execution_evidence(
                     directory,
@@ -5469,6 +6045,16 @@ def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 goal["updated_at"] = iso_now(config)
                 json_dump(directory / "goal.json", goal)
+            resume_receipt = record_signed_resume_authorization(
+                root,
+                config,
+                directory,
+                goal,
+                current,
+                args.actor,
+                args.authorization_text,
+                signing_key,
+            )
             preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id))
             if not preflight["passed"]:
                 raise ContinuityError(f"Cannot resume; execution preflight failed: {preflight['failures']}")
@@ -5476,7 +6062,13 @@ def goal_transition(args: argparse.Namespace) -> dict[str, Any]:
             goal["scheduled_for"] = parse_schedule(args.schedule, config) if args.schedule else next_default_start(config)
             append_jsonl(
                 directory / "feedback.jsonl",
-                {"at": iso_now(config), "author": args.actor, "type": "resume-authorization", "text": args.authorization_text},
+                {
+                    "at": iso_now(config),
+                    "author": args.actor,
+                    "type": "resume-authorization",
+                    "text": args.authorization_text,
+                    "receipt_hash": canonical_hash(resume_receipt_payload(resume_receipt)),
+                },
             )
         else:
             raise ContinuityError(f"Goal in state {current} cannot be resumed")
@@ -6206,9 +6798,25 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
     elif state == "queued":
         current_stage = "dispatch-ready"
         next_skill = "continuity-dispatch"
+        start_action = workflow_action(
+            "start-now",
+            "continuity-dispatch",
+            f"{prefix} goal start {goal_id}",
+            human_required=True,
+            requirements=["preflight passes", *( ["active remote goal-attempt lease"] if config.get("require_remote_lease", False) else [])],
+        )
+        if config.get("require_remote_lease", False):
+            try:
+                validate_active_remote_lease(root, config, goal_id, str(int(goal.get("execution_attempt", 1))))
+            except ContinuityError as exc:
+                blockers.append(str(exc))
+                blocked_actions.append(blocked_workflow_action(start_action, [str(exc)]))
+            else:
+                actions.append(start_action)
+        else:
+            actions.append(start_action)
         actions.extend(
             [
-                workflow_action("start-now", "continuity-dispatch", f"{prefix} goal start {goal_id}", human_required=True, requirements=["preflight passes"]),
                 workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
                 workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
             ]
@@ -6248,7 +6856,7 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
     elif state == "review-ready":
         current_stage = "human-review"
         next_skill = "continuity-merge"
-        common = f'{prefix} merge record-human {goal_id} --pr-url <pr-url> --merged-by <human> --evidence <evidence>'
+        common = f'{prefix} merge record-human {goal_id} --pr-url <pr-url> --merged-by <human> --evidence <evidence>' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else "")
         disposition_actions = {
             "approved": workflow_action("approved", "continuity-merge", f"{common} --disposition approved", human_required=True),
             "changes-requested": workflow_action("changes-requested", "continuity-merge", f"{common} --disposition changes-requested", human_required=True),
@@ -6268,7 +6876,7 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
     elif state in REWORK_STATES:
         current_stage = "human-remediation"
         next_skill = "continuity-dispatch"
-        resume_action = workflow_action("resume-in-scope", "continuity-dispatch", f'{prefix} goal resume {goal_id} --authorization-text "Resume {goal_id} under approved plan v{goal["plan_version"]}" --actor <human>', human_required=True, requirements=["scope unchanged", "preflight passes"])
+        resume_action = workflow_action("resume-in-scope", "continuity-dispatch", f'{prefix} goal resume {goal_id} --authorization-text "Resume {goal_id} under approved plan v{goal["plan_version"]}" --actor <human>' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""), human_required=True, requirements=["scope unchanged", "signed human authorization" if config.get("require_signed_approvals", False) else "recorded human authorization", "preflight passes"])
         try:
             validate_approval(root, config, goal_id)
         except ContinuityError as exc:
@@ -6659,7 +7267,7 @@ def worktree_source_snapshot(worktree: Path) -> dict[str, Any]:
     branch_result = git_result(worktree, "rev-parse", "--abbrev-ref", "HEAD")
     if any(result.returncode != 0 for result in (status, diff, untracked_result, common_dir_result, branch_result)):
         raise ContinuityError("Unable to fingerprint the test worktree")
-    excluded_fragments = (".continuity/private/", ".continuity-portfolio/", "__pycache__/")
+    excluded_fragments = (".continuity/private/", ".continuity-portfolio/", ".continuity/state.lock", "__pycache__/")
     status_lines = [line for line in status.stdout.splitlines() if not any(value in line for value in excluded_fragments)]
     untracked: list[dict[str, str]] = []
     for relative in sorted(value for value in untracked_result.stdout.split("\0") if value):
@@ -7050,7 +7658,9 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
             else:
                 dirty_lines = [
                     line for line in status.stdout.splitlines()
-                    if ".continuity/private/" not in line and ".agents/continuity/lib/__pycache__/" not in line
+                    if ".continuity/private/" not in line
+                    and ".continuity/state.lock" not in line
+                    and ".agents/continuity/lib/__pycache__/" not in line
                 ]
                 if dirty_lines:
                     failures.append("working tree has uncommitted changes")
@@ -7250,6 +7860,8 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError(f"Human PR disposition requires current review evidence: {stale_evidence}")
     if not args.evidence:
         raise ContinuityError("Human merge review requires evidence")
+    if config.get("require_signed_approvals", False) and not args.signing_key:
+        raise ContinuityError("This project requires a signed human review disposition")
     if config.get("require_pr", True) and not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/pull/\d+", args.pr_url):
         raise ContinuityError("A valid GitHub PR URL is required")
     if args.disposition == "merged" and not args.merge_commit:
@@ -7285,8 +7897,12 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
                 raise ContinuityError("Merged disposition does not match the verified PR merge commit")
     stamp = iso_now(config)
     report = {
+        "schema_version": 1,
         "project_id": config["project_id"],
         "goal_id": args.goal_id,
+        "plan_version": goal["plan_version"],
+        "plan_hash": goal_material_hash(directory, goal),
+        "execution_attempt": int(goal.get("execution_attempt", 1)),
         "status": args.disposition,
         "updated_at": stamp,
         "actor": args.actor,
@@ -7299,9 +7915,26 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
         "human_merge_required": True,
         "auto_merge_used": False,
         "github_identity_verified": config.get("require_pr", True) and config.get("require_pr_auth", True) and args.disposition in {"approved", "merged"},
+        "nonce": secrets.token_hex(16),
+        "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
     }
-    json_dump(directory / "human-review.json", report)
-    record_compliance_stage(root, config, directory, goal, "human-review", "passed", args.evidence, args.actor)
+    if args.signing_key:
+        sign_receipt_bytes(
+            disposition_receipt_bytes(report),
+            args.signing_key,
+            directory / "human-review.sig",
+            namespace="continuity-disposition",
+            label="human disposition",
+        )
+        report["trust_anchor"] = verify_receipt_bytes(
+            root,
+            config,
+            disposition_receipt_bytes(report),
+            directory / "human-review.sig",
+            args.merged_by,
+            namespace="continuity-disposition",
+            label="human disposition",
+        )
     capture = capture_goal_feedback(
         root,
         config,
@@ -7314,6 +7947,7 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
     )
     report["feedback_capture_id"] = capture["capture_id"]
     json_dump(directory / "human-review.json", report)
+    record_compliance_stage(root, config, directory, goal, "human-review", "passed", args.evidence, args.actor)
     if args.disposition == "merged":
         goal["state"] = "completed"
         goal["updated_at"] = stamp
@@ -7716,6 +8350,13 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         except runtime_lib.RuntimeIntegrityError as exc:
             ledger_health.append({"path": str(path.relative_to(root)), "healthy": False, "problem": str(exc)})
             blocked_or_at_risk.append({"type": "state-integrity", "state": "failed", "problems": [str(exc)]})
+    audit_checkpoint = {"required": bool(config.get("require_audit_checkpoints", False)), "verified": True}
+    if audit_checkpoint["required"]:
+        try:
+            audit_checkpoint.update(verify_audit_checkpoint(root, config))
+        except ContinuityError as exc:
+            audit_checkpoint.update({"verified": False, "problem": str(exc)})
+            blocked_or_at_risk.append({"type": "audit-checkpoint", "state": "failed", "problems": [str(exc)]})
     lease = json_load(private_path(root, config) / "remote-lease.json", {})
     return {
         "schema_version": 1,
@@ -7747,8 +8388,9 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         "scheduler": scheduler_health,
         "suite_installation": suite_installation_status(root),
         "state_integrity": {
-            "healthy": all(item.get("healthy") for item in ledger_health),
+            "healthy": all(item.get("healthy") for item in ledger_health) and audit_checkpoint["verified"],
             "ledgers": ledger_health,
+            "external_checkpoint": audit_checkpoint,
         },
         "remote_lease": {
             key: lease.get(key)
@@ -7880,6 +8522,8 @@ def roadmap_command(args: argparse.Namespace) -> Any:
 def shared_note_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
+        if config.get("require_signed_approvals", False) and getattr(args, "share_command", None) in {"approve", "publish"}:
+            verify_approval_trust_anchor(root, config)
         return args.shared_note_handler(root, config, args)
     except shared_notes_lib.SharedNoteError as exc:
         raise ContinuityError(str(exc)) from exc
@@ -8120,6 +8764,7 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "resume":
             transition.add_argument("--authorization-text")
             transition.add_argument("--actor", default="human")
+            transition.add_argument("--signing-key", help="SSH private key used to sign the canonical resume receipt")
             transition.add_argument("--schedule")
         elif name == "cancel":
             transition.add_argument("--actor", default="human")
@@ -8206,6 +8851,7 @@ def build_parser() -> argparse.ArgumentParser:
     human_merge.add_argument("--merge-commit")
     human_merge.add_argument("--evidence", action="append", required=True)
     human_merge.add_argument("--actor", default="human")
+    human_merge.add_argument("--signing-key", help="SSH private key used to sign the canonical human disposition receipt")
     human_merge.add_argument("--sentiment", choices=sorted(NOTE_SENTIMENTS), default="unknown")
     human_merge.add_argument("--perspective", choices=sorted(NOTE_PERSPECTIVES), default="unknown")
     human_merge.set_defaults(handler=merge_record_human)
@@ -8295,6 +8941,7 @@ def build_parser() -> argparse.ArgumentParser:
     state_backup_command.add_argument("--recipient", required=True, help="age recipient used to encrypt the archive")
     state_backup_command.add_argument("--signer", required=True, help="Trusted SSH signer identity recorded in the backup inventory")
     state_backup_command.add_argument("--signing-key", required=True, help="SSH private key used to sign the backup inventory")
+    state_backup_command.add_argument("--verify-identity", help="age identity used to immediately decrypt and verify the new backup")
     state_backup_command.add_argument("--output")
     state_backup_command.set_defaults(handler=state_backup)
     state_verify_command = state_sub.add_parser("verify")
@@ -8309,6 +8956,14 @@ def build_parser() -> argparse.ArgumentParser:
     state_restore_command.add_argument("--signing-key", required=True)
     state_restore_command.add_argument("--dry-run", action="store_true")
     state_restore_command.set_defaults(handler=state_restore)
+    state_checkpoint_create_command = state_sub.add_parser("checkpoint-create")
+    state_checkpoint_create_command.add_argument("--signer", required=True)
+    state_checkpoint_create_command.add_argument("--signing-key", required=True)
+    state_checkpoint_create_command.add_argument("--output")
+    state_checkpoint_create_command.set_defaults(handler=state_checkpoint_create)
+    state_checkpoint_verify_command = state_sub.add_parser("checkpoint-verify")
+    state_checkpoint_verify_command.add_argument("--checkpoint")
+    state_checkpoint_verify_command.set_defaults(handler=state_checkpoint_verify)
 
     scheduler = top.add_parser("scheduler")
     scheduler_sub = scheduler.add_subparsers(dest="command", required=True)
@@ -8332,6 +8987,14 @@ def build_parser() -> argparse.ArgumentParser:
     scheduler_codex_render_command.set_defaults(handler=scheduler_adapter_codex_render)
     scheduler_codex_verify_command = scheduler_codex_sub.add_parser("verify")
     scheduler_codex_verify_command.set_defaults(handler=scheduler_adapter_codex_verify)
+    scheduler_codex_probe_command = scheduler_codex_sub.add_parser("record-probe")
+    scheduler_codex_probe_command.add_argument("--probe", choices=sorted(CODEX_CONFORMANCE_PROBES), required=True)
+    scheduler_codex_probe_command.add_argument("--status", choices=["passed", "failed"], required=True)
+    scheduler_codex_probe_command.add_argument("--evidence", action="append", required=True)
+    scheduler_codex_probe_command.add_argument("--artifact-sha256", required=True)
+    scheduler_codex_probe_command.add_argument("--actor", required=True)
+    scheduler_codex_probe_command.add_argument("--signing-key", help="SSH private key used to sign the conformance observation")
+    scheduler_codex_probe_command.set_defaults(handler=scheduler_adapter_codex_record_probe)
     scheduler_lease_command = scheduler_sub.add_parser("lease")
     scheduler_lease_sub = scheduler_lease_command.add_subparsers(dest="lease_command", required=True)
     scheduler_lease_status_command = scheduler_lease_sub.add_parser("status")
@@ -8346,6 +9009,8 @@ def build_parser() -> argparse.ArgumentParser:
     scheduler_lease_acquire_command.set_defaults(handler=scheduler_lease_acquire)
     scheduler_lease_release_command = scheduler_lease_sub.add_parser("release")
     scheduler_lease_release_command.add_argument("--reason", required=True)
+    scheduler_lease_release_command.add_argument("--goal-id", required=True)
+    scheduler_lease_release_command.add_argument("--attempt-id", required=True)
     scheduler_lease_release_command.set_defaults(handler=scheduler_lease_release)
     scheduler_start_command = scheduler_sub.add_parser("run-start")
     scheduler_start_command.add_argument("action", choices=sorted(SCHEDULE_ACTIONS))
@@ -8396,7 +9061,16 @@ def main() -> int:
     if args.project_root:
         os.environ["CONTINUITY_PROJECT_ROOT"] = str(Path(args.project_root).expanduser().resolve())
     try:
-        value = args.handler(args)
+        if args.domain == "portfolio" or os.environ.get("CONTINUITY_STATE_LOCK_HELD") == "1":
+            value = args.handler(args)
+        else:
+            root = find_project_root()
+            with exclusive_file_lock(project_state_lock_path(root)):
+                os.environ["CONTINUITY_STATE_LOCK_HELD"] = "1"
+                try:
+                    value = args.handler(args)
+                finally:
+                    os.environ.pop("CONTINUITY_STATE_LOCK_HELD", None)
         output(value, args.json)
         return 0
     except ContinuityError as exc:

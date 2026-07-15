@@ -234,6 +234,64 @@ unresolved_gaps: []
         self.assertTrue(all(item["created_at"] and item["updated_at"] for item in capture["items"]))
         self.assertIn(".continuity/private/captures", capture["path"])
 
+    def test_meeting_notes_create_one_batch_with_multiple_atomic_items(self) -> None:
+        payload = {
+            "source_type": "meeting",
+            "source_ref": "meeting:synthetic-weekly-review-2026-07-15",
+            "source_timestamp": "2026-07-15T15:00:00-05:00",
+            "items": [
+                {
+                    "kind": "insight", "text": "The status view is easier to scan; preserve its current density.",
+                    "perspective": "external", "sentiment": "positive", "occurrence_type": "feedback",
+                    "impact": "medium", "confidence": "high", "actionability": "context",
+                    "stakeholders": ["reviewer"], "themes": ["status-view", "scanability"],
+                },
+                {
+                    "kind": "execution-candidate", "text": "Move the risk summary above dependencies in the next pass.",
+                    "perspective": "external", "sentiment": "neutral", "occurrence_type": "need",
+                    "impact": "medium", "confidence": "high", "actionability": "plan",
+                    "stakeholders": ["product-owner"], "themes": ["risk-summary", "dependencies"],
+                },
+                {
+                    "kind": "decision", "text": "Export remains outside the current objective.",
+                    "perspective": "mixed", "sentiment": "neutral", "occurrence_type": "decision",
+                    "impact": "medium", "confidence": "high", "actionability": "context",
+                    "stakeholders": ["project-team"], "themes": ["scope", "export"],
+                },
+                {
+                    "kind": "question", "text": "Should external reviewers see internal confidence labels?",
+                    "perspective": "external", "sentiment": "unknown", "occurrence_type": "need",
+                    "impact": "unknown", "confidence": "medium", "actionability": "monitor",
+                    "stakeholders": ["reviewer"], "themes": ["visibility", "confidence-labels"],
+                },
+                {
+                    "kind": "backlog-candidate", "text": "Consider saved-filter presets in a later objective.",
+                    "perspective": "internal", "sentiment": "neutral", "occurrence_type": "observation",
+                    "impact": "low", "confidence": "medium", "actionability": "plan",
+                    "stakeholders": ["project-team"], "themes": ["filters", "later-work"],
+                },
+            ],
+        }
+        path = self.root / "meeting-notes.json"
+        self.write_json(path, payload)
+        capture = json.loads(self.cli("note", "capture", "--items-file", str(path)).stdout)
+        self.assertEqual(capture["source_type"], "meeting")
+        self.assertEqual(capture["capture_mode"], "batch")
+        self.assertEqual(capture["item_count"], 5)
+        self.assertEqual(len({item["item_id"] for item in capture["items"]}), 5)
+        self.assertTrue(all(item["occurred_at"] == payload["source_timestamp"] for item in capture["items"]))
+        self.assertTrue(all(item["execution_authorized"] is False for item in capture["items"]))
+        handoff = json.loads(self.cli("workflow", "status", "--capture-id", capture["capture_id"]).stdout)["capture"]
+        self.assertEqual(len(handoff["items"]), 5)
+        duplicate = json.loads(self.cli("note", "capture", "--items-file", str(path)).stdout)
+        self.assertEqual(duplicate["capture_id"], capture["capture_id"])
+        self.assertTrue(duplicate["deduplicated"])
+
+        singular = json.loads(self.cli("note", "capture", "--text", "One meeting callout.", "--source-type", "meeting", "--source-ref", "meeting:single-callout").stdout)
+        self.assertEqual(singular["source_type"], "meeting")
+        self.assertEqual(singular["capture_mode"], "singular")
+        self.assertEqual(singular["item_count"], 1)
+
     def test_occurrence_dimensions_private_similarity_and_pattern_guidance(self) -> None:
         payload = {
             "source_type": "conversation",
@@ -1825,6 +1883,63 @@ unresolved_gaps: []
         self.write_json(approval_path, tampered)
         self.cli("goal", "start", goal["goal_id"], expected=2)
 
+    def test_trusted_approvers_must_match_fetched_integration_branch(self) -> None:
+        key = self.root.parent / "anchored-approver"
+        other_key = self.root.parent / "unanchored-approver"
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(other_key)], check=True)
+        remote = self.root.parent / "approval-remote.git"
+        subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+        self.git("remote", "add", "origin", str(remote))
+        self.git("push", "-u", "origin", "main")
+        config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+        config.update({"require_remote": True, "require_signed_approvals": True, "approval_allowed_signers": ".continuity/trusted-approvers"})
+        self.write_json(self.root / ".continuity" / "config.json", config)
+        self.cli("approval", "trust", "add", "--identity", "fixture-user", "--public-key", str(key) + ".pub")
+        self.git("add", ".continuity/config.json", ".continuity/trusted-approvers")
+        self.git("commit", "-m", "anchor trusted approver")
+        self.git("push", "origin", "main")
+        goal = self.create_goal("Anchored authority")
+        self.cli(
+            "goal", "approve", goal["goal_id"], "--version", "1", "--approved-by", "fixture-user",
+            "--authorization-text", f"Approve {goal['goal_id']} plan v1", "--signing-key", str(key),
+        )
+        self.assertTrue(json.loads(self.cli("approval", "verify", goal["goal_id"]).stdout)["verified"])
+        self.cli("approval", "trust", "add", "--identity", "unreviewed-user", "--public-key", str(other_key) + ".pub")
+        self.cli("approval", "verify", goal["goal_id"], expected=2)
+
+    def test_rework_requires_signed_human_disposition_and_resume_receipt(self) -> None:
+        key = self.root.parent / "disposition-approver"
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
+        config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+        config.update({"require_signed_approvals": True, "approval_allowed_signers": ".continuity/trusted-approvers"})
+        self.write_json(self.root / ".continuity" / "config.json", config)
+        self.cli("approval", "trust", "add", "--identity", "fixture-user", "--public-key", str(key) + ".pub")
+        goal = self.create_goal("Signed rework")
+        self.cli(
+            "goal", "approve", goal["goal_id"], "--version", "1", "--approved-by", "fixture-user",
+            "--authorization-text", f"Approve {goal['goal_id']} plan v1", "--signing-key", str(key),
+        )
+        goal_path = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json"
+        current = json.loads(goal_path.read_text(encoding="utf-8"))
+        current["state"] = "review-ready"
+        self.write_json(goal_path, current)
+        command = (
+            "merge", "record-human", goal["goal_id"], "--pr-url", "https://github.com/example/project/pull/8",
+            "--merged-by", "fixture-user", "--disposition", "changes-requested", "--evidence", "Revise in-scope copy.",
+        )
+        self.cli(*command, expected=2)
+        self.cli(*command, "--signing-key", str(key))
+        archived = goal_path.parent / "attempts" / "attempt-1"
+        self.assertTrue((archived / "human-review.sig").is_file())
+        resume_text = f"Resume {goal['goal_id']} under approved plan v1"
+        self.cli("goal", "resume", goal["goal_id"], "--actor", "fixture-user", "--authorization-text", resume_text, expected=2)
+        resumed = json.loads(self.cli("goal", "resume", goal["goal_id"], "--actor", "fixture-user", "--authorization-text", resume_text, "--signing-key", str(key)).stdout)
+        self.assertEqual(resumed["state"], "queued")
+        receipt = json.loads((goal_path.parent / "resume-authorization.json").read_text(encoding="utf-8"))
+        self.assertEqual(receipt["execution_attempt"], 2)
+        self.assertTrue((goal_path.parent / "resume-authorization.sig").is_file())
+
     def test_signed_shared_packet_approval_is_verified_before_publish(self) -> None:
         key = self.root.parent / "packet-approver"
         subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
@@ -1881,18 +1996,39 @@ unresolved_gaps: []
         self.assertIn("execution is enabled but no required GitHub checks are configured", doctor["problems"])
 
     def test_remote_lease_ref_serializes_workstations_without_force_push(self) -> None:
+        goal = self.create_goal("Lease serialization")
+        self.approve(goal)
+        config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+        config["require_remote_lease"] = True
+        self.write_json(self.root / ".continuity" / "config.json", config)
         remote = self.root.parent / "remote.git"
         subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
         self.git("remote", "add", "origin", str(remote))
         self.git("push", "-u", "origin", "main")
+        self.cli("goal", "start", goal["goal_id"], expected=2)
         acquired = json.loads(
-            self.cli("scheduler", "lease", "acquire", "--owner", "operator-one", "--goal-id", "goal-pilot", "--remote", "origin").stdout
+            self.cli("scheduler", "lease", "acquire", "--owner", "operator-one", "--goal-id", goal["goal_id"], "--remote", "origin").stdout
         )
         self.assertEqual(acquired["status"], "active")
-        self.cli("scheduler", "lease", "acquire", "--owner", "operator-two", "--goal-id", "goal-pilot", "--remote", "origin", expected=2)
+        self.cli("scheduler", "lease", "acquire", "--owner", "operator-two", "--goal-id", goal["goal_id"], "--remote", "origin", expected=2)
+        dispatched = json.loads(self.cli("goal", "start", goal["goal_id"]).stdout)
+        self.assertEqual(dispatched["remote_lease"]["attempt_id"], "1")
+        runtime_lib.append_integrity_jsonl(
+            self.root / ".continuity" / "private" / "scheduler-runs.jsonl",
+            {
+                "schema_version": 1, "run_id": "run-review", "project_id": "test-project",
+                "action": "review", "status": "started", "at": "2026-07-15T10:00:00-05:00",
+                "idempotency_key": "test-project:review:2026-07-15", "attempt": 1,
+                "task_id": "review-task", "goal_id": None, "summary": "Review started.",
+            },
+        )
+        self.cli("scheduler", "run-finish", "run-review", "--status", "succeeded", "--summary", "Review complete.")
+        still_active = json.loads((self.root / ".continuity" / "private" / "remote-lease.json").read_text(encoding="utf-8"))
+        self.assertEqual(still_active["status"], "active")
+        self.cli("scheduler", "lease", "release", "--reason", "wrong binding", "--goal-id", "goal-other", "--attempt-id", "1", expected=2)
         active = json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)
         self.assertEqual(active["state"], "active")
-        released = json.loads(self.cli("scheduler", "lease", "release", "--reason", "pilot complete").stdout)
+        released = json.loads(self.cli("scheduler", "lease", "release", "--reason", "pilot complete", "--goal-id", goal["goal_id"], "--attempt-id", "1").stdout)
         self.assertEqual(released["status"], "released")
         available = json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)
         self.assertEqual(available["state"], "available")
@@ -1918,8 +2054,9 @@ unresolved_gaps: []
         os.environ["HOME"] = str(self.root.parent)
         try:
             first = self.create_capture()
-            backed_up = json.loads(self.cli("state", "backup", "--recipient", "age1fixture", "--signer", "fixture-backup", "--signing-key", str(signer_key), "--output", str(archive)).stdout)
+            backed_up = json.loads(self.cli("state", "backup", "--recipient", "age1fixture", "--signer", "fixture-backup", "--signing-key", str(signer_key), "--verify-identity", str(identity), "--output", str(archive)).stdout)
             self.assertTrue(backed_up["encrypted"])
+            self.assertTrue(backed_up["verification"]["verified"])
             verified = json.loads(self.cli("state", "verify", "--archive", str(archive), "--identity", str(identity)).stdout)
             self.assertTrue(verified["verified"])
             second = json.loads(self.cli("note", "capture", "--text", "Created after backup.").stdout)
@@ -1937,14 +2074,51 @@ unresolved_gaps: []
             else:
                 os.environ["HOME"] = original_home
 
+    def test_backup_requires_quiescence_and_external_checkpoint_detects_rewrite(self) -> None:
+        goal = self.create_goal("Quiescence guard")
+        goal_path = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json"
+        active = json.loads(goal_path.read_text(encoding="utf-8"))
+        active["state"] = "running"
+        self.write_json(goal_path, active)
+        blocked = self.cli(
+            "state", "backup", "--recipient", "age1fixture", "--signer", "fixture-user",
+            "--signing-key", str(self.root.parent / "missing-key"), expected=2,
+        )
+        self.assertIn("requires quiescent project state", blocked.stderr)
+        active["state"] = "awaiting-feedback"
+        self.write_json(goal_path, active)
+
+        key = self.root.parent / "checkpoint-signer"
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
+        self.cli("approval", "trust", "add", "--identity", "fixture-user", "--public-key", str(key) + ".pub")
+        self.create_capture()
+        checkpoint_path = self.root.parent / "external-audit-checkpoint.json"
+        created = json.loads(
+            self.cli(
+                "state", "checkpoint-create", "--signer", "fixture-user", "--signing-key", str(key),
+                "--output", str(checkpoint_path),
+            ).stdout
+        )
+        self.assertTrue(created["verified"])
+        self.assertTrue(json.loads(self.cli("state", "checkpoint-verify", "--checkpoint", str(checkpoint_path)).stdout)["verified"])
+        ledger = self.root / ".continuity" / "private" / "events.jsonl"
+        ledger.unlink()
+        runtime_lib.append_integrity_jsonl(ledger, {"at": "2026-07-15T10:00:00-05:00", "event": "history.rewritten"})
+        self.cli("state", "checkpoint-verify", "--checkpoint", str(checkpoint_path), expected=2)
+
     def test_codex_adapter_and_sanitized_portfolio_report_are_machine_bounded(self) -> None:
+        key = self.root.parent / "adapter-probe-signer"
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
         config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
         config["scheduler"] = {
             "provider": "codex", "sweep_minutes": 15, "business_days": [0, 1, 2, 3, 4],
             "retry_limit": 2, "retry_backoff_minutes": 15, "stale_after_minutes": 45,
             "portfolio_max_concurrency": 1,
         }
+        config["require_signed_approvals"] = True
+        config["approval_allowed_signers"] = ".continuity/trusted-approvers"
         self.write_json(self.root / ".continuity" / "config.json", config)
+        self.cli("approval", "trust", "add", "--identity", "fixture-user", "--public-key", str(key) + ".pub")
         manifest_path = self.root / ".continuity" / "project.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["scheduler"] = config["scheduler"]
@@ -1953,6 +2127,41 @@ unresolved_gaps: []
         rendered = json.loads(self.cli("scheduler", "adapter", "codex", "render", "--root", str(self.root.parent)).stdout)
         self.assertEqual(rendered["provider"], "codex")
         self.assertIn("portfolio actions", rendered["prompt"])
+        private = self.root / ".continuity" / "private"
+        self.write_json(
+            private / "scheduler-registration.json",
+            {
+                "schema_version": 1, "provider": "codex", "registered_at": "2099-07-15T09:00:00-05:00",
+                "last_heartbeat_at": "2099-07-15T09:30:00-05:00", "last_sweep_id": "sweep-two",
+                "registered_by": "fixture", "supervisor_task_id": "codex-supervisor",
+                "workspace_roots": [str(self.root.parent)], "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+                "sweep_minutes": 15, "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md",
+            },
+        )
+        for sweep in ("sweep-one", "sweep-two"):
+            runtime_lib.append_integrity_jsonl(
+                private / "events.jsonl",
+                {"at": "2099-07-15T09:30:00-05:00", "event": "scheduler.supervisor-heartbeat", "sweep_id": sweep},
+            )
+        runtime_lib.append_integrity_jsonl(
+            private / "scheduler-runs.jsonl",
+            {
+                "schema_version": 1, "run_id": "run-no-op", "project_id": "test-project", "action": "report",
+                "status": "succeeded", "at": "2099-07-15T09:31:00-05:00", "idempotency_key": "report-no-op",
+                "attempt": 1, "task_id": "report-task", "goal_id": None, "summary": "No work required.",
+            },
+        )
+        before_probes = json.loads(self.cli("scheduler", "adapter", "codex", "verify").stdout)
+        self.assertFalse(before_probes["healthy"])
+        self.assertTrue(any("missing observed conformance probe" in problem for problem in before_probes["problems"]))
+        for probe in ("claim-replay-rejected", "stale-registration-rejected", "remote-lease-contention-rejected"):
+            self.cli(
+                "scheduler", "adapter", "codex", "record-probe", "--probe", probe, "--status", "passed",
+                "--evidence", f"Observed {probe} in isolated provider test.", "--artifact-sha256", "a" * 64,
+                "--actor", "fixture-user", "--signing-key", str(key),
+            )
+        conformance = json.loads(self.cli("scheduler", "adapter", "codex", "verify").stdout)
+        self.assertTrue(conformance["healthy"], conformance)
         self.cli("note", "capture", "--text", "Private customer token should never enter portfolio output.")
         portfolio = subprocess.run(
             ["python3", str(CLI), "--json", "portfolio", "report", "--sanitized", "--root", str(self.root.parent)],
@@ -1999,6 +2208,40 @@ class ReferenceTest(unittest.TestCase):
 
 
 class InstallerTest(unittest.TestCase):
+    def test_installer_rolls_back_every_fault_injection_stage(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "project"
+            root.mkdir()
+            subprocess.run(["git", "-C", str(root), "init", "-b", "main"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "tests@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Tests"], check=True)
+            (root / "AGENTS.md").write_text("# Project\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-m", "initial"], check=True, capture_output=True)
+            command = [
+                "python3", str(INSTALLER), "--project-root", str(root), "--project-id", "transaction-project",
+                "--integration-branch", "main", "--ignore-user-defaults",
+            ]
+            subprocess.run(command, check=True, capture_output=True, text=True)
+            agents = root / "AGENTS.md"
+            agents.write_text(agents.read_text(encoding="utf-8") + "\nUser-owned marker.\n", encoding="utf-8")
+            custom_cursor = root / ".cursor" / "commands" / "custom.md"
+            custom_cursor.parent.mkdir(parents=True, exist_ok=True)
+            custom_cursor.write_text("user-owned cursor command\n", encoding="utf-8")
+            baseline_agents = agents.read_bytes()
+            baseline_config = (root / ".continuity" / "config.json").read_bytes()
+            for stage in ("managed-files", "project-contract", "seed-content", "surface-configuration", "install-manifest"):
+                failed = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    env={**os.environ, "CONTINUITY_INSTALL_FAIL_AFTER": stage},
+                )
+                self.assertNotEqual(failed.returncode, 0, stage)
+                self.assertEqual(agents.read_bytes(), baseline_agents, stage)
+                self.assertEqual((root / ".continuity" / "config.json").read_bytes(), baseline_config, stage)
+                self.assertEqual(custom_cursor.read_text(encoding="utf-8"), "user-owned cursor command\n", stage)
+
     def test_installer_detects_managed_drift_and_supports_snapshot_rollback(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "project"

@@ -21,11 +21,11 @@ Confirm the tested local head equals the remote branch and PR head, the PR base 
 | `merged` | Human merge occurred and merge evidence is supplied | Mark completed and report outcome |
 | `closed` | Human closes delivery without merge | Cancel and preserve history |
 
-Do not infer disposition from comments, check status, approval rules, or the existence of a merge commit. Record facts supplied or verified through the authorized workflow.
+Do not infer disposition from comments, check status, approval rules, or the existence of a merge commit. Record facts supplied or verified through the authorized workflow. In a signed-approval project, every disposition requires a trusted SSH receipt bound to the current plan and attempt; the signing key is selected and controlled by the human, never the agent.
 
 ## Rework examples
 
-In scope: adjust the approved label order. Archive the attempt, invalidate downstream evidence, obtain explicit resume authorization, and retest.
+In scope: adjust the approved label order. Archive the attempt, invalidate downstream evidence, obtain a signed resume authorization, and retest.
 
 Changed scope: add user-configurable layouts. Revise the plan, reassess risks and slices, and obtain fresh approval.
 

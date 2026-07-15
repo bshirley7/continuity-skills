@@ -98,7 +98,7 @@ def _record_payload(record: dict[str, Any]) -> dict[str, Any]:
 
 def verify_jsonl_records(path: Path, *, allow_legacy: bool = True) -> dict[str, Any]:
     if not path.exists():
-        return {"path": str(path), "records": 0, "integrity_records": 0, "legacy_records": 0, "healthy": True}
+        return {"path": str(path), "records": 0, "integrity_records": 0, "legacy_records": 0, "head_hash": None, "healthy": True}
     previous: str | None = None
     legacy = 0
     integrity = 0
@@ -140,8 +140,28 @@ def verify_jsonl_records(path: Path, *, allow_legacy: bool = True) -> dict[str, 
         "records": legacy + integrity,
         "integrity_records": integrity,
         "legacy_records": legacy,
+        "head_hash": previous,
         "healthy": True,
     }
+
+
+def jsonl_chain_hash_at(path: Path, record_count: int) -> str | None:
+    status = verify_jsonl_records(path)
+    if record_count < 0 or record_count > int(status["records"]):
+        raise RuntimeIntegrityError(f"JSONL checkpoint count is outside the current ledger: {path}")
+    if record_count == 0:
+        return None
+    logical_sequence = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        logical_sequence += 1
+        record = json.loads(line)
+        metadata = record.get("_integrity") if isinstance(record, dict) else None
+        current = metadata.get("record_hash") if isinstance(metadata, dict) else f"legacy:{sha256_bytes(canonical_json(record).encode())}"
+        if logical_sequence == record_count:
+            return current
+    raise RuntimeIntegrityError(f"JSONL checkpoint count could not be resolved: {path}")
 
 
 def append_integrity_jsonl(path: Path, value: dict[str, Any]) -> dict[str, Any]:

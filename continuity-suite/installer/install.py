@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import datetime as dt
 import hashlib
 import json
@@ -138,17 +139,29 @@ def create_upgrade_snapshot(root: Path, paths: set[str], prior: dict[str, Any]) 
     if snapshot.exists():
         stamp = f"{stamp}-{os.getpid()}"
         snapshot = snapshot.parent / stamp
-    files = snapshot / "files"
-    files.mkdir(parents=True)
-    present: list[str] = []
+    payload = snapshot / "payload"
+    payload.mkdir(parents=True)
+    present: list[dict[str, str]] = []
     absent: list[str] = []
-    for relative in sorted(paths):
+    selected: list[str] = []
+    for relative in sorted(paths, key=lambda value: (len(Path(value).parts), value)):
+        if any(Path(relative).is_relative_to(Path(parent)) for parent in selected):
+            continue
+        selected.append(relative)
+    for relative in selected:
         target = confined(root, relative, "snapshot file")
-        if target.is_file():
-            destination = files / relative
+        destination = payload / relative
+        if target.is_symlink():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.symlink_to(os.readlink(target))
+            present.append({"path": relative, "type": "symlink"})
+        elif target.is_file():
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(target, destination)
-            present.append(relative)
+            present.append({"path": relative, "type": "file"})
+        elif target.is_dir():
+            shutil.copytree(target, destination, symlinks=True)
+            present.append({"path": relative, "type": "directory"})
         else:
             absent.append(relative)
     runtime_lib.atomic_write_json(
@@ -163,15 +176,53 @@ def restore_upgrade_snapshot(root: Path, snapshot: Path) -> dict[str, Any]:
     if not metadata_path.is_file():
         raise RuntimeError(f"Invalid upgrade snapshot: {snapshot}")
     metadata = load_json(metadata_path)
-    for relative in metadata.get("absent", []):
+    entries = metadata.get("present", [])
+    legacy_entries = [entry for entry in entries if isinstance(entry, str)]
+    normalized = ([{"path": entry, "type": "file"} for entry in legacy_entries] if legacy_entries else entries)
+    for relative in [*metadata.get("absent", []), *(entry["path"] for entry in normalized)]:
         target = confined(root, relative, "restore file")
-        if target.is_file() or target.is_symlink():
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
+        elif target.exists() or target.is_symlink():
             target.unlink()
-    for relative in metadata.get("present", []):
-        source = confined(snapshot / "files", relative, "snapshot source")
+    payload_root = snapshot / ("files" if legacy_entries else "payload")
+    for entry in normalized:
+        relative = entry["path"]
+        source = confined(payload_root, relative, "snapshot source")
         target = confined(root, relative, "restore target")
-        runtime_lib.atomic_write_bytes(target, source.read_bytes(), mode=source.stat().st_mode & 0o777)
-    return {"restored": True, "snapshot": str(snapshot), "files": len(metadata.get("present", []))}
+        if entry["type"] == "directory":
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source, target, symlinks=True)
+        elif entry["type"] == "symlink":
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.symlink_to(os.readlink(source))
+        else:
+            runtime_lib.atomic_write_bytes(target, source.read_bytes(), mode=source.stat().st_mode & 0o777)
+    return {"restored": True, "snapshot": str(snapshot), "entries": len(normalized)}
+
+
+class UpgradeTransaction:
+    def __init__(self, root: Path, snapshot: Path) -> None:
+        self.root = root
+        self.snapshot = snapshot
+        self.armed = True
+        atexit.register(self.rollback_if_armed)
+
+    def rollback_if_armed(self) -> None:
+        if self.armed:
+            restore_upgrade_snapshot(self.root, self.snapshot)
+            self.armed = False
+
+    def rollback(self) -> None:
+        self.rollback_if_armed()
+
+    def commit(self) -> None:
+        self.armed = False
+
+
+def install_fault(stage: str) -> None:
+    if os.environ.get("CONTINUITY_INSTALL_FAIL_AFTER") == stage:
+        raise RuntimeError(f"Injected installer failure after {stage}")
 
 
 def load_user_defaults(path: Path) -> dict[str, Any]:
@@ -379,6 +430,9 @@ def main() -> int:
         "github_required_checks": [],
         "github_required_reviewers": 1,
         "require_remote_lease": True,
+        "require_verified_backups": True,
+        "require_audit_checkpoints": True,
+        "audit_checkpoint_path": f"~/.continuity/audit-checkpoints/{args.project_id}.json",
         "validation_commands": args.validation,
         "security_commands": [],
         "documentation_map": seed.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md", "project-roadmap": "docs/project-roadmap/INDEX.md"}),
@@ -445,6 +499,9 @@ def main() -> int:
         config.setdefault("github_required_checks", [])
         config.setdefault("github_required_reviewers", 1)
         config.setdefault("require_remote_lease", True)
+        config.setdefault("require_verified_backups", True)
+        config.setdefault("require_audit_checkpoints", True)
+        config.setdefault("audit_checkpoint_path", f"~/.continuity/audit-checkpoints/{args.project_id}.json")
     if existing_manifest_path.exists():
         existing_manifest = load_json(existing_manifest_path)
         if existing_manifest.get("project_id") != args.project_id:
@@ -474,9 +531,11 @@ def main() -> int:
 - Keep planning artifacts local by default. Publishing issues to an external tracker requires separate explicit human approval.
 - Permit one code-changing goal at a time in this project; use isolated worktrees and goal-focused branches.
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
+- Treat `.continuity/trusted-approvers` as a pending tracked configuration until protected human review merges it to the integration branch and that branch is fetched. Signed operations must reject a local allowlist that differs from the fetched integration-branch anchor.
+- Require the signed external audit checkpoint and immediately verified encrypted backup configured by the project before enabling production execution. Backup, restore, and checkpoint creation require quiescent project state.
 - Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
 - Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts before committing and running the final source-bound `$continuity-test`. Push that exact tested commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
-- Record human review as `approved`, `changes-requested`, `merged`, or `closed`. In-scope requested changes require explicit resume authorization naming the goal and approved plan version; expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
+- Record human review as `approved`, `changes-requested`, `merged`, or `closed` with a trusted SSH-signed disposition receipt. In-scope requested changes require a separate signed resume authorization naming the goal and approved plan version; expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.
 {AGENTS_END}"""
@@ -484,6 +543,7 @@ def main() -> int:
     ignore_block = f"""{IGNORE_START}
 .continuity/private/
 .continuity-portfolio/
+.continuity/state.lock
 .agents/continuity/lib/__pycache__/
 .agents/continuity/lib/*.pyc
 {IGNORE_END}"""
@@ -494,9 +554,35 @@ def main() -> int:
 
     skills_target = root / ".agents" / "skills"
     control_target = root / ".agents" / "continuity"
-    managed_support = {"AGENTS.md", ".gitignore", ".continuity/config.json", ".continuity/project.json", ".continuity/install-manifest.json"}
     prior_paths = set(prior_install.get("installed_files", {}))
-    snapshot = create_upgrade_snapshot(root, set(file_map) | prior_paths | managed_support, prior_install)
+    transaction_paths = {
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".gitignore",
+        ".agents/continuity",
+        ".agents/references",
+        ".continuity/config.json",
+        ".continuity/project.json",
+        ".continuity/project-behavior.json",
+        ".continuity/scheduler.json",
+        ".continuity/install-manifest.json",
+        ".continuity/trusted-approvers",
+        ".continuity/shared-notes",
+        config["memory_docs"],
+        config["roadmap_docs"],
+        ".claude/references",
+        ".cursor/commands",
+        ".cursor/rules/continuity.mdc",
+        ".windsurf/references",
+        ".agents/project-continuity",
+    }
+    transaction_paths.update(f".agents/skills/{name}" for name in LEGACY_SKILL_DIRS)
+    transaction_paths.update(f".agents/skills/{path.parts[2]}" for path in map(Path, file_map) if len(path.parts) > 2 and path.parts[:2] == (".agents", "skills"))
+    transaction_paths.update(f".claude/skills/{name}" for name in [*LEGACY_SKILL_DIRS, "continuity-local", *(path.parts[2] for path in map(Path, file_map) if len(path.parts) > 2 and path.parts[:2] == (".agents", "skills"))])
+    transaction_paths.update(f".windsurf/skills/{name}" for name in [*LEGACY_SKILL_DIRS, "continuity-local", *(path.parts[2] for path in map(Path, file_map) if len(path.parts) > 2 and path.parts[:2] == (".agents", "skills"))])
+    transaction_paths.update(prior_paths)
+    snapshot = create_upgrade_snapshot(root, transaction_paths, prior_install)
+    transaction = UpgradeTransaction(root, snapshot)
     try:
         with tempfile.TemporaryDirectory(prefix="continuity-stage-") as temporary:
             stage = Path(temporary)
@@ -517,8 +603,9 @@ def main() -> int:
         remove_legacy_install_paths(root)
         write_json(root / ".continuity" / "config.json", config)
         write_json(root / ".continuity" / "project.json", project_manifest)
+        install_fault("managed-files")
     except Exception:
-        restore_upgrade_snapshot(root, snapshot)
+        transaction.rollback()
         raise
 
     agents_path = root / "AGENTS.md"
@@ -538,6 +625,7 @@ def main() -> int:
     allowed_signers = root / config["approval_allowed_signers"]
     if not allowed_signers.exists():
         runtime_lib.atomic_write_text(allowed_signers, "# Add trusted SSH approvers with `continuity approval trust add`.\n", mode=0o644)
+    install_fault("project-contract")
 
     memory_root = confined(root, config["memory_docs"], "memory_docs")
     memory_root.mkdir(parents=True, exist_ok=True)
@@ -566,6 +654,7 @@ def main() -> int:
             "# Shared note packets\n\nSanitized, explicitly approved packets merged by human-reviewed PR live under `packets/`. Packets are context only and never authorize execution or canonical documentation changes.\n",
             mode=0o644,
         )
+    install_fault("seed-content")
 
     configure_command = [
         str(control_target / "bin" / "continuity"),
@@ -588,17 +677,16 @@ def main() -> int:
             configured = subprocess.run([*configure_command, "--answers-file", str(answers_path)], capture_output=True, text=True, check=False)
     if configured.returncode != 0:
         message = configured.stderr.strip() if configured.stderr else "guided project configuration failed"
-        restore_upgrade_snapshot(root, snapshot)
+        transaction.rollback()
         raise RuntimeError(message)
+    install_fault("surface-configuration")
 
     manifest = load_json(root / ".continuity" / "project.json")
     save_defaults = not args.ignore_user_defaults and (args.save_user_defaults or (args.interactive and not user_defaults_existed))
+    pending_user_defaults = None
     if save_defaults:
         behavior = load_json(root / ".continuity" / "project-behavior.json")
-        write_json(
-            user_defaults_path,
-            {"schema_version": 1, "settings": portable_user_defaults(behavior["settings"])},
-        )
+        pending_user_defaults = {"schema_version": 1, "settings": portable_user_defaults(behavior["settings"])}
     installation = {
         "schema_version": 1,
         "suite": "Continuity",
@@ -614,8 +702,18 @@ def main() -> int:
     if prior_install.get("version"):
         installation["previous_version"] = prior_install["version"]
     write_json(root / ".continuity" / "install-manifest.json", installation)
+    install_fault("install-manifest")
+    transaction.commit()
+    user_defaults_problem = None
+    user_defaults_saved = False
+    if pending_user_defaults is not None:
+        try:
+            write_json(user_defaults_path, pending_user_defaults)
+            user_defaults_saved = True
+        except OSError as exc:
+            user_defaults_problem = str(exc)
     installed_skills = sum(1 for path in skills_target.iterdir() if path.is_dir())
-    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": save_defaults, "suite_version": release["version"], "upgrade_snapshot": snapshot.name}, indent=2))
+    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": user_defaults_saved, "user_defaults_problem": user_defaults_problem, "suite_version": release["version"], "upgrade_snapshot": snapshot.name}, indent=2))
     return 0
 
 

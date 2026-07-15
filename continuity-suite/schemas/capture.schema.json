@@ -8,7 +8,9 @@
     "capture_id": {"type": "string"},
     "captured_at": {"type": "string"},
     "project_id": {"type": "string"},
-    "source_type": {"enum": ["conversation", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"]},
+    "source_type": {"enum": ["conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"]},
+    "capture_mode": {"enum": ["singular", "batch"]},
+    "item_count": {"type": "integer", "minimum": 1, "maximum": 250},
     "execution_authorized": {"const": false},
     "items": {
       "type": "array",

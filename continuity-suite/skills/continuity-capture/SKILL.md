@@ -1,6 +1,6 @@
 ---
 name: continuity-capture
-description: Capture manual, file, or active-conversation project notes as private, atomic, source-traceable items without authorizing work. Use when the user records observations, decisions, questions, ideas, possible tasks, or mixed project notes for later triage.
+description: Capture singular callouts or batches of manual, meeting, file, or active-conversation project notes as private, atomic, source-traceable items without authorizing work. Use when the user records or pastes observations, feedback, decisions, questions, ideas, possible tasks, or mixed project notes for later triage.
 ---
 
 # Continuity Capture
@@ -23,15 +23,30 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 1. Limit capture to the active conversation or content supplied by the user. Do not inspect unrelated conversations.
 2. Preserve a private raw snapshot or source reference.
-3. Split mixed input into atomic items without losing qualifiers, uncertainty, or provenance.
-4. Record source type, reference, timestamps, project mapping, deduplication key, and revision history.
-5. Ensure every atomic item has `created_at`, `updated_at`, `occurred_at`, `routing_status`, and `work_status`. Capture creates the first dated lifecycle event; later stages are derived by the CLI. Classify internal/external perspective, positive/negative/mixed/neutral sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes conservatively; use unknown values instead of guessing.
-6. Set `execution_authorized: false` on every item.
-7. Use a conservative provisional kind. Leave ambiguous intent for triage.
-8. Attach notes to roadmap IDs only through private `supports`, `contradicts`, `blocks`, `updates`, or `suggests` links; a link does not change committed roadmap truth.
-9. Return capture and item IDs and state explicitly that no work was authorized.
+3. Decide whether the source is a singular callout or a batch. A pasted meeting, transcript excerpt, feedback digest, or multiline note set is one source capture containing multiple atomic items. Do not create a separate capture for every line, and do not collapse the entire source into one oversized item.
+4. Split mixed input semantically without losing qualifiers, uncertainty, or provenance. A single bullet may produce multiple items when it contains both feedback and a request; multiple lines may remain one item when they are supporting detail for the same occurrence. Preserve decisions, positive feedback, negative feedback, requests, questions, risks, constraints, and later ideas independently.
+5. Record source type, reference, timestamps, project mapping, deduplication key, and revision history. For meeting notes, use `source_type: meeting`, a stable meeting source reference, and the meeting time as `source_timestamp` when known. Use each occurrence's stated time for `occurred_at`; otherwise inherit the source or capture time with the appropriate confidence.
+6. Ensure every atomic item has `created_at`, `updated_at`, `occurred_at`, `routing_status`, and `work_status`. Capture creates the first dated lifecycle event; later stages are derived by the CLI. Classify internal/external perspective, positive/negative/mixed/neutral sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes conservatively; use unknown values instead of guessing.
+7. Set `execution_authorized: false` on every item.
+8. Use a conservative provisional kind. Leave ambiguous intent for triage.
+9. Attach notes to roadmap IDs only through private `supports`, `contradicts`, `blocks`, `updates`, or `suggests` links; a link does not change committed roadmap truth.
+10. Return the single capture ID, every item ID, `capture_mode`, item count, and each item's short classification. State explicitly that no work was authorized.
 
-Support `conversation`, `manual`, and `file`. Preserve `notion` and `linear` as reserved adapter types; do not simulate an unconfigured integration.
+Support `conversation`, `meeting`, `manual`, and `file`. Preserve `notion` and `linear` as reserved adapter types; do not simulate an unconfigured integration.
+
+## Meeting And Batch Capture
+
+When the user pastes aggregated notes in the same message that invokes this skill:
+
+1. Treat the complete pasted block as one source boundary.
+2. Prepare one items JSON object with one `items` array; do not ask the user to submit each note separately.
+3. Preserve a decision and its rationale as one decision item unless the rationale contains a separately actionable occurrence.
+4. Separate "what worked" from "what should change" so positive evidence is retained alongside remediation.
+5. Separate current requests from later ideas and unresolved questions. Capture may classify them provisionally, but triage determines routing and planning disposition.
+6. Keep speaker names only when necessary; prefer role-level stakeholders such as `product-owner`, `reviewer`, or `customer-team`.
+7. If the paste is too ambiguous to split responsibly, capture the clear items and one explicit question item describing the unresolved boundary. Do not invent missing context.
+
+The CLI records a multi-item source as `capture_mode: batch` with `item_count`; a singular callout is `capture_mode: singular`. One batch is limited to 250 atomic items, and each item is limited to 20,000 characters. Split larger material by meeting or source rather than truncating it.
 
 Prepare an items JSON object, then run:
 

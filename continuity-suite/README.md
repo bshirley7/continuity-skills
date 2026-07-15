@@ -36,7 +36,7 @@ The guided installer can save portable user defaults in `~/.continuity/defaults.
 
 ```text
 $continuity           configure, audit, and route the suite
-$continuity-capture   capture project notes or feedback
+$continuity-capture   capture one callout or a batch of meeting notes and feedback
 $continuity-triage    classify notes into context, questions, decisions, roadmap, or plans
 $continuity-memory    search or promote trusted project memory
 $continuity-roadmap   inspect or update approved roadmap context

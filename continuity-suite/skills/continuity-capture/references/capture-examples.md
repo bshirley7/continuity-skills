@@ -16,6 +16,24 @@ Create three items:
 
 Do not collapse these into “Improve the approval view.” That loses sentiment, sequencing, and scope.
 
+## Pasted meeting batch
+
+Source:
+
+> Weekly project review, 3:00 PM. The status view is much easier to scan. Keep that density. Move the risk summary above dependencies for the next pass. We agreed to leave export out of the current objective. Question: should external reviewers see internal confidence labels? Later, consider a saved-filter preset.
+
+Create one meeting capture with five items:
+
+1. Positive feedback preserving status-view scanability and density.
+2. A current change candidate for risk-summary placement.
+3. A decision excluding export from the current objective.
+4. An unresolved visibility question about confidence labels.
+5. A later idea for saved-filter presets.
+
+The source block is one provenance boundary, so all five items share one capture ID and meeting source reference. They retain separate item IDs, kinds, occurrence dimensions, and later triage paths. Neither the agreement nor the requested change authorizes work during capture.
+
+Do not split supporting sentences mechanically. "The status view is much easier to scan. Keep that density." is one positive-feedback item because the second sentence qualifies what should be preserved. Conversely, split a single sentence when it combines independent feedback and a new request.
+
 ## Evidence versus interpretation
 
 Good:

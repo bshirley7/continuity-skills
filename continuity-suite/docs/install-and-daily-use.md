@@ -120,6 +120,8 @@ The initial production prerequisites are `git`, `gh`, `ssh-keygen`, and `age` on
 .agents/continuity/bin/continuity --project-root "$PWD" approval trust add --identity <github-login> --public-key <ssh-public-key>
 ```
 
+This command prepares a tracked trust-store change; it does not authorize the new key immediately. Commit `.continuity/trusted-approvers`, merge it through protected human review on the integration branch, and fetch that branch. Signed operations compare the local file byte-for-byte with `origin/<integration-branch>` and fail closed on drift. Configure an external signed audit checkpoint and immediately verified encrypted backup before enabling execution.
+
 For safe tagged upgrades, managed-file conflict handling, encrypted backup, and rollback, follow [Releases, Updates, and Recovery](releases-updates-and-recovery.md). Do not use repeated unpinned installation from a moving branch as the production update process.
 
 ## Install With An Answers File
@@ -267,6 +269,8 @@ feedback -> $continuity-capture -> $continuity-triage -> memory candidate -> app
 
 Raw feedback remains private and non-authorizing. Trusted-scope memory contains only curated, sanitized, promoted knowledge. Explicit private/all indexing also makes raw captures searchable by text and local concept similarity without treating them as canonical truth.
 
+One `$continuity-capture` call may contain either one callout or a complete set of meeting notes. For a meeting, Continuity treats the pasted material as one dated source, separates distinct decisions, needs, feedback, questions, risks, and later ideas into atomic items, and returns one capture ID plus every item ID. The items remain independently searchable and triageable. The batch itself does not combine their statuses or authorize any action. See [The Daily Operating Cycle](operating-workflow.md#1-capture-information-during-normal-work) for the input format and command.
+
 Use the machine handoff before and after any skill:
 
 ```text
@@ -381,7 +385,7 @@ For Codex, render the exact provider definition instead of transcribing schedule
 .agents/continuity/bin/continuity --project-root "$PWD" --json scheduler adapter codex render --root /workspace/root
 ```
 
-After creating the Codex automation and registering its returned task ID, require `scheduler adapter codex verify` to observe two sweeps and one claimed no-op review or report run before enabling dispatch.
+After creating the Codex automation and registering its returned task ID, exercise and record `claim-replay-rejected`, `stale-registration-rejected`, and `remote-lease-contention-rejected` with `scheduler adapter codex record-probe`. Each production record requires concrete evidence, the evidence artifact SHA-256, and `--signing-key` from an integration-branch-anchored approver. Require `scheduler adapter codex verify` to observe and verify those current-behavior probe records, two sweeps, and one claimed no-op review or report run before enabling dispatch.
 
 Run it at the configured `sweep_minutes` interval. Give the task the developer-local workspace roots it may scan. After the scheduling surface returns its task ID, record the receipt inside every enrolled project covered by that supervisor:
 
@@ -416,13 +420,13 @@ continuity --json portfolio actions --root /workspace/root --root /another/works
 
 `portfolio actions` refreshes the expiring supervisor heartbeat and calculates what is due from each project's timezone and schedule. It suppresses completed idempotency keys, enforces retry backoff, identifies stale runs, requires the same-date review to succeed before scheduled dispatch, and applies the smallest portfolio concurrency cap against both active runs and unconsumed reservations. Each `due` or `retry` result has a short-lived one-time claim token. Excess work is `capacity-deferred`; dispatch awaiting review is `waiting-for-review`. The child task passes the exact idempotency key and claim token to `scheduler run-start`, which atomically consumes it before work. Fabricated, expired, duplicate, wrong-goal, and over-capacity starts fail closed.
 
-Before a code-changing dispatch, acquire the project remote lease. The lease is an unmerged fast-forward-only Git ref and contains only project, goal, attempt, expiry, and an owner fingerprint. A concurrent acquisition or unreachable remote fails closed:
+Before any code-changing start, acquire the project remote lease. The lease is an unmerged fast-forward-only Git ref and contains only project, goal, attempt, expiry, and an owner fingerprint. The CLI derives the exact current execution attempt from the goal. `scheduler run-start` binds it locally to the consuming provider run, task, and idempotency key. A concurrent acquisition, wrong goal attempt, or unreachable remote fails closed:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" scheduler lease acquire --owner <operator> --goal-id <goal-id> --remote origin
 ```
 
-Run completion releases the lease. Use `scheduler lease status` for inspection and `scheduler lease release --reason <reason>` only when explicitly ending an active local lease.
+Only completion of the bound dispatch run releases its lease; review and report completion cannot release an execution lease. Use `scheduler lease status` for inspection. Explicit release requires the exact binding: `scheduler lease release --reason <reason> --goal-id <goal-id> --attempt-id <attempt-id>`.
 
 Portfolio reporting must use the deterministic allowlist command:
 
@@ -482,19 +486,19 @@ The enforced delivery order is: preflight; isolated worktree; implementation; ca
 After overnight delivery passes every gate, record `review-ready` and stop. After a human reviews or merges the PR, record that fact separately:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition approved --evidence "<review evidence>"
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition changes-requested --evidence "<requested change>"
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition merged --merge-commit <sha> --evidence "<merge evidence>"
-.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition closed --evidence "<closure reason>"
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition approved --evidence "<review evidence>" --signing-key <ssh-private-key>
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition changes-requested --evidence "<requested change>" --signing-key <ssh-private-key>
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition merged --merge-commit <sha> --evidence "<merge evidence>" --signing-key <ssh-private-key>
+.agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> --pr-url <pull-request-url> --merged-by "<identity>" --disposition closed --evidence "<closure reason>" --signing-key <ssh-private-key>
 ```
 
 `approved` leaves the goal `review-ready`. `changes-requested` archives the attempt, creates a fresh execution manifest, and invalidates downstream gates. `approved` and `merged` require current source-bound evidence. `changes-requested` and `closed` remain recordable when that evidence is stale because they do not authorize delivery; their review records retain the stale-evidence reasons. If no PR disposition can be recorded, `goal cancel <goal-id> --actor <identity> --reason <reason>` provides an audited review-ready closure fallback. In-scope rework resumes only with explicit authorization naming the same goal and approved plan version:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" goal resume <goal-id> --actor "<identity>" --authorization-text "Resume <goal-id> under approved plan v<version>"
+.agents/continuity/bin/continuity --project-root "$PWD" goal resume <goal-id> --actor "<identity>" --authorization-text "Resume <goal-id> under approved plan v<version>" --signing-key <ssh-private-key>
 ```
 
-Expanded scope uses `goal revise` and fresh approval. `merged` moves the goal to `completed`; `closed` cancels it. Continuity must not auto-merge, force-push, or treat an agent's judgment as human review.
+The disposition and resume receipts bind the goal, approved plan hash/version, execution attempt, actor, evidence or authorization text, timestamp, and nonce. Expanded scope uses `goal revise` and fresh approval. `merged` moves the goal to `completed`; `closed` cancels it. Continuity must not auto-merge, force-push, or treat an agent's judgment as human review.
 
 ## Verify An Install
 
