@@ -99,6 +99,8 @@ Maximum unattended runtime
 Memory verification age
 Validation commands
 Security commands
+Required GitHub check names
+Required approving GitHub reviewer count
 Documentation map
 Visual evidence mode
 Goal branch prefix
@@ -111,6 +113,14 @@ Execution enabled
 ```
 
 Keep execution disabled unless you intentionally want approved goals to be eligible for scheduled or manual execution.
+
+The initial production prerequisites are `git`, `gh`, `ssh-keygen`, and `age` on macOS or Linux. New installations require SSH-signed plan approvals, use a fast-forward-only remote lease for code-changing scheduled dispatch, and preserve private state through encrypted `age` archives. Configure a trusted approver before enabling execution:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" approval trust add --identity <github-login> --public-key <ssh-public-key>
+```
+
+For safe tagged upgrades, managed-file conflict handling, encrypted backup, and rollback, follow [Releases, Updates, and Recovery](releases-updates-and-recovery.md). Do not use repeated unpinned installation from a moving branch as the production update process.
 
 ## Install With An Answers File
 
@@ -129,6 +139,8 @@ Use `--configuration` for repeatable setup:
     "pnpm test"
   ],
   "security_commands": [],
+  "github_required_checks": ["typecheck", "test"],
+  "github_required_reviewers": 1,
   "documentation_map": {
     "project-memory": "docs/project-memory/INDEX.md",
     "project-roadmap": "docs/project-roadmap/INDEX.md",
@@ -169,6 +181,8 @@ Use `--configuration` for repeatable setup:
   "execution_enabled": false
 }
 ```
+
+Replace `typecheck` and `test` with the exact check-run names reported by the project repository. Continuity requires every named check to be present and successful, and it also blocks on any other observed check that is pending or unsuccessful. `project doctor` keeps PR-based execution unhealthy when execution is enabled but this list is empty.
 
 Then run:
 
@@ -318,6 +332,18 @@ $continuity-dispatch
 
 That keeps unrelated work from being forced into the wrong PR while preserving a clear path to act on it later.
 
+### Share selected context
+
+Raw notes remain private. To share selected atomic context with collaborators on the same project, prepare a sanitized packet, review it, and have a trusted human sign the exact packet version:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" note share prepare <note-id> --target-project <project-id> --sender <identity>
+.agents/continuity/bin/continuity --project-root "$PWD" note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text "Approve <packet-id> version <version> for <project-id>" --signing-key "$HOME/.ssh/id_ed25519"
+.agents/continuity/bin/continuity --project-root "$PWD" note share publish <packet-id>
+```
+
+The signing identity must already be present in `.continuity/trusted-approvers`. Publication re-verifies the SSH signature and packet hash, then creates an isolated branch and human-reviewed PR. Imported packet items enter normal triage as dated, non-authorizing private captures; packet approval never approves a goal or execution.
+
 ## Scheduled Tasks
 
 The project stores schedule intent in `.continuity/project.json`:
@@ -348,6 +374,14 @@ Selecting a provider does not silently create a machine-level job. Create one re
 ```text
 .agents/continuity/automation/portfolio-supervisor.md
 ```
+
+For Codex, render the exact provider definition instead of transcribing schedules and roots:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" --json scheduler adapter codex render --root /workspace/root
+```
+
+After creating the Codex automation and registering its returned task ID, require `scheduler adapter codex verify` to observe two sweeps and one claimed no-op review or report run before enabling dispatch.
 
 Run it at the configured `sweep_minutes` interval. Give the task the developer-local workspace roots it may scan. After the scheduling surface returns its task ID, record the receipt inside every enrolled project covered by that supervisor:
 
@@ -381,6 +415,22 @@ continuity --json portfolio actions --root /workspace/root --root /another/works
 ```
 
 `portfolio actions` refreshes the expiring supervisor heartbeat and calculates what is due from each project's timezone and schedule. It suppresses completed idempotency keys, enforces retry backoff, identifies stale runs, requires the same-date review to succeed before scheduled dispatch, and applies the smallest portfolio concurrency cap against both active runs and unconsumed reservations. Each `due` or `retry` result has a short-lived one-time claim token. Excess work is `capacity-deferred`; dispatch awaiting review is `waiting-for-review`. The child task passes the exact idempotency key and claim token to `scheduler run-start`, which atomically consumes it before work. Fabricated, expired, duplicate, wrong-goal, and over-capacity starts fail closed.
+
+Before a code-changing dispatch, acquire the project remote lease. The lease is an unmerged fast-forward-only Git ref and contains only project, goal, attempt, expiry, and an owner fingerprint. A concurrent acquisition or unreachable remote fails closed:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" scheduler lease acquire --owner <operator> --goal-id <goal-id> --remote origin
+```
+
+Run completion releases the lease. Use `scheduler lease status` for inspection and `scheduler lease release --reason <reason>` only when explicitly ending an active local lease.
+
+Portfolio reporting must use the deterministic allowlist command:
+
+```text
+.agents/continuity/bin/continuity --json portfolio report --sanitized --root /workspace/root
+```
+
+It emits project-level counts and health states without raw note text, paths, approvals, task IDs, claims, locks, credentials, or private evidence links.
 
 For stale work, run `scheduler recover`. Recovery marks the matching run stale and may block only its matching active goal and release only its matching lock. It does not resume work or infer a decision. For Codex or Claude Code, the supervisor must be able to start authenticated project tasks. An external scheduler must invoke an authenticated agent surface; a plain cron process can calculate due actions but cannot perform model-driven review or implementation by itself.
 

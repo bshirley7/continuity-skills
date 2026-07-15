@@ -8,9 +8,7 @@ be copied into heterogeneous projects without adding a runtime dependency.
 from __future__ import annotations
 
 import argparse
-import contextlib
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -21,6 +19,8 @@ import sqlite3
 import subprocess
 import sys
 import shutil
+import tarfile
+import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
@@ -29,6 +29,7 @@ CONTROL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CONTROL_ROOT / "lib"))
 import roadmap as roadmap_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
+import runtime as runtime_lib  # noqa: E402
 
 SCHEMA_VERSION = 1
 ASSURANCE_STANDARD_VERSION = 2
@@ -228,6 +229,8 @@ FRONTMATTER_REQUIRED = {
     "verified_against",
     "confidence",
 }
+CANONICAL_REPOSITORY = "https://github.com/bshirley7/continuity-skills"
+CANONICAL_REPOSITORY_SLUG = "bshirley7/continuity-skills"
 
 
 class ContinuityError(RuntimeError):
@@ -243,10 +246,10 @@ def iso_now(config: dict[str, Any]) -> str:
 
 
 def json_dump(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(path.suffix + ".tmp")
-    temp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    temp.replace(path)
+    try:
+        runtime_lib.atomic_write_json(path, value)
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
 
 
 def json_load(path: Path, default: Any = None) -> Any:
@@ -256,34 +259,22 @@ def json_load(path: Path, default: Any = None) -> Any:
 
 
 def append_jsonl(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(value, sort_keys=True) + "\n")
+    try:
+        runtime_lib.append_integrity_jsonl(path, value)
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
 
 
-@contextlib.contextmanager
 def exclusive_file_lock(path: Path) -> Iterable[None]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a+", encoding="utf-8") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    return runtime_lib.exclusive_file_lock(path)
 
 
 def iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
-    if not path.exists():
-        return []
-    values: list[dict[str, Any]] = []
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            values.append(json.loads(line))
-        except json.JSONDecodeError as exc:
-            raise ContinuityError(f"Invalid JSONL at {path}:{number}: {exc}") from exc
-    return values
+    try:
+        values = runtime_lib.load_jsonl(path)
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    return [{key: item for key, item in value.items() if key != "_integrity"} for value in values]
 
 
 def find_project_root(start: Path | None = None) -> Path:
@@ -2702,6 +2693,14 @@ def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple
     approval = json_load(directory / "approval.json")
     if not isinstance(approval, dict):
         raise ContinuityError(f"Goal {goal_id} has no approval record")
+    if approval.get("signature_format") == "openssh-sshsig-v1":
+        try:
+            runtime_lib.validate_schema_file(approval, CONTROL_ROOT / "schemas" / "approval-receipt.schema.json", "approval receipt")
+        except runtime_lib.RuntimeIntegrityError as exc:
+            raise ContinuityError(str(exc)) from exc
+        verify_approval_signature(root, config, directory, approval)
+    elif config.get("require_signed_approvals", False):
+        raise ContinuityError("This project requires an SSH-signed approval receipt")
     validate_goal_planning_artifacts(goal, require_resolved=True)
     validate_planning_artifact_parity(directory, goal)
     current_hash = goal_material_hash(directory, goal)
@@ -2712,6 +2711,112 @@ def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple
     if goal.get("state") not in {"approved", "queued", "dispatched", "running", "validating", "review-ready", *REWORK_STATES}:
         raise ContinuityError(f"Goal state {goal.get('state')} is not approved")
     return goal, approval
+
+
+def approval_allowed_signers_path(root: Path, config: dict[str, Any]) -> Path:
+    return confined_path(root, config.get("approval_allowed_signers", ".continuity/trusted-approvers"), "approval_allowed_signers")
+
+
+def approval_receipt_payload(approval: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: approval[key]
+        for key in (
+            "schema_version",
+            "project_id",
+            "goal_id",
+            "plan_version",
+            "plan_hash",
+            "behavior_configuration_hash",
+            "approved_at",
+            "approved_by",
+            "authorization_text",
+            "nonce",
+        )
+        if key in approval
+    }
+
+
+def approval_receipt_bytes(approval: dict[str, Any]) -> bytes:
+    return (runtime_lib.canonical_json(approval_receipt_payload(approval)) + "\n").encode()
+
+
+def sign_approval_receipt(approval: dict[str, Any], signing_key: str, signature_path: Path) -> None:
+    executable = shutil.which("ssh-keygen")
+    if not executable:
+        raise ContinuityError("ssh-keygen is required for signed approvals")
+    key = Path(signing_key).expanduser().resolve()
+    if not key.is_file():
+        raise ContinuityError(f"Approval signing key is unavailable: {key}")
+    with tempfile.TemporaryDirectory(prefix="continuity-approval-") as temporary:
+        receipt = Path(temporary) / "receipt.json"
+        receipt.write_bytes(approval_receipt_bytes(approval))
+        result = subprocess.run(
+            [executable, "-Y", "sign", "-f", str(key), "-n", "continuity-approval", str(receipt)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        generated = receipt.with_suffix(receipt.suffix + ".sig")
+        if result.returncode != 0 or not generated.is_file():
+            raise ContinuityError(f"Unable to sign approval receipt: {result.stderr.strip() or result.stdout.strip()}")
+        runtime_lib.atomic_write_bytes(signature_path, generated.read_bytes())
+
+
+def verify_approval_signature(root: Path, config: dict[str, Any], directory: Path, approval: dict[str, Any]) -> None:
+    executable = shutil.which("ssh-keygen")
+    if not executable:
+        raise ContinuityError("ssh-keygen is required to verify approval authority")
+    allowed = approval_allowed_signers_path(root, config)
+    signature = directory / "approval.sig"
+    if not allowed.is_file() or not signature.is_file():
+        raise ContinuityError("Signed approval requires a trusted approver allowlist and approval.sig")
+    result = subprocess.run(
+        [executable, "-Y", "verify", "-f", str(allowed), "-I", str(approval.get("approved_by", "")), "-n", "continuity-approval", "-s", str(signature)],
+        input=approval_receipt_bytes(approval),
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        message = result.stderr.decode(errors="replace").strip() or result.stdout.decode(errors="replace").strip()
+        raise ContinuityError(f"Approval signature verification failed: {message}")
+
+
+def approval_trust_add(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    identity = validate_task_id(args.identity, "approver identity")
+    public_key_path = Path(args.public_key).expanduser().resolve()
+    if not public_key_path.is_file():
+        raise ContinuityError(f"Public key is unavailable: {public_key_path}")
+    fields = public_key_path.read_text(encoding="utf-8").strip().split()
+    if len(fields) < 2 or not fields[0].startswith("ssh-"):
+        raise ContinuityError("Public key must use OpenSSH public-key format")
+    allowed = approval_allowed_signers_path(root, config)
+    existing = [line for line in allowed.read_text(encoding="utf-8").splitlines() if line.strip()] if allowed.exists() else []
+    record = f"{identity} {fields[0]} {fields[1]}"
+    retained = [line for line in existing if not line.split(maxsplit=1)[0] == identity]
+    runtime_lib.atomic_write_text(allowed, "\n".join([*retained, record]) + "\n", mode=0o644)
+    return {"identity": identity, "allowed_signers": str(allowed.relative_to(root)), "replaced": len(retained) != len(existing)}
+
+
+def approval_trust_list(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    allowed = approval_allowed_signers_path(root, config)
+    identities = []
+    if allowed.exists():
+        identities = [line.split(maxsplit=1)[0] for line in allowed.read_text(encoding="utf-8").splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    return {"allowed_signers": str(allowed.relative_to(root)), "identities": identities}
+
+
+def approval_verify(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, _goal = load_goal(root, config, args.goal_id)
+    approval = json_load(directory / "approval.json", {})
+    if not isinstance(approval, dict) or not approval:
+        raise ContinuityError(f"Goal {args.goal_id} has no approval")
+    verify_approval_signature(root, config, directory, approval)
+    return {"goal_id": args.goal_id, "approved_by": approval.get("approved_by"), "verified": True, "plan_hash": approval.get("plan_hash")}
 
 
 def archive_execution_attempt(directory: Path, goal: dict[str, Any], reason: str, actor: str) -> Path | None:
@@ -2948,13 +3053,28 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
     stamp = iso_now(config)
     approval = {
         "schema_version": SCHEMA_VERSION,
+        "project_id": config["project_id"],
         "goal_id": goal["goal_id"],
         "plan_version": goal["plan_version"],
         "plan_hash": plan_hash,
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "approved_at": stamp,
         "approved_by": args.approved_by,
         "authorization_text": args.authorization_text,
+        "nonce": secrets.token_hex(16),
+        "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
     }
+    if not approval["behavior_configuration_hash"]:
+        approval.pop("behavior_configuration_hash")
+    if config.get("require_signed_approvals", False) and not args.signing_key:
+        raise ContinuityError("This project requires --signing-key for an SSH-signed approval receipt")
+    try:
+        runtime_lib.validate_schema_file(approval, CONTROL_ROOT / "schemas" / "approval-receipt.schema.json", "approval receipt")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    if args.signing_key:
+        sign_approval_receipt(approval, args.signing_key, directory / "approval.sig")
+        verify_approval_signature(root, config, directory, approval)
     json_dump(directory / "approval.json", approval)
     compliance["stages"]["approval"] = {
         "status": "passed",
@@ -3466,6 +3586,59 @@ def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
     return results
 
 
+def portfolio_sanitized_report(args: argparse.Namespace) -> dict[str, Any]:
+    roots = requested_workspace_roots(args.root or [])
+    projects = discover_projects(roots)
+    records: list[dict[str, Any]] = []
+    for project in projects:
+        project_root = Path(project["path"])
+        try:
+            root, config = load_context(project_root, validate_behavior=False)
+            goals = []
+            for path in sorted((private_path(root, config) / "goals").glob("*/goal.json")):
+                goal = json_load(path, {})
+                if isinstance(goal, dict):
+                    goals.append(goal)
+            goal_counts: dict[str, int] = {}
+            for goal in goals:
+                state = str(goal.get("state", "unknown"))
+                goal_counts[state] = goal_counts.get(state, 0) + 1
+            morning = morning_decision_report(root, config)
+            records.append(
+                {
+                    "project_id": config["project_id"],
+                    "healthy": bool(project.get("healthy")),
+                    "goal_state_counts": goal_counts,
+                    "note_stage_counts": morning.get("note_lifecycle", {}).get("stage_counts", {}),
+                    "queue_counts": morning.get("queue_counts", {}),
+                    "decisions_required": len(morning.get("decisions_needed", [])),
+                    "blocked_or_at_risk": len(morning.get("blocked_or_at_risk", [])),
+                    "risk_types": sorted({str(item.get("type") or item.get("state") or "goal") for item in morning.get("blocked_or_at_risk", [])}),
+                    "scheduler_state": morning.get("scheduler", {}).get("state"),
+                    "no_action_required": bool(morning.get("no_action_required")),
+                }
+            )
+        except (ContinuityError, OSError, json.JSONDecodeError) as exc:
+            records.append({"project_id": project.get("project_id", "unknown"), "healthy": False, "error_class": type(exc).__name__, "decisions_required": 0, "blocked_or_at_risk": 1})
+    report = {
+        "schema_version": 1,
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "sanitization_policy": "continuity-portfolio-allowlist-v1",
+        "projects": sorted(records, key=lambda item: item["project_id"]),
+        "totals": {
+            "projects": len(records),
+            "healthy": sum(1 for item in records if item.get("healthy")),
+            "decisions_required": sum(int(item.get("decisions_required", 0)) for item in records),
+            "blocked_or_at_risk": sum(int(item.get("blocked_or_at_risk", 0)) for item in records),
+        },
+    }
+    try:
+        runtime_lib.validate_schema_file(report, CONTROL_ROOT / "schemas" / "portfolio-report.schema.json", "sanitized portfolio report")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    return report
+
+
 def portfolio_actions(args: argparse.Namespace) -> list[dict[str, Any]]:
     workspace_roots = requested_workspace_roots(args.root or [])
     os.environ["CONTINUITY_WORKSPACE_ROOTS"] = os.pathsep.join(str(root) for root in workspace_roots)
@@ -3623,6 +3796,8 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         "memory_stale_after_days": config.get("memory_stale_after_days", 90),
         "validation_commands": config.get("validation_commands", []),
         "security_commands": config.get("security_commands", []),
+        "github_required_checks": config.get("github_required_checks", []),
+        "github_required_reviewers": config.get("github_required_reviewers", 1),
         "documentation_map": {**config.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}), "project-roadmap": "docs/project-roadmap/INDEX.md"},
         "visual_evidence_mode": config.get("visual_evidence_mode", "when-applicable"),
         "branch_prefix": config.get("branch_prefix", "continuity"),
@@ -3646,6 +3821,8 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
         "memory_stale_after_days": current["memory_stale_after_days"],
         "validation_commands": detected or current.get("validation_commands", []),
         "security_commands": current.get("security_commands", []),
+        "github_required_checks": current.get("github_required_checks", []),
+        "github_required_reviewers": current.get("github_required_reviewers", 1),
         "documentation_map": current.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
         "visual_evidence_mode": "when-applicable",
         "branch_prefix": "continuity",
@@ -3675,6 +3852,8 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "memory_stale_after_days",
             "validation_commands",
             "security_commands",
+            "github_required_checks",
+            "github_required_reviewers",
             "documentation_map",
             "visual_evidence_mode",
             "branch_prefix",
@@ -3709,6 +3888,8 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "roadmap": "Use the full hybrid roadmap by default. The sidecar stays read-only, local-clone-only, and excluded from every production distribution.",
             "agent_surfaces": "Choose one primary surface and every surface that should receive a project-local Continuity adapter. AGENTS.md remains canonical.",
             "scheduler": "Choose where persistent scheduled actions will be registered. Configuration records intent; registration remains an explicit user action.",
+            "github_required_checks": "Name repository-hosted checks that must succeed before review-ready; all observed checks must also finish successfully.",
+            "github_required_reviewers": "Require this many unique authenticated approving reviewers before recording approved or merged.",
         },
     }
 
@@ -3724,6 +3905,8 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         "memory_stale_after_days",
         "validation_commands",
         "security_commands",
+        "github_required_checks",
+        "github_required_reviewers",
         "documentation_map",
         "visual_evidence_mode",
         "branch_prefix",
@@ -3763,6 +3946,12 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         for command in commands:
             if re.search(r"(?i)(?:token|password|secret|api[_-]?key)\s*=", command) or re.search(r"://[^/\s:@]+:[^/\s@]+@", command):
                 raise ContinuityError(f"{label} appears to contain an inline credential; use the project's secret provider")
+    checks = settings.get("github_required_checks")
+    if not isinstance(checks, list) or any(not isinstance(item, str) or not item.strip() or any(char in item for char in "\n\r\x00") for item in checks) or len(checks) != len(set(checks)):
+        raise ContinuityError("github_required_checks must be a unique array of non-empty single-line names")
+    reviewers = settings.get("github_required_reviewers")
+    if isinstance(reviewers, bool) or not isinstance(reviewers, int) or not 0 <= reviewers <= 20:
+        raise ContinuityError("github_required_reviewers must be between 0 and 20")
     documentation_map = settings.get("documentation_map")
     if not isinstance(documentation_map, dict) or not documentation_map:
         raise ContinuityError("documentation_map must be a non-empty JSON object")
@@ -3904,6 +4093,8 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         "memory_stale_after_days": int_answer("Memory verification age in days", recommended["memory_stale_after_days"]),
         "validation_commands": json_answer("Validation commands", recommended["validation_commands"]),
         "security_commands": json_answer("Security commands", recommended["security_commands"]),
+        "github_required_checks": json_answer("Required GitHub check names", recommended["github_required_checks"]),
+        "github_required_reviewers": int_answer("Required approving GitHub reviewers", recommended["github_required_reviewers"]),
         "documentation_map": json_answer("Documentation map", recommended["documentation_map"]),
         "visual_evidence_mode": text_answer("Visual evidence mode", recommended["visual_evidence_mode"]),
         "branch_prefix": text_answer("Goal branch prefix", recommended["branch_prefix"]),
@@ -3972,6 +4163,8 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "memory_stale_after_days": settings["memory_stale_after_days"],
             "validation_commands": settings["validation_commands"],
             "security_commands": settings["security_commands"],
+            "github_required_checks": settings["github_required_checks"],
+            "github_required_reviewers": settings["github_required_reviewers"],
             "documentation_map": settings["documentation_map"],
             "visual_evidence_mode": settings["visual_evidence_mode"],
             "branch_prefix": settings["branch_prefix"],
@@ -4110,6 +4303,362 @@ def note_lifecycle_audit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def suite_installation_status(root: Path) -> dict[str, Any]:
+    path = root / ".continuity" / "install-manifest.json"
+    if not path.is_file():
+        return {"installed": False, "healthy": False, "version": None, "problems": ["installed release manifest is missing"], "drift": []}
+    manifest = json_load(path, {})
+    problems: list[str] = []
+    try:
+        runtime_lib.validate_schema_file(manifest, CONTROL_ROOT / "schemas" / "install-manifest.schema.json", "install manifest")
+    except (runtime_lib.RuntimeIntegrityError, OSError, json.JSONDecodeError) as exc:
+        problems.append(str(exc))
+    drift: list[dict[str, str]] = []
+    for relative, expected in manifest.get("installed_files", {}).items():
+        try:
+            target = confined_path(root, relative, "installed file")
+        except ContinuityError as exc:
+            problems.append(str(exc))
+            continue
+        if not target.is_file():
+            drift.append({"path": relative, "state": "missing"})
+        elif runtime_lib.sha256_file(target) != expected:
+            drift.append({"path": relative, "state": "modified"})
+    if drift:
+        problems.append(f"suite-managed file drift: {[item['path'] for item in drift]}")
+    return {
+        "installed": True,
+        "healthy": not problems,
+        "version": manifest.get("version"),
+        "canonical_repository": manifest.get("canonical_repository"),
+        "installed_at": manifest.get("installed_at"),
+        "problems": problems,
+        "drift": drift,
+    }
+
+
+def suite_status(args: argparse.Namespace) -> dict[str, Any]:
+    root, _config = load_context(validate_behavior=False)
+    return suite_installation_status(root)
+
+
+def release_source_from_github(version: str | None, destination: Path) -> Path:
+    gh = shutil.which("gh")
+    if not gh:
+        raise ContinuityError("GitHub CLI is required for release updates")
+    command = [gh, "release", "download"]
+    if version:
+        command.append(version)
+    command.extend(["--repo", CANONICAL_REPOSITORY_SLUG, "--pattern", "continuity-*.tar.gz", "--dir", str(destination)])
+    result = subprocess.run(command, capture_output=True, text=True, timeout=180, check=False)
+    if result.returncode != 0:
+        raise ContinuityError(f"Unable to download Continuity release: {result.stderr.strip() or result.stdout.strip()}")
+    archives = sorted(destination.glob("continuity-*.tar.gz"))
+    if len(archives) != 1:
+        raise ContinuityError("Release download did not produce exactly one Continuity archive")
+    verified = subprocess.run(
+        [gh, "attestation", "verify", str(archives[0]), "--repo", CANONICAL_REPOSITORY_SLUG],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    if verified.returncode != 0:
+        raise ContinuityError(f"Release artifact attestation failed: {verified.stderr.strip() or verified.stdout.strip()}")
+    extracted = destination / "release"
+    extracted.mkdir()
+    with tarfile.open(archives[0], "r:gz") as archive:
+        for member in archive.getmembers():
+            target = (extracted / member.name).resolve()
+            if not target.is_relative_to(extracted.resolve()) or member.issym() or member.islnk():
+                raise ContinuityError("Release archive contains an unsafe path")
+        archive.extractall(extracted)
+    candidates = [path.parent for path in extracted.rglob("release-manifest.json")]
+    if len(candidates) != 1:
+        raise ContinuityError("Release archive does not contain one suite root")
+    return candidates[0]
+
+
+def source_release_status(source: Path) -> dict[str, Any]:
+    manifest_path = source / "release-manifest.json"
+    if not manifest_path.is_file():
+        raise ContinuityError(f"Release source is missing release-manifest.json: {source}")
+    manifest = json_load(manifest_path, {})
+    try:
+        runtime_lib.validate_schema_file(manifest, source / "schemas" / "release-manifest.schema.json", "release manifest")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    if manifest.get("canonical_repository") != CANONICAL_REPOSITORY:
+        raise ContinuityError("Release source uses an unsupported canonical repository")
+    version_path = source / "VERSION"
+    if not version_path.is_file() or version_path.read_text(encoding="utf-8").strip() != manifest.get("version"):
+        raise ContinuityError("Release source VERSION does not match its manifest")
+    failures = []
+    for relative, expected in manifest.get("files", {}).items():
+        path = confined_path(source, relative, "release file")
+        if not path.is_file() or runtime_lib.sha256_file(path) != expected:
+            failures.append(relative)
+    if failures:
+        raise ContinuityError(f"Release source integrity failed: {failures}")
+    return manifest
+
+
+def suite_update(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    current = suite_installation_status(root)
+    if args.check:
+        if args.source:
+            available = source_release_status(Path(args.source).expanduser().resolve())
+            return {"current": current, "available_version": available.get("version"), "update_available": current.get("version") != available.get("version"), "source": str(Path(args.source).expanduser().resolve())}
+        gh = shutil.which("gh")
+        if not gh:
+            raise ContinuityError("GitHub CLI is required to check releases")
+        command = [gh, "release", "view", args.version] if args.version else [gh, "release", "view", "--repo", CANONICAL_REPOSITORY_SLUG]
+        if args.version:
+            command.extend(["--repo", CANONICAL_REPOSITORY_SLUG])
+        command.extend(["--json", "tagName,publishedAt,url"])
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
+        if result.returncode != 0:
+            raise ContinuityError(f"Unable to check Continuity releases: {result.stderr.strip() or result.stdout.strip()}")
+        available = json.loads(result.stdout)
+        available_version = str(available.get("tagName", "")).removeprefix("v")
+        return {"current": current, "available": available, "available_version": available_version, "update_available": current.get("version") != available_version}
+    temporary: tempfile.TemporaryDirectory[str] | None = None
+    try:
+        if args.source:
+            source = Path(args.source).expanduser().resolve()
+        else:
+            temporary = tempfile.TemporaryDirectory(prefix="continuity-release-")
+            source = release_source_from_github(args.version, Path(temporary.name))
+        release = source_release_status(source)
+        installer = source / "installer" / "install.py"
+        command = [
+            sys.executable,
+            str(installer),
+            "--project-root",
+            str(root),
+            "--project-id",
+            config["project_id"],
+            "--integration-branch",
+            config["integration_branch"],
+            "--ignore-user-defaults",
+        ]
+        if args.dry_run:
+            command.append("--dry-run")
+        if args.overwrite_managed:
+            command.append("--overwrite-managed")
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+        if result.returncode != 0:
+            raise ContinuityError(f"Continuity update failed: {result.stderr.strip() or result.stdout.strip()}")
+        payload = json.loads(result.stdout)
+        return {"updated": not args.dry_run, "dry_run": args.dry_run, "from_version": current.get("version"), "to_version": release.get("version"), "installer": payload}
+    finally:
+        if temporary is not None:
+            temporary.cleanup()
+
+
+def suite_rollback(args: argparse.Namespace) -> dict[str, Any]:
+    root, _config = load_context(validate_behavior=False)
+    installer = CONTROL_ROOT / "installer" / "install.py"
+    if not installer.is_file():
+        raise ContinuityError("Installed rollback helper is missing")
+    result = subprocess.run(
+        [sys.executable, str(installer), "--project-root", str(root), "--rollback-snapshot", args.snapshot],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ContinuityError(f"Continuity rollback failed: {result.stderr.strip() or result.stdout.strip()}")
+    return json.loads(result.stdout)
+
+
+def suite_drift_export(args: argparse.Namespace) -> dict[str, Any]:
+    root, _config = load_context(validate_behavior=False)
+    status = suite_installation_status(root)
+    output_path = Path(args.output).expanduser().resolve()
+    runtime_lib.atomic_write_json(output_path, {"project_id": json_load(root / ".continuity" / "config.json", {}).get("project_id"), "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "version": status.get("version"), "drift": status.get("drift", [])})
+    return {"output": str(output_path), "drift_count": len(status.get("drift", []))}
+
+
+def state_backup_sources(root: Path, config: dict[str, Any]) -> list[Path]:
+    candidates = [private_path(root, config), root / ".continuity-portfolio"]
+    return [path for path in candidates if path.exists()]
+
+
+def default_backup_path(root: Path, config: dict[str, Any]) -> Path:
+    stamp = now(config).strftime("%Y%m%dT%H%M%S%z")
+    directory = Path.home() / ".continuity" / "backups"
+    candidate = directory / f"{config['project_id']}-{stamp}.tar.gz.age"
+    if candidate.exists():
+        candidate = directory / f"{config['project_id']}-{stamp}-{secrets.token_hex(4)}.tar.gz.age"
+    return candidate
+
+
+def create_state_backup(root: Path, config: dict[str, Any], recipient: str, output_path: Path, signer: str, signing_key: str) -> dict[str, Any]:
+    age = shutil.which("age")
+    if not age:
+        raise ContinuityError("age is required for encrypted Continuity backups")
+    sources = state_backup_sources(root, config)
+    with tempfile.TemporaryDirectory(prefix="continuity-backup-") as temporary:
+        directory = Path(temporary)
+        archive_path = directory / "state.tar.gz"
+        inventory: dict[str, str] = {}
+        with tarfile.open(archive_path, "w:gz") as archive:
+            for source in sources:
+                for path in sorted(source.rglob("*")):
+                    if not path.is_file() or path.is_symlink() or path.name in {".state.lock", "portfolio.lock"}:
+                        continue
+                    relative = str(path.relative_to(root))
+                    inventory[relative] = runtime_lib.sha256_file(path)
+                    archive.add(path, arcname=f"payload/{relative}", recursive=False)
+            manifest = {
+                "schema_version": 1,
+                "project_id": config["project_id"],
+                "created_at": iso_now(config),
+                "files": inventory,
+                "format": "continuity-age-tar-v1",
+                "signed_by": signer,
+                "signature_format": "openssh-sshsig-v1",
+            }
+            try:
+                runtime_lib.validate_schema_file(manifest, CONTROL_ROOT / "schemas" / "backup-manifest.schema.json", "backup manifest")
+            except runtime_lib.RuntimeIntegrityError as exc:
+                raise ContinuityError(str(exc)) from exc
+            manifest_path = directory / "backup-manifest.json"
+            runtime_lib.atomic_write_json(manifest_path, manifest)
+            ssh_keygen = shutil.which("ssh-keygen")
+            if not ssh_keygen:
+                raise ContinuityError("ssh-keygen is required to sign backup inventories")
+            signed = subprocess.run(
+                [ssh_keygen, "-Y", "sign", "-f", str(Path(signing_key).expanduser().resolve()), "-n", "continuity-backup", str(manifest_path)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            signature_path = manifest_path.with_suffix(manifest_path.suffix + ".sig")
+            if signed.returncode != 0 or not signature_path.is_file():
+                raise ContinuityError(f"Backup inventory signing failed: {signed.stderr.strip() or signed.stdout.strip()}")
+            archive.add(manifest_path, arcname="backup-manifest.json", recursive=False)
+            archive.add(signature_path, arcname="backup-manifest.json.sig", recursive=False)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(
+            [age, "-r", recipient, "-o", str(output_path), str(archive_path)],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ContinuityError(f"Encrypted backup failed: {result.stderr.strip() or result.stdout.strip()}")
+    return {"project_id": config["project_id"], "archive": str(output_path), "files": len(inventory), "encrypted": True, "recipient": recipient, "signed_by": signer}
+
+
+def decrypt_and_verify_state_archive(root: Path, config: dict[str, Any], archive: Path, identity: str, destination: Path) -> dict[str, Any]:
+    age = shutil.which("age")
+    if not age:
+        raise ContinuityError("age is required for encrypted Continuity backups")
+    if not archive.is_file():
+        raise ContinuityError(f"Backup archive is unavailable: {archive}")
+    decrypted = destination / "state.tar.gz"
+    result = subprocess.run(
+        [age, "-d", "-i", str(Path(identity).expanduser().resolve()), "-o", str(decrypted), str(archive)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ContinuityError(f"Backup decryption failed: {result.stderr.strip() or result.stdout.strip()}")
+    extracted = destination / "extracted"
+    extracted.mkdir()
+    with tarfile.open(decrypted, "r:gz") as tar:
+        for member in tar.getmembers():
+            target = (extracted / member.name).resolve()
+            if not target.is_relative_to(extracted.resolve()) or member.issym() or member.islnk():
+                raise ContinuityError("Backup archive contains an unsafe path")
+        tar.extractall(extracted)
+    manifest = json_load(extracted / "backup-manifest.json", {})
+    try:
+        runtime_lib.validate_schema_file(manifest, CONTROL_ROOT / "schemas" / "backup-manifest.schema.json", "backup manifest")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    if manifest.get("project_id") != config["project_id"] or manifest.get("format") != "continuity-age-tar-v1":
+        raise ContinuityError("Backup belongs to another project or uses an unsupported format")
+    allowed = approval_allowed_signers_path(root, config)
+    signature = extracted / "backup-manifest.json.sig"
+    ssh_keygen = shutil.which("ssh-keygen")
+    if not ssh_keygen or not allowed.is_file() or not signature.is_file():
+        raise ContinuityError("Backup inventory signature cannot be verified")
+    verified_signature = subprocess.run(
+        [ssh_keygen, "-Y", "verify", "-f", str(allowed), "-I", str(manifest.get("signed_by", "")), "-n", "continuity-backup", "-s", str(signature)],
+        input=(json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode(),
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+    if verified_signature.returncode != 0:
+        raise ContinuityError("Backup inventory SSH signature is invalid or untrusted")
+    failures = []
+    for relative, expected in manifest.get("files", {}).items():
+        source = confined_path(extracted / "payload", relative, "backup payload")
+        if not source.is_file() or runtime_lib.sha256_file(source) != expected:
+            failures.append(relative)
+    if failures:
+        raise ContinuityError(f"Backup payload integrity failed: {failures}")
+    return {"manifest": manifest, "payload": extracted / "payload"}
+
+
+def state_backup(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    output_path = Path(args.output).expanduser().resolve() if args.output else default_backup_path(root, config)
+    return create_state_backup(root, config, args.recipient, output_path, args.signer, args.signing_key)
+
+
+def state_verify(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    with tempfile.TemporaryDirectory(prefix="continuity-verify-") as temporary:
+        verified = decrypt_and_verify_state_archive(root, config, Path(args.archive).expanduser().resolve(), args.identity, Path(temporary))
+        return {"verified": True, "project_id": config["project_id"], "archive": str(Path(args.archive).expanduser().resolve()), "files": len(verified["manifest"].get("files", {})), "created_at": verified["manifest"].get("created_at")}
+
+
+def state_restore(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    archive = Path(args.archive).expanduser().resolve()
+    with tempfile.TemporaryDirectory(prefix="continuity-restore-") as temporary:
+        verified = decrypt_and_verify_state_archive(root, config, archive, args.identity, Path(temporary))
+        if args.dry_run:
+            return {"restored": False, "dry_run": True, "project_id": config["project_id"], "files": len(verified["manifest"].get("files", {})), "archive": str(archive)}
+        safety = create_state_backup(root, config, args.recipient, default_backup_path(root, config), args.signer, args.signing_key)
+        payload = verified["payload"]
+        replacements = [private_path(root, config).relative_to(root), Path(".continuity-portfolio")]
+        previous_root = Path(temporary) / "previous"
+        try:
+            for relative in replacements:
+                target = root / relative
+                source = payload / relative
+                previous = previous_root / relative
+                if target.exists():
+                    previous.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(target, previous)
+                if source.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(source, target)
+        except Exception:
+            for relative in replacements:
+                target = root / relative
+                previous = previous_root / relative
+                if target.exists():
+                    shutil.rmtree(target)
+                if previous.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(previous, target)
+            raise
+        return {"restored": True, "project_id": config["project_id"], "files": len(verified["manifest"].get("files", {})), "archive": str(archive), "safety_backup": safety["archive"]}
+
+
 def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context(validate_behavior=False)
     manifest = load_project_manifest(root)
@@ -4167,6 +4716,48 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     if lifecycle["problems"]:
         record["healthy"] = False
         record["problems"].append(f"note lifecycle audit failed: {lifecycle['problems']}")
+    installation = suite_installation_status(root)
+    record["suite_installation"] = installation
+    if not installation["healthy"]:
+        record["healthy"] = False
+        record["problems"].extend(installation["problems"])
+    schema_checks: list[dict[str, Any]] = []
+    for value, schema_name, label in (
+        (config, "project-config.schema.json", "project config"),
+        (manifest, "project-manifest.schema.json", "project manifest"),
+    ):
+        try:
+            runtime_lib.validate_schema_file(value, CONTROL_ROOT / "schemas" / schema_name, label)
+            schema_checks.append({"record": label, "healthy": True})
+        except (runtime_lib.RuntimeIntegrityError, OSError, json.JSONDecodeError) as exc:
+            schema_checks.append({"record": label, "healthy": False, "problem": str(exc)})
+            record["healthy"] = False
+            record["problems"].append(str(exc))
+    record["schema_checks"] = schema_checks
+    ledger_checks: list[dict[str, Any]] = []
+    for path in sorted(private_path(root, config).rglob("*.jsonl")):
+        try:
+            ledger_checks.append(runtime_lib.verify_jsonl_records(path))
+        except runtime_lib.RuntimeIntegrityError as exc:
+            ledger_checks.append({"path": str(path), "healthy": False, "problem": str(exc)})
+            record["healthy"] = False
+            record["problems"].append(str(exc))
+    record["ledger_integrity"] = ledger_checks
+    approver_path = approval_allowed_signers_path(root, config)
+    approvers = []
+    if approver_path.exists():
+        approvers = [line.split(maxsplit=1)[0] for line in approver_path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    record["trusted_approvers"] = approvers
+    if manifest.get("execution_enabled") and config.get("require_signed_approvals", False) and not approvers:
+        record["healthy"] = False
+        record["problems"].append("execution is enabled but no trusted SSH approver is configured")
+    if manifest.get("execution_enabled") and config.get("require_pr", True) and not config.get("github_required_checks"):
+        record["healthy"] = False
+        record["problems"].append("execution is enabled but no required GitHub checks are configured")
+    record["platform"] = {"name": sys.platform, "supported": sys.platform.startswith(("darwin", "linux"))}
+    if not record["platform"]["supported"]:
+        record["healthy"] = False
+        record["problems"].append(f"unsupported platform for POSIX locking: {sys.platform}")
     return record
 
 
@@ -4247,6 +4838,202 @@ def scheduler_status(args: argparse.Namespace) -> dict[str, Any]:
     return status
 
 
+def scheduler_lease_ref(config: dict[str, Any]) -> str:
+    return f"refs/continuity/leases/{validate_identifier(config['project_id'], 'project ID')}"
+
+
+def git_with_input(root: Path, input_value: str, *arguments: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        input=input_value,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ContinuityError(result.stderr.strip() or result.stdout.strip() or f"git {' '.join(arguments)} failed")
+    return result.stdout.strip()
+
+
+def remote_lease_record(root: Path, config: dict[str, Any], remote: str) -> tuple[str | None, dict[str, Any] | None]:
+    reference = scheduler_lease_ref(config)
+    listed = git_result(root, "ls-remote", remote, reference)
+    if listed.returncode != 0:
+        raise ContinuityError(f"Unable to inspect remote Continuity lease: {listed.stderr.strip()}")
+    if not listed.stdout.strip():
+        return None, None
+    commit = listed.stdout.split()[0]
+    fetched = git_result(root, "fetch", "--quiet", remote, reference)
+    if fetched.returncode != 0:
+        raise ContinuityError(f"Unable to fetch remote Continuity lease: {fetched.stderr.strip()}")
+    shown = git_result(root, "show", f"{commit}:lease.json")
+    if shown.returncode != 0:
+        raise ContinuityError("Remote Continuity lease record is unreadable")
+    try:
+        record = json.loads(shown.stdout)
+    except json.JSONDecodeError as exc:
+        raise ContinuityError("Remote Continuity lease record is invalid JSON") from exc
+    try:
+        runtime_lib.validate_schema_file(record, CONTROL_ROOT / "schemas" / "remote-lease.schema.json", "remote execution lease")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    return commit, record
+
+
+def create_remote_lease_commit(root: Path, record: dict[str, Any], parent: str | None) -> str:
+    blob = git_with_input(root, runtime_lib.canonical_json(record) + "\n", "hash-object", "-w", "--stdin")
+    tree = git_with_input(root, f"100644 blob {blob}\tlease.json\n", "mktree")
+    command = ["commit-tree", tree, "-m", f"Continuity lease {record['status']} for {record['project_id']}"]
+    if parent:
+        command.extend(["-p", parent])
+    return git_with_input(root, "", *command)
+
+
+def scheduler_lease_status(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    commit, record = remote_lease_record(root, config, args.remote)
+    if not record:
+        return {"state": "available", "project_id": config["project_id"], "remote": args.remote, "ref": scheduler_lease_ref(config)}
+    expires = parse_recorded_time(record.get("expires_at"), config["timezone"])
+    active = record.get("status") == "active" and expires is not None and expires > now(config)
+    return {"state": "active" if active else "available", "project_id": config["project_id"], "remote": args.remote, "ref": scheduler_lease_ref(config), "commit": commit, "lease": record}
+
+
+def scheduler_lease_acquire(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    owner_fingerprint = canonical_hash({"owner": args.owner})[:24]
+    current_commit, current = remote_lease_record(root, config, args.remote)
+    current_expiry = parse_recorded_time(current.get("expires_at"), config["timezone"]) if current else None
+    if current and current.get("status") == "active" and current_expiry and current_expiry > now(config):
+        raise ContinuityError(f"Project already has an active remote lease through {current['expires_at']}")
+    acquired = now(config)
+    ttl = args.ttl_minutes or normalize_scheduler(config.get("scheduler"))["stale_after_minutes"]
+    record = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "goal_id": args.goal_id,
+        "attempt_id": args.attempt_id or secrets.token_hex(8),
+        "owner_fingerprint": owner_fingerprint,
+        "status": "active",
+        "acquired_at": acquired.isoformat(timespec="seconds"),
+        "expires_at": (acquired + dt.timedelta(minutes=ttl)).isoformat(timespec="seconds"),
+        "previous_lease_commit": current_commit,
+    }
+    try:
+        runtime_lib.validate_schema_file(record, CONTROL_ROOT / "schemas" / "remote-lease.schema.json", "remote execution lease")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    commit = create_remote_lease_commit(root, record, current_commit)
+    pushed = git_result(root, "push", args.remote, f"{commit}:{scheduler_lease_ref(config)}")
+    if pushed.returncode != 0:
+        raise ContinuityError("Remote lease acquisition lost a concurrent race or was rejected; no work may start")
+    local = {**record, "remote": args.remote, "lease_commit": commit}
+    json_dump(private_path(root, config) / "remote-lease.json", local)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": record["acquired_at"], "event": "scheduler.lease-acquired", "goal_id": args.goal_id, "attempt_id": record["attempt_id"], "lease_commit": commit})
+    return local
+
+
+def release_active_remote_lease(root: Path, config: dict[str, Any], *, reason: str) -> dict[str, Any] | None:
+    local_path = private_path(root, config) / "remote-lease.json"
+    local = json_load(local_path, {})
+    if not isinstance(local, dict) or local.get("status") != "active":
+        return None
+    remote = local.get("remote", "origin")
+    current_commit, current = remote_lease_record(root, config, remote)
+    if not current or current_commit != local.get("lease_commit"):
+        raise ContinuityError("Remote lease changed since acquisition; refusing to release another operator's lease")
+    stamp = iso_now(config)
+    record = {**current, "status": "released", "released_at": stamp, "release_reason": reason}
+    try:
+        runtime_lib.validate_schema_file(record, CONTROL_ROOT / "schemas" / "remote-lease.schema.json", "remote execution lease")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    commit = create_remote_lease_commit(root, record, current_commit)
+    pushed = git_result(root, "push", remote, f"{commit}:{scheduler_lease_ref(config)}")
+    if pushed.returncode != 0:
+        raise ContinuityError("Remote lease release was rejected; inspect lease status before more work")
+    local.update({"status": "released", "released_at": stamp, "release_reason": reason, "lease_commit": commit})
+    json_dump(local_path, local)
+    append_jsonl(private_path(root, config) / "events.jsonl", {"at": stamp, "event": "scheduler.lease-released", "goal_id": local.get("goal_id"), "lease_commit": commit, "reason": reason})
+    return local
+
+
+def scheduler_lease_release(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    released = release_active_remote_lease(root, config, reason=args.reason)
+    if not released:
+        raise ContinuityError("No active local remote lease is available to release")
+    return released
+
+
+def scheduler_adapter_codex_render(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    manifest = load_project_manifest(root)
+    scheduler = normalize_scheduler(config.get("scheduler"))
+    if scheduler["provider"] != "codex":
+        raise ContinuityError("Codex adapter rendering requires scheduler.provider=codex")
+    roots = requested_workspace_roots(args.root or [])
+    prompt = (
+        "Use the installed Continuity portfolio supervisor contract. Run "
+        f"`.agents/continuity/bin/continuity --json portfolio actions {' '.join(f'--root {shlex.quote(str(path))}' for path in roots)} "
+        "--supervisor-task-id <this-task-id> --sweep-id <unique-sweep-id>`. "
+        "Start one project task only for returned due or retry claims, pass every claim field unchanged, heartbeat active runs, "
+        "record run-finish, and never cross approval or merge boundaries."
+    )
+    definition = {
+        "schema_version": 1,
+        "provider": "codex",
+        "title": f"Continuity supervisor: {config['project_id']}",
+        "schedule": {"type": "interval", "minutes": scheduler["sweep_minutes"], "timezone": config["timezone"], "business_days": scheduler["business_days"]},
+        "workspace_roots": [str(path) for path in roots],
+        "prompt": prompt,
+        "project_schedules": manifest["schedules"],
+        "registration_command": f'.agents/continuity/bin/continuity --project-root {shlex.quote(str(root))} scheduler register --task-id <codex-task-id> ' + " ".join(f"--root {shlex.quote(str(path))}" for path in roots),
+        "human_action_required": "Create or update the Codex automation with this exact definition, then run registration_command with its returned task ID.",
+    }
+    try:
+        runtime_lib.validate_schema_file(definition, CONTROL_ROOT / "schemas" / "codex-automation.schema.json", "Codex automation definition")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    return definition
+
+
+def scheduler_adapter_codex_verify(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context(validate_behavior=False)
+    registration = scheduler_registration_status_for(root, config)
+    events = list(iter_jsonl(private_path(root, config) / "events.jsonl"))
+    sweep_ids = {
+        event.get("sweep_id")
+        for event in events
+        if event.get("event") == "scheduler.supervisor-heartbeat" and event.get("sweep_id")
+    }
+    snapshots = scheduler_run_snapshots(root, config)
+    no_op_runs = [
+        run for run in snapshots.values()
+        if run.get("action") in {"review", "report"} and run.get("state") == "succeeded" and not run.get("goal_id")
+    ]
+    problems = []
+    if normalize_scheduler(config.get("scheduler"))["provider"] != "codex":
+        problems.append("scheduler provider is not codex")
+    if registration["state"] != "registered":
+        problems.append(f"scheduler registration is {registration['state']}")
+    if len(sweep_ids) < 2:
+        problems.append("fewer than two distinct supervisor sweeps were observed")
+    if not no_op_runs:
+        problems.append("no successful claimed review or report no-op run was observed")
+    return {
+        "provider": "codex",
+        "healthy": not problems,
+        "problems": problems,
+        "registration": registration,
+        "observed_sweeps": len(sweep_ids),
+        "observed_no_op_runs": len(no_op_runs),
+        "claim_replay_guard": "enforced-by-run-start-one-time-claim",
+        "stale_registration_guard": "enforced-by-expiring-supervisor-heartbeat",
+    }
+
+
 def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     registration = scheduler_registration_status_for(root, config)
@@ -4256,6 +5043,16 @@ def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
     workspace_roots = registration_workspace_roots(raw_registration)
     control = portfolio_control_dir(raw_registration)
     task_id = validate_task_id(args.task_id, "scheduled task ID")
+    if config.get("require_remote_lease", False) and args.action == "dispatch":
+        lease = json_load(private_path(root, config) / "remote-lease.json", {})
+        expiry = parse_recorded_time(lease.get("expires_at"), config["timezone"]) if isinstance(lease, dict) else None
+        if not lease or lease.get("status") != "active" or expiry is None or expiry <= now(config):
+            raise ContinuityError("Scheduled work requires an active, unexpired remote project lease")
+        if args.goal_id and lease.get("goal_id") != args.goal_id:
+            raise ContinuityError("Remote lease goal does not match the scheduled goal")
+        remote_commit, remote_record = remote_lease_record(root, config, lease.get("remote", "origin"))
+        if remote_commit != lease.get("lease_commit") or not remote_record or remote_record.get("status") != "active":
+            raise ContinuityError("Remote project lease no longer matches the local acquisition receipt")
     current = now(config)
     with exclusive_file_lock(control / "portfolio.lock"):
         projects = discover_projects(workspace_roots)
@@ -4350,6 +5147,10 @@ def scheduler_run_event(args: argparse.Namespace) -> dict[str, Any]:
         "summary": args.summary,
     }
     append_jsonl(scheduler_runs_path(root, config), event)
+    if args.command == "finish" and config.get("require_remote_lease", False):
+        released = release_active_remote_lease(root, config, reason=f"scheduled run {args.status}")
+        if released:
+            event["remote_lease_released"] = released.get("lease_commit")
     return event
 
 
@@ -5387,7 +6188,7 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         next_skill = "continuity-dispatch"
         actions.extend(
             [
-                workflow_action("approve", "continuity-dispatch", f'{prefix} goal approve {goal_id} --version {goal["plan_version"]} --approved-by <human> --authorization-text "Approve {goal_id} plan v{goal["plan_version"]}"', human_required=True, requirements=["decision-complete plan"]),
+                workflow_action("approve", "continuity-dispatch", f'{prefix} goal approve {goal_id} --version {goal["plan_version"]} --approved-by <human> --authorization-text "Approve {goal_id} plan v{goal["plan_version"]}"' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""), human_required=True, requirements=["decision-complete plan", "trusted SSH approver" if config.get("require_signed_approvals", False) else "recorded human identity"]),
                 workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True),
                 workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
                 workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
@@ -5683,7 +6484,7 @@ def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
                 workflow_action(
                     "approve-packet",
                     "continuity-share",
-                    f'{prefix} note share approve {packet["packet_id"]} --version {packet["version"]} --approved-by <human> --authorization-text "Approve {packet["packet_id"]} version {packet["version"]} for {packet["target_project_id"]}"',
+                    f'{prefix} note share approve {packet["packet_id"]} --version {packet["version"]} --approved-by <human> --authorization-text "Approve {packet["packet_id"]} version {packet["version"]} for {packet["target_project_id"]}"' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""),
                     human_required=True,
                 )
             )
@@ -6225,6 +7026,7 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
     remote_head_sha: str | None = None
     pr_head_sha: str | None = None
     pr_base: str | None = None
+    github_evidence: dict[str, Any] = {}
     if not branch:
         failures.append("goal branch is missing")
     elif branch == base:
@@ -6281,7 +7083,7 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
             failures.append("PR URL is not a GitHub pull request URL")
         else:
             try:
-                pr_details = github_pr_details(root, str(pr_url), ["state", "headRefName", "baseRefName", "headRefOid"])
+                pr_details = github_pr_details(root, str(pr_url), ["state", "headRefName", "baseRefName", "headRefOid", "isDraft", "mergeStateStatus", "reviewDecision", "statusCheckRollup"])
             except ContinuityError as exc:
                 failures.append(str(exc))
             else:
@@ -6295,6 +7097,18 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
                     failures.append("PR base branch does not match the configured integration branch")
                 if head_sha and pr_details.get("headRefOid") != head_sha:
                     failures.append("PR head commit does not match the tested local commit")
+                check_summary = github_check_summary(pr_details.get("statusCheckRollup"), config.get("github_required_checks", []))
+                failures.extend(check_summary["failures"])
+                if pr_details.get("reviewDecision") == "CHANGES_REQUESTED":
+                    failures.append("PR has an unresolved changes-requested review")
+                if pr_details.get("mergeStateStatus") in {"BEHIND", "CONFLICTING", "DIRTY", "UNKNOWN"}:
+                    failures.append(f"PR merge state is {pr_details.get('mergeStateStatus')}")
+                github_evidence = {
+                    "is_draft": pr_details.get("isDraft"),
+                    "merge_state_status": pr_details.get("mergeStateStatus"),
+                    "review_decision": pr_details.get("reviewDecision"),
+                    "checks": check_summary,
+                }
                 if not failures:
                     evidence.append(f"pr-head:{pr_details.get('headRefOid')}")
     test_report = json_load(directory / "test-report.json", {})
@@ -6342,6 +7156,7 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
         "pr_head_sha": pr_head_sha,
         "pr_base": pr_base,
         "pr_url": pr_url,
+        "github": github_evidence,
         "worktree": str(worktree),
         "failures": failures,
         "evidence": evidence,
@@ -6391,6 +7206,40 @@ def github_pr_details(root: Path, pr_url: str, fields: list[str]) -> dict[str, A
     return value
 
 
+def github_check_summary(raw_checks: Any, required_names: list[str]) -> dict[str, Any]:
+    checks = raw_checks if isinstance(raw_checks, list) else []
+    normalized = []
+    for item in checks:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("context") or item.get("workflowName") or "unknown"
+        result = item.get("conclusion") or item.get("state") or item.get("status") or "UNKNOWN"
+        normalized.append({"name": name, "result": str(result).upper()})
+    success = {"SUCCESS", "NEUTRAL", "SKIPPED"}
+    failures = [f"GitHub check {item['name']} is {item['result']}" for item in normalized if item["result"] not in success]
+    observed = {item["name"] for item in normalized}
+    missing = sorted(set(required_names) - observed)
+    failures.extend(f"Required GitHub check is missing: {name}" for name in missing)
+    return {"checks": normalized, "required": required_names, "missing": missing, "failures": failures, "passed": not failures}
+
+
+def github_authenticated_login(root: Path) -> str:
+    gh = shutil.which("gh")
+    if not gh:
+        raise ContinuityError("GitHub CLI is required to verify human identity")
+    result = subprocess.run(
+        [gh, "api", "user", "--jq", ".login"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise ContinuityError(f"Unable to verify authenticated GitHub identity: {result.stderr.strip() or result.stdout.strip()}")
+    return result.stdout.strip()
+
+
 def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
@@ -6408,9 +7257,28 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
     if args.disposition != "merged" and args.merge_commit:
         raise ContinuityError("--merge-commit is valid only with disposition merged")
     if config.get("require_pr", True) and args.disposition in {"approved", "merged"}:
-        details = github_pr_details(root, args.pr_url, ["state", "mergeCommit", "headRefName", "baseRefName"])
+        details = github_pr_details(root, args.pr_url, ["state", "mergeCommit", "headRefName", "baseRefName", "reviewDecision", "reviews", "statusCheckRollup", "mergeStateStatus"])
         if details.get("baseRefName") != config.get("integration_branch"):
             raise ContinuityError("PR base does not match the configured integration branch")
+        checks = github_check_summary(details.get("statusCheckRollup"), config.get("github_required_checks", []))
+        if not checks["passed"]:
+            raise ContinuityError(f"Human disposition requires successful GitHub checks: {checks['failures']}")
+        if details.get("reviewDecision") == "CHANGES_REQUESTED":
+            raise ContinuityError("PR still has a changes-requested review")
+        approved_reviewers = {
+            review.get("author", {}).get("login")
+            for review in details.get("reviews", [])
+            if isinstance(review, dict) and review.get("state") == "APPROVED" and isinstance(review.get("author"), dict)
+        }
+        approved_reviewers.discard(None)
+        required_reviewers = int(config.get("github_required_reviewers", 0))
+        if len(approved_reviewers) < required_reviewers:
+            raise ContinuityError(f"PR has {len(approved_reviewers)} authenticated approving reviewers; {required_reviewers} required")
+        authenticated_login = github_authenticated_login(root) if config.get("require_pr_auth", True) else args.merged_by
+        if authenticated_login.casefold() != args.merged_by.casefold():
+            raise ContinuityError(f"--merged-by must match authenticated GitHub identity {authenticated_login}")
+        if args.disposition == "approved" and details.get("reviewDecision") != "APPROVED":
+            raise ContinuityError("Approved disposition requires GitHub reviewDecision APPROVED")
         if args.disposition == "merged":
             merge_oid = (details.get("mergeCommit") or {}).get("oid")
             if details.get("state") != "MERGED" or merge_oid != args.merge_commit:
@@ -6430,6 +7298,7 @@ def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
         "stale_evidence": stale_evidence,
         "human_merge_required": True,
         "auto_merge_used": False,
+        "github_identity_verified": config.get("require_pr", True) and config.get("require_pr_auth", True) and args.disposition in {"approved", "merged"},
     }
     json_dump(directory / "human-review.json", report)
     record_compliance_stage(root, config, directory, goal, "human-review", "passed", args.evidence, args.actor)
@@ -6687,6 +7556,7 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                     "status": merge_report.get("status") if isinstance(merge_report, dict) else None,
                     "head_sha": merge_report.get("head_sha") if isinstance(merge_report, dict) else None,
                     "pr_url": merge_report.get("pr_url") if isinstance(merge_report, dict) else None,
+                    "github": merge_report.get("github") if isinstance(merge_report, dict) else None,
                 },
                 "human_review": {
                     "disposition": human_review.get("status") if isinstance(human_review, dict) else None,
@@ -6839,6 +7709,14 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
     scheduler_health = scheduler_registration_status_for(root, config)
     if scheduler_health["state"] in {"requires-user-registration", "stale"} or scheduler_health["stale_runs"]:
         blocked_or_at_risk.append({"type": "scheduler", "state": scheduler_health["state"], "stale_runs": scheduler_health["stale_runs"], "problems": scheduler_health["problems"]})
+    ledger_health = []
+    for path in sorted(private_path(root, config).rglob("*.jsonl")):
+        try:
+            ledger_health.append(runtime_lib.verify_jsonl_records(path))
+        except runtime_lib.RuntimeIntegrityError as exc:
+            ledger_health.append({"path": str(path.relative_to(root)), "healthy": False, "problem": str(exc)})
+            blocked_or_at_risk.append({"type": "state-integrity", "state": "failed", "problems": [str(exc)]})
+    lease = json_load(private_path(root, config) / "remote-lease.json", {})
     return {
         "schema_version": 1,
         "project_id": config["project_id"],
@@ -6867,6 +7745,16 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "no_action_required": not decisions_needed and not blocked_or_at_risk,
         "scheduler": scheduler_health,
+        "suite_installation": suite_installation_status(root),
+        "state_integrity": {
+            "healthy": all(item.get("healthy") for item in ledger_health),
+            "ledgers": ledger_health,
+        },
+        "remote_lease": {
+            key: lease.get(key)
+            for key in ("status", "goal_id", "attempt_id", "expires_at", "lease_commit")
+            if isinstance(lease, dict) and lease.get(key) is not None
+        },
     }
 
 
@@ -7095,6 +7983,7 @@ def build_parser() -> argparse.ArgumentParser:
     share_approve.add_argument("--version", type=int, required=True)
     share_approve.add_argument("--approved-by", required=True)
     share_approve.add_argument("--authorization-text", required=True)
+    share_approve.add_argument("--signing-key")
     share_approve.set_defaults(handler=shared_note_command, shared_note_handler=shared_notes_lib.approve)
     publish = share_sub.add_parser("publish")
     publish.add_argument("packet_id")
@@ -7219,6 +8108,7 @@ def build_parser() -> argparse.ArgumentParser:
     approve.add_argument("--version", required=True, type=int)
     approve.add_argument("--approved-by", required=True)
     approve.add_argument("--authorization-text", required=True)
+    approve.add_argument("--signing-key", help="SSH private key used to sign the canonical approval receipt")
     approve.add_argument("--schedule")
     approve.set_defaults(handler=goal_approve)
     start = goal_sub.add_parser("start")
@@ -7365,6 +8255,61 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = project_admin_sub.add_parser("doctor")
     doctor.set_defaults(handler=project_doctor)
 
+    approval = top.add_parser("approval")
+    approval_sub = approval.add_subparsers(dest="command", required=True)
+    approval_trust = approval_sub.add_parser("trust")
+    approval_trust_sub = approval_trust.add_subparsers(dest="trust_command", required=True)
+    approval_trust_add_command = approval_trust_sub.add_parser("add")
+    approval_trust_add_command.add_argument("--identity", required=True)
+    approval_trust_add_command.add_argument("--public-key", required=True)
+    approval_trust_add_command.set_defaults(handler=approval_trust_add)
+    approval_trust_list_command = approval_trust_sub.add_parser("list")
+    approval_trust_list_command.set_defaults(handler=approval_trust_list)
+    approval_verify_command = approval_sub.add_parser("verify")
+    approval_verify_command.add_argument("goal_id")
+    approval_verify_command.set_defaults(handler=approval_verify)
+
+    suite = top.add_parser("suite")
+    suite_sub = suite.add_subparsers(dest="command", required=True)
+    suite_status_command = suite_sub.add_parser("status")
+    suite_status_command.set_defaults(handler=suite_status)
+    suite_update_command = suite_sub.add_parser("update")
+    suite_update_command.add_argument("--check", action="store_true")
+    suite_update_command.add_argument("--version")
+    suite_update_command.add_argument("--source", help="Local verified Continuity release source; primarily for development and offline updates")
+    suite_update_command.add_argument("--dry-run", action="store_true")
+    suite_update_command.add_argument("--overwrite-managed", action="store_true")
+    suite_update_command.set_defaults(handler=suite_update)
+    suite_rollback_command = suite_sub.add_parser("rollback")
+    suite_rollback_command.add_argument("--snapshot", required=True)
+    suite_rollback_command.set_defaults(handler=suite_rollback)
+    suite_drift_command = suite_sub.add_parser("drift")
+    suite_drift_sub = suite_drift_command.add_subparsers(dest="drift_command", required=True)
+    suite_drift_export_command = suite_drift_sub.add_parser("export")
+    suite_drift_export_command.add_argument("--output", required=True)
+    suite_drift_export_command.set_defaults(handler=suite_drift_export)
+
+    state = top.add_parser("state")
+    state_sub = state.add_subparsers(dest="command", required=True)
+    state_backup_command = state_sub.add_parser("backup")
+    state_backup_command.add_argument("--recipient", required=True, help="age recipient used to encrypt the archive")
+    state_backup_command.add_argument("--signer", required=True, help="Trusted SSH signer identity recorded in the backup inventory")
+    state_backup_command.add_argument("--signing-key", required=True, help="SSH private key used to sign the backup inventory")
+    state_backup_command.add_argument("--output")
+    state_backup_command.set_defaults(handler=state_backup)
+    state_verify_command = state_sub.add_parser("verify")
+    state_verify_command.add_argument("--archive", required=True)
+    state_verify_command.add_argument("--identity", required=True, help="age identity file used only for decryption")
+    state_verify_command.set_defaults(handler=state_verify)
+    state_restore_command = state_sub.add_parser("restore")
+    state_restore_command.add_argument("--archive", required=True)
+    state_restore_command.add_argument("--identity", required=True)
+    state_restore_command.add_argument("--recipient", required=True, help="age recipient for the automatic pre-restore safety backup")
+    state_restore_command.add_argument("--signer", required=True)
+    state_restore_command.add_argument("--signing-key", required=True)
+    state_restore_command.add_argument("--dry-run", action="store_true")
+    state_restore_command.set_defaults(handler=state_restore)
+
     scheduler = top.add_parser("scheduler")
     scheduler_sub = scheduler.add_subparsers(dest="command", required=True)
     scheduler_register_command = scheduler_sub.add_parser("register")
@@ -7378,6 +8323,30 @@ def build_parser() -> argparse.ArgumentParser:
     scheduler_status_command = scheduler_sub.add_parser("status")
     scheduler_status_command.add_argument("--limit", type=int, default=10)
     scheduler_status_command.set_defaults(handler=scheduler_status)
+    scheduler_adapter_command = scheduler_sub.add_parser("adapter")
+    scheduler_adapter_sub = scheduler_adapter_command.add_subparsers(dest="adapter_provider", required=True)
+    scheduler_codex_command = scheduler_adapter_sub.add_parser("codex")
+    scheduler_codex_sub = scheduler_codex_command.add_subparsers(dest="codex_command", required=True)
+    scheduler_codex_render_command = scheduler_codex_sub.add_parser("render")
+    scheduler_codex_render_command.add_argument("--root", action="append", help="Workspace root scanned by the Codex supervisor")
+    scheduler_codex_render_command.set_defaults(handler=scheduler_adapter_codex_render)
+    scheduler_codex_verify_command = scheduler_codex_sub.add_parser("verify")
+    scheduler_codex_verify_command.set_defaults(handler=scheduler_adapter_codex_verify)
+    scheduler_lease_command = scheduler_sub.add_parser("lease")
+    scheduler_lease_sub = scheduler_lease_command.add_subparsers(dest="lease_command", required=True)
+    scheduler_lease_status_command = scheduler_lease_sub.add_parser("status")
+    scheduler_lease_status_command.add_argument("--remote", default="origin")
+    scheduler_lease_status_command.set_defaults(handler=scheduler_lease_status)
+    scheduler_lease_acquire_command = scheduler_lease_sub.add_parser("acquire")
+    scheduler_lease_acquire_command.add_argument("--owner", required=True)
+    scheduler_lease_acquire_command.add_argument("--goal-id", required=True)
+    scheduler_lease_acquire_command.add_argument("--attempt-id")
+    scheduler_lease_acquire_command.add_argument("--ttl-minutes", type=int)
+    scheduler_lease_acquire_command.add_argument("--remote", default="origin")
+    scheduler_lease_acquire_command.set_defaults(handler=scheduler_lease_acquire)
+    scheduler_lease_release_command = scheduler_lease_sub.add_parser("release")
+    scheduler_lease_release_command.add_argument("--reason", required=True)
+    scheduler_lease_release_command.set_defaults(handler=scheduler_lease_release)
     scheduler_start_command = scheduler_sub.add_parser("run-start")
     scheduler_start_command.add_argument("action", choices=sorted(SCHEDULE_ACTIONS))
     scheduler_start_command.add_argument("--idempotency-key", required=True)
@@ -7414,6 +8383,10 @@ def build_parser() -> argparse.ArgumentParser:
     portfolio_actions_command.add_argument("--supervisor-task-id", help="Registered provider task ID performing this sweep")
     portfolio_actions_command.add_argument("--sweep-id", help="Stable ID for this supervisor sweep")
     portfolio_actions_command.set_defaults(handler=portfolio_actions)
+    portfolio_report_command = portfolio_sub.add_parser("report")
+    portfolio_report_command.add_argument("--root", action="append", help="Workspace root to scan; repeat for multiple roots")
+    portfolio_report_command.add_argument("--sanitized", action="store_true", required=True)
+    portfolio_report_command.set_defaults(handler=portfolio_sanitized_report)
     return parser
 
 

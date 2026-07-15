@@ -17,13 +17,14 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 - Refresh or verify the integration base before PR handoff according to project policy.
 - Confirm the branch is goal-focused, not the integration branch, and free of unrelated or private-state changes.
 - Keep incomplete or blocked work in a draft PR with explicit blockers.
-- Require explicit human review and merge evidence. Never auto-merge, force-push, or mark human review complete from agent judgment alone.
+- Require successful configured GitHub checks before `review-ready`. Treat authenticated reviewer count and review decision as morning disposition gates, not as prerequisites for preparing the human handoff.
+- Require authenticated GitHub human review and merge evidence. Never trust a caller-supplied identity by itself, auto-merge, force-push, or mark human review complete from agent judgment alone.
 
 ## Workflow
 
 1. Run `continuity project doctor`.
 2. Confirm the latest `$continuity-test` report passed for the current clean local commit, and that the same commit is pushed as the draft PR head.
-3. Assess merge safety:
+3. Assess merge safety after hosted checks finish. The assessment verifies the PR head/base, merge state, unresolved change requests, configured check names, and every observed check result:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" merge assess <goal-id> \
@@ -47,7 +48,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
   --evidence "<review or merge evidence>"
 ```
 
-Record only facts that happened. If the human has not reviewed or merged, leave `human-review` pending.
+Record only facts that happened. For `approved` or `merged`, the CLI verifies the current `gh` identity, GitHub review decision, unique approving reviewer threshold, checks, PR base, and merge commit as applicable. If the human has not reviewed or merged, leave `human-review` pending.
 
 ## Handoff
 

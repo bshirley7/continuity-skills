@@ -1,0 +1,44 @@
+name: Publish Continuity Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: continuity-suite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Validate tag and release
+        run: |
+          test "${GITHUB_REF_NAME#v}" = "$(cat VERSION)"
+          python -m py_compile bin/continuity installer/install.py lib/*.py scripts/*.py
+          python scripts/validate_skills.py
+          python scripts/build_release_manifest.py
+          git diff --exit-code -- release-manifest.json
+          PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v
+      - name: Build release archive
+        run: |
+          python scripts/build_release_manifest.py --release-commit "$GITHUB_SHA"
+          mkdir "continuity-$(cat VERSION)"
+          cp -R VERSION release-manifest.json README.md SUITE.md CONTRIBUTING.md automation bin docs installer lib references roadmap-ui schemas scripts skills templates "continuity-$(cat VERSION)/"
+          tar -czf "continuity-$(cat VERSION).tar.gz" "continuity-$(cat VERSION)"
+      - name: Attest release archive
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: continuity-suite/continuity-*.tar.gz
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" continuity-*.tar.gz --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes

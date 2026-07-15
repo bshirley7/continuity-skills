@@ -26,7 +26,7 @@ Run the deterministic preflight before implementation:
 .agents/continuity/bin/continuity --project-root "$PWD" execution preflight <goal-id>
 ```
 
-Verify the isolated worktree, integration branch and remote base, scope, approval, dependencies, lock, PR path, runtime, and required commands. Stop on any failed gate.
+Verify the isolated worktree, integration branch and remote base, scope, SSH-signed approval, dependencies, local project lock, active remote execution lease, PR path, runtime, and required commands. Stop on any failed gate.
 
 ## Responsible execution stages
 

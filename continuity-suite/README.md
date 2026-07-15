@@ -6,6 +6,8 @@ Continuity turns project conversations and notes into searchable memory, roadmap
 
 - For the exact installation and daily-use workflow, read [Install and Daily Use](docs/install-and-daily-use.md).
 - For the complete day-to-night-to-morning operating model, read [Operating Workflow](docs/operating-workflow.md).
+- For tagged updates, managed-file drift, encrypted backup, and rollback, read [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md).
+- For the first controlled off-hours run, use the [Next-Business-Day Production Pilot](docs/production-pilot.md).
 - For the full suite contract, installed layout, guardrails, and command reference, read [SUITE.md](SUITE.md).
 - For the safety model every skill follows, read [Continuity Contract](references/continuity-contract.md).
 - For skill inputs, outputs, blockers, and next-stage expectations, read [Workflow Handoffs](references/workflow-handoffs.md).

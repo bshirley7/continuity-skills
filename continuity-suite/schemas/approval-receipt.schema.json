@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity signed approval receipt",
+  "type": "object",
+  "required": ["schema_version", "project_id", "goal_id", "plan_version", "plan_hash", "approved_at", "approved_by", "authorization_text", "nonce", "signature_format"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "goal_id": {"type": "string", "minLength": 1},
+    "plan_version": {"type": "integer", "minimum": 1},
+    "plan_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "behavior_configuration_hash": {"type": "string"},
+    "approved_at": {"type": "string", "minLength": 1},
+    "approved_by": {"type": "string", "minLength": 1},
+    "authorization_text": {"type": "string", "minLength": 1},
+    "nonce": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+    "signature_format": {"enum": ["openssh-sshsig-v1", "legacy-unsigned"]}
+  },
+  "additionalProperties": false
+}

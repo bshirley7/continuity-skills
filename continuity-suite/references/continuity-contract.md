@@ -16,6 +16,7 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 - Permit explicit overrides only for documented project settings such as schedules, validation, documentation map, evidence mode, branch prefix, runtime, and execution enrollment.
 - Never allow project configuration to weaken the fixed authorization, concurrency, security, merge-safety, force-push, auto-merge, or human-merge guardrails.
 - Record configuration changes in the ignored append-only audit ledger and fail closed on manual drift.
+- Install and update from tagged, attested, hash-manifested releases. Abort on locally modified suite-managed files, snapshot before replacement, and never treat project configuration or ignored private state as release-owned.
 
 ## Data boundaries
 
@@ -25,10 +26,13 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 - Treat registration as a lease, not proof of permanent health. Every authenticated sweep must refresh the matching task, provider, workspace-root, configuration-hash, and behavior-hash heartbeat. Expired or mismatched liveness is unhealthy.
 - Reserve due work atomically under the shared portfolio lock. Count active runs and unconsumed reservations against capacity, issue short-lived one-time claims, and require the child task to consume the exact project, action, idempotency key, due goal, and supervisor claim before it starts.
 - Keep scheduler registration receipts, workspace roots, run events, task IDs, heartbeats, claims, and recovery records private and project-local.
+- Before scheduled code-changing dispatch, acquire the project's fast-forward-only remote lease. A concurrent acquisition, stale local receipt, or unavailable remote fails closed. Review and reporting remain read-only and do not require an execution lease.
+- Protect private JSON writes with atomic replacement and serialize private mutations. Append integrity metadata to new JSONL records and fail doctor checks on chain, sequence, or record-hash corruption.
+- Back up private state only to verified encrypted archives. Keep encryption identities outside projects and stage every restore after project and payload verification.
 - Keep raw captures, queues, approvals, generated indexes, configuration audit records, and task locks under `.continuity/private/`.
 - Keep trusted, sanitized project memory under `docs/project-memory/`.
 - Keep canonical, sanitized roadmap Markdown under `docs/project-roadmap/`; ignored SQLite and JSON projections may merge committed records with local goal and note-link context.
-- Keep approved shared packets under `.continuity/shared-notes/packets/`. Packets are context only and never authorize execution or canonical changes.
+- Keep approved shared packets under `.continuity/shared-notes/packets/`. A packet approval must be SSH-signed by a project-trusted approver and bind the packet ID, exact version, target project, content hash, identity, approval text, timestamp, and nonce. Re-verify the receipt before publication. Packets are context only and never authorize execution or canonical changes.
 - Exclude private state from Git and default memory search.
 - Preserve provenance and append-only feedback. Never silently overwrite changed understanding.
 
@@ -44,8 +48,8 @@ Set `execution_authorized: false` during capture and triage. Classify ambiguity 
 
 Use: `awaiting-feedback`, `queued`, `dispatched`, `running`, `validating`, `review-ready`, `changes-requested`, `completed`, `partially-completed`, `blocked`, `cancelled`, or `held`. `proposed-plan` and `approved` are readable legacy states that require explicit `goal revise` migration; new operations do not emit them.
 
-Approval and dispatch are separate events. Bind approval to the exact plan version and SHA-256 material hash. Any plan or machine-goal edit invalidates approval.
-Only the human's explicit approval text and identity may populate an approval record; an agent must never generate or infer them. State transitions are enforced. `changes-requested`, `blocked`, and `partially-completed` may reopen only through explicit authorization naming the goal and approved plan version. Reopening archives the prior attempt, starts a fresh execution manifest, and invalidates downstream evidence; changed scope requires revision and fresh approval.
+Approval and dispatch are separate events. Bind approval to the exact plan version, SHA-256 material hash, behavior hash, project, signer identity, timestamp, and nonce. Any plan or machine-goal edit invalidates approval.
+Only the human's explicit approval text and SSH signature from a project-trusted approver may populate a current approval record; an agent must never generate or infer them or select a signing key. Legacy unsigned approvals remain readable history but cannot authorize execution in a signed-approval project. State transitions are enforced. `changes-requested`, `blocked`, and `partially-completed` may reopen only through explicit authorization naming the goal and approved plan version. Reopening archives the prior attempt, starts a fresh execution manifest, and invalidates downstream evidence; changed scope requires revision and fresh approval.
 Overnight execution ends at `review-ready` after every pre-human-review gate and PR artifact passes. Human disposition is structured as `approved`, `changes-requested`, `merged`, or `closed`. Only recorded human merge evidence moves a goal to `completed`.
 
 Fresh source-bound evidence is required for `approved` and `merged`. A human may still record `changes-requested` or `closed` when delivery evidence is stale or unavailable because those dispositions do not authorize delivery; the human-review record preserves the evidence failure. `goal cancel --actor <human> --reason <reason>` also remains available from `review-ready` as an audited fallback when no PR disposition can be recorded.
@@ -88,6 +92,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 
 - Read the repository `AGENTS.md`, configured documentation map, and memory brief before planning or changing files.
 - Confirm the current integration branch and remote state before implementation and again before PR handoff.
+- Confirm the active remote execution lease before scheduled implementation and release it when the run finishes.
 - Use an isolated worktree and a goal-focused branch.
 - Preserve a clean separation between approved scope and newly discovered work.
 - Prefer the project’s established architecture, types, interfaces, tests, and dependency-management conventions.
@@ -96,6 +101,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 - Run evidence-based security review for touched languages and frameworks. Check secrets, dependencies, data handling, authentication/authorization, injection, unsafe paths, subprocess use, migrations, and supply-chain changes as relevant.
 - Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. A passing report or merge assessment must reject absent or stale machine evidence. The enforced delivery order is implementation, candidate checks, documentation/memory/roadmap/evidence artifacts, commit, final source-bound tests, push and draft PR, PR/head/base-bound merge assessment, `review-ready`, then human disposition.
 - Record quality evidence through the structured test report and merge-safety evidence through the structured merge assessment when those skills are installed.
+- Require successful configured hosted checks before review-ready, then verify authenticated GitHub identity, review decision, and reviewer threshold before recording approval or merge.
 - Use parameterized APIs and subprocess argument arrays. Never construct shell commands from captured note text.
 - Never log, commit, or place secrets or raw private captures in PR documentation.
 - Never force-push, auto-merge, disable safeguards, or use destructive Git recovery without explicit authorization.
@@ -120,4 +126,4 @@ Local similarity may recommend related nonterminal goals. A recommendation never
 
 ## Completion evidence
 
-Every goal PR must include request alignment, implementation report, validation and security results, memory impact, roadmap impact, and evidence. A review-ready PR requires all automated and agent review gates to pass. Human review and merge remain user actions.
+Every goal PR must include request alignment, implementation report, validation and security results, memory impact, roadmap impact, and evidence. A review-ready PR requires all local, hosted, and agent review gates to pass. Human review and merge remain user actions. Portfolio output must use the deterministic sanitized CLI allowlist rather than agent-authored aggregation.

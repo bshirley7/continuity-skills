@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity remote execution lease",
+  "type": "object",
+  "required": ["schema_version", "project_id", "goal_id", "attempt_id", "owner_fingerprint", "status", "acquired_at", "expires_at", "previous_lease_commit"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "goal_id": {"type": "string", "minLength": 1},
+    "attempt_id": {"type": "string", "minLength": 1},
+    "owner_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{24}$"},
+    "status": {"enum": ["active", "released"]},
+    "acquired_at": {"type": "string", "minLength": 1},
+    "expires_at": {"type": "string", "minLength": 1},
+    "previous_lease_commit": {},
+    "released_at": {"type": "string", "minLength": 1},
+    "release_reason": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

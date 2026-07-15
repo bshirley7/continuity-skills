@@ -1,6 +1,6 @@
 ---
 name: continuity
-description: Configure, audit, and route the project-local Continuity suite. Use when installing the suite, selecting Codex, Claude Code, Cursor, Windsurf, or generic agent surfaces, changing schedules or project behavior, reviewing defaults and overrides, validating configuration health, or deciding which Continuity skill should handle a request.
+description: Configure, update, recover, audit, and route the project-local Continuity suite. Use when installing or safely upgrading the suite, selecting Codex, Claude Code, Cursor, Windsurf, or generic agent surfaces, changing schedules or project behavior, validating state and configuration health, or deciding which Continuity skill should handle a request.
 ---
 
 # Continuity
@@ -17,6 +17,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md) whenever routing
 - Preserve the fixed guardrails for note authorization, exact-plan approval, one code-changing goal per project, security review, merge safety, next-business-day human review, restricted external side effects, force-push, and auto-merge. Project overrides may refine behavior but may not weaken these controls.
 - Audit every configuration change with the previous and resulting hash, actor, changed fields, effective values, generated-skill parity, project doctor result, and Git diff review.
 - Stop on unsafe paths, invalid Git references, unknown timezones, malformed commands, unsupported assurance versions, configuration drift, or a requested guardrail bypass.
+- Treat tagged release manifests, managed-file hashes, update snapshots, signed approvals, encrypted backups, and remote leases as machine authority. Never bypass drift, signature, attestation, or restore validation from prose.
 
 ## Guided setup
 
@@ -41,6 +42,7 @@ The answers file may override only:
 - `max_runtime_minutes` up to six hours
 - `memory_stale_after_days`
 - `validation_commands` and `security_commands`
+- `github_required_checks` and `github_required_reviewers` for hosted readiness and morning disposition policy
 - `documentation_map`
 - `visual_evidence_mode`
 - `branch_prefix`
@@ -53,6 +55,10 @@ The answers file may override only:
 - `execution_enabled`
 
 The CLI writes `.continuity/project-behavior.json`, synchronizes the effective settings into the project config and manifest, generates `.agents/skills/continuity-local/SKILL.md`, regenerates selected surface adapters, writes `.continuity/scheduler.json`, and records an ignored append-only configuration audit. Configuration hashes make manual drift fail closed. Register one provider-owned portfolio supervisor, then record its task ID and workspace roots with `scheduler register`; `project doctor` fails on missing, stale, or unhealthy registration.
+
+## Updates and recovery
+
+Use `suite update --check`, `suite update --dry-run`, and an explicit tagged update. Stop on managed-file drift unless a human has reviewed the exported drift and explicitly selected `--overwrite-managed`. Verify encrypted state backup before consequential updates and retain the printed rollback snapshot. Route users to the repository's `docs/releases-updates-and-recovery.md` for the complete operator procedure.
 
 ## Routing
 

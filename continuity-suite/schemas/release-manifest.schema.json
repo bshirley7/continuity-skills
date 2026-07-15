@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity release manifest",
+  "type": "object",
+  "required": ["schema_version", "suite", "version", "canonical_repository", "supported_platforms", "state_schema_versions", "assurance_standard_versions", "files"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "suite": {"const": "Continuity"},
+    "version": {"type": "string", "minLength": 1},
+    "canonical_repository": {"const": "https://github.com/bshirley7/continuity-skills"},
+    "supported_platforms": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["darwin", "linux"]}},
+    "state_schema_versions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+    "assurance_standard_versions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+    "files": {"type": "object"},
+    "release_commit": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

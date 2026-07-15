@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity shared packet approval receipt",
+  "type": "object",
+  "required": ["approved_at", "approved_by", "authorization_text", "content_hash", "version", "target_project_id", "packet_id", "nonce", "signature_format"],
+  "properties": {
+    "approved_at": {"type": "string", "minLength": 1},
+    "approved_by": {"type": "string", "minLength": 1},
+    "authorization_text": {"type": "string", "minLength": 1},
+    "content_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "version": {"type": "integer", "minimum": 1},
+    "target_project_id": {"type": "string", "minLength": 1},
+    "packet_id": {"type": "string", "minLength": 1},
+    "nonce": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+    "signature_format": {"enum": ["openssh-sshsig-v1", "legacy-unsigned"]}
+  },
+  "additionalProperties": false
+}

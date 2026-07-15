@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity encrypted backup inventory",
+  "type": "object",
+  "required": ["schema_version", "project_id", "created_at", "files", "format", "signed_by", "signature_format"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "files": {"type": "object"},
+    "format": {"const": "continuity-age-tar-v1"},
+    "signed_by": {"type": "string", "minLength": 1},
+    "signature_format": {"const": "openssh-sshsig-v1"}
+  },
+  "additionalProperties": false
+}

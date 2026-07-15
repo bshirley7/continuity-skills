@@ -78,7 +78,7 @@ continuity roadmap serve --open
 continuity roadmap production-audit --artifact <build-or-package>
 
 continuity note share prepare <note-id>... --target-project <current-project> --sender <identity>
-continuity note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text <text>
+continuity note share approve <packet-id> --version <version> --approved-by <identity> --authorization-text <text> --signing-key <ssh-private-key>
 continuity note share publish <packet-id>
 continuity note share import
 continuity note queue --queue <knowledge|questions|documentation|backlog|planning>
@@ -100,7 +100,7 @@ continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
 continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --disposition <approved|changes-requested|merged|closed> --evidence <text>
 ```
 
-Run the installer again to update an existing installation; it preserves project behavior and the managed `AGENTS.md` and `.gitignore` blocks remain idempotent. Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
+Use `continuity suite update --check`, a dry run, and an explicit tagged update for existing installations. Release artifacts are attested and hash-manifested; modified suite-managed files fail closed, each update creates a rollback snapshot, and project-owned configuration and ignored private state remain outside release replacement. See [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md). Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 
 ## Typical cycle
 

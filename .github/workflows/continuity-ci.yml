@@ -1,0 +1,43 @@
+name: Continuity CI
+
+on:
+  pull_request:
+    paths:
+      - "continuity-suite/**"
+      - ".github/workflows/continuity-*.yml"
+  push:
+    branches: [main]
+    paths:
+      - "continuity-suite/**"
+      - ".github/workflows/continuity-*.yml"
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.14"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: continuity-suite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Compile Python
+        run: python -m py_compile bin/continuity installer/install.py lib/*.py scripts/*.py
+      - name: Validate skills
+        run: python scripts/validate_skills.py
+      - name: Verify release manifest
+        run: |
+          python scripts/build_release_manifest.py
+          git diff --exit-code -- release-manifest.json
+      - name: Run test suite
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python -m unittest discover -s tests -v
+      - name: Diff hygiene
+        run: git diff --check

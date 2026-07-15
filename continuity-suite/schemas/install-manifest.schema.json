@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity installed release manifest",
+  "type": "object",
+  "required": ["schema_version", "suite", "version", "canonical_repository", "installed_at", "release_files", "installed_files"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "suite": {"const": "Continuity"},
+    "version": {"type": "string", "minLength": 1},
+    "canonical_repository": {"const": "https://github.com/bshirley7/continuity-skills"},
+    "installed_at": {"type": "string", "minLength": 1},
+    "release_files": {"type": "object"},
+    "installed_files": {"type": "object"},
+    "source_commit": {"type": "string"},
+    "previous_version": {"type": "string"}
+  },
+  "additionalProperties": false
+}

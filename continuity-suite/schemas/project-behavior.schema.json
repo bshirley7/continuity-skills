@@ -10,7 +10,7 @@
     "recommendation_profile": {"const": "responsible-defaults-v3"},
     "settings": {
       "type": "object",
-      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "execution_enabled"],
+      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "github_required_checks", "github_required_reviewers", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "execution_enabled"],
       "properties": {
         "integration_branch": {"type": "string", "minLength": 1},
         "timezone": {"type": "string", "minLength": 1},
@@ -28,6 +28,8 @@
         "memory_stale_after_days": {"type": "integer", "minimum": 1, "maximum": 3650},
         "validation_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "security_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "github_required_checks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "github_required_reviewers": {"type": "integer", "minimum": 0, "maximum": 20},
         "documentation_map": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}},
         "visual_evidence_mode": {"enum": ["when-applicable", "always", "explanation-allowed"]},
         "branch_prefix": {"type": "string", "minLength": 1},

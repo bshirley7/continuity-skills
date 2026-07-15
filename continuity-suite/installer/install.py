@@ -5,14 +5,22 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
+
+
+SUITE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SUITE_ROOT / "lib"))
+import runtime as runtime_lib  # noqa: E402
 
 
 AGENTS_START = "<!-- continuity:start -->"
@@ -64,8 +72,106 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    runtime_lib.atomic_write_json(path, value)
+
+
+def file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def release_manifest(suite: Path) -> dict[str, Any]:
+    path = suite / "release-manifest.json"
+    if not path.exists():
+        raise RuntimeError("Release manifest is missing; build it before installation")
+    manifest = load_json(path)
+    runtime_lib.validate_schema_file(manifest, suite / "schemas" / "release-manifest.schema.json", "release manifest")
+    if manifest.get("canonical_repository") != "https://github.com/bshirley7/continuity-skills":
+        raise RuntimeError("Release manifest uses an unsupported canonical repository")
+    if (suite / "VERSION").read_text(encoding="utf-8").strip() != manifest.get("version"):
+        raise RuntimeError("VERSION does not match the release manifest")
+    for relative, expected in manifest.get("files", {}).items():
+        source = confined(suite, relative, "release file")
+        if not source.is_file() or file_hash(source) != expected:
+            raise RuntimeError(f"Release file failed integrity verification: {relative}")
+    return manifest
+
+
+def install_file_map(suite: Path, manifest: dict[str, Any]) -> dict[str, Path]:
+    mapped: dict[str, Path] = {}
+    for relative in manifest["files"]:
+        source = suite / relative
+        parts = Path(relative).parts
+        if parts[0] == "skills":
+            target = Path(".agents") / relative
+        elif parts[0] == "references":
+            target = Path(".agents") / "continuity" / relative
+            mapped[str(target)] = source
+            mapped[str(Path(".agents") / relative)] = source
+            continue
+        else:
+            target = Path(".agents") / "continuity" / relative
+        mapped[str(target)] = source
+    mapped[".agents/continuity/VERSION"] = suite / "VERSION"
+    mapped[".agents/continuity/release-manifest.json"] = suite / "release-manifest.json"
+    return dict(sorted(mapped.items()))
+
+
+def installed_manifest(root: Path) -> dict[str, Any]:
+    path = root / ".continuity" / "install-manifest.json"
+    return load_json(path) if path.exists() else {}
+
+
+def managed_drift(root: Path, prior: dict[str, Any]) -> list[dict[str, str]]:
+    drift: list[dict[str, str]] = []
+    for relative, expected in prior.get("installed_files", {}).items():
+        target = confined(root, relative, "installed managed file")
+        if not target.is_file():
+            drift.append({"path": relative, "state": "missing"})
+        elif file_hash(target) != expected:
+            drift.append({"path": relative, "state": "modified"})
+    return drift
+
+
+def create_upgrade_snapshot(root: Path, paths: set[str], prior: dict[str, Any]) -> Path:
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    snapshot = root / ".continuity" / "private" / "upgrades" / stamp
+    if snapshot.exists():
+        stamp = f"{stamp}-{os.getpid()}"
+        snapshot = snapshot.parent / stamp
+    files = snapshot / "files"
+    files.mkdir(parents=True)
+    present: list[str] = []
+    absent: list[str] = []
+    for relative in sorted(paths):
+        target = confined(root, relative, "snapshot file")
+        if target.is_file():
+            destination = files / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(target, destination)
+            present.append(relative)
+        else:
+            absent.append(relative)
+    runtime_lib.atomic_write_json(
+        snapshot / "snapshot.json",
+        {"schema_version": 1, "created_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "present": present, "absent": absent, "prior_manifest": prior},
+    )
+    return snapshot
+
+
+def restore_upgrade_snapshot(root: Path, snapshot: Path) -> dict[str, Any]:
+    metadata_path = snapshot / "snapshot.json"
+    if not metadata_path.is_file():
+        raise RuntimeError(f"Invalid upgrade snapshot: {snapshot}")
+    metadata = load_json(metadata_path)
+    for relative in metadata.get("absent", []):
+        target = confined(root, relative, "restore file")
+        if target.is_file() or target.is_symlink():
+            target.unlink()
+    for relative in metadata.get("present", []):
+        source = confined(snapshot / "files", relative, "snapshot source")
+        target = confined(root, relative, "restore target")
+        runtime_lib.atomic_write_bytes(target, source.read_bytes(), mode=source.stat().st_mode & 0o777)
+    return {"restored": True, "snapshot": str(snapshot), "files": len(metadata.get("present", []))}
 
 
 def load_user_defaults(path: Path) -> dict[str, Any]:
@@ -177,8 +283,8 @@ def render_memory(entry: dict[str, Any], stamp: str, commit: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-root", required=True)
-    parser.add_argument("--project-id", required=True)
-    parser.add_argument("--integration-branch", required=True)
+    parser.add_argument("--project-id")
+    parser.add_argument("--integration-branch")
     parser.add_argument("--seed", help="Optional project-specific memory seed kept outside this distribution")
     parser.add_argument("--configuration", help="Optional JSON answers for guided project behavior configuration")
     parser.add_argument("--interactive", action="store_true", help="Ask guided project behavior questions after installation")
@@ -188,6 +294,8 @@ def main() -> int:
     parser.add_argument("--ignore-user-defaults", action="store_true", help="Do not load or save the user-default profile")
     parser.add_argument("--save-user-defaults", action="store_true", help="Save portable choices from this install as future user defaults")
     parser.add_argument("--enable-execution", action="store_true")
+    parser.add_argument("--overwrite-managed", action="store_true", help="Replace modified suite-managed files after snapshotting them")
+    parser.add_argument("--rollback-snapshot", help="Restore a named snapshot under .continuity/private/upgrades")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -196,15 +304,36 @@ def main() -> int:
     if args.ignore_user_defaults and args.save_user_defaults:
         raise RuntimeError("Cannot save user defaults while --ignore-user-defaults is active")
 
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args.project_id):
-        raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
-
-    suite = Path(__file__).resolve().parents[1]
+    suite = SUITE_ROOT
     root = Path(args.project_root).expanduser().resolve()
     if root == Path("/") or not root.is_dir():
         raise RuntimeError("Refusing unsafe or missing project root")
     git(root, "rev-parse", "--is-inside-work-tree")
+    if args.rollback_snapshot:
+        snapshot_name = Path(args.rollback_snapshot).name
+        if snapshot_name != args.rollback_snapshot:
+            raise RuntimeError("rollback snapshot must be a snapshot name, not a path")
+        result = restore_upgrade_snapshot(root, root / ".continuity" / "private" / "upgrades" / snapshot_name)
+        print(json.dumps(result, indent=2))
+        return 0
+    current_config = load_json(root / ".continuity" / "config.json") if (root / ".continuity" / "config.json").exists() else {}
+    args.project_id = args.project_id or current_config.get("project_id")
+    args.integration_branch = args.integration_branch or current_config.get("integration_branch")
+    if not args.project_id or not args.integration_branch:
+        raise RuntimeError("project-id and integration-branch are required for a new installation")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args.project_id):
+        raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
     git(root, "check-ref-format", "--branch", args.integration_branch)
+    release = release_manifest(suite)
+    file_map = install_file_map(suite, release)
+    prior_install = installed_manifest(root)
+    drift = managed_drift(root, prior_install)
+    if drift and not args.overwrite_managed:
+        rendered = ", ".join(f"{item['path']} ({item['state']})" for item in drift)
+        raise RuntimeError(
+            "Suite-managed file drift detected; update aborted: "
+            f"{rendered}. Review or export the drift, then use --overwrite-managed only when replacement is intended"
+        )
     commit = git(root, "rev-parse", "HEAD")
     seed = load_json(Path(args.seed).expanduser().resolve()) if args.seed else {}
     user_defaults_path = Path(args.user_defaults).expanduser().resolve()
@@ -245,6 +374,11 @@ def main() -> int:
         "require_execution_artifacts": True,
         "require_isolated_worktree": True,
         "refresh_base_on_preflight": True,
+        "require_signed_approvals": True,
+        "approval_allowed_signers": ".continuity/trusted-approvers",
+        "github_required_checks": [],
+        "github_required_reviewers": 1,
+        "require_remote_lease": True,
         "validation_commands": args.validation,
         "security_commands": [],
         "documentation_map": seed.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md", "project-roadmap": "docs/project-roadmap/INDEX.md"}),
@@ -306,6 +440,11 @@ def main() -> int:
         })
         config["behavior_config_path"] = ".continuity/project-behavior.json"
         config["behavior_skill_path"] = ".agents/skills/continuity-local/SKILL.md"
+        config.setdefault("require_signed_approvals", True)
+        config.setdefault("approval_allowed_signers", ".continuity/trusted-approvers")
+        config.setdefault("github_required_checks", [])
+        config.setdefault("github_required_reviewers", 1)
+        config.setdefault("require_remote_lease", True)
     if existing_manifest_path.exists():
         existing_manifest = load_json(existing_manifest_path)
         if existing_manifest.get("project_id") != args.project_id:
@@ -350,37 +489,55 @@ def main() -> int:
 {IGNORE_END}"""
 
     if args.dry_run:
-        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries), "user_defaults": str(user_defaults_path), "user_defaults_loaded": bool(user_defaults)}, indent=2))
+        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries), "user_defaults": str(user_defaults_path), "user_defaults_loaded": bool(user_defaults), "suite_version": release["version"], "managed_files": len(file_map), "managed_drift": drift, "update_required": prior_install.get("version") != release["version"]}, indent=2))
         return 0
 
     skills_target = root / ".agents" / "skills"
-    skills_target.mkdir(parents=True, exist_ok=True)
-    for skill in (suite / "skills").iterdir():
-        if skill.is_dir():
-            shutil.copytree(skill, skills_target / skill.name, dirs_exist_ok=True)
-
     control_target = root / ".agents" / "continuity"
-    (control_target / "bin").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(suite / "bin" / "continuity", control_target / "bin" / "continuity")
-    for name in ("lib", "roadmap-ui", "references", "schemas", "templates", "automation"):
-        shutil.copytree(suite / name, control_target / name, dirs_exist_ok=True)
-    shutil.copytree(suite / "references", root / ".agents" / "references", dirs_exist_ok=True)
-    remove_legacy_install_paths(root)
-    write_json(root / ".continuity" / "config.json", config)
-    write_json(root / ".continuity" / "project.json", project_manifest)
+    managed_support = {"AGENTS.md", ".gitignore", ".continuity/config.json", ".continuity/project.json", ".continuity/install-manifest.json"}
+    prior_paths = set(prior_install.get("installed_files", {}))
+    snapshot = create_upgrade_snapshot(root, set(file_map) | prior_paths | managed_support, prior_install)
+    try:
+        with tempfile.TemporaryDirectory(prefix="continuity-stage-") as temporary:
+            stage = Path(temporary)
+            for relative, source in file_map.items():
+                staged = stage / relative
+                staged.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, staged)
+                if file_hash(staged) != file_hash(source):
+                    raise RuntimeError(f"Staged file failed integrity verification: {relative}")
+            for relative in sorted(prior_paths - set(file_map)):
+                stale = confined(root, relative, "stale managed file")
+                if stale.is_file() or stale.is_symlink():
+                    stale.unlink()
+            for relative in sorted(file_map):
+                staged = stage / relative
+                target = confined(root, relative, "managed install file")
+                runtime_lib.atomic_write_bytes(target, staged.read_bytes(), mode=staged.stat().st_mode & 0o777)
+        remove_legacy_install_paths(root)
+        write_json(root / ".continuity" / "config.json", config)
+        write_json(root / ".continuity" / "project.json", project_manifest)
+    except Exception:
+        restore_upgrade_snapshot(root, snapshot)
+        raise
 
     agents_path = root / "AGENTS.md"
     agents_text = agents_path.read_text(encoding="utf-8") if agents_path.exists() else "# AGENTS.md\n"
-    agents_path.write_text(
+    runtime_lib.atomic_write_text(
+        agents_path,
         replace_managed_block(agents_text, AGENTS_START, AGENTS_END, LEGACY_AGENTS_START, LEGACY_AGENTS_END, agents_block),
-        encoding="utf-8",
+        mode=0o644,
     )
     ignore_path = root / ".gitignore"
     ignore_text = ignore_path.read_text(encoding="utf-8") if ignore_path.exists() else ""
-    ignore_path.write_text(
+    runtime_lib.atomic_write_text(
+        ignore_path,
         replace_managed_block(ignore_text, IGNORE_START, IGNORE_END, LEGACY_IGNORE_START, LEGACY_IGNORE_END, ignore_block),
-        encoding="utf-8",
+        mode=0o644,
     )
+    allowed_signers = root / config["approval_allowed_signers"]
+    if not allowed_signers.exists():
+        runtime_lib.atomic_write_text(allowed_signers, "# Add trusted SSH approvers with `continuity approval trust add`.\n", mode=0o644)
 
     memory_root = confined(root, config["memory_docs"], "memory_docs")
     memory_root.mkdir(parents=True, exist_ok=True)
@@ -388,24 +545,26 @@ def main() -> int:
         target = confined(memory_root, entry["path"], f"seed entry {entry.get('memory_id', 'unknown')}")
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
-            target.write_text(render_memory(entry, stamp, commit), encoding="utf-8")
+            runtime_lib.atomic_write_text(target, render_memory(entry, stamp, commit), mode=0o644)
 
     roadmap_root = confined(root, config["roadmap_docs"], "roadmap_docs")
     roadmap_root.mkdir(parents=True, exist_ok=True)
     roadmap_index = roadmap_root / "INDEX.md"
     if not roadmap_index.exists():
-        roadmap_index.write_text(
+        runtime_lib.atomic_write_text(
+            roadmap_index,
             f"# {args.project_id} Project Roadmap\n\n"
             "This is the committed entry point for sanitized roadmap context. Markdown records under `entities/` are authoritative; ignored SQLite and JSON projections are derived local state.\n\n"
             "No roadmap records have been promoted yet. Create or revise records only through an approved goal with hash-bound `roadmap_ids` and `roadmap_impact`.\n",
-            encoding="utf-8",
+            mode=0o644,
         )
     shared_index = root / ".continuity" / "shared-notes" / "README.md"
     if not shared_index.exists():
         shared_index.parent.mkdir(parents=True, exist_ok=True)
-        shared_index.write_text(
+        runtime_lib.atomic_write_text(
+            shared_index,
             "# Shared note packets\n\nSanitized, explicitly approved packets merged by human-reviewed PR live under `packets/`. Packets are context only and never authorize execution or canonical documentation changes.\n",
-            encoding="utf-8",
+            mode=0o644,
         )
 
     configure_command = [
@@ -429,6 +588,7 @@ def main() -> int:
             configured = subprocess.run([*configure_command, "--answers-file", str(answers_path)], capture_output=True, text=True, check=False)
     if configured.returncode != 0:
         message = configured.stderr.strip() if configured.stderr else "guided project configuration failed"
+        restore_upgrade_snapshot(root, snapshot)
         raise RuntimeError(message)
 
     manifest = load_json(root / ".continuity" / "project.json")
@@ -439,8 +599,23 @@ def main() -> int:
             user_defaults_path,
             {"schema_version": 1, "settings": portable_user_defaults(behavior["settings"])},
         )
+    installation = {
+        "schema_version": 1,
+        "suite": "Continuity",
+        "version": release["version"],
+        "canonical_repository": release["canonical_repository"],
+        "installed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "release_files": release["files"],
+        "installed_files": {relative: file_hash(root / relative) for relative in file_map},
+        "source_commit": release.get("release_commit") or (
+            git(suite, "rev-parse", "HEAD") if (suite / ".git").exists() else f"version:{release['version']}"
+        ),
+    }
+    if prior_install.get("version"):
+        installation["previous_version"] = prior_install["version"]
+    write_json(root / ".continuity" / "install-manifest.json", installation)
     installed_skills = sum(1 for path in skills_target.iterdir() if path.is_dir())
-    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": save_defaults}, indent=2))
+    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": save_defaults, "suite_version": release["version"], "upgrade_snapshot": snapshot.name}, indent=2))
     return 0
 
 

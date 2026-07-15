@@ -113,6 +113,8 @@ The guided configuration establishes:
 
 Installation updates the project agent instructions and installs the project-local skills, CLI, schemas, references, and automation prompts. It does not silently create a provider-level scheduled task.
 
+Production installation and updates use tagged, attested release archives and `.continuity/install-manifest.json`. Follow [Releases, Updates, and Recovery](releases-updates-and-recovery.md); never replace a drifted suite-managed file or private state implicitly. Use [the production pilot](production-pilot.md) for the first off-hours run.
+
 After installation, verify the project:
 
 ```text
@@ -147,6 +149,8 @@ To activate scheduled operation:
 7. Observe at least two successful sweeps and one claimed no-op review or report action.
 8. Confirm that a replayed or expired claim is rejected.
 9. Configure provider-native failure notification where available.
+
+For Codex, generate the provider-native definition with `scheduler adapter codex render`, then require `scheduler adapter codex verify` to pass. Before each scheduled code-changing dispatch, acquire the remote project lease. Review and report actions remain read-only and do not require the execution lease.
 
 When the scheduler provider is `none`, schedule intent is retained but all review, dispatch, and report commands are manual.
 

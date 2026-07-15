@@ -34,9 +34,10 @@ Apply this standard to every Continuity execution before PR handoff and merge re
 - Confirm the goal branch is focused, reviewable, and not the integration branch.
 - Confirm the working tree has no unrelated product changes and no private Continuity state staged for commit.
 - Confirm the tested local head equals the pushed remote branch and draft PR head, and that the PR base equals the configured integration branch.
+- Require every configured GitHub check and every observed hosted check to finish successfully before `review-ready`. Reject conflicting, dirty, behind, or unknown merge state and unresolved changes-requested reviews.
 - Confirm tests, code review, validation, security review, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable.
 - Keep incomplete, failed, or blocked work in a draft PR with visible blockers.
-- Human PR review and merge are separate from automated delivery. Continuity must stop at `review-ready`, must not auto-merge or force-push, and may record `completed` only after human merge evidence.
+- Human PR review and merge are separate from automated delivery. Reviewer threshold and authenticated review decision are enforced when recording the morning `approved` or `merged` disposition. Continuity must stop at `review-ready`, must not auto-merge or force-push, and may record `completed` only after verified human merge evidence.
 
 ## Report standard
 

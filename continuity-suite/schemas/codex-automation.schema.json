@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity Codex automation definition",
+  "type": "object",
+  "required": ["schema_version", "provider", "title", "schedule", "workspace_roots", "prompt", "project_schedules", "registration_command", "human_action_required"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "provider": {"const": "codex"},
+    "title": {"type": "string", "minLength": 1},
+    "schedule": {
+      "type": "object",
+      "required": ["type", "minutes", "timezone", "business_days"],
+      "properties": {
+        "type": {"const": "interval"},
+        "minutes": {"type": "integer", "minimum": 1},
+        "timezone": {"type": "string", "minLength": 1},
+        "business_days": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 6}}
+      },
+      "additionalProperties": false
+    },
+    "workspace_roots": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "prompt": {"type": "string", "minLength": 1},
+    "project_schedules": {"type": "object"},
+    "registration_command": {"type": "string", "minLength": 1},
+    "human_action_required": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

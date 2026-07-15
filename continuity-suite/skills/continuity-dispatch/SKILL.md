@@ -13,7 +13,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 ## Required assurance
 
-- Accept only explicit human approval that names the exact goal and plan version. Never synthesize an approver, approval text, or dispatch instruction.
+- Accept only explicit human approval that names the exact goal and plan version and verifies against the project's trusted SSH approver allowlist. Never synthesize an approver, approval text, signing key, or dispatch instruction.
 - Fail closed on stale hashes, unsupported assurance versions, disabled execution, illegal states, unresolved decision-map items, invalid delivery-slice graphs, unmet dependencies, active locks, expired runtime, missing authentication, or failed preflight evidence.
 - Audit approval, scheduler dispatch, and execution as separate transitions, including actor, timestamp, plan hash, schedule, idempotency key, one-time claim hash, dependency state, project lock, task ID, heartbeat, and outcome.
 
@@ -22,7 +22,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 Require explicit approval naming the goal and plan version. Reject stale, modified, superseded, held, incomplete, or compliance-deficient plans.
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" goal approve <goal-id> --version <version> --approved-by "<human identity>" --authorization-text "<exact user approval naming goal and plan version>"
+.agents/continuity/bin/continuity --project-root "$PWD" goal approve <goal-id> --version <version> --approved-by "<trusted identity>" --authorization-text "<exact user approval naming goal and plan version>" --signing-key <ssh-private-key>
 ```
 
 Approval queues the goal for 10:00 PM America/Chicago by default. It does not start execution unless the user explicitly requests dispatch.
@@ -41,7 +41,7 @@ Use `goal revise <goal-id> --goal-file <revision.json> --author <identity> --sum
 
 Before dispatch, require the project-local manifest to have both `continuity_enabled` and `execution_enabled`, then enforce approval hash, dependencies, integration branch, `AGENTS.md`, remote requirements, compliance evidence, runtime allowance, and the project lock. Allow different projects concurrently but one code-changing goal per project. Manual start never bypasses guardrails.
 
-For scheduled work, require the same-date review to have succeeded and pass the supervisor-issued claim token, exact idempotency key, action, and due goal to `scheduler run-start`. The start must atomically consume that short-lived claim and must fail closed if portfolio active-plus-reserved capacity is exhausted. Send heartbeats and finish the run explicitly. Once execution begins, the assigned task must execute `continuity test run`, use `$continuity-test` to record its source-bound machine evidence before PR handoff, and use `$continuity-merge` before marking merge safety passed. Successful overnight delivery ends at `review-ready`; failed quality or merge-safety reports keep the goal validating, blocked, or partially completed. Only later human merge evidence moves it to `completed`.
+For scheduled dispatch, acquire the project's fast-forward-only remote lease before consuming a supervisor claim. Require the same-date review to have succeeded and pass the supervisor-issued claim token, exact idempotency key, action, and due goal to `scheduler run-start`. The start must verify the matching unexpired lease, atomically consume the short-lived claim, and fail closed if portfolio active-plus-reserved capacity is exhausted. Send heartbeats and finish the run explicitly; run completion releases the lease. Once execution begins, the assigned task must execute `continuity test run`, use `$continuity-test` to record its source-bound machine evidence before PR handoff, and use `$continuity-merge` before marking merge safety passed. Successful overnight delivery ends at `review-ready`; failed quality or merge-safety reports keep the goal validating, blocked, or partially completed. Only later human merge evidence moves it to `completed`.
 
 For `changes-requested`, `blocked`, or `partially-completed`, resume only with explicit human authorization naming the goal and approved plan version. In-scope rework archives the prior attempt, invalidates downstream evidence, and requeues the same goal. Scope expansion requires `goal revise` and fresh approval. Cancellation remains available and audited.
 

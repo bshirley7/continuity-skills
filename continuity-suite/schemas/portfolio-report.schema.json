@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sanitized Continuity portfolio report",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "sanitization_policy", "projects", "totals"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generated_at": {"type": "string", "minLength": 1},
+    "sanitization_policy": {"const": "continuity-portfolio-allowlist-v1"},
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["project_id", "healthy", "decisions_required", "blocked_or_at_risk"],
+        "properties": {
+          "project_id": {"type": "string", "minLength": 1},
+          "healthy": {"type": "boolean"},
+          "goal_state_counts": {"type": "object"},
+          "note_stage_counts": {"type": "object"},
+          "queue_counts": {"type": "object"},
+          "decisions_required": {"type": "integer", "minimum": 0},
+          "blocked_or_at_risk": {"type": "integer", "minimum": 0},
+          "risk_types": {"type": "array", "items": {"type": "string"}},
+          "scheduler_state": {},
+          "no_action_required": {"type": "boolean"},
+          "error_class": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": ["projects", "healthy", "decisions_required", "blocked_or_at_risk"],
+      "properties": {
+        "projects": {"type": "integer", "minimum": 0},
+        "healthy": {"type": "integer", "minimum": 0},
+        "decisions_required": {"type": "integer", "minimum": 0},
+        "blocked_or_at_risk": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

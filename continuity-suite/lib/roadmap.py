@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+import runtime as runtime_lib
+
 
 ROADMAP_KINDS = {"program", "initiative", "release", "milestone", "epic", "story", "bug", "spike", "chore", "sprint"}
 ROADMAP_STATUSES = {"proposed", "inbox", "triaged", "ready", "planned", "active", "in-progress", "validating", "paused", "at-risk", "blocked", "completed", "done", "closed", "cancelled", "historical"}
@@ -32,10 +34,7 @@ class RoadmapError(RuntimeError):
 
 
 def _dump(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    pending = path.with_suffix(path.suffix + ".tmp")
-    pending.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    pending.replace(path)
+    runtime_lib.atomic_write_json(path, value)
 
 
 def _load(path: Path, default: Any = None) -> Any:
@@ -244,23 +243,17 @@ def audit(root: Path, config: dict[str, Any], *, persist: bool = True) -> dict[s
 
 
 def _iter_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    result = []
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            result.append(json.loads(line))
-        except json.JSONDecodeError as exc:
-            raise RoadmapError(f"Invalid JSONL at {path}:{number}") from exc
-    return result
+    try:
+        return [{key: item for key, item in value.items() if key != "_integrity"} for value in runtime_lib.load_jsonl(path)]
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise RoadmapError(str(exc)) from exc
 
 
 def _append_jsonl(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(value, sort_keys=True) + "\n")
+    try:
+        runtime_lib.append_integrity_jsonl(path, value)
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise RoadmapError(str(exc)) from exc
 
 
 def projection(root: Path, config: dict[str, Any]) -> dict[str, Any]:

@@ -7,10 +7,14 @@ import datetime as dt
 import hashlib
 import json
 import re
+import secrets
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+
+import runtime as runtime_lib
 
 
 SECRET_PATTERNS = [
@@ -34,10 +38,7 @@ class SharedNoteError(RuntimeError):
 
 
 def _dump(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    pending = path.with_suffix(path.suffix + ".tmp")
-    pending.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    pending.replace(path)
+    runtime_lib.atomic_write_json(path, value)
 
 
 def _load(path: Path, default: Any = None) -> Any:
@@ -87,6 +88,54 @@ def _clean_metadata(value: Any, label: str, *, optional: bool = False) -> str | 
 
 def _payload(packet: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in packet.items() if key not in {"content_hash", "approval", "publication", "private_path"}}
+
+
+def _approval_bytes(approval: dict[str, Any]) -> bytes:
+    return (json.dumps(approval, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def _allowed_signers(root: Path, config: dict[str, Any]) -> Path:
+    relative = Path(config.get("approval_allowed_signers", ".continuity/trusted-approvers"))
+    resolved = (root / relative).resolve()
+    if relative.is_absolute() or not resolved.is_relative_to(root.resolve()):
+        raise SharedNoteError("approval_allowed_signers escapes the project root")
+    return resolved
+
+
+def _sign_approval(root: Path, config: dict[str, Any], path: Path, approval: dict[str, Any], signing_key: str) -> None:
+    ssh_keygen = shutil.which("ssh-keygen")
+    if not ssh_keygen:
+        raise SharedNoteError("ssh-keygen is required for signed packet approvals")
+    with tempfile.TemporaryDirectory(prefix="continuity-packet-approval-") as temporary:
+        receipt = Path(temporary) / "receipt.json"
+        receipt.write_bytes(_approval_bytes(approval))
+        result = subprocess.run(
+            [ssh_keygen, "-Y", "sign", "-f", str(Path(signing_key).expanduser().resolve()), "-n", "continuity-packet-approval", str(receipt)],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        generated = receipt.with_suffix(receipt.suffix + ".sig")
+        if result.returncode != 0 or not generated.is_file():
+            raise SharedNoteError(f"Unable to sign packet approval: {result.stderr.strip() or result.stdout.strip()}")
+        runtime_lib.atomic_write_bytes(path.parent / "approval.sig", generated.read_bytes())
+    _verify_approval(root, config, path, approval)
+
+
+def _verify_approval(root: Path, config: dict[str, Any], path: Path, approval: dict[str, Any]) -> None:
+    try:
+        runtime_lib.validate_schema_file(approval, Path(__file__).resolve().parents[1] / "schemas" / "packet-approval.schema.json", "packet approval receipt")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise SharedNoteError(str(exc)) from exc
+    ssh_keygen = shutil.which("ssh-keygen")
+    signature = path.parent / "approval.sig"
+    allowed = _allowed_signers(root, config)
+    if not ssh_keygen or not signature.is_file() or not allowed.is_file():
+        raise SharedNoteError("Signed packet approval is missing its signature or trusted approver allowlist")
+    result = subprocess.run(
+        [ssh_keygen, "-Y", "verify", "-f", str(allowed), "-I", str(approval.get("approved_by", "")), "-n", "continuity-packet-approval", "-s", str(signature)],
+        input=_approval_bytes(approval), capture_output=True, timeout=60, check=False,
+    )
+    if result.returncode != 0:
+        raise SharedNoteError("Packet approval signature is invalid or untrusted")
 
 
 def _packet_path(root: Path, config: dict[str, Any], packet_id: str) -> Path:
@@ -165,7 +214,15 @@ def approve(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
     current_hash = _canonical_hash(_payload(packet))
     if current_hash != packet.get("content_hash"):
         raise SharedNoteError("Packet content hash is invalid")
-    packet["approval"] = {"approved_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "approved_by": args.approved_by, "authorization_text": args.authorization_text, "content_hash": current_hash, "version": args.version, "target_project_id": packet["target_project_id"]}
+    packet["approval"] = {"approved_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "approved_by": args.approved_by, "authorization_text": args.authorization_text, "content_hash": current_hash, "version": args.version, "target_project_id": packet["target_project_id"], "packet_id": packet["packet_id"], "nonce": secrets.token_hex(16), "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned"}
+    try:
+        runtime_lib.validate_schema_file(packet["approval"], Path(__file__).resolve().parents[1] / "schemas" / "packet-approval.schema.json", "packet approval receipt")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise SharedNoteError(str(exc)) from exc
+    if config.get("require_signed_approvals", False) and not args.signing_key:
+        raise SharedNoteError("This project requires --signing-key for shared packet approval")
+    if args.signing_key:
+        _sign_approval(root, config, path, packet["approval"], args.signing_key)
     _dump(path, packet)
     return packet["approval"]
 
@@ -196,6 +253,8 @@ def publish(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
     approval = packet.get("approval")
     if not approval or approval.get("content_hash") != packet.get("content_hash") or approval.get("version") != packet.get("version"):
         raise SharedNoteError("Publish requires an exact current packet approval")
+    if config.get("require_signed_approvals", False) or approval.get("signature_format") == "openssh-sshsig-v1":
+        _verify_approval(root, config, packet_path, approval)
     if packet.get("target_project_id") != config["project_id"] or packet.get("execution_authorized") is not False:
         raise SharedNoteError("Packet target or authorization boundary is invalid")
     rendered = render_packet(packet)
@@ -249,6 +308,13 @@ def status(root: Path, config: dict[str, Any], packet_id: str) -> dict[str, Any]
         and approval.get("content_hash") == packet.get("content_hash") == current_hash
         and approval.get("version") == packet.get("version")
     )
+    blockers = []
+    if approval_current and (config.get("require_signed_approvals", False) or approval.get("signature_format") == "openssh-sshsig-v1"):
+        try:
+            _verify_approval(root, config, _packet_path(root, config, packet_id), approval)
+        except SharedNoteError as exc:
+            approval_current = False
+            blockers.append(str(exc))
     publication = packet.get("publication") if isinstance(packet.get("publication"), dict) else None
     publication_current = bool(
         publication
@@ -278,7 +344,6 @@ def status(root: Path, config: dict[str, Any], packet_id: str) -> dict[str, Any]
         state = "merged"
     if imports:
         state = "imported"
-    blockers = []
     if packet.get("content_hash") != current_hash:
         blockers.append("packet content hash is stale")
     return {
@@ -404,8 +469,7 @@ def import_packets(root: Path, config: dict[str, Any], _args: argparse.Namespace
         known.add(content_hash)
     inbox = _private(root, config) / "queues" / "shared-notes.jsonl"
     inbox.parent.mkdir(parents=True, exist_ok=True)
-    with inbox.open("a", encoding="utf-8") as handle:
-        for record in imported:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+    for record in imported:
+        runtime_lib.append_integrity_jsonl(inbox, record)
     _dump(ledger_path, {"hashes": sorted(known)})
     return {"imported": imported, "deduplicated": len(known) - len(imported), "rejected": rejected, "execution_authorized": False}
