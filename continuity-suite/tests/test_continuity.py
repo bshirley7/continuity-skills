@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -1974,12 +1976,25 @@ unresolved_gaps: []
                 ],
             },
         )
-        revised = json.loads(
-            self.cli(
-                "goal", "revise", goal["goal_id"], "--goal-file", str(revision_path),
-                "--author", "fixture-user", "--summary", "Clarify the approved scope",
-            ).stdout
-        )
+        cli_module = runpy.run_path(str(CLI))
+        revision_times = iter(["2026-07-16T10:00:00-05:00", "2026-07-16T10:00:01-05:00"])
+        cli_module["iso_now"] = lambda _config: next(revision_times)
+        previous_root = os.environ.get("CONTINUITY_PROJECT_ROOT")
+        os.environ["CONTINUITY_PROJECT_ROOT"] = str(self.root)
+        try:
+            revised = cli_module["goal_revise"](
+                argparse.Namespace(
+                    goal_id=goal["goal_id"],
+                    goal_file=str(revision_path),
+                    author="fixture-user",
+                    summary="Clarify the approved scope",
+                )
+            )
+        finally:
+            if previous_root is None:
+                os.environ.pop("CONTINUITY_PROJECT_ROOT", None)
+            else:
+                os.environ["CONTINUITY_PROJECT_ROOT"] = previous_root
         self.assertEqual(revised["plan_version"], 2)
         lifecycle = json.loads(self.cli("workflow", "status", "--note-id", note_id).stdout)["note"]["lifecycle"]
         goal_events = [event for event in lifecycle["timeline"] if event.get("goal_id") == goal["goal_id"]]

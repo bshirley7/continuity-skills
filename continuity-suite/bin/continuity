@@ -1518,11 +1518,12 @@ def update_note_goal_links(
     remove: bool = False,
     dispositions: list[dict[str, Any]] | None = None,
     plan_version: int | None = None,
+    stamp: str | None = None,
 ) -> list[dict[str, Any]]:
     targets = {item_id for item_id in item_ids if item_id}
     if not targets:
         return []
-    stamp = iso_now(config)
+    stamp = stamp or iso_now(config)
     disposition_map = {
         str(item["note_id"]): item
         for item in (dispositions or [])
@@ -3285,7 +3286,15 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     json_dump(directory / "compliance.json", compliance)
     removed_note_ids = set(previous_source_note_ids) - set(goal.get("source_note_ids", []))
     if removed_note_ids:
-        update_note_goal_links(root, config, removed_note_ids, goal["goal_id"], None, remove=True)
+        update_note_goal_links(
+            root,
+            config,
+            removed_note_ids,
+            goal["goal_id"],
+            None,
+            remove=True,
+            stamp=goal["updated_at"],
+        )
     update_note_goal_links(
         root,
         config,
@@ -3294,6 +3303,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "awaiting-feedback",
         dispositions=goal["note_dispositions"],
         plan_version=goal["plan_version"],
+        stamp=goal["updated_at"],
     )
     append_jsonl(
         private_path(root, config) / "events.jsonl",
