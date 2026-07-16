@@ -22,6 +22,14 @@ For a note, the envelope also includes `lifecycle`: the backward-compatible summ
 
 Do not reconstruct missing machine state from prose. A missing identifier, stale record, unresolved decision, or contradictory source is a blocker or return path, not permission to improvise.
 
+## Manual sequential mode
+
+Manual Continuity work runs through `$continuity-workflow`. After a task skill records its canonical output, control returns to the orchestrator, which immediately re-reads subject-specific workflow status and applies `next_skill`. A routine skill boundary, status-only handoff, failed test, stale evidence, or recoverable tool error does not end the workflow. Route failures to the owning remediation skill, preserve evidence, rerun the applicable gate, and continue.
+
+Pause only when `authorization.human_required` or the selected action's `human_required` field is true. Present the exact allowed approval actions without choosing or paraphrasing one. Fixed safety gates still fail closed: they may prevent stage advancement, but the orchestrator must not bypass them in order to satisfy the continuation rule. If no safe non-human action is currently available, keep the workflow pending at the same stage with a durable diagnostic rather than declaring completion.
+
+After the human records an allowed action, resume from fresh machine state and skip already completed stages. The durable lifecycle records, not process memory, determine the resumption point.
+
 ## Stage matrix
 
 | Current skill | Required inputs | Required output | Normal next skill | Return or stop path |

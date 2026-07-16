@@ -30,6 +30,7 @@
         "security_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "github_required_checks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
         "github_required_reviewers": {"type": "integer", "minimum": 0, "maximum": 20},
+        "github_cli_merge_enabled": {"type": "boolean"},
         "documentation_map": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}},
         "visual_evidence_mode": {"enum": ["when-applicable", "always", "explanation-allowed"]},
         "branch_prefix": {"type": "string", "minLength": 1},

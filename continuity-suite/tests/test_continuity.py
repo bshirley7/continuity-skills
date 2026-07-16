@@ -820,6 +820,124 @@ unresolved_gaps: []
         self.assertIn("Latest test report", project_report)
         self.assertIn("Latest merge assessment", project_report)
 
+    def test_human_authorized_github_cli_merge_is_sha_bound_and_opt_in(self) -> None:
+        config_path = self.root / ".continuity" / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config.update(
+            {
+                "github_required_checks": ["Continuity CI"],
+                "github_required_reviewers": 1,
+                "github_cli_merge_enabled": True,
+            }
+        )
+        self.write_json(config_path, config)
+        self.git("add", ".continuity/config.json")
+        self.git("commit", "-m", "enable guarded cli merge fixture")
+
+        goal = self.create_goal("Guarded CLI merge")
+        payload = self.root / "goal-Guarded-CLI-merge.json"
+        if payload.exists():
+            payload.unlink()
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        self.git("checkout", "-b", "continuity/guarded-cli-merge")
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config.update({"require_pr": True, "require_pr_auth": True})
+        self.write_json(config_path, config)
+        self.git("add", ".continuity/config.json")
+        self.git("commit", "-m", "require authenticated PR fixture")
+        pr_url = "https://github.com/example/project/pull/42"
+        self.cli("run", "update", goal["goal_id"], "--state", "running", "--branch", "continuity/guarded-cli-merge")
+        self.cli("run", "update", goal["goal_id"], "--state", "validating", "--pr-url", pr_url)
+        machine = json.loads(
+            self.cli(
+                "test", "run", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/guarded-cli-merge"
+            ).stdout
+        )
+        self.assertEqual(machine["status"], "passed")
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "CLI merge evidence passed",
+            "--worktree", str(self.root), "--branch", "continuity/guarded-cli-merge",
+            "--code-review-evidence", "complete diff reviewed", "--security-evidence", "merge boundary reviewed", "--update-gates",
+        )
+        head_sha = self.git("rev-parse", "HEAD")
+        merge_commit = "b" * 40
+        fake_bin = self.root.parent / "guarded-merge-bin"
+        fake_bin.mkdir()
+        state_path = self.root.parent / "guarded-merge-state"
+        state_path.write_text("open\n", encoding="utf-8")
+        log_path = self.root.parent / "guarded-merge-gh.log"
+        fake_gh = fake_bin / "gh"
+        fake_gh.write_text(
+            "#!/bin/sh\n"
+            f"printf '%s\\n' \"$*\" >> '{log_path}'\n"
+            "if [ \"$1\" = \"api\" ] && [ \"$2\" = \"user\" ]; then\n"
+            "  printf '%s\\n' 'fixture-user'\n"
+            "  exit 0\n"
+            "fi\n"
+            "if [ \"$1\" = \"pr\" ] && [ \"$2\" = \"merge\" ]; then\n"
+            f"  printf '%s\\n' 'merged' > '{state_path}'\n"
+            "  exit 0\n"
+            "fi\n"
+            "if [ \"$1\" = \"pr\" ] && [ \"$2\" = \"view\" ]; then\n"
+            f"  if [ \"$(cat '{state_path}')\" = \"merged\" ]; then\n"
+            f"    printf '%s\\n' '{{\"state\":\"MERGED\",\"headRefName\":\"continuity/guarded-cli-merge\",\"baseRefName\":\"main\",\"headRefOid\":\"{head_sha}\",\"isDraft\":false,\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":\"APPROVED\",\"reviews\":[{{\"state\":\"APPROVED\",\"author\":{{\"login\":\"fixture-reviewer\"}}}}],\"statusCheckRollup\":[{{\"name\":\"Continuity CI\",\"conclusion\":\"SUCCESS\"}}],\"mergeCommit\":{{\"oid\":\"{merge_commit}\"}},\"mergedBy\":{{\"login\":\"fixture-user\"}}}}'\n"
+            "  else\n"
+            f"    printf '%s\\n' '{{\"state\":\"OPEN\",\"headRefName\":\"continuity/guarded-cli-merge\",\"baseRefName\":\"main\",\"headRefOid\":\"{head_sha}\",\"isDraft\":false,\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":\"APPROVED\",\"reviews\":[{{\"state\":\"APPROVED\",\"author\":{{\"login\":\"fixture-reviewer\"}}}}],\"statusCheckRollup\":[{{\"name\":\"Continuity CI\",\"conclusion\":\"SUCCESS\"}}],\"mergeCommit\":null,\"mergedBy\":null}}'\n"
+            "  fi\n"
+            "  exit 0\n"
+            "fi\n"
+            "exit 1\n",
+            encoding="utf-8",
+        )
+        fake_gh.chmod(0o755)
+        original_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
+        try:
+            assessment = json.loads(
+                self.cli(
+                    "merge", "assess", goal["goal_id"], "--worktree", str(self.root),
+                    "--branch", "continuity/guarded-cli-merge", "--pr-url", pr_url,
+                    "--evidence", "authenticated PR and branch reviewed", "--update-gate",
+                ).stdout
+            )
+            self.assertEqual(assessment["status"], "passed", assessment)
+            for stage in ("implementation", "documentation", "memory-impact", "roadmap-impact", "final-alignment"):
+                self.cli("goal", "gate", goal["goal_id"], stage, "--status", "passed", "--evidence", f"fixture:{stage}")
+            self.cli(
+                "run", "update", goal["goal_id"], "--state", "review-ready",
+                "--summary", "Ready for exact CLI merge", "--pr-url", pr_url,
+            )
+            workflow = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
+            self.assertIn("execute-cli-merge", {action["disposition"] for action in workflow["allowed_actions"]})
+            authorization_text = f"Merge {goal['goal_id']} PR {pr_url} at {head_sha} using squash"
+            self.cli(
+                "merge", "execute", goal["goal_id"], "--pr-url", pr_url, "--head-sha", head_sha,
+                "--merge-method", "squash", "--authorized-by", "fixture-user",
+                "--authorization-text", "Merge something else", expected=2,
+            )
+            self.assertEqual(state_path.read_text(encoding="utf-8").strip(), "open")
+            merged = json.loads(
+                self.cli(
+                    "merge", "execute", goal["goal_id"], "--pr-url", pr_url, "--head-sha", head_sha,
+                    "--merge-method", "squash", "--authorized-by", "fixture-user",
+                    "--authorization-text", authorization_text,
+                ).stdout
+            )
+        finally:
+            os.environ["PATH"] = original_path
+        self.assertEqual(merged["status"], "merged")
+        self.assertEqual(merged["merge_commit"], merge_commit)
+        goal_dir = self.root / ".continuity" / "private" / "goals" / goal["goal_id"]
+        authorization = json.loads((goal_dir / "merge-authorization.json").read_text(encoding="utf-8"))
+        self.assertEqual(authorization["head_sha"], head_sha)
+        self.assertEqual(authorization["authorization_text"], authorization_text)
+        self.assertEqual(json.loads((goal_dir / "goal.json").read_text(encoding="utf-8"))["state"], "completed")
+        gh_log = log_path.read_text(encoding="utf-8")
+        self.assertIn(f"--match-head-commit {head_sha}", gh_log)
+        self.assertNotIn("--admin", gh_log)
+        self.assertNotIn("--auto", gh_log)
+
     def test_workflow_status_and_changes_requested_reopen_same_goal(self) -> None:
         capture = self.create_capture()
         note_id = capture["items"][3]["item_id"]
@@ -1443,7 +1561,12 @@ unresolved_gaps: []
             )
             candidates = [record for record in records if record.get("status") in {"due", "retry"}]
             self.assertTrue(candidates, records)
-            return candidates[0]
+            candidate = candidates[0]
+            claims_path = self.root / ".continuity" / "private" / "scheduler-due-actions.json"
+            claims = json.loads(claims_path.read_text(encoding="utf-8"))
+            claims[candidate["claim_token"]]["expires_at"] = "2999-01-01T00:00:00-06:00"
+            self.write_json(claims_path, claims)
+            return candidate
 
         review_claim = reserve("review", "2026-07-15T20:30:00-05:00", "sweep-review-15")
         run = json.loads(
@@ -2353,17 +2476,79 @@ class InstallerTest(unittest.TestCase):
             subprocess.run(command, check=True, capture_output=True, text=True)
             config_after_first_install = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             self.assertFalse(config_after_first_install["require_signed_approvals"])
+            self.assertFalse(config_after_first_install["github_cli_merge_enabled"])
             self.assertFalse((root / ".continuity" / "trusted-approvers").exists())
+            legacy_behavior_path = root / ".continuity" / "project-behavior.json"
+            legacy_behavior = json.loads(legacy_behavior_path.read_text(encoding="utf-8"))
+            legacy_behavior["settings"].pop("github_cli_merge_enabled", None)
+            legacy_behavior_path.write_text(json.dumps(legacy_behavior, indent=2) + "\n", encoding="utf-8")
+            config_after_first_install.pop("github_cli_merge_enabled", None)
+            custom_skill = root / ".agents" / "skills" / "project-custom-skill" / "SKILL.md"
+            custom_skill.parent.mkdir(parents=True)
+            custom_skill.write_text("---\nname: project-custom-skill\ndescription: user-owned fixture\n---\n", encoding="utf-8")
+            installed_skill_names = {path.name for path in (root / ".agents" / "skills").iterdir() if path.is_dir()}
+            shutil.rmtree(root / ".agents" / "skills" / "continuity-workflow")
+            for command_root in (root / ".claude" / "commands", root / ".cursor" / "commands"):
+                (command_root / "continuity-workflow.md").unlink(missing_ok=True)
+            install_manifest_path = root / ".continuity" / "install-manifest.json"
+            legacy_install_manifest = json.loads(install_manifest_path.read_text(encoding="utf-8"))
+            for field in ("release_files", "installed_files"):
+                legacy_install_manifest[field] = {
+                    path: digest
+                    for path, digest in legacy_install_manifest[field].items()
+                    if "continuity-workflow" not in path
+                }
+            install_manifest_path.write_text(json.dumps(legacy_install_manifest, indent=2) + "\n", encoding="utf-8")
             config_after_first_install["require_signed_approvals"] = True
             (root / ".continuity" / "config.json").write_text(json.dumps(config_after_first_install, indent=2) + "\n", encoding="utf-8")
             (root / ".continuity" / "trusted-approvers").write_text(
                 "# Add trusted SSH approvers with `continuity approval trust add`.\n",
                 encoding="utf-8",
             )
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            preview_result = subprocess.run(
+                [
+                    "python3", str(CLI), "--json", "portfolio", "update",
+                    "--root", str(root.parent), "--source", str(SUITE),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            preview_payload = json.loads(preview_result.stdout)
+            self.assertEqual(preview_payload["counts"]["planned"], 1, preview_payload)
+            self.assertFalse((root / ".agents" / "skills" / "continuity-workflow").exists())
+            update_result = subprocess.run(
+                [
+                    "python3", str(CLI), "--json", "portfolio", "update",
+                    "--root", str(root.parent), "--source", str(SUITE), "--apply",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            update_payload = json.loads(update_result.stdout)
+            self.assertEqual(update_payload["status"], "completed")
+            self.assertEqual(update_payload["counts"]["updated"], 1)
+            self.assertEqual(update_payload["projects"][0]["project_id"], "sample-project")
+            self.assertTrue(update_payload["projects"][0]["after"]["healthy"])
+            upgraded_config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+            upgraded_behavior = json.loads(legacy_behavior_path.read_text(encoding="utf-8"))
+            self.assertFalse(upgraded_config["github_cli_merge_enabled"])
+            self.assertFalse(upgraded_behavior["settings"]["github_cli_merge_enabled"])
+            self.assertTrue(installed_skill_names.issubset({path.name for path in (root / ".agents" / "skills").iterdir() if path.is_dir()}))
+            self.assertTrue(custom_skill.is_file())
+            self.assertTrue((root / ".agents" / "skills" / "continuity-workflow" / "SKILL.md").is_file())
+            upgraded_doctor = subprocess.run(
+                [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertTrue(json.loads(upgraded_doctor.stdout)["healthy"])
             agents = (root / "AGENTS.md").read_text(encoding="utf-8")
             self.assertEqual(agents.count("continuity:start"), 1)
             self.assertNotIn("project-continuity:start", agents)
+            self.assertIn("Run manual end-to-end work through `$continuity-workflow`", agents)
             self.assertTrue((root / ".agents" / "skills" / "continuity" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-local" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-memory" / "SKILL.md").exists())
@@ -2380,10 +2565,12 @@ class InstallerTest(unittest.TestCase):
             for command_root in (root / ".claude" / "commands", root / ".cursor" / "commands"):
                 self.assertTrue((command_root / "continuity-capture.md").exists())
                 self.assertTrue((command_root / "continuity-triage.md").exists())
+                self.assertTrue((command_root / "continuity-workflow.md").exists())
                 command_text = (command_root / "continuity-capture.md").read_text(encoding="utf-8")
                 self.assertIn("Slash command: `/continuity-capture`", command_text)
                 self.assertIn(".agents/skills/continuity-capture/SKILL.md", command_text)
                 self.assertIn(".agents/skills/continuity-local/SKILL.md", command_text)
+                self.assertIn("pause only at an explicit `human_required` approval boundary", command_text)
             self.assertTrue((root / ".agents" / "references" / "development-assurance-standard.md").exists())
             self.assertTrue((root / ".agents" / "references" / "workflow-handoffs.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-plan" / "references" / "goal-planning-lenses.md").exists())

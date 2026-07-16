@@ -74,6 +74,7 @@ For a repeatable local configuration, save an answers file like this:
   "security_commands": [],
   "github_required_checks": [],
   "github_required_reviewers": 0,
+  "github_cli_merge_enabled": false,
   "agent_surfaces": {
     "primary": "codex",
     "enabled": ["codex", "claude-code", "cursor"]
@@ -207,6 +208,8 @@ Use `workflow status` before and after each skill:
 ```
 
 Treat this output as the handoff. It lists the current stage, blockers, next skill, human requirements, and exact allowed command templates. Do not infer approval, dispatch, merge, or completion from conversation context alone.
+
+For manual work, start with `$continuity-workflow` or `/continuity-workflow`. It follows the machine-selected skill sequence continuously, including remediation and reruns, and pauses only for an action explicitly marked `human_required`. Resume the same workflow after recording the approval; completed stages are discovered from canonical state and are not repeated.
 
 ## 8. Turn On Execution Later
 

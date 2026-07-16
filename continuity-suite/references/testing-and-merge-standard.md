@@ -37,7 +37,7 @@ Apply this standard to every Continuity execution before PR handoff and merge re
 - Require every configured GitHub check and every observed hosted check to finish successfully before `review-ready`. Reject conflicting, dirty, behind, or unknown merge state and unresolved changes-requested reviews.
 - Confirm tests, code review, validation, security review, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable.
 - Keep incomplete, failed, or blocked work in a draft PR with visible blockers.
-- Human PR review and merge are separate from automated delivery. Reviewer threshold and authenticated review decision are enforced when recording the morning `approved` or `merged` disposition. Continuity must stop at `review-ready`, must not auto-merge or force-push, and may record `completed` only after verified human merge evidence.
+- Human PR review and merge are separate from automated delivery. Reviewer threshold and authenticated review decision are enforced when recording the morning `approved` or `merged` disposition. Continuity must stop unattended work at `review-ready`, must not auto-merge, use administrator bypass, or force-push, and may record `completed` only after verified human merge evidence. An explicitly opted-in interactive `merge execute` may perform the exact SHA-bound direct merge after fresh human authorization and all GitHub gates pass.
 
 ## Report standard
 

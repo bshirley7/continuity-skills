@@ -1,4 +1,4 @@
 interface:
   display_name: "Continuity Merge"
-  short_description: "Assess PR readiness and record human merge review"
+  short_description: "Assess PR readiness and execute or record an exact human-authorized merge"
   default_prompt: "Use $continuity-merge to assess merge safety and record human PR review evidence."

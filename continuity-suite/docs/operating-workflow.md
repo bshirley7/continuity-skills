@@ -39,7 +39,7 @@ Off-hours execution is limited to an exact approved goal, an approved plan versi
 
 ### Human authority at consequential boundaries
 
-A human must approve the plan. Continuity may prepare and test a draft pull request, but it does not auto-merge, force-push, infer approval, or mark business completion from agent judgment.
+A human must approve the plan. Continuity may prepare and test a draft pull request, but it does not auto-merge, use administrator bypass, force-push, infer approval, or mark business completion from agent judgment. A project may separately opt in to an interactive, exact SHA-bound direct GitHub CLI merge after every gate passes.
 
 ### Private by default
 
@@ -501,6 +501,8 @@ The record includes:
 - For notes: summary status, exact stage, `stage_entered_at`, routing, planning disposition, per-goal tracks, relationship candidates, and timeline
 
 An allowed action may still name required human values or a live check such as preflight or pull-request verification. Workflow status does not itself authorize a human-required action.
+
+Manual requests use `$continuity-workflow` as the orchestrator. It invokes the current `next_skill`, records that skill's canonical output, refreshes subject-specific status, and continues immediately. Individual gate failures can stop stage advancement, but they return to the owning remediation skill instead of ending the overall run. Only a handoff or action marked `human_required: true` pauses the sequence. After the human records an allowed action, rerun `$continuity-workflow` with the same subject and it resumes from durable state.
 
 The installed `workflow-handoffs.md` reference explains the machine-derived information envelope each skill passes forward: exact subject IDs, cited inputs, durable outputs, decisions, evidence, blockers, authorization state, next skill, and machine-listed actions. Use the narrowest subject selector so unrelated queue priority cannot redirect the handoff. Each task skill also has a local applied reference covering its boundary cases and examples. These documents interpret the workflow record; the CLI remains authoritative when prose and machine state disagree.
 

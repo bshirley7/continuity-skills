@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Workflow"
+  short_description: "Run Continuity skills sequentially until approval"
+  default_prompt: "Use $continuity-workflow to run this manual request through the machine-selected Continuity skill sequence. Continue through non-human handoffs and remediation, and pause only at an explicit approval boundary."

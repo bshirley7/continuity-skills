@@ -103,6 +103,7 @@ Validation commands
 Security commands
 Required GitHub check names
 Required approving GitHub reviewer count
+Exact human-authorized GitHub CLI merge enabled
 Documentation map
 Visual evidence mode
 Goal branch prefix
@@ -149,6 +150,7 @@ Use `--configuration` for repeatable setup:
   "security_commands": [],
   "github_required_checks": ["typecheck", "test"],
   "github_required_reviewers": 1,
+  "github_cli_merge_enabled": false,
   "documentation_map": {
     "project-memory": "docs/project-memory/INDEX.md",
     "project-roadmap": "docs/project-roadmap/INDEX.md",
@@ -238,6 +240,8 @@ Do not hand-edit `.agents/skills/continuity-local/SKILL.md`. It is generated fro
 
 Choose one primary surface and one or more enabled surfaces. Teams may enable several surfaces in the same repository. Slash-command shims are installed for every project so `/continuity-capture`, `/continuity-triage`, and the other Continuity workflows can route back to the canonical `.agents/skills/` contracts without duplicating skill source. Do not edit generated adapter copies directly; update the canonical skill or project behavior and rerun configuration. `project doctor` reports missing adapters.
 
+For multiple enrolled repositories, use the controller's `portfolio update --root <workspace>` preview and add `--apply` only after reviewing every project result. The portfolio command preserves per-project snapshots, configuration migration, custom-skill ownership, doctor checks, and automatic rollback rather than copying files across repositories directly.
+
 ## Daily Routine
 
 Use these skill calls in normal work:
@@ -301,6 +305,8 @@ Use the machine handoff before and after any skill:
 Use `--capture-id` immediately after capture to receive all per-item handoffs. Use the narrowest available selector after that. Project-wide status prioritizes the current queues for general routing; it does not override the selected subject's stage or next skill.
 
 It reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. It never crosses an approval or review boundary automatically.
+
+For a manual end-to-end run, invoke `$continuity-workflow` or `/continuity-workflow` with the request and any known subject ID. The runner re-reads this handoff after every task skill and immediately continues through `next_skill`. A failed test, stale artifact, merge-safety finding, or recoverable tool error routes into remediation and does not end the workflow. The run pauses only when workflow status explicitly sets `human_required: true`; after the recorded approval, invoke the same workflow again and it resumes from canonical state without replaying completed stages.
 
 ## Note Lifecycle
 
@@ -510,6 +516,19 @@ After overnight delivery passes every gate, record `review-ready` and stop. Afte
 
 Add `--signing-key <ssh-private-key>` only when `.continuity/config.json` has `require_signed_approvals: true`.
 
+For projects that explicitly set `github_cli_merge_enabled: true`, a human can approve the merge inside an interactive Codex task and let Continuity perform the direct GitHub CLI action. First read the exact PR URL and head SHA from `workflow status --goal-id <goal-id>`, choose a merge method, and supply authorization text matching the command exactly:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" merge execute <goal-id> \
+  --pr-url <pull-request-url> \
+  --head-sha <full-40-character-head-sha> \
+  --merge-method squash \
+  --authorized-by <authenticated-github-login> \
+  --authorization-text "Merge <goal-id> PR <pull-request-url> at <full-40-character-head-sha> using squash"
+```
+
+This command uses `gh pr merge --squash --match-head-commit <sha>` only after rechecking the current merge assessment, non-draft PR, base, exact head, required checks, reviewer threshold, immediately mergeable state, and authenticated GitHub identity. It never uses `--admin`, `--auto`, or force-push. The setting defaults to `false`, and scheduled or unattended work still stops at `review-ready`. Signed-approval projects also require `--signing-key` and verify the project trust anchor before the merge.
+
 `approved` leaves the goal `review-ready`. `changes-requested` archives the attempt, creates a fresh execution manifest, and invalidates downstream gates. `approved` and `merged` require current source-bound evidence. `changes-requested` and `closed` remain recordable when that evidence is stale because they do not authorize delivery; their review records retain the stale-evidence reasons. If no PR disposition can be recorded, `goal cancel <goal-id> --actor <identity> --reason <reason>` provides an audited review-ready closure fallback. In-scope rework resumes only with explicit authorization naming the same goal and approved plan version:
 
 ```text
@@ -518,7 +537,7 @@ Add `--signing-key <ssh-private-key>` only when `.continuity/config.json` has `r
 
 Add `--signing-key <ssh-private-key>` here as well when signed approvals are enabled.
 
-The disposition and resume receipts bind the goal, approved plan hash/version, execution attempt, actor, evidence or authorization text, timestamp, and nonce. Signed-approval projects additionally bind the SSH signature and anchored trusted approver. Expanded scope uses `goal revise` and fresh approval. `merged` moves the goal to `completed`; `closed` cancels it. Continuity must not auto-merge, force-push, or treat an agent's judgment as human review.
+The merge authorization, disposition, and resume receipts bind the goal, approved plan hash/version, execution attempt, actor, PR and head where applicable, evidence or authorization text, timestamp, and nonce. Signed-approval projects additionally bind the SSH signature and anchored trusted approver. Expanded scope uses `goal revise` and fresh approval. `merged` moves the goal to `completed`; `closed` cancels it. Continuity must not auto-merge, use administrator bypass, force-push, or treat an agent's judgment as human review.
 
 ## Verify An Install
 

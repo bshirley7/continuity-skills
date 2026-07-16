@@ -444,6 +444,7 @@ def main() -> int:
         "approval_allowed_signers": ".continuity/trusted-approvers",
         "github_required_checks": [],
         "github_required_reviewers": 1,
+        "github_cli_merge_enabled": False,
         "require_remote_lease": True,
         "require_verified_backups": True,
         "require_audit_checkpoints": True,
@@ -520,6 +521,7 @@ def main() -> int:
         )
         config.setdefault("github_required_checks", [])
         config.setdefault("github_required_reviewers", 1)
+        config.setdefault("github_cli_merge_enabled", False)
         config.setdefault("require_remote_lease", True)
         config.setdefault("require_verified_backups", True)
         config.setdefault("require_audit_checkpoints", True)
@@ -539,6 +541,7 @@ def main() -> int:
 - Integration branch: use the value in `.continuity/project.json`; project configuration may change it through the guided workflow.
 - Enforce development assurance standard version `2` from `.agents/references/development-assurance-standard.md`; stop when configuration, evidence, or an installed skill is incompatible.
 - Start configuration and workflow routing with `$continuity`; apply the generated `$continuity-local` behavior skill with every task-specific continuity skill.
+- Run manual end-to-end work through `$continuity-workflow`. Return to it after every task-skill handoff, continue through all machine-selected non-human skills and remediation loops, and pause only when workflow status explicitly declares a human-required approval.
 - Use `continuity workflow status [--goal-id <goal-id>]` before and after every task skill as the machine handoff for stage, blockers, next skill, human requirements, and allowed commands.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/continuity/bin/continuity`.
 - Treat `AGENTS.md` and `.agents/` as the canonical cross-surface contract. Use the generated Claude Code, Cursor, or Windsurf adapters selected in `.continuity/project.json`; do not maintain divergent copies by hand.
@@ -557,7 +560,7 @@ def main() -> int:
 - Require the external audit checkpoint and immediately verified encrypted backup configured by the project before enabling production execution. Backup, restore, and checkpoint creation require quiescent project state.
 - Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
 - Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts before committing and running the final source-bound `$continuity-test`. Push that exact tested commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
-- Record human review as `approved`, `changes-requested`, `merged`, or `closed` with explicit evidence. In signed-approval projects, those dispositions and in-scope resume authorizations must carry trusted SSH-signed receipts. Expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. Continuity never auto-merges or force-pushes.
+- Record human review as `approved`, `changes-requested`, `merged`, or `closed` with explicit evidence. In signed-approval projects, those dispositions and in-scope resume authorizations must carry trusted SSH-signed receipts. Expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. When `github_cli_merge_enabled` is explicitly enabled, an interactive human may authorize the exact PR, head SHA, and merge method for a guarded `gh pr merge`; Continuity never auto-merges, uses admin bypass, or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.
 {AGENTS_END}"""

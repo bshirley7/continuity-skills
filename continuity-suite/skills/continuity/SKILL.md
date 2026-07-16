@@ -42,7 +42,7 @@ The answers file may override only:
 - `max_runtime_minutes` up to six hours
 - `memory_stale_after_days`
 - `validation_commands` and `security_commands`
-- `github_required_checks` and `github_required_reviewers` for hosted readiness and morning disposition policy
+- `github_required_checks`, `github_required_reviewers`, and default-off `github_cli_merge_enabled` for hosted readiness, disposition policy, and exact interactive merge authorization
 - `documentation_map`
 - `visual_evidence_mode`
 - `branch_prefix`
@@ -62,6 +62,7 @@ Use `suite update --check`, `suite update --dry-run`, and an explicit tagged upd
 
 ## Routing
 
+- Manual end-to-end request or resumed manual run: `$continuity-workflow`
 - Notes or conversation capture: `$continuity-capture`
 - Classification and queues: `$continuity-triage`
 - Searchable memory: `$continuity-memory`
@@ -82,4 +83,4 @@ Roadmap IDs and structured roadmap impact are approval-hash inputs. Raw notes st
 
 ## Machine handoff
 
-Run `continuity workflow status` before routing and again after the selected skill finishes. Use the exact subject selector when available. For notes, treat `lifecycle.current_stage`, `stage_entered_at`, planning disposition, goal tracks, relationship candidates, and timeline as the authoritative progress view. Skills mutate their own canonical records; they must not maintain a second note status or cross a human-required action automatically.
+Run `continuity workflow status` before routing and again after the selected skill finishes. Use the exact subject selector when available. For a manual request, route through `$continuity-workflow`; it must continue across machine-selected non-human skill handoffs and remediation loops without yielding, and pause only when the handoff or selected action explicitly requires a human approval. For notes, treat `lifecycle.current_stage`, `stage_entered_at`, planning disposition, goal tracks, relationship candidates, and timeline as the authoritative progress view. Skills mutate their own canonical records; they must not maintain a second note status or cross a human-required action automatically.

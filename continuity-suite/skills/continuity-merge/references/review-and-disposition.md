@@ -23,6 +23,8 @@ Confirm the tested local head equals the remote branch and PR head, the PR base 
 
 Do not infer disposition from comments, check status, approval rules, or the existence of a merge commit. Record facts supplied or verified through the authorized workflow. In a signed-approval project, every disposition requires a trusted SSH receipt bound to the current plan and attempt; the signing key is selected and controlled by the human, never the agent.
 
+An opted-in `merge execute` remains a human disposition path, not automated delivery. The authorization must name the exact goal, PR URL, full assessed head SHA, merge method, authenticated GitHub identity, and exact authorization text. Reject drafts, stale heads, pending or failed checks, unmet reviewer thresholds, non-mergeable state, identity mismatch, `--admin`, `--auto`, and force-push. Persist authorization before the external action and verify GitHub's merge result before marking the goal completed.
+
 ## Rework examples
 
 In scope: adjust the approved label order. Archive the attempt, invalidate downstream evidence, obtain explicit resume authorization, and retest. In a signed-approval project, record that authorization with the human's trusted SSH key.

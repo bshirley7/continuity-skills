@@ -64,6 +64,8 @@ All project-local CLI operations serialize through the project-state lock. Backu
 
 Use `continuity workflow status` as the machine handoff contract. Select an exact capture, note, memory, roadmap, packet, or goal whenever an ID is available; project-wide status is routing context only. Skills must inspect the applicable status on entry and report it on exit. Its stage, subject IDs, inputs, outputs, decisions, blockers, evidence, next skill, human requirements, allowed command templates, and blocked actions do not authorize human-required actions by themselves. An action may appear in `allowed_actions` only when its current state and evidence prerequisites pass; unavailable actions belong in `blocked_actions` with exact reasons.
 
+Manual end-to-end work uses `$continuity-workflow` as a sequential orchestrator. A task skill stopping on a failed gate stops that unsafe stage transition, not the overall workflow: return control to the orchestrator, record the failure, route to the machine-selected remediation skill, and continue after fresh evidence passes. Do not yield between routine skill handoffs or for status alone. Pause only when the current handoff or selected action explicitly sets `human_required: true`, and resume from canonical state after the human records an allowed approval. If a non-human fault has no safe immediate repair, keep the workflow pending at the same stage with a durable diagnostic; never bypass the gate or report false completion.
+
 ## Planning artifacts
 
 - Use an evidence triage brief to verify action candidates against current behavior, existing implementations, and prior decisions.
@@ -112,7 +114,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 - Require successful configured hosted checks before review-ready, then verify authenticated GitHub identity, review decision, and reviewer threshold before recording approval or merge.
 - Use parameterized APIs and subprocess argument arrays. Never construct shell commands from captured note text.
 - Never log, commit, or place secrets or raw private captures in PR documentation.
-- Never force-push, auto-merge, disable safeguards, or use destructive Git recovery without explicit authorization.
+- Never force-push, use administrator bypass, auto-merge, disable safeguards, or use destructive Git recovery. An opted-in direct GitHub CLI merge is allowed only from `review-ready`, after an interactive human authorization is bound to the exact goal, PR URL, full assessed head SHA, merge method, and authenticated GitHub identity; recheck every hosted and reviewer gate immediately before the side effect and verify the merge afterward.
 - Stop on an unapproved product decision, failed required gate, stale approval, unmet dependency, or merge conflict.
 - Stop on production data changes, credentials, billing, infrastructure mutation, external publishing, destructive actions, or any other restricted side effect unless the exact action has fresh human approval in the current goal.
 
@@ -134,4 +136,4 @@ Local similarity may recommend related nonterminal goals. A recommendation never
 
 ## Completion evidence
 
-Every goal PR must include request alignment, implementation report, validation and security results, memory impact, roadmap impact, and evidence. A review-ready PR requires all local, hosted, and agent review gates to pass. Human review and merge remain user actions. Portfolio output must use the deterministic sanitized CLI allowlist rather than agent-authored aggregation.
+Every goal PR must include request alignment, implementation report, validation and security results, memory impact, roadmap impact, and evidence. A review-ready PR requires all local, hosted, and agent review gates to pass. Human review and merge remain user actions; an explicitly enabled interactive CLI merge is a user action only when its exact authorization is persisted and GitHub verifies the same head and actor. Portfolio output must use the deterministic sanitized CLI allowlist rather than agent-authored aggregation.

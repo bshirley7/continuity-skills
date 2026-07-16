@@ -49,6 +49,8 @@ python3 /path/to/continuity-skills/installer/install.py \
 
 The installer records the release and every suite-managed file in `.continuity/install-manifest.json`. It snapshots files before applying them and prints the snapshot identifier. It does not enable execution unless `--enable-execution` is supplied.
 
+New releases may add suite-owned skills or opt-in project settings. The installer preserves prior settings and user-owned skills, installs newly added suite skills, regenerates the project-local behavior skill and enabled surface adapters, and applies a safe default for each new setting. This adds `$continuity-workflow` and its slash-command adapters to existing projects without replacing custom skills. For the GitHub CLI merge capability, existing projects receive `github_cli_merge_enabled: false`; no project begins merging through Codex merely because it updated.
+
 ## Ownership boundaries
 
 An update may replace only release-managed copies under `.agents/continuity/`, `.agents/references/`, and `.agents/skills/continuity-*`, plus the managed blocks in `AGENTS.md` and `.gitignore`.
@@ -62,6 +64,7 @@ The following remain project-owned and are merged or regenerated from project se
 - `docs/project-memory/`
 - `docs/project-roadmap/`
 - project validation, security, schedule, and agent-surface choices
+- user-owned skills whose names are outside the suite-owned `continuity-*` namespace
 
 Ignored private state under `.continuity/private/` and `.continuity-portfolio/` is never a release input and is never deleted by an update.
 
@@ -78,6 +81,15 @@ Run all update commands from the target project:
 
 The default update path downloads the tagged archive through `gh`, verifies its GitHub build-provenance attestation, verifies every release-manifest hash, stages the installation, snapshots the current managed files, and applies the release.
 
+After an update that adds project settings, confirm that existing skills were preserved and the generated behavior contract is current:
+
+```bash
+.agents/continuity/bin/continuity --project-root "$PWD" --json project doctor
+.agents/continuity/bin/continuity --project-root "$PWD" --json project recommendations
+```
+
+Opt in to GitHub CLI merge only through a reviewed configuration answers file containing `"github_cli_merge_enabled": true`. Re-run doctor afterward. This setting does not change the required GitHub checks or reviewer count and does not enable administrator bypass or auto-merge.
+
 For a reviewed local source clone or an offline transfer:
 
 ```bash
@@ -87,6 +99,29 @@ For a reviewed local source clone or an offline transfer:
 ```
 
 Local-source mode verifies the release manifest but cannot substitute for GitHub artifact attestation. Use it only for development or a separately authenticated offline release.
+
+## Update all enrolled projects
+
+Use the controller-level portfolio command when multiple enrolled projects should receive the same release. It discovers projects below each supplied workspace root and delegates to every project's installed `suite update` transaction.
+
+Preview the current controller release across all projects:
+
+```bash
+python3 /path/to/continuity-suite/bin/continuity --json portfolio update \
+  --root /path/to/workspace
+```
+
+Apply it only after reviewing the per-project preview:
+
+```bash
+python3 /path/to/continuity-suite/bin/continuity --json portfolio update \
+  --root /path/to/workspace \
+  --apply
+```
+
+For a tagged production release, use `--version <tag> --apply`. Repeat `--root` for separate workspace trees or `--project-id` to restrict the rollout.
+
+The command is dry-run by default. It validates the release, isolates every project, records the installed project doctor's pre-update health, performs the existing snapshot-backed update, runs doctor again, and automatically invokes that project's rollback snapshot if post-update health fails. Pre-update behavior-hash drift may be repaired by a compatible configuration migration, but post-update doctor must be healthy. A blocked or rolled-back project produces a partial portfolio result without changing another project's result. Managed-file drift still requires the separately reviewed `--overwrite-managed` flag.
 
 ## Managed-file drift
 

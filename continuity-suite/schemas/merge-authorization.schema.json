@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity GitHub CLI merge authorization",
+  "type": "object",
+  "required": ["schema_version", "project_id", "goal_id", "plan_version", "plan_hash", "execution_attempt", "authorized_at", "authorized_by", "authorization_text", "pr_url", "head_sha", "merge_method", "nonce", "signature_format"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "goal_id": {"type": "string", "minLength": 1},
+    "plan_version": {"type": "integer", "minimum": 1},
+    "plan_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "execution_attempt": {"type": "integer", "minimum": 1},
+    "authorized_at": {"type": "string", "minLength": 1},
+    "authorized_by": {"type": "string", "minLength": 1},
+    "authorization_text": {"type": "string", "minLength": 1},
+    "pr_url": {"type": "string", "pattern": "^https://github\\.com/[^/]+/[^/]+/pull/[0-9]+$"},
+    "head_sha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "merge_method": {"enum": ["merge", "squash", "rebase"]},
+    "nonce": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+    "signature_format": {"enum": ["openssh-sshsig-v1", "legacy-unsigned"]},
+    "trust_anchor": {"type": "object"}
+  },
+  "additionalProperties": false
+}

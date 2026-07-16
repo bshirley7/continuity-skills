@@ -5,7 +5,7 @@ description: Assess PR readiness, merge safety, base freshness, human-review evi
 
 # Continuity Merge
 
-Use this skill for merge-safety and human-review records. Continuity may assess readiness and record evidence, but it must not auto-merge, force-push, or infer human approval.
+Use this skill for merge-safety, exact interactive merge authorization, and human-review records. Continuity must not auto-merge, use administrator bypass, force-push, or infer human approval. A project may opt in to a direct GitHub CLI merge only when a human supplies the exact PR-, head-SHA-, and method-bound authorization in an interactive agent session.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the testing and merge standard](../../references/testing-and-merge-standard.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, the approved plan, latest test report, and compliance ledger before acting.
 
@@ -18,7 +18,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 - Confirm the branch is goal-focused, not the integration branch, and free of unrelated or private-state changes.
 - Keep incomplete or blocked work in a draft PR with explicit blockers.
 - Require successful configured GitHub checks before `review-ready`. Treat authenticated reviewer count and review decision as morning disposition gates, not as prerequisites for preparing the human handoff.
-- Require authenticated GitHub human review and merge evidence. Never trust a caller-supplied identity by itself, auto-merge, force-push, or mark human review complete from agent judgment alone.
+- Require authenticated GitHub human review and merge evidence. Never trust a caller-supplied identity by itself, auto-merge, use `--admin`, force-push, or mark human review complete from agent judgment alone.
 
 ## Workflow
 
@@ -37,7 +37,19 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 4. If the assessment fails, keep the PR draft or blocked and route unrelated follow-up into notes, roadmap, or a later goal.
 5. If the assessment passes, hand off for human PR review. Completion may be review-ready, but merge remains a human action.
-6. After human review, record exactly one disposition: `approved` leaves the goal `review-ready`; `changes-requested` archives the attempt, starts a fresh execution manifest, invalidates downstream evidence, and opens controlled rework; `merged` moves it to `completed`; `closed` cancels it. Fresh source-bound evidence is mandatory for `approved` and `merged`. Record `changes-requested` or `closed` even when delivery evidence is stale, preserving the stale-evidence reasons because neither disposition authorizes delivery.
+6. When `.continuity/config.json` has `github_cli_merge_enabled: true`, an interactive human may authorize and execute the exact assessed PR head without opening GitHub. Copy the full head SHA and use authorization text that exactly matches the command contract:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" merge execute <goal-id> \
+  --pr-url <pull-request-url> \
+  --head-sha <full-40-character-head-sha> \
+  --merge-method <merge|squash|rebase> \
+  --authorized-by <authenticated-github-login> \
+  --authorization-text "Merge <goal-id> PR <pull-request-url> at <full-40-character-head-sha> using <merge-method>"
+```
+
+The command rechecks the open non-draft PR, base, exact head, immediately mergeable state, hosted checks, reviewer threshold, and authenticated `gh` identity; invokes `gh pr merge` with `--match-head-commit`; then verifies and records the merged disposition. It never passes `--admin` or `--auto`. Add `--signing-key` when signed approvals are required. If GitHub accepts the command but leaves the PR pending, keep the goal `review-ready` and record the merge only after GitHub reports it.
+7. After separate human review or merge, record exactly one disposition: `approved` leaves the goal `review-ready`; `changes-requested` archives the attempt, starts a fresh execution manifest, invalidates downstream evidence, and opens controlled rework; `merged` moves it to `completed`; `closed` cancels it. Fresh source-bound evidence is mandatory for `approved` and `merged`. Record `changes-requested` or `closed` even when delivery evidence is stale, preserving the stale-evidence reasons because neither disposition authorizes delivery.
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" merge record-human <goal-id> \
@@ -52,4 +64,4 @@ Record only facts that happened. In a signed-approval project, add `--signing-ke
 
 ## Handoff
 
-Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Human review and merge evidence determine the linked note's dated human-review, remediation, cancellation, or completion stage; do not write it independently. Follow only `allowed_actions`; report blocked actions without attempting them. Scope changes return to planning, and no disposition authorizes auto-merge.
+Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Human review and merge evidence determine the linked note's dated human-review, remediation, cancellation, or completion stage; do not write it independently. Follow only `allowed_actions`; report blocked actions without attempting them. Scope changes return to planning, and no disposition authorizes auto-merge or administrator bypass.

@@ -34,14 +34,17 @@ python3 continuity-suite/installer/install.py \
 ```
 
 After installation, day-to-day use happens inside the project with `$continuity-*` skills and the installed project-local CLI at `.agents/continuity/bin/continuity`.
-The installer also creates `.claude/commands/continuity-*.md` and `.cursor/commands/continuity-*.md` shims so compatible hosts can invoke the same workflows as slash commands such as `/continuity-capture` and `/continuity-triage`.
+The installer also creates `.claude/commands/continuity-*.md` and `.cursor/commands/continuity-*.md` shims so compatible hosts can invoke the same workflows as slash commands such as `/continuity-workflow`, `/continuity-capture`, and `/continuity-triage`.
 
 The guided installer can save portable user defaults in `~/.continuity/defaults.json`, then generate isolated project controls for Codex, Claude Code, Cursor, Windsurf, or another `AGENTS.md`-aware surface. One provider-owned portfolio supervisor calculates due actions, refreshes an expiring heartbeat, atomically reserves capacity, and issues one-time project claims. Repository-specific commands, instructions, notes, approvals, roadmap state, and execution enrollment never move into the user-default profile.
+
+To update every enrolled project beneath one or more workspace roots, run `continuity portfolio update --root <workspace>` for a doctor-first dry-run, then repeat with `--apply`. Projects update independently, receive a post-update doctor check, and automatically roll back if that check becomes unhealthy.
 
 ## Daily Skill Calls
 
 ```text
 $continuity           configure, audit, and route the suite
+$continuity-workflow  run a manual request sequentially until approval or completion
 $continuity-capture   capture one callout or a batch of meeting notes and feedback
 $continuity-triage    classify notes into context, questions, decisions, roadmap, or plans
 $continuity-memory    search or promote trusted project memory
@@ -50,15 +53,15 @@ $continuity-plan      create approval-ready plans
 $continuity-dispatch  approve, queue, or manually start approved goals
 $continuity-execute   execute one approved dispatched goal
 $continuity-test      run and record quality, validation, and security gates
-$continuity-merge     assess PR readiness and record human merge review
+$continuity-merge     assess PR readiness and execute or record an exact human-authorized merge
 $continuity-report    summarize status, blockers, memory, roadmap, and evidence
 $continuity-share     prepare sanitized note packets for explicit sharing
 ```
 
-Every skill uses `continuity workflow status` as its shared machine handoff. Exact note status includes a derived dated lifecycle, planning disposition, separate goal tracks, and non-authorizing relationship candidates. Plans classify every source note as current-goal, later, context-only, or duplicate; only current-goal notes adopt execution state. Unqualified status remains project routing context only.
+Every skill uses `continuity workflow status` as its shared machine handoff. Manual work is owned by `$continuity-workflow`, which continues through every machine-selected non-human skill and remediation loop without returning a status-only handoff to the user. It pauses only when the machine handoff declares an explicit human-required approval, then resumes from canonical state after that approval is recorded. Exact note status includes a derived dated lifecycle, planning disposition, separate goal tracks, and non-authorizing relationship candidates. Plans classify every source note as current-goal, later, context-only, or duplicate; only current-goal notes adopt execution state. Unqualified status remains project routing context only.
 
 Shared references explain that machine contract, while each task skill includes a compact applied guide with decision boundaries, examples, anti-examples, quality checks, and stage-specific handoff requirements. The references improve judgment but never override CLI state or create authorization.
 
 Notes and feedback are captured first with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata. Private search, similarity, and pattern review can use those captures immediately; only reviewed and promoted records enter canonical trusted project memory.
 
-Overnight code delivery stops at `review-ready`. The morning report surfaces per-goal evidence and exact human dispositions: approve, request changes, record merge, or close. In-scope requested changes reopen the same goal through explicit authorization; expanded scope requires revision and fresh approval. Only recorded human merge evidence marks a goal `completed`.
+Overnight code delivery stops at `review-ready`. The morning report surfaces per-goal evidence and exact human dispositions: approve, request changes, merge, or close. An opt-in interactive command can bind human authorization to the exact PR, full head SHA, merge method, and authenticated GitHub identity, then perform and verify a direct `gh` merge without administrator bypass or auto-merge. In-scope requested changes reopen the same goal through explicit authorization; expanded scope requires revision and fresh approval. Only recorded human merge evidence marks a goal `completed`.

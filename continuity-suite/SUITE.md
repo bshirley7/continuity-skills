@@ -36,7 +36,7 @@ The installed control directory also includes a provider-neutral portfolio super
 
 See `automation/provider-adapter-contract.md` for the provider conformance requirements and proof checklist.
 
-Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
+Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, installs `$continuity-workflow` as the manual sequential runner, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
 ## Installation
 
@@ -58,7 +58,7 @@ The main skill guides the user through recommended defaults and explicit overrid
 .agents/continuity/bin/continuity --project-root <repository> --json project configure --answers-file <answers.json> --actor <identity>
 ```
 
-Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, business days, sweep/retry/stale timing, portfolio concurrency, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, next-business-day human review, restricted side effects, no force-push, and no auto-merge remain fixed.
+Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, GitHub checks and reviewer threshold, opt-in exact human-authorized GitHub CLI merge, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, business days, sweep/retry/stale timing, portfolio concurrency, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, human merge authority, restricted side effects, no administrator bypass, no force-push, and no auto-merge remain fixed.
 
 Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. External tracker publication remains a separate explicit-human-approval action.
 
@@ -96,6 +96,10 @@ continuity memory similar "<situation>" --scope all
 
 continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id> | --roadmap-id <id> | --packet-id <id> | --goal-id <id>]
 
+continuity portfolio update --root <workspace>
+continuity portfolio update --root <workspace> --apply
+continuity portfolio update --root <workspace> --version <tag> --apply
+
 continuity test plan [goal-id]
 continuity test run <goal-id> --worktree <path> --branch <branch>
 continuity test record <goal-id> --status <passed|failed> --summary <text> --update-gates
@@ -106,11 +110,13 @@ continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --
 
 Use `continuity suite update --check`, a dry run, and an explicit tagged update for existing installations. Release artifacts are attested and hash-manifested; modified suite-managed files fail closed, each update creates a rollback snapshot, and project-owned configuration and ignored private state remain outside release replacement. See [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md). Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 
+`continuity portfolio update` applies that same project-local transaction across discovered projects. It is a dry-run unless `--apply` is present, runs doctor before and after each project, isolates unhealthy projects, and restores the project snapshot automatically when post-update doctor fails.
+
 ## Typical cycle
 
 The steps below are the concise reference. [Operating Workflow](docs/operating-workflow.md) explains authority, scheduler activation, commands, failure handling, rework, and morning review in detail.
 
-1. Invoke `$continuity` for setup or routing and apply `$continuity-local` with the selected task skill.
+1. Invoke `$continuity` for setup or routing. For manual end-to-end work, invoke `$continuity-workflow`; it applies `$continuity-local` with each machine-selected task skill, continues through non-human handoffs and remediation, and pauses only at explicit approval boundaries.
 2. Invoke `$continuity-capture` in the active project conversation.
 3. Invoke `$continuity-triage`, or allow the nightly review to classify and route items. Refine occurrence dimensions and review recurring patterns when useful.
 4. Use `$continuity-memory` and `$continuity-roadmap` to retrieve cited context briefs. Private similarity may inform triage, but only canonical promoted memory is trusted planning evidence. Use the local read-only roadmap sidecar when visual transport helps.
@@ -147,7 +153,7 @@ flowchart LR
 
 ## Responsible development compliance
 
-Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks `review-ready` until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. A passing validation record requires machine-run evidence that still matches the current source fingerprint, approved plan hash, behavior hash, and configured commands. `$continuity-test` and `$continuity-merge` make these gates explicit. Only recorded human merge evidence moves the goal to `completed`.
+Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks `review-ready` until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. A passing validation record requires machine-run evidence that still matches the current source fingerprint, approved plan hash, behavior hash, and configured commands. `$continuity-test` and `$continuity-merge` make these gates explicit. Only recorded human merge evidence moves the goal to `completed`; an opted-in direct CLI merge still requires an exact interactive human authorization and GitHub verification.
 
 The planning patterns were adapted from lessons in Matt Pocock's MIT-licensed `triage`, `wayfinder`, and `to-tickets` skills. See `references/planning-patterns.md` for the reviewed upstream commit, provenance, and continuity-specific safety changes. The upstream skills are not bundled or invoked.
 

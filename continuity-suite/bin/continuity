@@ -102,7 +102,7 @@ MERGE_SAFETY_CHECKS = [
     "goal branch is focused and not the integration branch",
     "working tree is clean or intentionally left draft-blocked",
     "latest test report and required compliance gates are passed or explicitly not applicable",
-    "PR is human-reviewed and never auto-merged by Continuity",
+    "PR is human-reviewed and merged only by an exact interactive human authorization or separately verified GitHub action",
 ]
 NOTE_KINDS = {
     "context",
@@ -851,7 +851,10 @@ def render_surface_command(skill_name: str) -> str:
         f"`.agents/skills/{skill_name}/SKILL.md` and the project-specific "
         "`.agents/skills/continuity-local/SKILL.md`. Use the project-local CLI at "
         "`.agents/continuity/bin/continuity`. Preserve all approval, testing, security, "
-        "merge-safety, and human-review gates. Treat any trailing user text as task context.\n"
+        "merge-safety, and human-review gates. Treat any trailing user text as task context. "
+        "For manual work, return control to `.agents/skills/continuity-workflow/SKILL.md` after "
+        "the selected skill records its handoff; continue through machine-selected non-human "
+        "skills and remediation, and pause only at an explicit `human_required` approval boundary.\n"
     )
 
 
@@ -1004,6 +1007,7 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "memory_stale_after_days": settings["memory_stale_after_days"],
         "validation_commands": settings["validation_commands"],
         "security_commands": settings["security_commands"],
+        "github_cli_merge_enabled": settings["github_cli_merge_enabled"],
         "documentation_map": settings["documentation_map"],
         "visual_evidence_mode": settings["visual_evidence_mode"],
         "branch_prefix": settings["branch_prefix"],
@@ -2939,6 +2943,30 @@ def disposition_receipt_bytes(record: dict[str, Any]) -> bytes:
     return (runtime_lib.canonical_json(disposition_receipt_payload(record)) + "\n").encode()
 
 
+def merge_authorization_payload(record: dict[str, Any]) -> dict[str, Any]:
+    keys = (
+        "schema_version",
+        "project_id",
+        "goal_id",
+        "plan_version",
+        "plan_hash",
+        "execution_attempt",
+        "authorized_at",
+        "authorized_by",
+        "authorization_text",
+        "pr_url",
+        "head_sha",
+        "merge_method",
+        "nonce",
+        "signature_format",
+    )
+    return {key: record[key] for key in keys if key in record}
+
+
+def merge_authorization_bytes(record: dict[str, Any]) -> bytes:
+    return (runtime_lib.canonical_json(merge_authorization_payload(record)) + "\n").encode()
+
+
 def resume_receipt_payload(record: dict[str, Any]) -> dict[str, Any]:
     keys = (
         "schema_version",
@@ -3791,6 +3819,135 @@ def portfolio_goals(args: argparse.Namespace) -> list[dict[str, Any]]:
     return results
 
 
+def project_cli_json(project_root: Path, *arguments: str, timeout: int = 360) -> dict[str, Any]:
+    cli = project_root / ".agents" / "continuity" / "bin" / "continuity"
+    if not cli.is_file():
+        raise ContinuityError(f"Project-local Continuity CLI is missing: {cli}")
+    command = [sys.executable, str(cli), "--project-root", str(project_root), "--json", *arguments]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ContinuityError(f"Project command failed for {project_root}: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        raise ContinuityError(f"Project command failed for {project_root}: {detail}")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ContinuityError(f"Project command returned invalid JSON for {project_root}") from exc
+    if not isinstance(payload, dict):
+        raise ContinuityError(f"Project command returned an invalid record for {project_root}")
+    return payload
+
+
+def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
+    workspace_roots = requested_workspace_roots(args.root or [])
+    projects = discover_projects(workspace_roots)
+    requested_ids = set(args.project_id or [])
+    discovered_ids = {str(project.get("project_id")) for project in projects if project.get("project_id")}
+    missing_ids = sorted(requested_ids - discovered_ids)
+    if missing_ids:
+        raise ContinuityError(f"Requested projects were not discovered: {missing_ids}")
+    if requested_ids:
+        projects = [project for project in projects if project.get("project_id") in requested_ids]
+
+    source: Path | None = None
+    if not args.version:
+        source = Path(args.source).expanduser().resolve() if args.source else CONTROL_ROOT.resolve()
+        source_release_status(source)
+
+    results: list[dict[str, Any]] = []
+    for project in projects:
+        project_root = Path(project["path"]).expanduser().resolve()
+        record: dict[str, Any] = {
+            "project_id": project.get("project_id"),
+            "path": str(project_root),
+            "apply": bool(args.apply),
+        }
+        if not project.get("healthy"):
+            results.append({**record, "status": "blocked", "problems": list(project.get("problems", []))})
+            continue
+        try:
+            before_doctor = project_cli_json(project_root, "project", "doctor")
+        except ContinuityError as exc:
+            results.append({**record, "status": "blocked", "problems": [str(exc)]})
+            continue
+        record["before"] = {
+            "healthy": bool(before_doctor.get("healthy")),
+            "suite_version": before_doctor.get("suite_installation", {}).get("version"),
+            "problems": list(before_doctor.get("problems", [])),
+        }
+
+        update_arguments = ["suite", "update"]
+        if source is not None:
+            update_arguments.extend(["--source", str(source)])
+        elif args.version:
+            update_arguments.extend(["--version", args.version])
+        if not args.apply:
+            update_arguments.append("--dry-run")
+        if args.overwrite_managed:
+            update_arguments.append("--overwrite-managed")
+        try:
+            update = project_cli_json(project_root, *update_arguments)
+        except ContinuityError as exc:
+            results.append({**record, "status": "failed", "problems": [str(exc)]})
+            continue
+        record["update"] = update
+        if not args.apply:
+            results.append({**record, "status": "planned", "healthy": True})
+            continue
+
+        snapshot = update.get("installer", {}).get("upgrade_snapshot")
+        try:
+            after_doctor = project_cli_json(project_root, "project", "doctor")
+        except ContinuityError as exc:
+            after_doctor = {"healthy": False, "problems": [str(exc)]}
+        record["after"] = {
+            "healthy": bool(after_doctor.get("healthy")),
+            "suite_version": after_doctor.get("suite_installation", {}).get("version"),
+        }
+        if after_doctor.get("healthy"):
+            results.append({**record, "status": "updated", "healthy": True})
+            continue
+
+        rollback_problems = list(after_doctor.get("problems", []))
+        if not isinstance(snapshot, str) or not snapshot:
+            rollback_problems.append("update did not return a rollback snapshot")
+            results.append({**record, "status": "failed", "healthy": False, "problems": rollback_problems})
+            continue
+        try:
+            rollback = project_cli_json(project_root, "suite", "rollback", "--snapshot", snapshot)
+            restored_doctor = project_cli_json(project_root, "project", "doctor")
+            results.append(
+                {
+                    **record,
+                    "status": "rolled-back",
+                    "healthy": bool(restored_doctor.get("healthy")),
+                    "problems": rollback_problems,
+                    "rollback": rollback,
+                }
+            )
+        except ContinuityError as exc:
+            rollback_problems.append(str(exc))
+            results.append({**record, "status": "rollback-failed", "healthy": False, "problems": rollback_problems})
+
+    counts = {
+        status: sum(1 for result in results if result.get("status") == status)
+        for status in ("planned", "updated", "blocked", "failed", "rolled-back", "rollback-failed")
+    }
+    unsuccessful = counts["blocked"] + counts["failed"] + counts["rolled-back"] + counts["rollback-failed"]
+    return {
+        "schema_version": 1,
+        "apply": bool(args.apply),
+        "source": str(source) if source is not None else None,
+        "version": args.version,
+        "workspace_roots": [str(root) for root in workspace_roots],
+        "status": "completed" if not unsuccessful else "partial",
+        "counts": counts,
+        "projects": results,
+    }
+
+
 def portfolio_sanitized_report(args: argparse.Namespace) -> dict[str, Any]:
     roots = requested_workspace_roots(args.root or [])
     projects = discover_projects(roots)
@@ -3985,6 +4142,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
         settings.setdefault("roadmap", dict(DEFAULT_ROADMAP_SETTINGS))
         settings.setdefault("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))
+        settings.setdefault("github_cli_merge_enabled", False)
         settings["scheduler"] = normalize_scheduler(settings.get("scheduler"))
         documentation_map = dict(settings.get("documentation_map", {}))
         documentation_map.setdefault("project-roadmap", "docs/project-roadmap/INDEX.md")
@@ -4005,6 +4163,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         "security_commands": config.get("security_commands", []),
         "github_required_checks": config.get("github_required_checks", []),
         "github_required_reviewers": config.get("github_required_reviewers", 1),
+        "github_cli_merge_enabled": bool(config.get("github_cli_merge_enabled", False)),
         "documentation_map": {**config.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}), "project-roadmap": "docs/project-roadmap/INDEX.md"},
         "visual_evidence_mode": config.get("visual_evidence_mode", "when-applicable"),
         "branch_prefix": config.get("branch_prefix", "continuity"),
@@ -4030,6 +4189,7 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
         "security_commands": current.get("security_commands", []),
         "github_required_checks": current.get("github_required_checks", []),
         "github_required_reviewers": current.get("github_required_reviewers", 1),
+        "github_cli_merge_enabled": False,
         "documentation_map": current.get("documentation_map", {"project-memory": "docs/project-memory/INDEX.md"}),
         "visual_evidence_mode": "when-applicable",
         "branch_prefix": "continuity",
@@ -4061,6 +4221,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "security_commands",
             "github_required_checks",
             "github_required_reviewers",
+            "github_cli_merge_enabled",
             "documentation_map",
             "visual_evidence_mode",
             "branch_prefix",
@@ -4097,6 +4258,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "scheduler": "Choose where persistent scheduled actions will be registered. Configuration records intent; registration remains an explicit user action.",
             "github_required_checks": "Name repository-hosted checks that must succeed before review-ready; all observed checks must also finish successfully.",
             "github_required_reviewers": "Require this many unique authenticated approving reviewers before recording approved or merged.",
+            "github_cli_merge_enabled": "Keep false unless interactive human authorization in Codex should be allowed to execute an exact SHA-bound GitHub CLI merge.",
         },
     }
 
@@ -4114,6 +4276,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         "security_commands",
         "github_required_checks",
         "github_required_reviewers",
+        "github_cli_merge_enabled",
         "documentation_map",
         "visual_evidence_mode",
         "branch_prefix",
@@ -4128,6 +4291,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
     if unknown:
         raise ContinuityError(f"Unsupported project behavior settings: {unknown}")
     settings = dict(value)
+    settings.setdefault("github_cli_merge_enabled", False)
     branch = str(settings.get("integration_branch", ""))
     if git_result(root, "check-ref-format", "--branch", branch).returncode != 0:
         raise ContinuityError("integration_branch is not a valid Git branch name")
@@ -4159,6 +4323,8 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
     reviewers = settings.get("github_required_reviewers")
     if isinstance(reviewers, bool) or not isinstance(reviewers, int) or not 0 <= reviewers <= 20:
         raise ContinuityError("github_required_reviewers must be between 0 and 20")
+    if not isinstance(settings.get("github_cli_merge_enabled"), bool):
+        raise ContinuityError("github_cli_merge_enabled must be true or false")
     documentation_map = settings.get("documentation_map")
     if not isinstance(documentation_map, dict) or not documentation_map:
         raise ContinuityError("documentation_map must be a non-empty JSON object")
@@ -4287,6 +4453,17 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         except json.JSONDecodeError as exc:
             raise ContinuityError(f"{label} must be valid JSON") from exc
 
+    def bool_answer(label: str, default: bool) -> bool:
+        rendered = "Y/n" if default else "y/N"
+        answer = input(f"{label} [{rendered}]: ").strip().lower()
+        if not answer:
+            return default
+        if answer in {"y", "yes"}:
+            return True
+        if answer in {"n", "no"}:
+            return False
+        raise ContinuityError(f"{label} must be yes or no")
+
     schedules = recommended["schedules"]
     answers = {
         "integration_branch": text_answer("Integration branch", recommended["integration_branch"]),
@@ -4302,6 +4479,7 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         "security_commands": json_answer("Security commands", recommended["security_commands"]),
         "github_required_checks": json_answer("Required GitHub check names", recommended["github_required_checks"]),
         "github_required_reviewers": int_answer("Required approving GitHub reviewers", recommended["github_required_reviewers"]),
+        "github_cli_merge_enabled": bool_answer("Enable exact human-authorized GitHub CLI merges", recommended["github_cli_merge_enabled"]),
         "documentation_map": json_answer("Documentation map", recommended["documentation_map"]),
         "visual_evidence_mode": text_answer("Visual evidence mode", recommended["visual_evidence_mode"]),
         "branch_prefix": text_answer("Goal branch prefix", recommended["branch_prefix"]),
@@ -4372,6 +4550,7 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "security_commands": settings["security_commands"],
             "github_required_checks": settings["github_required_checks"],
             "github_required_reviewers": settings["github_required_reviewers"],
+            "github_cli_merge_enabled": settings["github_cli_merge_enabled"],
             "documentation_map": settings["documentation_map"],
             "visual_evidence_mode": settings["visual_evidence_mode"],
             "branch_prefix": settings["branch_prefix"],
@@ -6882,6 +7061,19 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
             )
         else:
             actions.extend([disposition_actions["approved"], disposition_actions["merged"]])
+            if config.get("github_cli_merge_enabled", False):
+                assessed_pr = merge_report.get("pr_url") or "<pr-url>"
+                assessed_head = merge_report.get("head_sha") or "<full-head-sha>"
+                actions.append(
+                    workflow_action(
+                        "execute-cli-merge",
+                        "continuity-merge",
+                        f'{prefix} merge execute {goal_id} --pr-url {assessed_pr} --head-sha {assessed_head} --merge-method <merge-method> --authorized-by <human> --authorization-text "Merge {goal_id} PR {assessed_pr} at {assessed_head} using <merge-method>"'
+                        + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""),
+                        human_required=True,
+                        requirements=["exact interactive human authorization", "authenticated GitHub identity", "current checks and reviewer threshold"],
+                    )
+                )
     elif state in REWORK_STATES:
         current_stage = "human-remediation"
         next_skill = "continuity-dispatch"
@@ -7858,6 +8050,201 @@ def github_authenticated_login(root: Path) -> str:
     if result.returncode != 0 or not result.stdout.strip():
         raise ContinuityError(f"Unable to verify authenticated GitHub identity: {result.stderr.strip() or result.stdout.strip()}")
     return result.stdout.strip()
+
+
+def merge_execute(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if not config.get("github_cli_merge_enabled", False):
+        raise ContinuityError("GitHub CLI merge is disabled; enable github_cli_merge_enabled through reviewed project configuration")
+    if not config.get("require_pr", True) or not config.get("require_pr_auth", True):
+        raise ContinuityError("GitHub CLI merge requires authenticated PR verification")
+    if goal.get("state") != "review-ready":
+        raise ContinuityError("GitHub CLI merge requires review-ready work")
+    if not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/pull/\d+", args.pr_url):
+        raise ContinuityError("A valid GitHub PR URL is required")
+    if not re.fullmatch(r"[a-f0-9]{40}", args.head_sha):
+        raise ContinuityError("--head-sha must be the full lowercase 40-character PR head commit")
+    stale_evidence = current_review_evidence_failures(root, config, directory, goal)
+    if stale_evidence:
+        raise ContinuityError(f"GitHub CLI merge requires current review evidence: {stale_evidence}")
+    assessment = json_load(directory / "merge-assessment.json", {})
+    if not isinstance(assessment, dict) or assessment.get("status") != "passed":
+        raise ContinuityError("GitHub CLI merge requires a passed merge assessment")
+    if assessment.get("pr_url") != args.pr_url:
+        raise ContinuityError("Authorized PR URL does not match the merge assessment")
+    if assessment.get("head_sha") != args.head_sha or assessment.get("pr_head_sha") != args.head_sha:
+        raise ContinuityError("Authorized head SHA does not match the assessed local and PR head")
+    expected_authorization = f"Merge {args.goal_id} PR {args.pr_url} at {args.head_sha} using {args.merge_method}"
+    if args.authorization_text != expected_authorization:
+        raise ContinuityError(f"Merge authorization text must exactly equal: {expected_authorization}")
+    authenticated_login = github_authenticated_login(root)
+    if authenticated_login.casefold() != args.authorized_by.casefold():
+        raise ContinuityError(f"--authorized-by must match authenticated GitHub identity {authenticated_login}")
+    details = github_pr_details(
+        root,
+        args.pr_url,
+        ["state", "headRefName", "baseRefName", "headRefOid", "isDraft", "mergeStateStatus", "reviewDecision", "reviews", "statusCheckRollup"],
+    )
+    if details.get("state") != "OPEN":
+        raise ContinuityError("GitHub CLI merge requires an open PR")
+    if details.get("isDraft"):
+        raise ContinuityError("GitHub CLI merge requires a PR that is ready for review")
+    if details.get("baseRefName") != config.get("integration_branch"):
+        raise ContinuityError("PR base does not match the configured integration branch")
+    if details.get("headRefOid") != args.head_sha:
+        raise ContinuityError("PR head changed after human authorization")
+    if details.get("mergeStateStatus") not in {"CLEAN", "HAS_HOOKS"}:
+        raise ContinuityError(f"PR merge state is not immediately mergeable: {details.get('mergeStateStatus') or 'UNKNOWN'}")
+    checks = github_check_summary(details.get("statusCheckRollup"), config.get("github_required_checks", []))
+    if not checks["passed"]:
+        raise ContinuityError(f"GitHub CLI merge requires successful GitHub checks: {checks['failures']}")
+    if details.get("reviewDecision") == "CHANGES_REQUESTED":
+        raise ContinuityError("PR still has a changes-requested review")
+    approved_reviewers = {
+        review.get("author", {}).get("login")
+        for review in details.get("reviews", [])
+        if isinstance(review, dict) and review.get("state") == "APPROVED" and isinstance(review.get("author"), dict)
+    }
+    approved_reviewers.discard(None)
+    required_reviewers = int(config.get("github_required_reviewers", 0))
+    if len(approved_reviewers) < required_reviewers:
+        raise ContinuityError(f"PR has {len(approved_reviewers)} authenticated approving reviewers; {required_reviewers} required")
+    if config.get("require_signed_approvals", False) and not args.signing_key:
+        raise ContinuityError("This project requires a signed GitHub CLI merge authorization")
+    stamp = iso_now(config)
+    authorization = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "goal_id": args.goal_id,
+        "plan_version": goal["plan_version"],
+        "plan_hash": goal_material_hash(directory, goal),
+        "execution_attempt": int(goal.get("execution_attempt", 1)),
+        "authorized_at": stamp,
+        "authorized_by": args.authorized_by,
+        "authorization_text": args.authorization_text,
+        "pr_url": args.pr_url,
+        "head_sha": args.head_sha,
+        "merge_method": args.merge_method,
+        "nonce": secrets.token_hex(16),
+        "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
+    }
+    try:
+        runtime_lib.validate_schema_file(
+            authorization,
+            CONTROL_ROOT / "schemas" / "merge-authorization.schema.json",
+            "merge authorization",
+        )
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    if args.signing_key:
+        sign_receipt_bytes(
+            merge_authorization_bytes(authorization),
+            args.signing_key,
+            directory / "merge-authorization.sig",
+            namespace="continuity-merge-authorization",
+            label="merge authorization",
+        )
+        authorization["trust_anchor"] = verify_receipt_bytes(
+            root,
+            config,
+            merge_authorization_bytes(authorization),
+            directory / "merge-authorization.sig",
+            args.authorized_by,
+            namespace="continuity-merge-authorization",
+            label="merge authorization",
+        )
+        try:
+            runtime_lib.validate_schema_file(
+                authorization,
+                CONTROL_ROOT / "schemas" / "merge-authorization.schema.json",
+                "merge authorization",
+            )
+        except runtime_lib.RuntimeIntegrityError as exc:
+            raise ContinuityError(str(exc)) from exc
+    json_dump(directory / "merge-authorization.json", authorization)
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "merge.authorized",
+            "goal_id": args.goal_id,
+            "plan_version": goal.get("plan_version"),
+            "pr_url": args.pr_url,
+            "head_sha": args.head_sha,
+            "merge_method": args.merge_method,
+            "authorized_by": args.authorized_by,
+        },
+    )
+    gh = shutil.which("gh")
+    if not gh:
+        raise ContinuityError("GitHub CLI is required to execute the authorized merge")
+    result = subprocess.run(
+        [gh, "pr", "merge", args.pr_url, f"--{args.merge_method}", "--match-head-commit", args.head_sha],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if result.returncode != 0:
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": iso_now(config), "event": "merge.execute-failed", "goal_id": args.goal_id, "head_sha": args.head_sha},
+        )
+        raise ContinuityError(f"Authorized GitHub CLI merge failed: {result.stderr.strip() or result.stdout.strip()}")
+    merged = github_pr_details(
+        root,
+        args.pr_url,
+        ["state", "mergeCommit", "mergedBy", "headRefOid", "baseRefName", "reviewDecision", "reviews", "statusCheckRollup", "mergeStateStatus"],
+    )
+    if merged.get("state") != "MERGED":
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": iso_now(config), "event": "merge.pending-github", "goal_id": args.goal_id, "head_sha": args.head_sha},
+        )
+        return {
+            "status": "pending-github",
+            "goal_id": args.goal_id,
+            "pr_url": args.pr_url,
+            "head_sha": args.head_sha,
+            "merge_method": args.merge_method,
+            "authorization_recorded": True,
+            "message": "GitHub accepted the merge command but has not reported the PR as merged; leave the goal review-ready and record the merged disposition after GitHub completes it.",
+        }
+    merge_commit = (merged.get("mergeCommit") or {}).get("oid")
+    merged_by = (merged.get("mergedBy") or {}).get("login")
+    if merged.get("headRefOid") != args.head_sha or not merge_commit:
+        raise ContinuityError("GitHub reported a merged PR without the authorized head or merge commit")
+    if not merged_by or merged_by.casefold() != authenticated_login.casefold():
+        raise ContinuityError("GitHub merge actor does not match the authorized authenticated identity")
+    disposition = merge_record_human(
+        argparse.Namespace(
+            goal_id=args.goal_id,
+            pr_url=args.pr_url,
+            merged_by=authenticated_login,
+            disposition="merged",
+            merge_commit=merge_commit,
+            evidence=[
+                f"Interactive authorization: {args.authorization_text}",
+                f"GitHub CLI verified merged head {args.head_sha} using {args.merge_method}",
+            ],
+            actor=args.authorized_by,
+            signing_key=args.signing_key,
+            sentiment="unknown",
+            perspective="internal",
+        )
+    )
+    return {
+        "status": "merged",
+        "goal_id": args.goal_id,
+        "pr_url": args.pr_url,
+        "head_sha": args.head_sha,
+        "merge_commit": merge_commit,
+        "merge_method": args.merge_method,
+        "authorized_by": args.authorized_by,
+        "human_review": disposition,
+    }
 
 
 def merge_record_human(args: argparse.Namespace) -> dict[str, Any]:
@@ -8865,6 +9252,15 @@ def build_parser() -> argparse.ArgumentParser:
     human_merge.add_argument("--sentiment", choices=sorted(NOTE_SENTIMENTS), default="unknown")
     human_merge.add_argument("--perspective", choices=sorted(NOTE_PERSPECTIVES), default="unknown")
     human_merge.set_defaults(handler=merge_record_human)
+    execute_merge = merge_sub.add_parser("execute")
+    execute_merge.add_argument("goal_id")
+    execute_merge.add_argument("--pr-url", required=True)
+    execute_merge.add_argument("--head-sha", required=True)
+    execute_merge.add_argument("--merge-method", choices=["merge", "squash", "rebase"], required=True)
+    execute_merge.add_argument("--authorized-by", required=True)
+    execute_merge.add_argument("--authorization-text", required=True)
+    execute_merge.add_argument("--signing-key", help="SSH private key used to sign the exact GitHub CLI merge authorization")
+    execute_merge.set_defaults(handler=merge_execute)
 
     execution = top.add_parser("execution")
     execution_sub = execution.add_subparsers(dest="command", required=True)
@@ -9062,6 +9458,15 @@ def build_parser() -> argparse.ArgumentParser:
     portfolio_report_command.add_argument("--root", action="append", help="Workspace root to scan; repeat for multiple roots")
     portfolio_report_command.add_argument("--sanitized", action="store_true", required=True)
     portfolio_report_command.set_defaults(handler=portfolio_sanitized_report)
+    portfolio_update_command = portfolio_sub.add_parser("update")
+    portfolio_update_command.add_argument("--root", action="append", help="Workspace root to scan; repeat for multiple roots")
+    update_source = portfolio_update_command.add_mutually_exclusive_group()
+    update_source.add_argument("--source", help="Validated Continuity release directory; defaults to this controller release")
+    update_source.add_argument("--version", help="Tagged GitHub release version to install")
+    portfolio_update_command.add_argument("--project-id", action="append", help="Update only this discovered project ID; repeat as needed")
+    portfolio_update_command.add_argument("--apply", action="store_true", help="Apply updates; without this flag the command is a dry-run")
+    portfolio_update_command.add_argument("--overwrite-managed", action="store_true", help="Replace reviewed suite-managed drift in every selected project")
+    portfolio_update_command.set_defaults(handler=portfolio_update)
     return parser
 
 
