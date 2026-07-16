@@ -3661,7 +3661,7 @@ def due_action_for_project(root: Path, config: dict[str, Any], manifest: dict[st
     }
 
 
-def discover_projects(workspace_roots: Iterable[Path]) -> list[dict[str, Any]]:
+def discover_projects(workspace_roots: Iterable[Path], *, allow_duplicate_ids: bool = False) -> list[dict[str, Any]]:
     discovered: dict[str, dict[str, Any]] = {}
     pruned = {".git", ".agents", ".continuity", "node_modules", ".venv", "venv", "dist", "build", "target", "vendor", "__pycache__"}
     for workspace_root in workspace_roots:
@@ -3716,11 +3716,12 @@ def discover_projects(workspace_roots: Iterable[Path]) -> list[dict[str, Any]]:
                         "healthy": not problems,
                         "problems": problems,
                     }
-                    if project_id in discovered and discovered[project_id]["path"] != record["path"]:
+                    discovery_key = str(current_path) if allow_duplicate_ids else project_id
+                    if not allow_duplicate_ids and project_id in discovered and discovered[project_id]["path"] != record["path"]:
                         discovered[project_id]["healthy"] = False
                         discovered[project_id]["problems"].append(f"duplicate project ID at {record['path']}")
                     else:
-                        discovered[project_id] = record
+                        discovered[discovery_key] = record
                 except (ContinuityError, json.JSONDecodeError) as exc:
                     discovered[str(current_path)] = {
                         "project_id": None,
@@ -3840,9 +3841,52 @@ def project_cli_json(project_root: Path, *arguments: str, timeout: int = 360) ->
     return payload
 
 
+def source_installer_json(
+    source: Path,
+    project_root: Path,
+    project_id: str,
+    integration_branch: str,
+    *,
+    dry_run: bool,
+    overwrite_managed: bool,
+) -> dict[str, Any]:
+    installer = source / "installer" / "install.py"
+    if not installer.is_file():
+        raise ContinuityError(f"Release installer is missing: {installer}")
+    command = [
+        sys.executable,
+        str(installer),
+        "--project-root",
+        str(project_root),
+        "--project-id",
+        project_id,
+        "--integration-branch",
+        integration_branch,
+        "--ignore-user-defaults",
+    ]
+    if dry_run:
+        command.append("--dry-run")
+    if overwrite_managed:
+        command.append("--overwrite-managed")
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=360, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ContinuityError(f"Release installer failed for {project_root}: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        raise ContinuityError(f"Release installer failed for {project_root}: {detail}")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ContinuityError(f"Release installer returned invalid JSON for {project_root}") from exc
+    if not isinstance(payload, dict):
+        raise ContinuityError(f"Release installer returned an invalid record for {project_root}")
+    return payload
+
+
 def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
     workspace_roots = requested_workspace_roots(args.root or [])
-    projects = discover_projects(workspace_roots)
+    projects = discover_projects(workspace_roots, allow_duplicate_ids=True)
     requested_ids = set(args.project_id or [])
     discovered_ids = {str(project.get("project_id")) for project in projects if project.get("project_id")}
     missing_ids = sorted(requested_ids - discovered_ids)
@@ -3864,31 +3908,69 @@ def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
             "path": str(project_root),
             "apply": bool(args.apply),
         }
-        if not project.get("healthy"):
-            results.append({**record, "status": "blocked", "problems": list(project.get("problems", []))})
-            continue
-        try:
-            before_doctor = project_cli_json(project_root, "project", "doctor")
-        except ContinuityError as exc:
-            results.append({**record, "status": "blocked", "problems": [str(exc)]})
-            continue
-        record["before"] = {
-            "healthy": bool(before_doctor.get("healthy")),
-            "suite_version": before_doctor.get("suite_installation", {}).get("version"),
-            "problems": list(before_doctor.get("problems", [])),
-        }
+        local_cli = project_root / ".agents" / "continuity" / "bin" / "continuity"
+        if local_cli.is_file():
+            try:
+                before_doctor = project_cli_json(project_root, "project", "doctor")
+            except ContinuityError as exc:
+                results.append({**record, "status": "blocked", "problems": [str(exc)]})
+                continue
+            record["before"] = {
+                "healthy": bool(before_doctor.get("healthy")),
+                "suite_version": before_doctor.get("suite_installation", {}).get("version"),
+                "problems": list(before_doctor.get("problems", [])),
+            }
+        else:
+            record["before"] = {
+                "healthy": False,
+                "suite_version": None,
+                "problems": list(project.get("problems", [])),
+                "legacy_bootstrap_required": True,
+            }
+            if source is None:
+                results.append(
+                    {
+                        **record,
+                        "status": "blocked",
+                        "problems": ["Legacy bootstrap requires --source or the default controller release"],
+                    }
+                )
+                continue
 
-        update_arguments = ["suite", "update"]
-        if source is not None:
-            update_arguments.extend(["--source", str(source)])
-        elif args.version:
-            update_arguments.extend(["--version", args.version])
-        if not args.apply:
-            update_arguments.append("--dry-run")
-        if args.overwrite_managed:
-            update_arguments.append("--overwrite-managed")
         try:
-            update = project_cli_json(project_root, *update_arguments)
+            if local_cli.is_file():
+                update_arguments = ["suite", "update"]
+                if source is not None:
+                    update_arguments.extend(["--source", str(source)])
+                elif args.version:
+                    update_arguments.extend(["--version", args.version])
+                if not args.apply:
+                    update_arguments.append("--dry-run")
+                if args.overwrite_managed:
+                    update_arguments.append("--overwrite-managed")
+                update = project_cli_json(project_root, *update_arguments)
+            else:
+                manifest = project.get("manifest", {})
+                project_id = str(project.get("project_id") or "")
+                integration_branch = str(manifest.get("integration_branch") or "")
+                if not project_id or not integration_branch:
+                    raise ContinuityError("Legacy bootstrap requires valid project and integration-branch records")
+                installer_payload = source_installer_json(
+                    source,
+                    project_root,
+                    project_id,
+                    integration_branch,
+                    dry_run=not args.apply,
+                    overwrite_managed=args.overwrite_managed,
+                )
+                update = {
+                    "updated": bool(args.apply),
+                    "dry_run": not args.apply,
+                    "from_version": None,
+                    "to_version": installer_payload.get("suite_version"),
+                    "legacy_bootstrap": True,
+                    "installer": installer_payload,
+                }
         except ContinuityError as exc:
             results.append({**record, "status": "failed", "problems": [str(exc)]})
             continue

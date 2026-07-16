@@ -2474,6 +2474,23 @@ class InstallerTest(unittest.TestCase):
                 "--ignore-user-defaults",
             ]
             subprocess.run(command, check=True, capture_output=True, text=True)
+            legacy_root = root.parent / "legacy-project"
+            shutil.copytree(root, legacy_root)
+            shutil.rmtree(legacy_root / ".agents" / "continuity")
+            legacy_control = legacy_root / ".agents" / "project-continuity" / "bin"
+            legacy_control.mkdir(parents=True)
+            (legacy_control / "continuity").write_text("legacy control\n", encoding="utf-8")
+            shutil.rmtree(legacy_root / ".agents" / "skills" / "continuity-workflow")
+            for command_root in (legacy_root / ".claude" / "commands", legacy_root / ".cursor" / "commands"):
+                (command_root / "continuity-workflow.md").unlink(missing_ok=True)
+            legacy_bootstrap_manifest_path = legacy_root / ".continuity" / "install-manifest.json"
+            legacy_bootstrap_manifest = json.loads(legacy_bootstrap_manifest_path.read_text(encoding="utf-8"))
+            legacy_bootstrap_manifest["installed_files"] = {
+                path: digest
+                for path, digest in legacy_bootstrap_manifest["installed_files"].items()
+                if not path.startswith(".agents/continuity/") and "continuity-workflow" not in path
+            }
+            legacy_bootstrap_manifest_path.write_text(json.dumps(legacy_bootstrap_manifest, indent=2) + "\n", encoding="utf-8")
             config_after_first_install = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             self.assertFalse(config_after_first_install["require_signed_approvals"])
             self.assertFalse(config_after_first_install["github_cli_merge_enabled"])
@@ -2515,8 +2532,9 @@ class InstallerTest(unittest.TestCase):
                 text=True,
             )
             preview_payload = json.loads(preview_result.stdout)
-            self.assertEqual(preview_payload["counts"]["planned"], 1, preview_payload)
+            self.assertEqual(preview_payload["counts"]["planned"], 2, preview_payload)
             self.assertFalse((root / ".agents" / "skills" / "continuity-workflow").exists())
+            self.assertFalse((legacy_root / ".agents" / "continuity").exists())
             update_result = subprocess.run(
                 [
                     "python3", str(CLI), "--json", "portfolio", "update",
@@ -2528,9 +2546,13 @@ class InstallerTest(unittest.TestCase):
             )
             update_payload = json.loads(update_result.stdout)
             self.assertEqual(update_payload["status"], "completed")
-            self.assertEqual(update_payload["counts"]["updated"], 1)
-            self.assertEqual(update_payload["projects"][0]["project_id"], "sample-project")
-            self.assertTrue(update_payload["projects"][0]["after"]["healthy"])
+            self.assertEqual(update_payload["counts"]["updated"], 2)
+            self.assertEqual({item["project_id"] for item in update_payload["projects"]}, {"sample-project"})
+            self.assertTrue(all(item["after"]["healthy"] for item in update_payload["projects"]))
+            self.assertTrue((legacy_root / ".agents" / "continuity" / "bin" / "continuity").is_file())
+            self.assertFalse((legacy_root / ".agents" / "project-continuity").exists())
+            self.assertTrue((legacy_root / ".agents" / "skills" / "continuity-workflow" / "SKILL.md").is_file())
+            shutil.rmtree(legacy_root)
             upgraded_config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             upgraded_behavior = json.loads(legacy_behavior_path.read_text(encoding="utf-8"))
             self.assertFalse(upgraded_config["github_cli_merge_enabled"])

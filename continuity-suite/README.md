@@ -38,7 +38,7 @@ The installer also creates `.claude/commands/continuity-*.md` and `.cursor/comma
 
 The guided installer can save portable user defaults in `~/.continuity/defaults.json`, then generate isolated project controls for Codex, Claude Code, Cursor, Windsurf, or another `AGENTS.md`-aware surface. One provider-owned portfolio supervisor calculates due actions, refreshes an expiring heartbeat, atomically reserves capacity, and issues one-time project claims. Repository-specific commands, instructions, notes, approvals, roadmap state, and execution enrollment never move into the user-default profile.
 
-To update every enrolled project beneath one or more workspace roots, run `continuity portfolio update --root <workspace>` for a doctor-first dry-run, then repeat with `--apply`. Projects update independently, receive a post-update doctor check, and automatically roll back if that check becomes unhealthy.
+To update every enrolled project beneath one or more workspace roots, run `continuity portfolio update --root <workspace>` for a doctor-first dry-run, then repeat with `--apply`. Each checkout updates independently, including duplicate project IDs in separate worktrees and legacy controller layouts. Projects receive a post-update doctor check and automatically roll back if that check becomes unhealthy.
 
 ## Daily Skill Calls
 

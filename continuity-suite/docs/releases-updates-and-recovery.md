@@ -102,7 +102,7 @@ Local-source mode verifies the release manifest but cannot substitute for GitHub
 
 ## Update all enrolled projects
 
-Use the controller-level portfolio command when multiple enrolled projects should receive the same release. It discovers projects below each supplied workspace root and delegates to every project's installed `suite update` transaction.
+Use the controller-level portfolio command when multiple enrolled projects should receive the same release. It discovers projects below each supplied workspace root and delegates to every project's installed `suite update` transaction. Separate checkouts with the same project ID are updated independently by path. A checkout using the legacy `.agents/project-continuity/` layout is bootstrapped through the current source installer and then verified through the newly installed project-local CLI.
 
 Preview the current controller release across all projects:
 
@@ -119,7 +119,7 @@ python3 /path/to/continuity-suite/bin/continuity --json portfolio update \
   --apply
 ```
 
-For a tagged production release, use `--version <tag> --apply`. Repeat `--root` for separate workspace trees or `--project-id` to restrict the rollout.
+For a tagged production release, use `--version <tag> --apply`. Repeat `--root` for separate workspace trees or `--project-id` to restrict the rollout. Legacy bootstrap requires the default controller source or an explicit `--source`; update that checkout to the current layout before switching it to tagged-only updates.
 
 The command is dry-run by default. It validates the release, isolates every project, records the installed project doctor's pre-update health, performs the existing snapshot-backed update, runs doctor again, and automatically invokes that project's rollback snapshot if post-update health fails. Pre-update behavior-hash drift may be repaired by a compatible configuration migration, but post-update doctor must be healthy. A blocked or rolled-back project produces a partial portfolio result without changing another project's result. Managed-file drift still requires the separately reviewed `--overwrite-managed` flag.
 
