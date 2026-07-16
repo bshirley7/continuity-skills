@@ -1,0 +1,29 @@
+{
+  "source_type": "file",
+  "source_file": "docs/product/synthetic-review-workspace-prd.md",
+  "document_type": "prd",
+  "document_id": "prd-synthetic-review-workspace",
+  "document_title": "Synthetic Review Workspace PRD",
+  "document_version": "1.0",
+  "source_authority": "project-intent",
+  "items": [
+    {
+      "kind": "insight",
+      "text": "Reviewers lose time when risk context is separated from the item being approved.",
+      "source_anchor": {"source_item_key": "problem.review-context", "heading_path": ["Problem"], "section": "problem"},
+      "occurrence_type": "need",
+      "actionability": "context",
+      "stakeholders": ["reviewer"],
+      "themes": ["review-time", "risk-context"]
+    },
+    {
+      "kind": "execution-candidate",
+      "text": "REQ-1: Show the risk summary beside the approval details. Acceptance: reviewers can see the summary without leaving the approval view, and keyboard behavior remains unchanged.",
+      "source_anchor": {"source_item_key": "requirement.req-1", "heading_path": ["Requirements", "REQ-1: Risk context"], "section": "requirements", "requirement_id": "REQ-1"},
+      "occurrence_type": "need",
+      "actionability": "plan",
+      "stakeholders": ["reviewer"],
+      "themes": ["approval-view", "risk-context", "keyboard-behavior"]
+    }
+  ]
+}

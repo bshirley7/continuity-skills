@@ -1,4 +1,4 @@
 interface:
   display_name: "Continuity Capture"
-  short_description: "Capture notes without authorizing execution"
-  default_prompt: "Use $continuity-capture to capture this conversation as project knowledge."
+  short_description: "Capture notes and source documents safely"
+  default_prompt: "Use $continuity-capture to capture these notes, this PRD, or this feature request as non-authorizing project knowledge."

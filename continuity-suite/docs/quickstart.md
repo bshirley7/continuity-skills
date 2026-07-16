@@ -141,7 +141,7 @@ In slash-command hosts, use the generated shims:
 The most common local flow is:
 
 ```text
-/continuity-capture   capture meeting notes, feedback, risks, decisions, or requests
+/continuity-capture   capture meeting notes, feedback, a PRD, or a feature request
 /continuity-triage    classify each captured item and route it
 /continuity-memory    retrieve or promote trusted project knowledge
 /continuity-roadmap   inspect roadmap context and links
@@ -167,7 +167,7 @@ Use these manual triggers:
 | When you want to run | Invoke | Notes |
 | --- | --- | --- |
 | Route the next Continuity action | `/continuity` | Reads project health and handoff state, then routes to the right workflow. |
-| Capture new input | `/continuity-capture` | Creates private atomic notes from meeting notes, feedback, decisions, risks, or requests. |
+| Capture new input | `/continuity-capture` | Creates private atomic notes from meetings, feedback, decisions, risks, PRDs, or feature requests. |
 | Classify captured notes | `/continuity-triage` | Use after capture, or whenever `workflow status` lists triage as the next skill. |
 | Retrieve project context | `/continuity-memory` | Use before planning or when trusted memory needs review or promotion. |
 | Retrieve roadmap context | `/continuity-roadmap` | Use before planning or when a note should be linked to roadmap context. |

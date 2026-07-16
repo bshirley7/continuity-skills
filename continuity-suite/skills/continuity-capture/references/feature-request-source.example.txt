@@ -1,0 +1,16 @@
+Synthetic feature request: Saved review filters
+
+User need
+Reviewers repeatedly recreate the same status and owner filters.
+
+Requested behavior
+Allow a reviewer to save one named filter preset.
+
+Acceptance
+The preset restores the selected statuses and owners without changing the existing default view.
+
+Exclusion
+Sharing presets with other users is outside this request.
+
+Open question
+Should presets sync across a reviewer's devices?

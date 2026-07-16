@@ -1,0 +1,28 @@
+{
+  "source_type": "file",
+  "source_file": "docs/product/saved-review-filters.txt",
+  "document_type": "feature-request",
+  "document_id": "feature-saved-review-filters",
+  "document_title": "Saved review filters",
+  "source_authority": "supplied-reference",
+  "items": [
+    {
+      "kind": "context",
+      "text": "Reviewers repeatedly recreate the same status and owner filters.",
+      "source_anchor": {"source_item_key": "need.repeated-filter-setup", "heading_path": ["User need"], "section": "user-need"},
+      "occurrence_type": "need",
+      "actionability": "context",
+      "stakeholders": ["reviewer"],
+      "themes": ["filters", "review-workflow"]
+    },
+    {
+      "kind": "execution-candidate",
+      "text": "Allow a reviewer to save one named filter preset. Acceptance: the preset restores selected statuses and owners without changing the existing default view.",
+      "source_anchor": {"source_item_key": "request.saved-filter-preset", "heading_path": ["Requested behavior"], "section": "requested-behavior"},
+      "occurrence_type": "need",
+      "actionability": "plan",
+      "stakeholders": ["reviewer"],
+      "themes": ["filters", "presets", "default-view"]
+    }
+  ]
+}

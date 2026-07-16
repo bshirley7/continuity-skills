@@ -139,6 +139,11 @@ RELATED_GOAL_MAX_RESULTS = 25
 RELATED_GOAL_REPORT_LIMIT = 20
 MAX_CAPTURE_ITEMS = 250
 MAX_NOTE_TEXT_CHARS = 20_000
+MAX_DOCUMENT_BYTES = 2_000_000
+DOCUMENT_TYPES = {"prd", "feature-request"}
+DOCUMENT_SOURCE_AUTHORITIES = {"project-intent", "supplied-reference"}
+DOCUMENT_EXTENSIONS = {".md", ".markdown", ".txt"}
+DOCUMENT_REVISION_STATUSES = {"added", "changed", "unchanged", "removed"}
 NOTE_WORK_STATUSES = {
     "open",
     "deferred",
@@ -658,8 +663,40 @@ def roadmap_fingerprint(root: Path, config: dict[str, Any], roadmap_ids: list[st
     return canonical_hash(material)
 
 
+def source_capture_refs_for_notes(root: Path, config: dict[str, Any], note_ids: list[str]) -> list[dict[str, Any]]:
+    refs: dict[str, dict[str, Any]] = {}
+    for note_id in note_ids:
+        _path, capture, _item = find_note_item(root, config, note_id)
+        if capture.get("document_type") not in DOCUMENT_TYPES:
+            continue
+        capture_id = str(capture.get("capture_id"))
+        refs[capture_id] = {
+            "capture_id": capture_id,
+            "document_id": str(capture.get("document_id")),
+            "document_type": str(capture.get("document_type")),
+            "document_revision": int(capture.get("document_revision", 0)),
+            "document_version": capture.get("document_version"),
+            "source_authority": str(capture.get("source_authority")),
+            "source_ref": str(capture.get("source_ref")),
+            "source_hash": str(capture.get("source_hash")),
+        }
+    return [refs[key] for key in sorted(refs)]
+
+
 def render_planning_artifacts(goal: dict[str, Any]) -> str:
     lines = ["<!-- continuity-planning-artifacts:start -->", "## Planning evidence and decomposition"]
+    if "source_capture_refs" in goal:
+        source_capture_refs = goal.get("source_capture_refs", [])
+        lines.extend(["", "### Source documents", ""])
+        if source_capture_refs:
+            for item in source_capture_refs:
+                version = f"; document version: {item['document_version']}" if item.get("document_version") else ""
+                lines.append(
+                    f"- `{item['document_id']}` — `{item['document_type']}` revision {item['document_revision']}{version}; "
+                    f"capture `{item['capture_id']}`; source hash `{item['source_hash']}`; authority `{item['source_authority']}`"
+                )
+        else:
+            lines.append("- No PRD or feature-request source document is attached to this goal.")
     brief = goal.get("triage_brief")
     if brief:
         lines.extend([
@@ -1143,6 +1180,113 @@ def normalize_note_dimensions(item: dict[str, Any], occurred_at: str) -> dict[st
     return dimensions
 
 
+def document_source_anchor(item: dict[str, Any], index: int) -> dict[str, Any]:
+    anchor = item.get("source_anchor")
+    if not isinstance(anchor, dict):
+        raise ContinuityError(f"Document capture item {index} requires a source_anchor object")
+    source_item_key = validate_identifier(str(anchor.get("source_item_key", "")), "document source item key")
+    heading_path = validate_string_list(anchor.get("heading_path", []), "document heading_path", required=True)
+    normalized = {"source_item_key": source_item_key, "heading_path": heading_path}
+    for key in ("section", "requirement_id"):
+        value = anchor.get(key)
+        if value is not None:
+            if not isinstance(value, str) or not value.strip():
+                raise ContinuityError(f"Document source anchor {key} must be a non-empty string")
+            normalized[key] = value.strip()
+    return normalized
+
+
+def document_capture_history(root: Path, config: dict[str, Any], document_id: str) -> list[tuple[Path, dict[str, Any]]]:
+    history: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(path, {})
+        if isinstance(capture, dict) and capture.get("document_id") == document_id:
+            history.append((path, capture))
+    history.sort(key=lambda value: (int(value[1].get("document_revision", 0)), str(value[1].get("captured_at", ""))))
+    return history
+
+
+def prepare_document_capture(
+    root: Path,
+    config: dict[str, Any],
+    payload: dict[str, Any],
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any] | None, bytes | None, dict[str, Any] | None]:
+    document_type = payload.get("document_type") or getattr(args, "document_type", None)
+    if document_type is None:
+        return None, None, None
+    if document_type not in DOCUMENT_TYPES:
+        raise ContinuityError(f"Unsupported document_type: {document_type}")
+    source_type = payload.get("source_type", getattr(args, "source_type", None) or "file")
+    if source_type != "file":
+        raise ContinuityError("PRD and feature-request capture currently supports source_type file only")
+    if not getattr(args, "items_file", None):
+        raise ContinuityError("Document capture requires --items-file so the source is split into atomic items")
+    source_file = payload.get("source_file") or getattr(args, "file", None)
+    if not isinstance(source_file, str) or not source_file.strip():
+        raise ContinuityError("Document capture requires source_file in the items payload")
+    source_path = Path(source_file).expanduser().resolve()
+    if not source_path.is_file():
+        raise ContinuityError("Document source_file must identify an existing file")
+    if source_path.suffix.lower() not in DOCUMENT_EXTENSIONS:
+        raise ContinuityError("Document capture supports only Markdown and plain-text files")
+    source_bytes = source_path.read_bytes()
+    if len(source_bytes) > MAX_DOCUMENT_BYTES:
+        raise ContinuityError(f"Document source exceeds the {MAX_DOCUMENT_BYTES}-byte limit")
+    try:
+        source_text = source_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ContinuityError("Document source must be UTF-8 text") from exc
+    if not source_text.strip():
+        raise ContinuityError("Document source must not be empty")
+    inside_project = source_path.is_relative_to(root.resolve())
+    provided_ref = payload.get("source_ref") or getattr(args, "source_ref", None)
+    if inside_project:
+        source_ref = str(source_path.relative_to(root.resolve()))
+    else:
+        if isinstance(provided_ref, str) and provided_ref.strip() and not Path(provided_ref).is_absolute():
+            source_ref = provided_ref.strip()
+        else:
+            source_ref = f"external:{source_path.name}"
+    source_authority = payload.get("source_authority") or getattr(args, "source_authority", None) or "supplied-reference"
+    if source_authority not in DOCUMENT_SOURCE_AUTHORITIES:
+        raise ContinuityError(f"Unsupported document source_authority: {source_authority}")
+    if source_authority == "project-intent" and not inside_project:
+        raise ContinuityError("project-intent documents must be located inside the project root")
+    document_id = validate_identifier(
+        str(payload.get("document_id") or getattr(args, "document_id", None) or stable_id(
+            "document", config["project_id"], document_type, source_ref
+        )),
+        "document ID",
+    )
+    document_version = payload.get("document_version") or getattr(args, "document_version", None)
+    if document_version is not None and (not isinstance(document_version, str) or not document_version.strip()):
+        raise ContinuityError("document_version must be a non-empty string when provided")
+    document_title = payload.get("document_title")
+    if document_title is not None and (not isinstance(document_title, str) or not document_title.strip()):
+        raise ContinuityError("document_title must be a non-empty string when provided")
+    source_hash = hashlib.sha256(source_bytes).hexdigest()
+    history = document_capture_history(root, config, document_id)
+    duplicate = next((capture for _path, capture in history if capture.get("source_hash") == source_hash), None)
+    previous = history[-1][1] if history else None
+    document_revision = int(previous.get("document_revision", 0)) + 1 if previous else 1
+    snapshot = private_path(root, config) / "source-snapshots" / document_id / f"{source_hash}{source_path.suffix.lower()}"
+    metadata = {
+        "document_type": document_type,
+        "document_id": document_id,
+        "document_title": document_title.strip() if isinstance(document_title, str) else source_path.stem,
+        "document_version": document_version.strip() if isinstance(document_version, str) else None,
+        "document_revision": document_revision,
+        "source_authority": source_authority,
+        "source_ref": source_ref,
+        "source_hash": source_hash,
+        "raw_snapshot_ref": str(snapshot.relative_to(root)),
+        "previous_capture_id": previous.get("capture_id") if previous else None,
+        "document_memory_id": stable_id("document-memory", document_id, source_hash),
+    }
+    return metadata, source_bytes, duplicate
+
+
 def note_capture(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     stamp = iso_now(config)
@@ -1161,10 +1305,59 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
             "source_ref": args.file or "manual-entry",
             "items": [{"kind": "context", "text": text}],
         }
+    document, document_bytes, document_duplicate = prepare_document_capture(root, config, payload, args)
+    if document_duplicate is not None:
+        document_duplicate["deduplicated"] = True
+        duplicate_path = find_capture(root, config, str(document_duplicate["capture_id"]))
+        document_duplicate["path"] = str(duplicate_path.relative_to(root))
+        return document_duplicate
     source_type = payload.get("source_type", args.source_type or "conversation")
     if source_type not in {"conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"}:
         raise ContinuityError(f"Unsupported source_type: {source_type}")
-    raw_items = payload["items"]
+    raw_items = list(payload["items"])
+    if document:
+        source_item_keys = [
+            document_source_anchor(item, index)["source_item_key"]
+            for index, item in enumerate(raw_items, 1)
+            if isinstance(item, dict)
+        ]
+        if len(source_item_keys) != len(set(source_item_keys)):
+            raise ContinuityError("Document capture source_item_key values must be unique within a revision")
+    previous_items: dict[str, dict[str, Any]] = {}
+    if document and document.get("previous_capture_id"):
+        previous_path = find_capture(root, config, str(document["previous_capture_id"]))
+        previous_capture = json_load(previous_path, {})
+        for previous_item in previous_capture.get("items", []):
+            if not isinstance(previous_item, dict):
+                continue
+            anchor = previous_item.get("source_anchor")
+            if isinstance(anchor, dict) and isinstance(anchor.get("source_item_key"), str):
+                previous_items[anchor["source_item_key"]] = previous_item
+        current_keys = {
+            document_source_anchor(item, index)["source_item_key"]
+            for index, item in enumerate(raw_items, 1)
+            if isinstance(item, dict)
+        }
+        for source_item_key, previous_item in previous_items.items():
+            if source_item_key in current_keys:
+                continue
+            raw_items.append(
+                {
+                    "kind": "insight",
+                    "text": str(previous_item.get("text", "")),
+                    "source_anchor": previous_item.get("source_anchor"),
+                    "revision_status": "removed",
+                    "supersedes_item_id": previous_item.get("item_id"),
+                    "perspective": previous_item.get("perspective", "unknown"),
+                    "sentiment": "neutral",
+                    "occurrence_type": "change",
+                    "impact": previous_item.get("impact", "unknown"),
+                    "confidence": "high",
+                    "actionability": "monitor",
+                    "stakeholders": previous_item.get("stakeholders", []),
+                    "themes": sorted(set([*previous_item.get("themes", []), "document-revision"])),
+                }
+            )
     if not raw_items:
         raise ContinuityError("Capture requires at least one atomic item")
     if len(raw_items) > MAX_CAPTURE_ITEMS:
@@ -1183,37 +1376,63 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         item_work_status = item.get("work_status", "open")
         if item_work_status not in NOTE_WORK_STATUSES:
             raise ContinuityError(f"Invalid note work status: {item_work_status}")
+        document_fields: dict[str, Any] = {}
+        routing_status = item.get("routing_status", "captured")
+        if document:
+            anchor = document_source_anchor(item, index)
+            source_item_key = anchor["source_item_key"]
+            previous_item = previous_items.get(source_item_key)
+            revision_status = item.get("revision_status")
+            if revision_status != "removed":
+                if previous_item is None:
+                    revision_status = "added"
+                elif str(previous_item.get("text", "")).strip() == str(item["text"]).strip():
+                    revision_status = "unchanged"
+                else:
+                    revision_status = "changed"
+            if revision_status not in DOCUMENT_REVISION_STATUSES:
+                raise ContinuityError(f"Invalid document revision_status: {revision_status}")
+            document_fields = {"source_anchor": anchor, "revision_status": revision_status}
+            if previous_item is not None:
+                if revision_status == "unchanged":
+                    document_fields["same_as_item_id"] = previous_item.get("same_as_item_id") or previous_item.get("item_id")
+                    routing_status = "archive"
+                    item_work_status = "archived"
+                elif revision_status == "changed":
+                    document_fields["supersedes_item_id"] = previous_item.get("item_id")
+            if revision_status == "removed" and item.get("supersedes_item_id"):
+                document_fields["supersedes_item_id"] = item["supersedes_item_id"]
         items.append(
             {
                 **item,
                 **normalize_note_dimensions(item, item_created_at),
+                **document_fields,
                 "item_id": item_id,
                 "kind": kind,
                 "text": item["text"].strip(),
                 "created_at": item_created_at,
                 "updated_at": item.get("updated_at", stamp),
                 "execution_authorized": False,
-                "routing_status": item.get("routing_status", "captured"),
+                "routing_status": routing_status,
                 "work_status": item_work_status,
             }
         )
     content_fingerprint = canonical_hash(
         [{"kind": item["kind"], "text": item["text"]} for item in items]
     )
-    capture_id = payload.get("capture_id") or stable_id(
-        "capture", config["project_id"], stamp, content_fingerprint
+    capture_id = payload.get("capture_id") or (
+        stable_id("capture", config["project_id"], stamp, document["document_id"], document["source_hash"])
+        if document
+        else stable_id("capture", config["project_id"], stamp, content_fingerprint)
     )
     captures_root = private_path(root, config) / "captures"
+    source_ref = document["source_ref"] if document else payload.get("source_ref", args.source_ref)
     dedupe_key = payload.get("dedupe_key") or canonical_hash(
-        {
-            "source_type": source_type,
-            "source_ref": payload.get("source_ref", args.source_ref),
-            "items": content_fingerprint,
-        }
+        {"source_type": source_type, "source_ref": source_ref, "items": content_fingerprint}
     )
     for existing_path in captures_root.glob("**/*.json"):
         existing = json_load(existing_path, {})
-        if existing.get("dedupe_key") == dedupe_key and existing.get("source_ref") == payload.get("source_ref", args.source_ref):
+        if existing.get("dedupe_key") == dedupe_key and existing.get("source_ref") == source_ref:
             existing["deduplicated"] = True
             existing["path"] = str(existing_path.relative_to(root))
             return existing
@@ -1224,7 +1443,7 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         "project_id": config["project_id"],
         "repository": str(root),
         "source_type": source_type,
-        "source_ref": payload.get("source_ref", args.source_ref),
+        "source_ref": source_ref,
         "source_timestamp": payload.get("source_timestamp"),
         "capture_mode": "batch" if len(items) > 1 else "singular",
         "item_count": len(items),
@@ -1232,11 +1451,30 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         "execution_authorized": False,
         "items": items,
     }
+    if document:
+        capture.update(document)
+        capture["revision_counts"] = {
+            status: sum(1 for item in items if item.get("revision_status") == status)
+            for status in sorted(DOCUMENT_REVISION_STATUSES)
+        }
+        if document_bytes is None:
+            raise ContinuityError("Document snapshot content is unavailable")
+        snapshot = confined_path(root, str(document["raw_snapshot_ref"]), "raw_snapshot_ref")
+        if not snapshot.is_relative_to(private_path(root, config)):
+            raise ContinuityError("Document snapshot must remain in private continuity state")
+        runtime_lib.atomic_write_bytes(snapshot, document_bytes)
     target = private_path(root, config) / "captures" / stamp[:10] / f"{capture_id}.json"
     json_dump(target, capture)
     append_jsonl(
         private_path(root, config) / "events.jsonl",
-        {"at": stamp, "event": "capture.created", "capture_id": capture_id},
+        {
+            "at": stamp,
+            "event": "capture.created",
+            "capture_id": capture_id,
+            "document_id": capture.get("document_id"),
+            "document_revision": capture.get("document_revision"),
+            "source_hash": capture.get("source_hash"),
+        },
     )
     capture["path"] = str(target.relative_to(root))
     return capture
@@ -2043,6 +2281,21 @@ def memory_sources(root: Path, config: dict[str, Any], scope: str) -> list[tuple
     return result
 
 
+def document_capture_records(root: Path, config: dict[str, Any], scope: str) -> list[tuple[Path, dict[str, Any], str]]:
+    records: list[tuple[Path, dict[str, Any], str]] = []
+    for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(path, {})
+        if not isinstance(capture, dict) or capture.get("document_type") not in DOCUMENT_TYPES:
+            continue
+        source_scope = "trusted" if capture.get("source_authority") == "project-intent" else "private"
+        if scope == "trusted" and source_scope != "trusted":
+            continue
+        if scope == "private" and source_scope != "private":
+            continue
+        records.append((path, capture, source_scope))
+    return records
+
+
 def memory_source_fingerprint(root: Path, config: dict[str, Any], scope: str) -> str:
     records = []
     for path, source_scope in memory_sources(root, config, scope):
@@ -2053,15 +2306,30 @@ def memory_source_fingerprint(root: Path, config: dict[str, Any], scope: str) ->
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             }
         )
+    capture_paths: set[Path] = set()
     if scope in {"private", "all"}:
-        for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
-            records.append(
-                {
-                    "path": str(path.relative_to(root)),
-                    "scope": "private-capture",
-                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                }
-            )
+        capture_paths.update((private_path(root, config) / "captures").glob("**/*.json"))
+    capture_paths.update(path for path, _capture, _source_scope in document_capture_records(root, config, scope))
+    for path in sorted(capture_paths):
+        records.append(
+            {
+                "path": str(path.relative_to(root)),
+                "scope": "capture",
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+        capture = json_load(path, {})
+        snapshot_ref = capture.get("raw_snapshot_ref") if isinstance(capture, dict) else None
+        if isinstance(snapshot_ref, str):
+            snapshot = confined_path(root, snapshot_ref, "raw_snapshot_ref")
+            if snapshot.is_file() and snapshot.is_relative_to(private_path(root, config)):
+                records.append(
+                    {
+                        "path": str(snapshot.relative_to(root)),
+                        "scope": "document-snapshot",
+                        "sha256": hashlib.sha256(snapshot.read_bytes()).hexdigest(),
+                    }
+                )
     return canonical_hash(records)
 
 
@@ -2123,6 +2391,77 @@ def memory_index(args: argparse.Namespace) -> dict[str, Any]:
         connection.execute(
             "INSERT INTO memory_fts VALUES (?,?,?,?,?,?,?,?)",
             (memory_id, row[3], heading, row[7], row[8], row[9], row[6], body),
+        )
+        indexed += 1
+    latest_document_revisions: dict[str, int] = {}
+    for _path, capture, _source_scope in document_capture_records(root, config, "all"):
+        document_id = str(capture.get("document_id", ""))
+        latest_document_revisions[document_id] = max(
+            latest_document_revisions.get(document_id, 0), int(capture.get("document_revision", 0))
+        )
+    for path, capture, source_scope in document_capture_records(root, config, args.scope):
+        memory_id = str(capture.get("document_memory_id") or stable_id(
+            "document-memory", str(capture.get("document_id", "")), str(capture.get("source_hash", ""))
+        ))
+        if memory_id in seen:
+            warnings.append(f"duplicate memory_id {memory_id}: {path.relative_to(root)}")
+            continue
+        snapshot_ref = capture.get("raw_snapshot_ref")
+        if not isinstance(snapshot_ref, str):
+            warnings.append(f"skipped {path.relative_to(root)}: document snapshot reference is missing")
+            continue
+        snapshot = confined_path(root, snapshot_ref, "raw_snapshot_ref")
+        if not snapshot.is_file() or not snapshot.is_relative_to(private_path(root, config)):
+            warnings.append(f"skipped {path.relative_to(root)}: document snapshot is missing or unsafe")
+            continue
+        snapshot_bytes = snapshot.read_bytes()
+        if hashlib.sha256(snapshot_bytes).hexdigest() != capture.get("source_hash"):
+            warnings.append(f"skipped {path.relative_to(root)}: document snapshot hash mismatch")
+            continue
+        try:
+            body = snapshot_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            warnings.append(f"skipped {path.relative_to(root)}: document snapshot is not UTF-8")
+            continue
+        seen.add(memory_id)
+        document_id = str(capture.get("document_id"))
+        document_revision = int(capture.get("document_revision", 0))
+        status = "current" if document_revision == latest_document_revisions.get(document_id) else "historical"
+        title = str(capture.get("document_title") or capture.get("source_ref") or document_id)
+        entry_type = f"source-document:{capture.get('document_type')}"
+        summary = (
+            f"{capture.get('document_type')} source snapshot revision {document_revision}; "
+            f"authority {capture.get('source_authority')}. This records product intent, not verified implementation behavior."
+        )
+        tags = ["source-document", str(capture.get("document_type")), str(capture.get("source_authority"))]
+        sources = [
+            str(capture.get("source_ref")),
+            f"capture:{capture.get('capture_id')}",
+            f"sha256:{capture.get('source_hash')}",
+        ]
+        row = (
+            memory_id,
+            f"{path.relative_to(root)}#document",
+            "",
+            title,
+            entry_type,
+            status,
+            config["project_id"],
+            summary,
+            json.dumps(tags),
+            json.dumps([document_id]),
+            json.dumps(sources),
+            str(capture.get("captured_at", "")),
+            str(capture.get("captured_at", "")),
+            str(capture.get("source_hash", "")),
+            "high" if source_scope == "trusted" else "medium",
+            source_scope,
+            body,
+        )
+        connection.execute("INSERT INTO memory VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
+        connection.execute(
+            "INSERT INTO memory_fts VALUES (?,?,?,?,?,?,?,?)",
+            (memory_id, title, "", summary, row[8], row[9], row[6], body),
         )
         indexed += 1
     if args.scope in {"private", "all"}:
@@ -2339,6 +2678,8 @@ def memory_brief(args: argparse.Namespace) -> str:
                 "",
                 row["summary"] or "No summary recorded.",
                 "",
+                f"- Type: {row['entry_type']}",
+                f"- Scope: {row['scope']}",
                 f"- Status: {row['status']}",
                 f"- System: {row['system_name']}",
                 f"- Verified: {row['last_verified_at'] or 'not recorded'} against {row['verified_against'] or 'not recorded'}",
@@ -2430,6 +2771,17 @@ def find_memory_entry(root: Path, config: dict[str, Any], memory_id: str) -> Pat
     if len(matches) != 1:
         raise ContinuityError(f"Expected one memory entry {memory_id}; found {len(matches)}")
     return matches[0]
+
+
+def find_document_memory_capture(root: Path, config: dict[str, Any], memory_id: str) -> tuple[Path, dict[str, Any]] | None:
+    matches = [
+        (path, capture)
+        for path, capture, _scope in document_capture_records(root, config, "all")
+        if capture.get("document_memory_id") == memory_id
+    ]
+    if len(matches) > 1:
+        raise ContinuityError(f"Expected one document memory entry {memory_id}; found {len(matches)}")
+    return matches[0] if matches else None
 
 
 def require_goal_approval(
@@ -2611,6 +2963,8 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
         "delivery_slices",
     }
     machine = {key: goal.get(key) for key in sorted(immutable_keys)}
+    if "source_capture_refs" in goal:
+        machine["source_capture_refs"] = goal.get("source_capture_refs", [])
     plan = (directory / "plan.md").read_text(encoding="utf-8")
     return hashlib.sha256((json.dumps(machine, sort_keys=True) + "\n" + plan).encode()).hexdigest()
 
@@ -2692,9 +3046,11 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
     }
     validate_goal_roadmap_targets(root, config, goal["roadmap_ids"], goal["roadmap_impact"])
     goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal["roadmap_ids"])
+    goal["source_capture_refs"] = source_capture_refs_for_notes(root, config, goal["source_note_ids"])
     plan = payload.get("plan_markdown") or (
         f"# {goal_id}: {goal['title']}\n\n"
         f"## Context and memory\n\nNotes: {', '.join(goal['source_note_ids']) or 'None'}  \n"
+        f"Source documents: {', '.join(item['document_id'] + '@' + item['source_hash'][:12] for item in goal['source_capture_refs']) or 'None'}  \n"
         f"Memory: {', '.join(goal['memory_ids']) or 'None'}\n\n"
         f"Roadmap: {', '.join(goal['roadmap_ids']) or 'None'}\n\n"
         f"## Proposed execution scope\n\n{goal['scope']}\n\n"
@@ -3247,6 +3603,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     goal["roadmap_impact"] = validate_roadmap_impact(goal.get("roadmap_impact"), goal.get("roadmap_ids", []))
     validate_goal_roadmap_targets(root, config, goal.get("roadmap_ids", []), goal["roadmap_impact"])
     goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal.get("roadmap_ids", []))
+    goal["source_capture_refs"] = source_capture_refs_for_notes(root, config, goal.get("source_note_ids", []))
     plan = payload.get("plan_markdown")
     if plan is not None:
         if not isinstance(plan, str) or not plan.strip():
@@ -4811,11 +5168,63 @@ def note_lifecycle_audit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
         capture = json_load(capture_path, {})
         if not isinstance(capture, dict):
             continue
+        if capture.get("document_type") is not None:
+            capture_id = str(capture.get("capture_id") or capture_path.stem)
+            required_document_fields = {
+                "document_id",
+                "document_type",
+                "document_revision",
+                "source_authority",
+                "source_ref",
+                "source_hash",
+                "raw_snapshot_ref",
+                "document_memory_id",
+            }
+            missing = sorted(required_document_fields - set(capture))
+            if missing:
+                problems.append(f"document capture {capture_id} is missing {', '.join(missing)}")
+            if capture.get("document_type") not in DOCUMENT_TYPES:
+                problems.append(f"document capture {capture_id} has invalid document_type")
+            if capture.get("source_authority") not in DOCUMENT_SOURCE_AUTHORITIES:
+                problems.append(f"document capture {capture_id} has invalid source_authority")
+            snapshot_ref = capture.get("raw_snapshot_ref")
+            if isinstance(snapshot_ref, str):
+                try:
+                    snapshot = confined_path(root, snapshot_ref, "raw_snapshot_ref")
+                except ContinuityError as exc:
+                    problems.append(f"document capture {capture_id} has unsafe snapshot: {exc}")
+                else:
+                    if not snapshot.is_file() or not snapshot.is_relative_to(private_path(root, config)):
+                        problems.append(f"document capture {capture_id} snapshot is missing")
+                    elif hashlib.sha256(snapshot.read_bytes()).hexdigest() != capture.get("source_hash"):
+                        problems.append(f"document capture {capture_id} snapshot hash does not match source_hash")
+            previous_capture_id = capture.get("previous_capture_id")
+            if previous_capture_id:
+                try:
+                    previous = json_load(find_capture(root, config, str(previous_capture_id)), {})
+                except ContinuityError as exc:
+                    problems.append(f"document capture {capture_id} has invalid previous capture: {exc}")
+                else:
+                    if previous.get("document_id") != capture.get("document_id"):
+                        problems.append(f"document capture {capture_id} previous capture uses another document_id")
+                    try:
+                        contiguous = int(previous.get("document_revision", 0)) + 1 == int(capture.get("document_revision", 0))
+                    except (TypeError, ValueError):
+                        contiguous = False
+                    if not contiguous:
+                        problems.append(f"document capture {capture_id} revision sequence is not contiguous")
         for item in capture.get("items", []):
             if not isinstance(item, dict) or not item.get("item_id"):
                 continue
             note_id = str(item["item_id"])
             notes[note_id] = item
+            if capture.get("document_type") is not None:
+                try:
+                    document_source_anchor(item, 1)
+                except ContinuityError as exc:
+                    problems.append(f"document note {note_id} has invalid source anchor: {exc}")
+                if item.get("revision_status") not in DOCUMENT_REVISION_STATUSES:
+                    problems.append(f"document note {note_id} has invalid revision_status")
             created = parse_recorded_time(item.get("created_at"), config["timezone"])
             updated = parse_recorded_time(item.get("updated_at"), config["timezone"])
             if created is None or updated is None:
@@ -4861,6 +5270,14 @@ def note_lifecycle_audit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
                 problems.append(f"goal {goal_id} note {note_id} lacks a current lifecycle link")
             elif note_link_disposition(link) != disposition["disposition"]:
                 problems.append(f"goal {goal_id} note {note_id} disposition disagrees with its lifecycle link")
+        if "source_capture_refs" in goal:
+            try:
+                expected_refs = source_capture_refs_for_notes(root, config, source_note_ids)
+            except ContinuityError as exc:
+                problems.append(f"goal {goal_id} source document binding is invalid: {exc}")
+            else:
+                if goal.get("source_capture_refs") != expected_refs:
+                    problems.append(f"goal {goal_id} source document binding is stale")
     return {
         "legacy_disposition_goal_ids": sorted(legacy_disposition_goal_ids),
         "problems": sorted(set(problems)),
@@ -7094,13 +7511,34 @@ def capture_workflow_status(root: Path, config: dict[str, Any], capture: dict[st
     actions = [action for item in items for action in item.get("allowed_actions", [])]
     capture_id = str(capture["capture_id"])
     stage = "capture-review" if has_capture_review else "capture-routed"
+    document_evidence = {
+        key: capture.get(key)
+        for key in (
+            "document_id",
+            "document_type",
+            "document_title",
+            "document_version",
+            "document_revision",
+            "source_authority",
+            "source_ref",
+            "source_hash",
+            "raw_snapshot_ref",
+            "previous_capture_id",
+            "document_memory_id",
+            "revision_counts",
+        )
+        if capture.get(key) is not None
+    }
+    subject_ids: dict[str, Any] = {"capture_id": capture_id, "note_ids": [item["note_id"] for item in items]}
+    if capture.get("document_id"):
+        subject_ids["document_id"] = capture["document_id"]
     handoff = workflow_handoff_envelope(
         stage=stage,
-        subject_ids={"capture_id": capture_id, "note_ids": [item["note_id"] for item in items]},
-        inputs_used=[f"capture:{capture_id}"],
+        subject_ids=subject_ids,
+        inputs_used=[f"capture:{capture_id}", *([f"source-hash:{capture['source_hash']}"] if capture.get("source_hash") else [])],
         outputs_created=[f"note:{item['note_id']}" for item in items],
         decisions=[{"type": "item-routing", "note_id": item["note_id"], "stage": item["current_stage"]} for item in items],
-        evidence={"captured_at": capture.get("captured_at"), "item_count": len(items), "item_handoffs": items},
+        evidence={"captured_at": capture.get("captured_at"), "item_count": len(items), "item_handoffs": items, **document_evidence},
         blockers=blockers,
         next_skill=next_skill,
         allowed_actions=actions,
@@ -7113,6 +7551,7 @@ def capture_workflow_status(root: Path, config: dict[str, Any], capture: dict[st
         "next_skills": next_skills,
         "blockers": blockers,
         "items": items,
+        **document_evidence,
         "execution_authorized": False,
         "handoff": handoff,
     }
@@ -7291,6 +7730,7 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         )
     evidence = {
         "plan_hash": goal.get("plan_hash"),
+        "source_capture_refs": goal.get("source_capture_refs", []),
         "test_status": test_report.get("status") if isinstance(test_report, dict) else None,
         "test_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
         "merge_status": merge_report.get("status") if isinstance(merge_report, dict) else None,
@@ -7302,6 +7742,7 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         subject_ids={"goal_id": goal_id},
         inputs_used=[
             *[f"note:{value}" for value in goal.get("source_note_ids", [])],
+            *[f"capture:{value['capture_id']}@{value['source_hash']}" for value in goal.get("source_capture_refs", [])],
             *[f"memory:{value}" for value in goal.get("memory_ids", [])],
             *[f"roadmap:{value}" for value in goal.get("roadmap_ids", [])],
         ],
@@ -7363,6 +7804,66 @@ def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
             "note": note_workflow_status(root, config, capture, item),
         }
     if args.memory_id:
+        document_match = find_document_memory_capture(root, config, args.memory_id)
+        if document_match is not None:
+            capture_path, capture = document_match
+            history = document_capture_history(root, config, str(capture["document_id"]))
+            latest_revision = max(int(item.get("document_revision", 0)) for _path, item in history)
+            is_current = int(capture.get("document_revision", 0)) == latest_revision
+            scope = "trusted" if capture.get("source_authority") == "project-intent" else "private"
+            blockers = [] if is_current else ["a newer source document revision exists"]
+            next_skill = "continuity-plan" if is_current else "continuity-capture"
+            prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+            actions = [
+                workflow_action(
+                    "retrieve-source-document",
+                    "continuity-memory",
+                    f'{prefix} memory search "{args.memory_id}" --scope {scope}',
+                )
+            ]
+            evidence = {
+                "path": f"{capture_path.relative_to(root)}#document",
+                "title": capture.get("document_title"),
+                "entry_type": f"source-document:{capture.get('document_type')}",
+                "scope": scope,
+                "status": "current" if is_current else "historical",
+                "authority": capture.get("source_authority"),
+                "capture_id": capture.get("capture_id"),
+                "document_id": capture.get("document_id"),
+                "document_revision": capture.get("document_revision"),
+                "source_ref": capture.get("source_ref"),
+                "source_hash": capture.get("source_hash"),
+                "previous_capture_id": capture.get("previous_capture_id"),
+            }
+            handoff = workflow_handoff_envelope(
+                stage="memory-current" if is_current else "memory-review",
+                subject_ids={
+                    "memory_id": args.memory_id,
+                    "capture_id": capture.get("capture_id"),
+                    "document_id": capture.get("document_id"),
+                },
+                inputs_used=[f"capture:{capture.get('capture_id')}", f"source-hash:{capture.get('source_hash')}"],
+                outputs_created=[f"memory:{args.memory_id}"],
+                decisions=[{"type": "document-memory-status", "value": evidence["status"]}],
+                evidence=evidence,
+                blockers=blockers,
+                next_skill=next_skill,
+                allowed_actions=actions,
+                execution_authorized=False,
+            )
+            return {
+                "schema_version": 1,
+                "project_id": config["project_id"],
+                "generated_at": iso_now(config),
+                "memory": {
+                    "memory_id": args.memory_id,
+                    "current_stage": handoff["stage"],
+                    "next_skill": next_skill,
+                    "blockers": blockers,
+                    "allowed_actions": actions,
+                    "handoff": handoff,
+                },
+            }
         path = find_memory_entry(root, config, args.memory_id)
         metadata, _body, heading = parse_markdown(path)
         status = str(metadata.get("status", "proposed"))
@@ -9125,6 +9626,10 @@ def build_parser() -> argparse.ArgumentParser:
     capture.add_argument("--items-file")
     capture.add_argument("--source-type")
     capture.add_argument("--source-ref")
+    capture.add_argument("--document-type", choices=sorted(DOCUMENT_TYPES))
+    capture.add_argument("--document-id")
+    capture.add_argument("--document-version")
+    capture.add_argument("--source-authority", choices=sorted(DOCUMENT_SOURCE_AUTHORITIES))
     capture.set_defaults(handler=note_capture)
     triage = note_sub.add_parser("triage")
     triage.add_argument("capture_id")

@@ -294,6 +294,185 @@ unresolved_gaps: []
         self.assertEqual(singular["capture_mode"], "singular")
         self.assertEqual(singular["item_count"], 1)
 
+    def test_prd_capture_preserves_snapshot_memory_provenance_and_goal_binding(self) -> None:
+        source = self.root / "docs" / "product" / "review-workspace-prd.md"
+        source.parent.mkdir(parents=True)
+        source.write_text(
+            "# Review workspace PRD\n\n## Problem\nReviewers lose approval context.\n\n"
+            "## REQ-1\nShow risk context beside approval details. Keyboard behavior must remain unchanged.\n",
+            encoding="utf-8",
+        )
+        payload = {
+            "source_type": "file",
+            "source_file": str(source),
+            "document_type": "prd",
+            "document_id": "prd-review-workspace",
+            "document_title": "Review workspace PRD",
+            "document_version": "1.0",
+            "source_authority": "project-intent",
+            "items": [
+                {
+                    "kind": "insight", "text": "Reviewers lose approval context.",
+                    "source_anchor": {"source_item_key": "problem.approval-context", "heading_path": ["Problem"], "section": "problem"},
+                    "occurrence_type": "need", "actionability": "context",
+                    "stakeholders": ["reviewer"], "themes": ["approval-context"],
+                },
+                {
+                    "kind": "execution-candidate",
+                    "text": "REQ-1: Show risk context beside approval details. Acceptance: keyboard behavior remains unchanged.",
+                    "source_anchor": {"source_item_key": "requirement.req-1", "heading_path": ["REQ-1"], "section": "requirements", "requirement_id": "REQ-1"},
+                    "occurrence_type": "need", "actionability": "plan",
+                    "stakeholders": ["reviewer"], "themes": ["risk-context", "keyboard-behavior"],
+                },
+            ],
+        }
+        input_path = self.root / "prd-capture.json"
+        self.write_json(input_path, payload)
+        capture = json.loads(self.cli("note", "capture", "--items-file", str(input_path)).stdout)
+        self.assertEqual(capture["source_type"], "file")
+        self.assertEqual(capture["document_type"], "prd")
+        self.assertEqual(capture["document_revision"], 1)
+        self.assertEqual(capture["source_authority"], "project-intent")
+        self.assertEqual(capture["source_ref"], "docs/product/review-workspace-prd.md")
+        self.assertEqual(len(capture["source_hash"]), 64)
+        self.assertEqual(capture["revision_counts"]["added"], 2)
+        snapshot = self.root / capture["raw_snapshot_ref"]
+        self.assertEqual(snapshot.read_bytes(), source.read_bytes())
+        self.assertTrue(all(item["execution_authorized"] is False for item in capture["items"]))
+        self.assertTrue(all(item["revision_status"] == "added" for item in capture["items"]))
+
+        status = json.loads(self.cli("workflow", "status", "--capture-id", capture["capture_id"]).stdout)["capture"]
+        self.assertEqual(status["document_id"], "prd-review-workspace")
+        self.assertEqual(status["source_hash"], capture["source_hash"])
+        self.assertNotIn(source.read_text(encoding="utf-8"), json.dumps(status))
+
+        self.cli("memory", "index", "--scope", "trusted")
+        trusted = json.loads(self.cli("memory", "search", "approval context", "--scope", "trusted").stdout)
+        document_memory = next(item for item in trusted if item["memory_id"] == capture["document_memory_id"])
+        self.assertEqual(document_memory["entry_type"], "source-document:prd")
+        self.assertEqual(document_memory["scope"], "trusted")
+        self.assertIn("product intent", document_memory["summary"])
+        memory_status = json.loads(self.cli("workflow", "status", "--memory-id", capture["document_memory_id"]).stdout)["memory"]
+        self.assertEqual(memory_status["current_stage"], "memory-current")
+        self.assertEqual(memory_status["handoff"]["evidence"]["source_hash"], capture["source_hash"])
+
+        goal = self.create_goal("Implement PRD requirement", [capture["items"][1]["item_id"]])
+        self.assertEqual(len(goal["source_capture_refs"]), 1)
+        self.assertEqual(goal["source_capture_refs"][0]["capture_id"], capture["capture_id"])
+        self.assertEqual(goal["source_capture_refs"][0]["source_hash"], capture["source_hash"])
+        plan = (self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "plan.md").read_text(encoding="utf-8")
+        self.assertIn("Source documents", plan)
+        self.assertIn(capture["source_hash"], plan)
+
+    def test_feature_request_revisions_link_deltas_without_requeueing_unchanged_items(self) -> None:
+        source = self.root / "feature-request.txt"
+        source.write_text(
+            "Saved filters\n\nNeed: reviewers recreate filters.\nRequest: save one preset.\nQuestion: sync across devices?\n",
+            encoding="utf-8",
+        )
+
+        def capture_payload(items: list[dict]) -> dict:
+            payload = {
+                "source_type": "file",
+                "source_file": str(source),
+                "document_type": "feature-request",
+                "document_id": "feature-saved-filters",
+                "document_title": "Saved filters",
+                "source_authority": "supplied-reference",
+                "items": items,
+            }
+            input_path = self.root / "feature-request-capture.json"
+            self.write_json(input_path, payload)
+            return json.loads(self.cli("note", "capture", "--items-file", str(input_path)).stdout)
+
+        first = capture_payload([
+            {
+                "kind": "context", "text": "Reviewers recreate filters.",
+                "source_anchor": {"source_item_key": "need.recreate-filters", "heading_path": ["Need"]},
+                "occurrence_type": "need", "actionability": "context", "stakeholders": ["reviewer"], "themes": ["filters"],
+            },
+            {
+                "kind": "execution-candidate", "text": "Save one filter preset.",
+                "source_anchor": {"source_item_key": "request.save-preset", "heading_path": ["Request"]},
+                "occurrence_type": "need", "actionability": "plan", "stakeholders": ["reviewer"], "themes": ["filters", "presets"],
+            },
+            {
+                "kind": "question", "text": "Should presets sync across devices?",
+                "source_anchor": {"source_item_key": "question.device-sync", "heading_path": ["Question"]},
+                "occurrence_type": "need", "actionability": "monitor", "stakeholders": ["reviewer"], "themes": ["device-sync"],
+            },
+        ])
+        goal = self.create_goal("Plan saved filters", [first["items"][1]["item_id"]])
+        original_ref = dict(goal["source_capture_refs"][0])
+        original_plan_hash = goal["plan_hash"]
+
+        source.write_text(
+            "Saved filters\n\nRequest: save three presets.\nQuestion: sync across devices?\nExclusion: no sharing.\n",
+            encoding="utf-8",
+        )
+        second = capture_payload([
+            {
+                "kind": "execution-candidate", "text": "Save up to three filter presets.",
+                "source_anchor": {"source_item_key": "request.save-preset", "heading_path": ["Request"]},
+                "occurrence_type": "need", "actionability": "plan", "stakeholders": ["reviewer"], "themes": ["filters", "presets"],
+            },
+            {
+                "kind": "question", "text": "Should presets sync across devices?",
+                "source_anchor": {"source_item_key": "question.device-sync", "heading_path": ["Question"]},
+                "occurrence_type": "need", "actionability": "monitor", "stakeholders": ["reviewer"], "themes": ["device-sync"],
+            },
+            {
+                "kind": "decision", "text": "Sharing presets is outside this feature request.",
+                "source_anchor": {"source_item_key": "exclusion.preset-sharing", "heading_path": ["Exclusion"]},
+                "occurrence_type": "constraint", "actionability": "context", "stakeholders": ["reviewer"], "themes": ["sharing", "scope"],
+            },
+        ])
+        self.assertEqual(second["document_revision"], 2)
+        self.assertEqual(second["previous_capture_id"], first["capture_id"])
+        self.assertNotEqual(second["source_hash"], first["source_hash"])
+        self.assertEqual(second["revision_counts"], {"added": 1, "changed": 1, "removed": 1, "unchanged": 1})
+        by_status = {item["revision_status"]: item for item in second["items"]}
+        self.assertEqual(by_status["unchanged"]["routing_status"], "archive")
+        self.assertEqual(by_status["unchanged"]["work_status"], "archived")
+        self.assertEqual(by_status["changed"]["supersedes_item_id"], first["items"][1]["item_id"])
+        self.assertEqual(by_status["removed"]["supersedes_item_id"], first["items"][0]["item_id"])
+        self.assertEqual(by_status["removed"]["text"], "Reviewers recreate filters.")
+
+        duplicate = capture_payload(second["items"][:3])
+        self.assertEqual(duplicate["capture_id"], second["capture_id"])
+        self.assertTrue(duplicate["deduplicated"])
+
+        self.cli("memory", "index", "--scope", "all")
+        all_results = json.loads(self.cli("memory", "search", "Saved filters", "--scope", "all").stdout)
+        document_results = [item for item in all_results if item["entry_type"] == "source-document:feature-request"]
+        self.assertEqual({item["status"] for item in document_results}, {"current", "historical"})
+        trusted_results = json.loads(self.cli("memory", "search", "Saved filters", "--scope", "trusted").stdout)
+        self.assertFalse(any(item["entry_type"] == "source-document:feature-request" for item in trusted_results))
+        private_results = json.loads(self.cli("memory", "search", "Saved filters", "--scope", "private").stdout)
+        self.assertTrue(any(item["entry_type"] == "source-document:feature-request" for item in private_results))
+
+        stored_goal = json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json").read_text(encoding="utf-8"))
+        self.assertEqual(stored_goal["source_capture_refs"][0], original_ref)
+        self.assertEqual(stored_goal["plan_hash"], original_plan_hash)
+
+    def test_document_capture_rejects_unsupported_source_formats(self) -> None:
+        source = self.root / "requirements.pdf"
+        source.write_bytes(b"not really a pdf")
+        payload = {
+            "source_type": "file",
+            "source_file": str(source),
+            "document_type": "prd",
+            "document_id": "prd-invalid-format",
+            "items": [{
+                "kind": "context", "text": "Invalid source.",
+                "source_anchor": {"source_item_key": "context.invalid", "heading_path": ["Context"]},
+            }],
+        }
+        input_path = self.root / "invalid-document-capture.json"
+        self.write_json(input_path, payload)
+        result = self.cli("note", "capture", "--items-file", str(input_path), expected=2)
+        self.assertIn("supports only Markdown and plain-text files", result.stderr)
+
     def test_occurrence_dimensions_private_similarity_and_pattern_guidance(self) -> None:
         payload = {
             "source_type": "conversation",
@@ -2451,7 +2630,7 @@ class InstallerTest(unittest.TestCase):
                 "--integration-branch", "main", "--ignore-user-defaults",
             ]
             first = json.loads(subprocess.run(command, check=True, capture_output=True, text=True).stdout)
-            self.assertEqual(first["suite_version"], "0.1.0-rc.1")
+            self.assertEqual(first["suite_version"], "0.1.0-rc.2")
             install_manifest = json.loads((root / ".continuity" / "install-manifest.json").read_text(encoding="utf-8"))
             self.assertTrue(install_manifest["installed_files"])
             installed_cli = root / ".agents" / "continuity" / "bin" / "continuity"

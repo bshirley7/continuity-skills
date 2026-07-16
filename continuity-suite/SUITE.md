@@ -26,6 +26,7 @@ Every installed skill applies the versioned development assurance standard. The 
 .continuity/project-behavior.json        committed recommendations, overrides, and hash
 .continuity/scheduler.json               selected scheduler handoff and registration state
 .continuity/private/                    ignored captures, queues, goals, locks, indexes
+.continuity/private/source-snapshots/   ignored exact PRD and feature-request revisions
 .continuity-portfolio/                  ignored supervisor claims and capacity reservations
 docs/project-memory/                    canonical searchable project memory
 docs/project-roadmap/                   canonical sanitized project roadmap
@@ -118,7 +119,7 @@ Use `continuity suite update --check`, a dry run, and an explicit tagged update 
 The steps below are the concise reference. [Operating Workflow](docs/operating-workflow.md) explains authority, scheduler activation, commands, failure handling, rework, and morning review in detail.
 
 1. Invoke `$continuity` for setup or routing. For manual end-to-end work, invoke `$continuity-workflow`; it applies `$continuity-local` with each machine-selected task skill, continues through non-human handoffs and remediation, and pauses only at explicit approval boundaries.
-2. Invoke `$continuity-capture` in the active project conversation.
+2. Invoke `$continuity-capture` in the active project conversation or point it to a local Markdown/plain-text PRD or feature request. One document revision remains one source capture with multiple atomic items.
 3. Invoke `$continuity-triage`, or allow the nightly review to classify and route items. Refine occurrence dimensions and review recurring patterns when useful.
 4. Use `$continuity-memory` and `$continuity-roadmap` to retrieve cited context briefs. Private similarity may inform triage, but only canonical promoted memory is trusted planning evidence. Use the local read-only roadmap sidecar when visual transport helps.
 5. Use `$continuity-share` only for explicitly selected, sanitized, approved developer handoffs.
@@ -169,4 +170,4 @@ Validate each skill with the `skill-creator` `quick_validate.py` utility. The va
 
 ## Future adapters
 
-The capture schema reserves `notion` and `linear` source types. An adapter must provide stable source references, timestamps, deduplication keys, provenance, and raw snapshot references. It must enter through the same classification and authorization gates; integrations may not dispatch work directly.
+Document capture v1 accepts local UTF-8 Markdown and plain-text files. `source_type` records transport while `document_type` records `prd` or `feature-request`. Exact snapshots remain private; unchanged hashes deduplicate, changed hashes create linked revisions, and goals derived from document items bind the originating capture and source hash into the plan approval hash. The capture schema reserves `notion` and `linear` source types. An adapter must provide stable source references, timestamps, hashes, provenance, and raw snapshot references, and it must enter through the same classification and authorization gates without dispatching work directly.

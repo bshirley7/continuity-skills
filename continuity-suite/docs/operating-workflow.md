@@ -160,7 +160,7 @@ A plain cron or `launchd` process can calculate due actions and detect stale sta
 
 ### 1. Capture information during normal work
 
-Use `$continuity-capture` whenever a conversation or work session produces durable context. Capture facts and feedback while their source and time are still clear.
+Use `$continuity-capture` whenever a conversation, work session, PRD, or feature request produces durable context. Capture facts and feedback while their source and time are still clear.
 
 Useful capture categories include:
 
@@ -186,6 +186,10 @@ Example:
 Capture does not authorize documentation or implementation.
 
 For pasted meeting notes, treat the message as one source and split it into semantic atomic items before capture. Do not create one item per bullet mechanically: preserve each distinct decision, requirement, positive or negative feedback item, question, risk, and later idea as its own item. Keep related explanation with the item it qualifies. The result is one `capture_mode: batch` record with independently triageable item IDs, a shared meeting reference and source timestamp, and `execution_authorized: false` on every item.
+
+For a PRD or feature request, point `$continuity-capture` to one local UTF-8 Markdown or plain-text file. The skill reads the document-capture reference, prepares one `--items-file` payload containing `source_file`, `document_type`, stable `document_id`, authority, and stable source anchors, then uses the same capture command. Keep requirement acceptance criteria together, preserve constraints and non-goals as decisions, and split risks and open questions independently. The CLI stores the exact private snapshot, calculates its hash, and links later revisions without editing the source. `project-intent` is reserved for an official in-project document; all other document sources use `supplied-reference`.
+
+An identical document ID and hash returns the prior capture. A changed hash creates a new revision. Stable source-item keys let the CLI archive unchanged items, relate changed items, and retain removed items as explicit revision evidence. Planning from any extracted item derives the originating capture, document revision, and source hash into the goal's approval material.
 
 Example batch input:
 
@@ -230,7 +234,7 @@ Example batch input:
   --capture-id <capture-id>
 ```
 
-A batch is limited to 250 items, with 20,000 characters per item. Split larger material by meeting or source instead of truncating it. A single callout remains a normal `capture_mode: singular` capture.
+A batch is limited to 250 items, with 20,000 characters per item. Source documents are additionally limited to 2,000,000 bytes. Split larger material by meeting or source instead of truncating it. A single callout remains a normal `capture_mode: singular` capture.
 
 ### 2. Triage each atomic note
 

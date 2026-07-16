@@ -45,7 +45,7 @@ To update every enrolled project beneath one or more workspace roots, run `conti
 ```text
 $continuity           configure, audit, and route the suite
 $continuity-workflow  run a manual request sequentially until approval or completion
-$continuity-capture   capture one callout or a batch of meeting notes and feedback
+$continuity-capture   capture a callout, meeting batch, PRD, or feature request
 $continuity-triage    classify notes into context, questions, decisions, roadmap, or plans
 $continuity-memory    search or promote trusted project memory
 $continuity-roadmap   inspect or update approved roadmap context
@@ -62,6 +62,6 @@ Every skill uses `continuity workflow status` as its shared machine handoff. Man
 
 Shared references explain that machine contract, while each task skill includes a compact applied guide with decision boundaries, examples, anti-examples, quality checks, and stage-specific handoff requirements. The references improve judgment but never override CLI state or create authorization.
 
-Notes and feedback are captured first with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata. Private search, similarity, and pattern review can use those captures immediately; only reviewed and promoted records enter canonical trusted project memory.
+Notes and feedback are captured first with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata. A pointed-to PRD or feature request remains one source capture with an exact private snapshot, document hash, revision lineage, and structurally anchored atomic items. Official project documents can appear in trusted retrieval as product intent; supplied references stay private. Neither form proves implementation behavior or authorizes work.
 
 Overnight code delivery stops at `review-ready`. The morning report surfaces per-goal evidence and exact human dispositions: approve, request changes, merge, or close. An opt-in interactive command can bind human authorization to the exact PR, full head SHA, merge method, and authenticated GitHub identity, then perform and verify a direct `gh` merge without administrator bypass or auto-merge. In-scope requested changes reopen the same goal through explicit authorization; expanded scope requires revision and fresh approval. Only recorded human merge evidence marks a goal `completed`.
