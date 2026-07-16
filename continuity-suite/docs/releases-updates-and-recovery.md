@@ -51,6 +51,8 @@ The installer records the release and every suite-managed file in `.continuity/i
 
 New releases may add suite-owned skills or opt-in project settings. The installer preserves prior settings and user-owned skills, installs newly added suite skills, regenerates the project-local behavior skill and enabled surface adapters, and applies a safe default for each new setting. This adds `$continuity-workflow` and its slash-command adapters to existing projects without replacing custom skills. For the GitHub CLI merge capability, existing projects receive `github_cli_merge_enabled: false`; no project begins merging through Codex merely because it updated.
 
+Legacy installations that stored newly introduced GitHub readiness fields as JSON `null` are migrated to safe defaults (`github_required_checks: []`, `github_required_reviewers: 1`, and `github_cli_merge_enabled: false`). Other invalid non-null values remain errors rather than being silently rewritten.
+
 ## Ownership boundaries
 
 An update may replace only release-managed copies under `.agents/continuity/`, `.agents/references/`, and `.agents/skills/continuity-*`, plus the managed blocks in `AGENTS.md` and `.gitignore`.

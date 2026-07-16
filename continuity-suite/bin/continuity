@@ -4224,7 +4224,12 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
         settings.setdefault("roadmap", dict(DEFAULT_ROADMAP_SETTINGS))
         settings.setdefault("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))
-        settings.setdefault("github_cli_merge_enabled", False)
+        if settings.get("github_required_checks") is None:
+            settings["github_required_checks"] = config.get("github_required_checks", [])
+        if settings.get("github_required_reviewers") is None:
+            settings["github_required_reviewers"] = config.get("github_required_reviewers", 1)
+        if settings.get("github_cli_merge_enabled") is None:
+            settings["github_cli_merge_enabled"] = bool(config.get("github_cli_merge_enabled", False))
         settings["scheduler"] = normalize_scheduler(settings.get("scheduler"))
         documentation_map = dict(settings.get("documentation_map", {}))
         documentation_map.setdefault("project-roadmap", "docs/project-roadmap/INDEX.md")

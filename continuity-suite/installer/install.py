@@ -519,9 +519,12 @@ def main() -> int:
                 and trusted_approver_entries_exist(root, existing_signers)
             )
         )
-        config.setdefault("github_required_checks", [])
-        config.setdefault("github_required_reviewers", 1)
-        config.setdefault("github_cli_merge_enabled", False)
+        if config.get("github_required_checks") is None:
+            config["github_required_checks"] = []
+        if config.get("github_required_reviewers") is None:
+            config["github_required_reviewers"] = 1
+        if config.get("github_cli_merge_enabled") is None:
+            config["github_cli_merge_enabled"] = False
         config.setdefault("require_remote_lease", True)
         config.setdefault("require_verified_backups", True)
         config.setdefault("require_audit_checkpoints", True)

@@ -2498,8 +2498,12 @@ class InstallerTest(unittest.TestCase):
             legacy_behavior_path = root / ".continuity" / "project-behavior.json"
             legacy_behavior = json.loads(legacy_behavior_path.read_text(encoding="utf-8"))
             legacy_behavior["settings"].pop("github_cli_merge_enabled", None)
+            legacy_behavior["settings"]["github_required_checks"] = None
+            legacy_behavior["settings"]["github_required_reviewers"] = None
             legacy_behavior_path.write_text(json.dumps(legacy_behavior, indent=2) + "\n", encoding="utf-8")
             config_after_first_install.pop("github_cli_merge_enabled", None)
+            config_after_first_install["github_required_checks"] = None
+            config_after_first_install["github_required_reviewers"] = None
             custom_skill = root / ".agents" / "skills" / "project-custom-skill" / "SKILL.md"
             custom_skill.parent.mkdir(parents=True)
             custom_skill.write_text("---\nname: project-custom-skill\ndescription: user-owned fixture\n---\n", encoding="utf-8")
@@ -2545,7 +2549,7 @@ class InstallerTest(unittest.TestCase):
                 text=True,
             )
             update_payload = json.loads(update_result.stdout)
-            self.assertEqual(update_payload["status"], "completed")
+            self.assertEqual(update_payload["status"], "completed", update_payload)
             self.assertEqual(update_payload["counts"]["updated"], 2)
             self.assertEqual({item["project_id"] for item in update_payload["projects"]}, {"sample-project"})
             self.assertTrue(all(item["after"]["healthy"] for item in update_payload["projects"]))
@@ -2556,7 +2560,11 @@ class InstallerTest(unittest.TestCase):
             upgraded_config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             upgraded_behavior = json.loads(legacy_behavior_path.read_text(encoding="utf-8"))
             self.assertFalse(upgraded_config["github_cli_merge_enabled"])
+            self.assertEqual(upgraded_config["github_required_checks"], [])
+            self.assertEqual(upgraded_config["github_required_reviewers"], 1)
             self.assertFalse(upgraded_behavior["settings"]["github_cli_merge_enabled"])
+            self.assertEqual(upgraded_behavior["settings"]["github_required_checks"], [])
+            self.assertEqual(upgraded_behavior["settings"]["github_required_reviewers"], 1)
             self.assertTrue(installed_skill_names.issubset({path.name for path in (root / ".agents" / "skills").iterdir() if path.is_dir()}))
             self.assertTrue(custom_skill.is_file())
             self.assertTrue((root / ".agents" / "skills" / "continuity-workflow" / "SKILL.md").is_file())
