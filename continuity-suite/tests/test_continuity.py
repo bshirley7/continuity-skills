@@ -2630,7 +2630,7 @@ class InstallerTest(unittest.TestCase):
                 "--integration-branch", "main", "--ignore-user-defaults",
             ]
             first = json.loads(subprocess.run(command, check=True, capture_output=True, text=True).stdout)
-            self.assertEqual(first["suite_version"], "0.1.0-rc.2")
+            self.assertEqual(first["suite_version"], "0.1.0-rc.3")
             install_manifest = json.loads((root / ".continuity" / "install-manifest.json").read_text(encoding="utf-8"))
             self.assertTrue(install_manifest["installed_files"])
             installed_cli = root / ".agents" / "continuity" / "bin" / "continuity"

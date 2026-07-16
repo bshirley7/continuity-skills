@@ -65,6 +65,8 @@ Planning-pattern settings also control evidence triage, decision mapping, depend
 
 Roadmap settings default to full hybrid planning. Canonical Markdown remains committed under `docs/project-roadmap/`; the CLI derives ignored SQLite and JSON projections that can combine roadmap truth with developer-local goals and note links. `continuity roadmap serve --open` launches a read-only loopback companion with timeline, hierarchy, release, milestone, sprint, board, dependency, risk, blocker, and detail views. The companion lives under `.agents/continuity/` and is forbidden from product routes, build inputs, previews, staging, and production packages.
 
+When `tracker_provider` is explicitly configured as `github`, `continuity roadmap github-projects` can approval-bootstrap a Project through GitHub CLI and prepare, inspect, approve, and apply an export-only projection. Bootstrap plans bind the owner, title, visibility, settings destination, and complete field contract; export plans bind the exact Project, selected canonical entries, field mappings, and source revisions. Each remote-write phase requires exact human approval. GitHub edits remain non-authorizing reconciliation proposals, and the adapter does not create repository issues or mutate canonical roadmap files from remote state.
+
 Raw captures never travel through Git. `$continuity-share` lets a developer select atomic notes, review a sanitized hash-bound packet, approve its exact version and current-project target, then publish it through an isolated `continuity-notes/...` branch and human-reviewed PR. Merged packets live under `.continuity/shared-notes/packets/`; other developers explicitly import and triage them. Neither a packet nor its merge authorizes execution or canonical changes.
 
 ## Roadmap and note transport commands
@@ -80,6 +82,13 @@ continuity roadmap create --entry-file <path> --goal-id <approved-goal>
 continuity roadmap revise <roadmap-id> --entry-file <path> --goal-id <approved-goal>
 continuity roadmap export --scope committed
 continuity roadmap serve --open
+continuity roadmap github-projects bootstrap plan --owner-type organization --owner <owner> --title <title>
+continuity roadmap github-projects bootstrap approve <plan-hash> --approved-by <identity> --authorization-text <exact-text>
+continuity roadmap github-projects bootstrap apply <plan-hash>
+continuity roadmap github-projects plan --settings .continuity/github-projects.json
+continuity roadmap github-projects inspect <plan-hash>
+continuity roadmap github-projects approve <plan-hash> --approved-by <identity> --authorization-text <exact-text>
+continuity roadmap github-projects apply <plan-hash>
 continuity roadmap production-audit --artifact <build-or-package>
 
 continuity note share prepare <note-id>... --target-project <current-project> --sender <identity>

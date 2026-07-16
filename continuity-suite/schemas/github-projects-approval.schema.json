@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GitHub Projects export approval receipt",
+  "type": "object",
+  "required": ["schema_version", "project_id", "plan_hash", "destination", "approved_at", "approved_by", "authorization_text", "nonce", "signature_format"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "plan_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "destination": {"type": "object"},
+    "behavior_configuration_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "approved_at": {"type": "string", "format": "date-time"},
+    "approved_by": {"type": "string", "minLength": 1},
+    "authorization_text": {"type": "string", "minLength": 1},
+    "nonce": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+    "signature_format": {"enum": ["legacy-unsigned", "openssh-sshsig-v1"]}
+  },
+  "additionalProperties": false
+}
