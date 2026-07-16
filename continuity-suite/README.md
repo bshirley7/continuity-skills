@@ -4,6 +4,7 @@ Continuity turns project conversations and notes into searchable memory, roadmap
 
 ## Start Here
 
+- For a first local install, configuration, and skill-use walkthrough, read [Quickstart](docs/quickstart.md).
 - For the exact installation and daily-use workflow, read [Install and Daily Use](docs/install-and-daily-use.md).
 - For the complete day-to-night-to-morning operating model, read [Operating Workflow](docs/operating-workflow.md).
 - For tagged updates, managed-file drift, encrypted backup, and rollback, read [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md).

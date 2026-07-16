@@ -2,7 +2,7 @@
 
 This suite turns project conversations and notes into searchable knowledge, reviewable goals, safely sequenced execution, and evidence-backed reports.
 
-For the detailed human and agent operating sequence across projects, campaigns, and objectives, read [Operating Workflow](docs/operating-workflow.md).
+For a first local install path, read [Quickstart](docs/quickstart.md). For the detailed human and agent operating sequence across projects, campaigns, and objectives, read [Operating Workflow](docs/operating-workflow.md).
 
 ## Operating boundary
 
@@ -39,6 +39,8 @@ See `automation/provider-adapter-contract.md` for the provider conformance requi
 Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
 ## Installation
+
+For the copy-paste install, local configuration, and slash-command sequence, start with [Quickstart](docs/quickstart.md).
 
 ```text
 python3 continuity-suite/installer/install.py \

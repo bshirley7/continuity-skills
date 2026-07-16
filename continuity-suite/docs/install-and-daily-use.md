@@ -1,6 +1,6 @@
 # Install and Daily Use
 
-This guide explains where to run Continuity installation, what gets installed into a project, how to choose schedules and project requirements, and how to use the installed skills in a daily routine. Read [Continuity Operating Workflow](operating-workflow.md) for the complete day-to-night-to-morning process, authority model, recovery behavior, and operational readiness checklist.
+This guide explains where to run Continuity installation, what gets installed into a project, how to choose schedules and project requirements, and how to use the installed skills in a daily routine. For a shorter first local install path, read [Quickstart](quickstart.md). Read [Continuity Operating Workflow](operating-workflow.md) for the complete day-to-night-to-morning process, authority model, recovery behavior, and operational readiness checklist.
 
 ## Where To Run Installation
 
