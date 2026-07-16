@@ -1,0 +1,231 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import runpy
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SUITE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SUITE / "lib"))
+import design
+
+BOUNDARY_SPEC = importlib.util.spec_from_file_location("validate_design_boundary", SUITE / "scripts" / "validate_design_boundary.py")
+BOUNDARY = importlib.util.module_from_spec(BOUNDARY_SPEC)
+assert BOUNDARY_SPEC.loader
+BOUNDARY_SPEC.loader.exec_module(BOUNDARY)
+INSTALL_SPEC = importlib.util.spec_from_file_location("continuity_installer", SUITE / "installer" / "install.py")
+INSTALLER = importlib.util.module_from_spec(INSTALL_SPEC)
+assert INSTALL_SPEC.loader
+INSTALL_SPEC.loader.exec_module(INSTALLER)
+CATALOG = SUITE / "skills" / "continuity-design" / "references" / "catalog.json"
+
+
+def input_value(**overrides):
+    value = {
+        "design_id": "design-test",
+        "title": "Test direction",
+        "intent": "Set direction before implementation.",
+        "audiences": ["Operators"],
+        "targets": ["ui"],
+        "industry": "b2b-saas",
+        "sections": ["dashboards"],
+        "themes": ["calm"],
+        "message_structures": ["value-first"],
+        "lenses": ["hierarchy", "accessibility", "trust"],
+        "constraints": ["Keep keyboard access"],
+        "preserve": ["Fast expert path"],
+        "open_questions": [],
+        "source_note_ids": [],
+        "memory_ids": [],
+    }
+    value.update(overrides)
+    return value
+
+
+class DesignLifecycleTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.config = {"project_id": "test-project", "private_dir": ".continuity/private", "collections": ["core", "projects", "design"]}
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def write_input(self, value):
+        path = self.root / "input.json"
+        path.write_text(json.dumps(value), encoding="utf-8")
+        return path
+
+    def test_adaptive_direction_counts(self):
+        one = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="one")))
+        self.assertEqual(len(one["directions"]), 1)
+        two = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="two", open_questions=["Density or scanability?"])))
+        self.assertEqual(len(two["directions"]), 2)
+        three = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="three", themes=["calm", "technical"], message_structures=["value-first", "proof-first"])))
+        self.assertEqual(len(three["directions"]), 3)
+
+    def test_foundation_and_matching_category_packs_are_bound(self):
+        value = input_value(industry="finance", sections=["onboarding"], themes=["calm"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(
+            [pack["pack_id"] for pack in draft["catalog_packs"]],
+            [
+                "design-industries",
+                "industry-finance",
+                "design-sections-flows",
+                "section-flow-onboarding",
+                "design-themes",
+                "theme-calm-clarity",
+                "design-message-structures",
+                "design-ux-lenses",
+            ],
+        )
+
+    def test_reviewed_section_flow_overlays_are_bound(self):
+        value = input_value(sections=["marketing", "conversion", "checkout"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(
+            [pack["pack_id"] for pack in draft["catalog_packs"]],
+            [
+                "design-industries",
+                "design-sections-flows",
+                "section-flow-marketing",
+                "section-flow-conversion",
+                "section-flow-checkout",
+                "design-themes",
+                "theme-calm-clarity",
+                "design-message-structures",
+                "design-ux-lenses",
+            ],
+        )
+
+    def test_catalog_rejects_competing_category_overlays(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value = json.loads(CATALOG.read_text(encoding="utf-8"))
+            duplicate = dict(next(pack for pack in value["packs"] if pack["pack_id"] == "theme-calm-clarity"))
+            duplicate.update({"pack_id": "theme-calm-competing", "reference": "theme-calm-competing.md"})
+            value["packs"].append(duplicate)
+            for reference in {pack["reference"] for pack in value["packs"] if pack["reference"] != duplicate["reference"]}:
+                shutil.copy2(CATALOG.parent / reference, root / reference)
+            (root / duplicate["reference"]).write_text("# Competing pack\n", encoding="utf-8")
+            path = root / "catalog.json"
+            path.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaises(design.DesignError):
+                design.load_catalog(path)
+
+    def test_exact_approval_promotion_and_goal_binding(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value()))
+        selected = design.select(self.root, self.config, draft["design_id"], [draft["directions"][0]["direction_id"]], "human")
+        with self.assertRaises(design.DesignError):
+            design.approve(self.root, self.config, draft["design_id"], 1, "human", "approve")
+        approved = design.approve(self.root, self.config, draft["design_id"], 1, "human", selected["required_authorization_text"])
+        self.assertFalse(approved["execution_authorized"])
+        self.assertEqual((self.root / "docs/design/design.md").read_bytes(), (self.root / ".continuity/private/design/design-test/design.md").read_bytes())
+        bound = design.bind_approved(self.root, self.config, ["design-test"])
+        self.assertEqual(bound[0]["design_hash"], approved["design_hash"])
+
+    def test_revision_does_not_change_canonical_design(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value()))
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "human")
+        approved = design.approve(self.root, self.config, draft["design_id"], 1, "human", selected["required_authorization_text"])
+        canonical = (self.root / "docs/design/design.md").read_bytes()
+        revised = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(open_questions=["More density?"])))
+        self.assertEqual(revised["revision"], 2)
+        self.assertEqual((self.root / "docs/design/design.md").read_bytes(), canonical)
+        self.assertEqual(json.loads((self.root / ".continuity/design.json").read_text())["design_hash"], approved["design_hash"])
+
+    def test_non_ui_targets_are_labeled_inferred(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(targets=["document"])))
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "human")
+        text = (self.root / ".continuity/private/design/design-test/design.md").read_text()
+        self.assertIn("Evidence application: `inferred`", text)
+        self.assertFalse(selected["execution_authorized"])
+
+    def test_goal_hash_changes_with_bound_design_hash(self):
+        functions = runpy.run_path(str(SUITE / "bin" / "continuity"))
+        directory = self.root / "goal"
+        directory.mkdir()
+        (directory / "plan.md").write_text("# Plan\n", encoding="utf-8")
+        goal = {"design_refs": [{"design_id": "design-test", "revision": 1, "design_hash": "a" * 64, "catalog_packs": []}]}
+        first = functions["goal_material_hash"](directory, goal)
+        goal["design_refs"][0]["design_hash"] = "b" * 64
+        self.assertNotEqual(first, functions["goal_material_hash"](directory, goal))
+
+
+class BoundaryTests(unittest.TestCase):
+    def test_shared_suite_passes_boundary_scan(self):
+        self.assertEqual(BOUNDARY.validate([SUITE]), [])
+
+    def test_candidate_leak_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "guidance.md"
+            path.write_text("source " + "mo" + "bbin" + " https://example.invalid/screen.png", encoding="utf-8")
+            self.assertTrue(BOUNDARY.validate([path]))
+
+    def test_optional_collection_filters_skill_install(self):
+        manifest = {"files": {"skills/continuity/SKILL.md": "x", "skills/continuity-plan/SKILL.md": "x", "skills/continuity-design/SKILL.md": "x", "bin/continuity": "x"}}
+        defaults, default_skills = INSTALLER.resolve_collections(SUITE, [], None)
+        self.assertEqual(defaults, ["core", "projects"])
+        default_map = INSTALLER.install_file_map(SUITE, manifest, default_skills)
+        self.assertNotIn(".agents/skills/continuity-design/SKILL.md", default_map)
+        enabled, design_skills = INSTALLER.resolve_collections(SUITE, ["design"], None)
+        self.assertEqual(enabled, ["core", "design", "projects"])
+        design_map = INSTALLER.install_file_map(SUITE, manifest, design_skills)
+        self.assertIn(".agents/skills/continuity-design/SKILL.md", design_map)
+
+    def test_shared_design_runtime_has_no_network_imports(self):
+        source = (SUITE / "lib" / "design.py").read_text(encoding="utf-8")
+        self.assertNotIn("import urllib", source)
+        self.assertNotIn("import requests", source)
+        self.assertNotIn("import socket", source)
+
+    def test_design_collection_installs_adapts_and_runs_end_to_end(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "project"
+            root.mkdir()
+            subprocess.run(["git", "-C", str(root), "init", "-b", "main"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "tests@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Tests"], check=True)
+            (root / "README.md").write_text("# Project\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-m", "initial"], check=True, capture_output=True)
+            installed = json.loads(subprocess.run([
+                sys.executable, str(SUITE / "installer" / "install.py"), "--project-root", str(root),
+                "--project-id", "design-project", "--integration-branch", "main", "--collection", "design",
+                "--ignore-user-defaults",
+            ], check=True, capture_output=True, text=True).stdout)
+            self.assertEqual(installed["suite_version"], "0.1.0-rc.3")
+            self.assertTrue((root / ".agents/skills/continuity-design/SKILL.md").is_file())
+            self.assertTrue((root / ".claude/commands/continuity-design.md").is_file())
+            config = json.loads((root / ".continuity/config.json").read_text())
+            self.assertEqual(config["collections"], ["core", "design", "projects"])
+            cli = root / ".agents/continuity/bin/continuity"
+            design_input = root / "design-input.json"
+            design_input.write_text(json.dumps(input_value()), encoding="utf-8")
+
+            def call(*args):
+                return json.loads(subprocess.run([str(cli), "--project-root", str(root), *args], check=True, capture_output=True, text=True).stdout)
+
+            draft_record = call("design", "draft", "--input", str(design_input))
+            selected = call("design", "select", draft_record["design_id"], "--direction", "direction-1", "--actor", "human")
+            approved = call("design", "approve", draft_record["design_id"], "--revision", "1", "--approved-by", "human", "--authorization-text", selected["required_authorization_text"])
+            self.assertFalse(approved["execution_authorized"])
+            workflow = call("workflow", "status", "--design-id", draft_record["design_id"])["design"]
+            self.assertEqual(workflow["next_skill"], "continuity-plan")
+            goal_input = root / "goal.json"
+            goal_input.write_text(json.dumps({"goal_id": "goal-design-bound", "title": "Implement approved design", "scope": "Implement the exact approved direction.", "acceptance_criteria": ["Approved behavior is implemented"], "design_ids": [draft_record["design_id"]]}), encoding="utf-8")
+            goal = call("goal", "create", "--goal-file", str(goal_input))
+            self.assertEqual(goal["design_refs"][0]["design_hash"], approved["design_hash"])
+            doctor = call("project", "doctor")
+            self.assertTrue(doctor["design_catalog"]["healthy"])
+            self.assertEqual(doctor["design_catalog"]["approved_design"]["design_hash"], approved["design_hash"])
+
+
+if __name__ == "__main__":
+    unittest.main()

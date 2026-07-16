@@ -20,7 +20,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 ## Workflow
 
 1. Confirm every source item is eligible for planning.
-2. Run `memory brief` and `roadmap brief` for the goal and record every memory and roadmap ID used.
+2. Run `memory brief` and `roadmap brief` for the goal and record every memory and roadmap ID used. When an approved design applies, retrieve `.continuity/design.json`, verify `docs/design/design.md`, and include its ID in `design_ids`; the CLI derives the exact revision, hash, and catalog pack versions.
 3. Apply the configured planning patterns. Use the evidence triage brief for verified action context. For complex or uncertain work, create a decision map with one destination, explicit decisions, dependency edges, unresolved territory, and out-of-scope boundaries. Do not plan execution across unresolved or human-required decisions.
 4. Group only work supporting one cohesive outcome. Split unrelated intents.
 5. For a multi-part outcome, create dependency-aware end-to-end delivery slices. Each slice must be independently verifiable, small enough for one focused run, and blocked only by genuine prerequisites. Use an expand-migrate-contract sequence for wide changes that cannot remain valid as vertical slices.
@@ -28,7 +28,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 7. Apply repository architecture and developer best practices. Review the plan for correctness, maintainability, privacy, security, testing, rollout, and rollback implications.
 8. Set unattended suitability and runtime, defaulting to six hours.
 9. Give every `source_note_id` exactly one explicit `note_disposition`: `current-goal`, `later`, `context-only`, or `duplicate`. Omission fails closed for new goals and source-changing revisions. Later work requires `review_after` or a roadmap anchor. Map current-goal notes to delivery slices when applicable and state why every disposition was selected.
-10. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `note_dispositions`, `roadmap_ids`, and `roadmap_impact`; the CLI validates them, renders them into the plan, and includes them in the approval hash.
+10. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `note_dispositions`, `roadmap_ids`, optional `design_ids`, and `roadmap_impact`; the CLI validates them, renders derived source and design references into the plan, and includes them in the approval hash.
 11. Record evidence for `capture-triage`, `memory-retrieval`, `roadmap-retrieval`, and `plan-review` compliance stages.
 12. Leave the goal `awaiting-feedback`.
 

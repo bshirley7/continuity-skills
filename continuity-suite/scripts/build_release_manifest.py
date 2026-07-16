@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 
-INCLUDED_ROOTS = ("automation", "bin", "docs", "installer", "lib", "references", "roadmap-ui", "schemas", "scripts", "skills", "templates")
+INCLUDED_ROOTS = ("automation", "bin", "collections", "docs", "installer", "lib", "references", "roadmap-ui", "schemas", "scripts", "skills", "templates")
 INCLUDED_FILES = ("CONTRIBUTING.md", "README.md", "SUITE.md", "VERSION")
 
 

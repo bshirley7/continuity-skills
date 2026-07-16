@@ -322,6 +322,8 @@ def _goal_allows(root: Path, config: dict[str, Any], goal_id: str, roadmap_id: s
     machine = {key: goal.get(key) for key in sorted(immutable_keys)}
     if "source_capture_refs" in goal:
         machine["source_capture_refs"] = goal.get("source_capture_refs", [])
+    if "design_refs" in goal:
+        machine["design_refs"] = goal.get("design_refs", [])
     plan_path = goal_path.parent / "plan.md"
     if not plan_path.is_file():
         raise RoadmapError("Roadmap goal plan is missing")

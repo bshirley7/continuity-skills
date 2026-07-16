@@ -2829,6 +2829,9 @@ class InstallerTest(unittest.TestCase):
             for skill_source in (SUITE / "skills").iterdir():
                 if not skill_source.is_dir():
                     continue
+                if skill_source.name == "continuity-design":
+                    self.assertFalse((root / ".agents" / "skills" / skill_source.name).exists())
+                    continue
                 for source in (skill_source / "references").glob("*"):
                     if source.is_file():
                         self.assertTrue((root / ".agents" / "skills" / skill_source.name / "references" / source.name).is_file())
@@ -2942,6 +2945,9 @@ class InstallerTest(unittest.TestCase):
                         self.assertTrue((surface_root / "references" / source.relative_to(SUITE / "references")).is_file())
                 for skill_source in (SUITE / "skills").iterdir():
                     if not skill_source.is_dir():
+                        continue
+                    if skill_source.name == "continuity-design":
+                        self.assertFalse((surface_root / "skills" / skill_source.name).exists())
                         continue
                     for source in (skill_source / "references").glob("*"):
                         if source.is_file():

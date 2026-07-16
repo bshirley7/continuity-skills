@@ -21,7 +21,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 6. On a recoverable failure, preserve the finding, route to the machine-selected remediation skill, repair only approved scope, rerun the failed check, and continue. Never mark a failed gate passed or weaken a guardrail to keep moving.
 7. Finish only when the subject reaches `completed`, `cancelled`, `archived`, `not-applicable`, a successful no-work/reporting terminal, or another machine-declared terminal state with no next skill.
 
-The normal delivery path is `$continuity-capture` -> `$continuity-triage` -> `$continuity-memory` and `$continuity-roadmap` as applicable -> `$continuity-plan` -> approval pause -> `$continuity-dispatch` -> `$continuity-execute` -> `$continuity-test` -> `$continuity-merge` -> approval pause -> `$continuity-report`. Always follow `next_skill` instead of forcing an inapplicable stage.
+The normal delivery path is `$continuity-capture` -> `$continuity-triage` -> `$continuity-memory` and `$continuity-roadmap` as applicable -> optional `$continuity-design` selection and exact-document approval -> `$continuity-plan` -> approval pause -> `$continuity-dispatch` -> `$continuity-execute` -> `$continuity-test` -> `$continuity-merge` -> approval pause -> `$continuity-report`. Always follow `next_skill` instead of forcing an inapplicable stage. Design approval is a document-publication boundary and never substitutes for goal approval.
 
 ## Approval-only pause rule
 

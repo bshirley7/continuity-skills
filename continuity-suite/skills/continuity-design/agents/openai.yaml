@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Design"
+  short_description: "Create and approve offline design direction documents"
+  default_prompt: "Use $continuity-design to derive reviewed design directions from project context and offline reference packs."

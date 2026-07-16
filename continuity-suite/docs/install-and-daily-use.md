@@ -18,6 +18,18 @@ python3 continuity-suite/installer/install.py \
   --validation "pnpm test"
 ```
 
+Enable the optional design collection when the project needs reviewed design directions before implementation planning:
+
+```text
+python3 continuity-suite/installer/install.py \
+  --project-root /path/to/project \
+  --project-id example-project \
+  --integration-branch main \
+  --collection design
+```
+
+The design workflow uses installed offline references, keeps drafts private, and publishes only an exact hash-approved `docs/design/design.md`. It does not authorize implementation.
+
 If your terminal is already inside the target project, you can still run the installer by using the absolute path to the suite:
 
 ```text
@@ -56,6 +68,7 @@ Continuity writes project-local control files into the target project:
 docs/project-memory/                    committed searchable memory
 docs/project-roadmap/                   committed roadmap records
 .continuity/shared-notes/packets/       reviewed shared-note packets
+docs/design/design.md                   exact approved design document when Design is enabled
 ```
 
 The installer also updates managed blocks in `AGENTS.md` and `.gitignore`.

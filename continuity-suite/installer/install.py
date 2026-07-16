@@ -97,12 +97,46 @@ def release_manifest(suite: Path) -> dict[str, Any]:
     return manifest
 
 
-def install_file_map(suite: Path, manifest: dict[str, Any]) -> dict[str, Path]:
+def collection_catalog(suite: Path) -> dict[str, dict[str, Any]]:
+    catalog: dict[str, dict[str, Any]] = {}
+    for path in sorted((suite / "collections").glob("*.json")):
+        value = load_json(path)
+        runtime_lib.validate_schema_file(value, suite / "schemas" / "collection.schema.json", f"collection {path.name}")
+        collection_id = value.get("collection_id")
+        if not isinstance(collection_id, str) or collection_id in catalog:
+            raise RuntimeError(f"Invalid or duplicate collection definition: {path.name}")
+        catalog[collection_id] = value
+    if set(catalog) != {"core", "projects", "design"}:
+        raise RuntimeError("Release must define core, projects, and design collections")
+    return catalog
+
+
+def resolve_collections(suite: Path, requested: list[str], current: list[str] | None = None) -> tuple[list[str], set[str]]:
+    catalog = collection_catalog(suite)
+    enabled = set(current or ["core", "projects"])
+    enabled.update(requested)
+    unknown = enabled - set(catalog)
+    if unknown:
+        raise RuntimeError(f"Unknown Continuity collections: {sorted(unknown)}")
+    pending = list(enabled)
+    while pending:
+        collection_id = pending.pop()
+        for dependency in catalog[collection_id].get("depends_on", []):
+            if dependency not in enabled:
+                enabled.add(dependency)
+                pending.append(dependency)
+    skills = {skill for collection_id in enabled for skill in catalog[collection_id].get("skills", [])}
+    return sorted(enabled), skills
+
+
+def install_file_map(suite: Path, manifest: dict[str, Any], enabled_skills: set[str] | None = None) -> dict[str, Path]:
     mapped: dict[str, Path] = {}
     for relative in manifest["files"]:
         source = suite / relative
         parts = Path(relative).parts
         if parts[0] == "skills":
+            if enabled_skills is not None and len(parts) > 1 and parts[1] not in enabled_skills:
+                continue
             target = Path(".agents") / relative
         elif parts[0] == "references":
             target = Path(".agents") / "continuity" / relative
@@ -352,6 +386,7 @@ def main() -> int:
     parser.add_argument("--integration-branch")
     parser.add_argument("--seed", help="Optional project-specific memory seed kept outside this distribution")
     parser.add_argument("--configuration", help="Optional JSON answers for guided project behavior configuration")
+    parser.add_argument("--collection", action="append", choices=["core", "projects", "design"], default=[], help="Enable an optional skill collection; existing selections are preserved on upgrade")
     parser.add_argument("--interactive", action="store_true", help="Ask guided project behavior questions after installation")
     parser.add_argument("--validation", action="append", default=[])
     parser.add_argument("--timezone", help="IANA timezone; overrides a saved user default")
@@ -391,7 +426,8 @@ def main() -> int:
         raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
     git(root, "check-ref-format", "--branch", args.integration_branch)
     release = release_manifest(suite)
-    file_map = install_file_map(suite, release)
+    enabled_collections, enabled_skills = resolve_collections(suite, args.collection, current_config.get("collections"))
+    file_map = install_file_map(suite, release, enabled_skills)
     prior_install = installed_manifest(root)
     drift = managed_drift(root, prior_install)
     if drift and not args.overwrite_managed:
@@ -473,6 +509,7 @@ def main() -> int:
         "scheduler": scheduler_defaults(user_defaults.get("scheduler")),
         "behavior_config_path": ".continuity/project-behavior.json",
         "behavior_skill_path": ".agents/skills/continuity-local/SKILL.md",
+        "collections": enabled_collections,
     }
     config["documentation_map"].setdefault("project-roadmap", "docs/project-roadmap/INDEX.md")
     project_manifest = {
@@ -487,6 +524,7 @@ def main() -> int:
         "agent_surfaces": user_defaults.get("agent_surfaces", {"primary": "codex", "enabled": ["codex"]}),
         "scheduler": scheduler_defaults(user_defaults.get("scheduler")),
         "max_concurrency": 1,
+        "collections": enabled_collections,
     }
 
     existing_config_path = root / ".continuity" / "config.json"
@@ -529,6 +567,7 @@ def main() -> int:
         config.setdefault("require_verified_backups", True)
         config.setdefault("require_audit_checkpoints", True)
         config.setdefault("audit_checkpoint_path", f"~/.continuity/audit-checkpoints/{args.project_id}.json")
+        config["collections"] = enabled_collections
     if existing_manifest_path.exists():
         existing_manifest = load_json(existing_manifest_path)
         if existing_manifest.get("project_id") != args.project_id:
@@ -536,6 +575,7 @@ def main() -> int:
         project_manifest.update(existing_manifest)
         project_manifest["schema_version"] = 1
         project_manifest["assurance_standard_version"] = 2
+    project_manifest["collections"] = enabled_collections
 
     agents_block = f"""{AGENTS_START}
 ## Continuity, Memory, and Sequenced Development
@@ -552,6 +592,7 @@ def main() -> int:
 - Treat notes as project knowledge first. Capture occurrence time, internal/external perspective, sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes; capture, classification, pattern review, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.
 - Before planning or execution, run project-memory and roadmap briefs and cite the memory and roadmap IDs used.
+- When the optional `design` collection is enabled, use `$continuity-design` for exact design-document selection and approval, then bind implementation plans to the approved design ID and hash. Design approval never authorizes implementation.
 - Keep sanitized canonical roadmap records under `docs/project-roadmap/`; use `$continuity-roadmap` and the ignored local projection for timeline, hierarchy, release, milestone, sprint, board, dependency, risk, and blocker context.
 - Treat `.agents/continuity/roadmap-ui/` as a local read-only admin companion. It must bind to loopback and remain outside application routes, builds, packages, preview, staging, and production artifacts.
 - Share notes only through `$continuity-share`: prepare a sanitized hash-bound packet, approve its exact version and target project, and use a human-reviewed PR. A packet never authorizes memory, roadmap, goal, code, system, or private-state changes.
@@ -605,6 +646,7 @@ def main() -> int:
         ".cursor/rules/continuity.mdc",
         ".windsurf/references",
         ".agents/project-continuity",
+        ".agents/skills/continuity-local",
     }
     transaction_paths.update(f".agents/skills/{name}" for name in LEGACY_SKILL_DIRS)
     transaction_paths.update(f".agents/skills/{path.parts[2]}" for path in map(Path, file_map) if len(path.parts) > 2 and path.parts[:2] == (".agents", "skills"))

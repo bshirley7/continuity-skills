@@ -28,6 +28,7 @@ Use these rubrics as an internal self-review before handing work to another Cont
 | Merge | Tested head equals pushed and PR head, correct base, focused diff, current gates, draft status when incomplete, factual human evidence |
 | Report | Decisions first, exact subject and recommendation, supporting evidence, allowed disposition, blocker detail, privacy-safe summary |
 | Share | Selected atomic content, minimum necessary text, redaction, exact target and version, immutable hash, non-authorizing import |
+| Design | Relevant project evidence, distinct directions, explicit tradeoffs, preservation requirements, accessibility, modality limits, selected exact draft, catalog versions, immutable hash, non-authorizing approval |
 
 ## Blocking defects
 
