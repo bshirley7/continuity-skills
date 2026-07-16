@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Approval-ready GitHub Projects bootstrap plan",
+  "type": "object",
+  "required": ["schema_version", "plan_hash", "generated_at", "authorization_text", "material"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "plan_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "authorization_text": {"type": "string", "minLength": 1},
+    "material": {
+      "type": "object",
+      "required": ["schema_version", "provider", "operation", "project_id", "destination", "project", "settings_path", "settings", "fields"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "provider": {"const": "github-projects"},
+        "operation": {"const": "bootstrap"},
+        "project_id": {"type": "string", "minLength": 1},
+        "destination": {
+          "type": "object",
+          "required": ["owner_type", "owner"],
+          "properties": {
+            "owner_type": {"enum": ["organization", "user"]},
+            "owner": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}$"}
+          },
+          "additionalProperties": false
+        },
+        "project": {
+          "type": "object",
+          "required": ["title", "visibility", "description"],
+          "properties": {
+            "title": {"type": "string", "minLength": 1, "maxLength": 256},
+            "visibility": {"enum": ["PRIVATE", "PUBLIC"]},
+            "description": {"type": "string", "maxLength": 256}
+          },
+          "additionalProperties": false
+        },
+        "settings_path": {"type": "string", "minLength": 1},
+        "settings": {"type": "object"},
+        "fields": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "required": ["key", "name", "data_type", "options"],
+            "properties": {
+              "key": {"type": "string", "minLength": 1},
+              "name": {"type": "string", "minLength": 1},
+              "data_type": {"enum": ["TEXT", "SINGLE_SELECT", "DATE"]},
+              "options": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

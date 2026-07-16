@@ -304,7 +304,32 @@ Use the machine handoff before and after any skill:
 
 Use `--capture-id` immediately after capture to receive all per-item handoffs. Use the narrowest available selector after that. Project-wide status prioritizes the current queues for general routing; it does not override the selected subject's stage or next skill.
 
-It reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. It never crosses an approval or review boundary automatically.
+## Optional GitHub Projects projection
+
+GitHub Projects is an optional operational surface, not a replacement for canonical roadmap Markdown. Configure `planning_patterns.tracker_provider` as `github`. To create a Project for the active Continuity project through GitHub CLI, use the approval-bound bootstrap:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap plan \
+  --owner-type organization --owner <github-owner> --title "<project title>" --visibility PRIVATE
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap approve <bootstrap-plan-hash> \
+  --approved-by <identity> --authorization-text "<exact text returned by bootstrap plan>"
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap apply <bootstrap-plan-hash>
+```
+
+The apply step creates the Project and fields via `gh`, writes the returned Project number to `.continuity/github-projects.json`, and prepares the first export plan without approving it. For an existing Project, copy `.agents/continuity/templates/github-projects-settings.json` to `.continuity/github-projects.json` and set the exact owner, Project number, published statuses, fields, and option names.
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects plan
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects inspect <plan-hash>
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects approve <plan-hash> \
+  --approved-by <identity> \
+  --authorization-text "<exact text returned by plan>"
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects apply <plan-hash>
+```
+
+The plan and approval receipts remain ignored private state. Applying a plan rechecks current canonical roadmap content and configuration, preflights the destination's field types and options, and fails closed before mutation when the Project contract is incompatible. Remote edits discovered by `inspect` are proposals only; they must return through normal Continuity capture, triage, planning, and approved roadmap impact before canonical state changes. See `$continuity-roadmap`'s `github-projects-adapter.md` reference for ownership, permissions, signed approval, polling, and future webhook rules.
+
+`workflow status` reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. It never crosses an approval or review boundary automatically.
 
 For a manual end-to-end run, invoke `$continuity-workflow` or `/continuity-workflow` with the request and any known subject ID. The runner re-reads this handoff after every task skill and immediately continues through `next_skill`. A failed test, stale artifact, merge-safety finding, or recoverable tool error routes into remediation and does not end the workflow. The run pauses only when workflow status explicitly sets `human_required: true`; after the recorded approval, invoke the same workflow again and it resumes from canonical state without replaying completed stages.
 

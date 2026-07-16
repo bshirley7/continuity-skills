@@ -28,6 +28,7 @@ from zoneinfo import ZoneInfo
 CONTROL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CONTROL_ROOT / "lib"))
 import roadmap as roadmap_lib  # noqa: E402
+import github_projects as github_projects_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
 
@@ -9595,6 +9596,199 @@ def roadmap_command(args: argparse.Namespace) -> Any:
         raise ContinuityError(str(exc)) from exc
 
 
+def github_projects_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    try:
+        if args.github_projects_command == "bootstrap":
+            if args.bootstrap_command == "plan":
+                return github_projects_lib.build_bootstrap_plan(
+                    root,
+                    config,
+                    owner_type=args.owner_type,
+                    owner=args.owner,
+                    title=args.title,
+                    visibility=args.visibility,
+                    settings_value=args.settings,
+                )
+            plan = github_projects_lib.load_bootstrap_plan(root, config, args.plan_hash)
+            if args.bootstrap_command == "approve":
+                if args.authorization_text != plan["authorization_text"]:
+                    raise ContinuityError(
+                        "GitHub Projects authorization text must exactly match the prepared bootstrap plan"
+                    )
+                receipt = {
+                    "schema_version": 1,
+                    "project_id": config["project_id"],
+                    "plan_hash": plan["plan_hash"],
+                    "destination": plan["material"]["destination"],
+                    "approved_at": iso_now(config),
+                    "approved_by": args.approved_by,
+                    "authorization_text": args.authorization_text,
+                    "nonce": secrets.token_hex(16),
+                    "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
+                }
+                if config.get("behavior_configuration_hash") is not None:
+                    receipt["behavior_configuration_hash"] = config["behavior_configuration_hash"]
+                if config.get("require_signed_approvals", False) and not args.signing_key:
+                    raise ContinuityError("This project requires a signed GitHub Projects bootstrap approval")
+                target = github_projects_lib.bootstrap_approval_path(root, config, plan["plan_hash"])
+                if target.is_file():
+                    existing = json_load(target, {})
+                    if (
+                        existing.get("approved_by") == args.approved_by
+                        and existing.get("authorization_text") == args.authorization_text
+                        and existing.get("plan_hash") == plan["plan_hash"]
+                    ):
+                        return existing
+                    raise ContinuityError("GitHub Projects bootstrap plan already has a different approval receipt")
+                if args.signing_key:
+                    sign_receipt_bytes(
+                        github_projects_lib.approval_receipt_bytes(receipt),
+                        args.signing_key,
+                        github_projects_lib.bootstrap_signature_path(root, config, plan["plan_hash"]),
+                        namespace="continuity-github-projects-bootstrap",
+                        label="GitHub Projects bootstrap approval",
+                    )
+                    verify_receipt_bytes(
+                        root,
+                        config,
+                        github_projects_lib.approval_receipt_bytes(receipt),
+                        github_projects_lib.bootstrap_signature_path(root, config, plan["plan_hash"]),
+                        args.approved_by,
+                        namespace="continuity-github-projects-bootstrap",
+                        label="GitHub Projects bootstrap approval",
+                    )
+                json_dump(target, receipt)
+                return receipt
+            if args.bootstrap_command == "apply":
+                def verify_bootstrap_signature(payload: bytes, signature: Path, identity: str) -> Any:
+                    return verify_receipt_bytes(
+                        root,
+                        config,
+                        payload,
+                        signature,
+                        identity,
+                        namespace="continuity-github-projects-bootstrap",
+                        label="GitHub Projects bootstrap approval",
+                    )
+
+                approval = github_projects_lib.validate_bootstrap_approval(
+                    root,
+                    config,
+                    plan,
+                    verify_signature=verify_bootstrap_signature,
+                )
+                result = github_projects_lib.apply_bootstrap(root, config, plan)
+                application = {
+                    **result,
+                    "applied_at": iso_now(config),
+                    "approved_by": approval["approved_by"],
+                    "approval_nonce": approval["nonce"],
+                }
+                json_dump(
+                    github_projects_lib.bootstrap_application_path(root, config, plan["plan_hash"]),
+                    application,
+                )
+                return application
+            raise ContinuityError(f"Unknown GitHub Projects bootstrap command {args.bootstrap_command}")
+        if args.github_projects_command == "plan":
+            return github_projects_lib.build_plan(root, config, args.settings)
+        plan = github_projects_lib.load_plan(
+            root,
+            config,
+            args.plan_hash,
+            require_fresh=args.github_projects_command in {"approve", "apply"},
+        )
+        if args.github_projects_command == "approve":
+            if args.authorization_text != plan["authorization_text"]:
+                raise ContinuityError(
+                    "GitHub Projects authorization text must exactly match the prepared export plan"
+                )
+            receipt = {
+                "schema_version": 1,
+                "project_id": config["project_id"],
+                "plan_hash": plan["plan_hash"],
+                "destination": plan["material"]["destination"],
+                "approved_at": iso_now(config),
+                "approved_by": args.approved_by,
+                "authorization_text": args.authorization_text,
+                "nonce": secrets.token_hex(16),
+                "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
+            }
+            if config.get("behavior_configuration_hash") is not None:
+                receipt["behavior_configuration_hash"] = config["behavior_configuration_hash"]
+            if config.get("require_signed_approvals", False) and not args.signing_key:
+                raise ContinuityError("This project requires a signed GitHub Projects export approval")
+            target = github_projects_lib.approval_path(root, config, plan["plan_hash"])
+            if target.is_file():
+                existing = json_load(target, {})
+                if (
+                    existing.get("approved_by") == args.approved_by
+                    and existing.get("authorization_text") == args.authorization_text
+                    and existing.get("plan_hash") == plan["plan_hash"]
+                ):
+                    return existing
+                raise ContinuityError("GitHub Projects export plan already has a different approval receipt")
+            if args.signing_key:
+                sign_receipt_bytes(
+                    github_projects_lib.approval_receipt_bytes(receipt),
+                    args.signing_key,
+                    github_projects_lib.signature_path(root, config, plan["plan_hash"]),
+                    namespace="continuity-github-projects",
+                    label="GitHub Projects export approval",
+                )
+                verify_receipt_bytes(
+                    root,
+                    config,
+                    github_projects_lib.approval_receipt_bytes(receipt),
+                    github_projects_lib.signature_path(root, config, plan["plan_hash"]),
+                    args.approved_by,
+                    namespace="continuity-github-projects",
+                    label="GitHub Projects export approval",
+                )
+            json_dump(target, receipt)
+            return receipt
+        if args.github_projects_command == "inspect":
+            return github_projects_lib.inspect(plan)
+        if args.github_projects_command == "apply":
+            def verify_tracker_signature(payload: bytes, signature: Path, identity: str) -> Any:
+                return verify_receipt_bytes(
+                    root,
+                    config,
+                    payload,
+                    signature,
+                    identity,
+                    namespace="continuity-github-projects",
+                    label="GitHub Projects export approval",
+                )
+
+            approval = github_projects_lib.validate_approval(
+                root,
+                config,
+                plan,
+                verify_signature=verify_tracker_signature,
+            )
+            result = github_projects_lib.apply(plan)
+            application = {
+                **result,
+                "applied_at": iso_now(config),
+                "approved_by": approval["approved_by"],
+                "approval_nonce": approval["nonce"],
+            }
+            application_path = (
+                private_path(root, config)
+                / "integrations"
+                / "github-projects"
+                / "applications"
+                / f"{plan['plan_hash']}.json"
+            )
+            json_dump(application_path, application)
+            return application
+        raise ContinuityError(f"Unknown GitHub Projects command {args.github_projects_command}")
+    except github_projects_lib.GitHubProjectsError as exc:
+        raise ContinuityError(str(exc)) from exc
+
+
 def shared_note_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
@@ -9818,6 +10012,42 @@ def build_parser() -> argparse.ArgumentParser:
     production_audit = roadmap_sub.add_parser("production-audit")
     production_audit.add_argument("--artifact", required=True)
     production_audit.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.production_audit)
+    github_projects = roadmap_sub.add_parser("github-projects")
+    github_projects_sub = github_projects.add_subparsers(dest="github_projects_command", required=True)
+    github_projects_bootstrap = github_projects_sub.add_parser("bootstrap")
+    github_projects_bootstrap_sub = github_projects_bootstrap.add_subparsers(dest="bootstrap_command", required=True)
+    github_projects_bootstrap_plan = github_projects_bootstrap_sub.add_parser("plan")
+    github_projects_bootstrap_plan.add_argument("--owner-type", choices=["organization", "user"], required=True)
+    github_projects_bootstrap_plan.add_argument("--owner", required=True)
+    github_projects_bootstrap_plan.add_argument("--title")
+    github_projects_bootstrap_plan.add_argument("--visibility", choices=["PRIVATE", "PUBLIC"], default="PRIVATE")
+    github_projects_bootstrap_plan.add_argument("--settings", default=".continuity/github-projects.json")
+    github_projects_bootstrap_plan.set_defaults(handler=github_projects_command)
+    github_projects_bootstrap_approve = github_projects_bootstrap_sub.add_parser("approve")
+    github_projects_bootstrap_approve.add_argument("plan_hash")
+    github_projects_bootstrap_approve.add_argument("--approved-by", required=True)
+    github_projects_bootstrap_approve.add_argument("--authorization-text", required=True)
+    github_projects_bootstrap_approve.add_argument("--signing-key")
+    github_projects_bootstrap_approve.set_defaults(handler=github_projects_command)
+    github_projects_bootstrap_apply = github_projects_bootstrap_sub.add_parser("apply")
+    github_projects_bootstrap_apply.add_argument("plan_hash")
+    github_projects_bootstrap_apply.set_defaults(handler=github_projects_command)
+    github_projects_plan = github_projects_sub.add_parser("plan")
+    github_projects_plan.add_argument("--settings", default=".continuity/github-projects.json")
+    github_projects_plan.set_defaults(handler=github_projects_command)
+    github_projects_approve = github_projects_sub.add_parser("approve")
+    github_projects_approve.add_argument("plan_hash")
+    github_projects_approve.add_argument("--approved-by", required=True)
+    github_projects_approve.add_argument("--authorization-text", required=True)
+    github_projects_approve.add_argument("--signing-key")
+    github_projects_approve.set_defaults(handler=github_projects_command)
+    github_projects_inspect = github_projects_sub.add_parser("inspect")
+    github_projects_inspect.add_argument("plan_hash")
+    github_projects_inspect.set_defaults(handler=github_projects_command)
+    github_projects_apply = github_projects_sub.add_parser("apply")
+    github_projects_apply.add_argument("plan_hash")
+    github_projects_apply.set_defaults(handler=github_projects_command)
+
 
     goal = top.add_parser("goal")
     goal_sub = goal.add_subparsers(dest="command", required=True)

@@ -7,7 +7,7 @@ description: Create, retrieve, audit, reconcile, export, and visualize committed
 
 Read `.agents/references/continuity-contract.md`, `.agents/references/development-assurance-standard.md`, and `$continuity-local` before acting.
 
-Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [roadmap modeling](references/roadmap-modeling.md) before selecting hierarchy, reporting health, or recording impact. Apply the **Business outcome**, **Engineering and architecture**, and **Delivery and rollback** lenses as relevant.
+Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [roadmap modeling](references/roadmap-modeling.md) before selecting hierarchy, reporting health, or recording impact. Read [the GitHub Projects adapter](references/github-projects-adapter.md) before preparing, approving, applying, or reconciling that external projection. Apply the **Business outcome**, **Engineering and architecture**, and **Delivery and rollback** lenses as relevant.
 
 ## Workflow
 
@@ -18,6 +18,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 5. Create or revise records only from an approved goal whose hash includes the exact `roadmap_ids` and structured `roadmap_impact` action.
 6. Reconcile the result with source notes, plan, implementation, evidence, and project memory. Complete `roadmap-impact.md` and the `roadmap-impact` compliance gate.
 7. Use `continuity roadmap serve --open` only from a local Git clone. The sidecar is read-only and must never enter application source, packaging inputs, preview, staging, or production artifacts.
+8. When `tracker_provider` is `github`, use `continuity roadmap github-projects plan` to prepare an exact sanitized export. Inspect remote differences as proposals, and require the returned plan-specific human approval before `apply` performs any external write.
 
 ## Guardrails
 
@@ -25,6 +26,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 - Preserve stable IDs and provenance. Correct understanding through reviewed revision; do not silently rewrite history.
 - Surface cycles, orphans, unknown dependencies, contradictory note links, stale references, invalid dates, and missing milestone health.
 - Do not add a product route, hosted endpoint, remote script, write API, or persistent browser token.
+- Never let GitHub Project edits directly approve work, mutate canonical roadmap Markdown, start execution, or mark a goal complete.
 - Before delivery, run repository validation, security review, merge-safety review, and `continuity roadmap production-audit --artifact <build-or-package>` when application artifacts exist.
 
 ## Handoff
