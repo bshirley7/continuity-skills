@@ -53,6 +53,8 @@ New releases may add suite-owned skills or opt-in project settings. The installe
 
 Legacy installations that stored newly introduced GitHub readiness fields as JSON `null` are migrated to safe defaults (`github_required_checks: []`, `github_required_reviewers: 1`, and `github_cli_merge_enabled: false`). Other invalid non-null values remain errors rather than being silently rewritten.
 
+When post-update doctor finds a legacy note missing lifecycle timestamps, portfolio update may run `note migrate-lifecycle` once and retry doctor. The migration derives `created_at` only from the containing capture's valid `captured_at` and derives `updated_at` from the latest valid recorded revision, falling back to the derived creation time. Present but malformed timestamps, or notes without valid capture provenance, remain blocked for manual review.
+
 ## Ownership boundaries
 
 An update may replace only release-managed copies under `.agents/continuity/`, `.agents/references/`, and `.agents/skills/continuity-*`, plus the managed blocks in `AGENTS.md` and `.gitignore`.

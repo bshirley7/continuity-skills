@@ -1447,6 +1447,67 @@ def note_migrate_links(args: argparse.Namespace) -> dict[str, Any]:
     return {"migrated": len(migrated), "items": migrated, "remaining_legacy_note_ids": legacy_note_link_ids(root, config)}
 
 
+def note_migrate_lifecycle(args: argparse.Namespace) -> dict[str, Any]:
+    root, config = load_context()
+    stamp = iso_now(config)
+    pending: list[tuple[Path, dict[str, Any]]] = []
+    migrated: list[dict[str, Any]] = []
+    unresolved: list[str] = []
+    for path in sorted((private_path(root, config) / "captures").glob("**/*.json")):
+        capture = json_load(path, {})
+        if not isinstance(capture, dict):
+            continue
+        captured_text = capture.get("captured_at")
+        captured_at = parse_recorded_time(captured_text, config["timezone"])
+        capture_changed = False
+        for item in capture.get("items", []):
+            if not isinstance(item, dict) or not item.get("item_id"):
+                continue
+            note_id = str(item["item_id"])
+            created_at = parse_recorded_time(item.get("created_at"), config["timezone"])
+            updated_at = parse_recorded_time(item.get("updated_at"), config["timezone"])
+            if item.get("created_at") is not None and created_at is None:
+                unresolved.append(f"note {note_id} has an invalid created_at that cannot be inferred")
+                continue
+            if item.get("updated_at") is not None and updated_at is None:
+                unresolved.append(f"note {note_id} has an invalid updated_at that cannot be inferred")
+                continue
+            changes: list[dict[str, str]] = []
+            if created_at is None:
+                if captured_at is None or not isinstance(captured_text, str):
+                    unresolved.append(f"note {note_id} has no valid capture timestamp for created_at")
+                    continue
+                item["created_at"] = captured_text
+                created_at = captured_at
+                changes.append({"field": "created_at", "source": "capture.captured_at"})
+            if updated_at is None:
+                candidates: list[tuple[dt.datetime, str, str]] = [(created_at, str(item["created_at"]), "note.created_at")]
+                for revision in item.get("revision_history", []):
+                    if not isinstance(revision, dict) or not isinstance(revision.get("at"), str):
+                        continue
+                    revision_at = parse_recorded_time(revision["at"], config["timezone"])
+                    if revision_at is not None:
+                        candidates.append((revision_at, revision["at"], "revision_history.at"))
+                _chosen_at, chosen_text, chosen_source = max(candidates, key=lambda value: value[0])
+                item["updated_at"] = chosen_text
+                changes.append({"field": "updated_at", "source": chosen_source})
+            if changes:
+                capture_changed = True
+                migrated.append({"capture_id": capture.get("capture_id"), "item_id": note_id, "changes": changes})
+        if capture_changed:
+            pending.append((path, capture))
+    if unresolved:
+        raise ContinuityError(f"Legacy lifecycle migration requires manual review: {unresolved}")
+    for path, capture in pending:
+        json_dump(path, capture)
+    if migrated:
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": stamp, "event": "note.lifecycle-migrated", "actor": args.actor, "items": migrated},
+        )
+    return {"migrated": len(migrated), "items": migrated}
+
+
 def update_note_goal_links(
     root: Path,
     config: dict[str, Any],
@@ -3984,6 +4045,26 @@ def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
             after_doctor = project_cli_json(project_root, "project", "doctor")
         except ContinuityError as exc:
             after_doctor = {"healthy": False, "problems": [str(exc)]}
+        lifecycle_problems = [
+            problem
+            for problem in after_doctor.get("problems", [])
+            if "missing or invalid lifecycle timestamp" in str(problem)
+        ]
+        if lifecycle_problems:
+            try:
+                record["lifecycle_migration"] = project_cli_json(
+                    project_root,
+                    "note",
+                    "migrate-lifecycle",
+                    "--actor",
+                    "portfolio-update",
+                )
+                after_doctor = project_cli_json(project_root, "project", "doctor")
+            except ContinuityError as exc:
+                after_doctor = {
+                    "healthy": False,
+                    "problems": [*after_doctor.get("problems", []), str(exc)],
+                }
         record["after"] = {
             "healthy": bool(after_doctor.get("healthy")),
             "suite_version": after_doctor.get("suite_installation", {}).get("version"),
@@ -9068,6 +9149,9 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_links = note_sub.add_parser("migrate-links")
     migrate_links.add_argument("--actor", default="human")
     migrate_links.set_defaults(handler=note_migrate_links)
+    migrate_lifecycle = note_sub.add_parser("migrate-lifecycle")
+    migrate_lifecycle.add_argument("--actor", default="human")
+    migrate_lifecycle.set_defaults(handler=note_migrate_lifecycle)
     related_goals = note_sub.add_parser("related-goals")
     related_goals.add_argument("note_id")
     related_goals.add_argument("--limit", type=int, default=5)

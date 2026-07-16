@@ -1739,6 +1739,31 @@ unresolved_gaps: []
         self.assertEqual(approved_packet["state"], "approved")
         self.assertEqual({action["disposition"] for action in approved_packet["allowed_actions"]}, {"publish-packet"})
 
+    def test_missing_note_lifecycle_timestamps_migrate_from_provenance(self) -> None:
+        capture = self.create_capture()
+        capture_path = next(
+            path
+            for path in (self.root / ".continuity" / "private" / "captures").glob("**/*.json")
+            if path.name == f"{capture['capture_id']}.json"
+        )
+        record = json.loads(capture_path.read_text(encoding="utf-8"))
+        note = record["items"][0]
+        note.pop("created_at", None)
+        note.pop("updated_at", None)
+        revision_at = "2099-01-01T00:00:00-06:00"
+        note["revision_history"] = [{"at": revision_at, "previous": {}, "current": {}}]
+        self.write_json(capture_path, record)
+        before = json.loads(self.cli("project", "doctor").stdout)
+        self.assertTrue(any("missing or invalid lifecycle timestamp" in problem for problem in before["problems"]))
+
+        migrated = json.loads(self.cli("note", "migrate-lifecycle", "--actor", "fixture-user").stdout)
+        self.assertEqual(migrated["migrated"], 1)
+        updated = json.loads(capture_path.read_text(encoding="utf-8"))["items"][0]
+        self.assertEqual(updated["created_at"], record["captured_at"])
+        self.assertEqual(updated["updated_at"], revision_at)
+        after = json.loads(self.cli("project", "doctor").stdout)
+        self.assertFalse(any("missing or invalid lifecycle timestamp" in problem for problem in after["problems"]))
+
     def test_machine_shaped_reference_examples_are_accepted_by_the_cli(self) -> None:
         capture_example = SUITE / "skills" / "continuity-capture" / "references" / "capture-input.example.json"
         capture = json.loads(self.cli("note", "capture", "--items-file", str(capture_example)).stdout)

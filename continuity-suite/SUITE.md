@@ -92,6 +92,7 @@ continuity note relate <note-id> --goal-id <goal-id> --disposition <later|contex
 continuity note patterns --min-count 2
 continuity note pattern-review <pattern-id> --disposition <accepted|deferred|dismissed> --actor <human> --evidence <text> [--review-after <iso-date-time>]
 continuity note migrate-links --actor <human>
+continuity note migrate-lifecycle --actor <human>
 continuity memory similar "<situation>" --scope all
 
 continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id> | --roadmap-id <id> | --packet-id <id> | --goal-id <id>]
