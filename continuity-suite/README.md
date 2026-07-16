@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/continuity-wordmark.svg" alt="Continuity" width="720">
+</p>
+
 # Continuity Suite
 
 Continuity turns project conversations and notes into searchable memory, roadmap context, reviewable plans, supervised off-hours execution, and next-business-day decision reports.
