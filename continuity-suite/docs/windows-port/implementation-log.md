@@ -513,3 +513,20 @@ native-suite, exact-head commit, and hosted six-cell CI validation.
 
 The post-hardening native regression completed with all 119 tests passing in
 491.345 seconds on Python 3.13.6.
+
+## 2026-07-17 — Final code-bearing cross-platform acceptance
+
+- Exact code-bearing head `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c`
+  passed all six Windows, macOS, and Ubuntu jobs on Python 3.11 and 3.14 in
+  [run 29609171121](https://github.com/bshirley7/continuity-skills/actions/runs/29609171121).
+- Every job passed hashed dependency installation, deterministic distribution
+  validation, the complete 119-test suite, and diff hygiene. No safety-critical
+  test was skipped on Windows.
+- This closes the final Stage 10 implementation gate. The remaining commit is
+  evidence-only (audit, matrix, log, and deterministic manifest); its exact
+  head must retain the same six-cell green matrix before handoff, without
+  creating a recursive evidence-update commit.
+
+Stages 1–10 now pass. Execution remains disabled, the acceptance Scheduled task
+remains paused pending cleanup, PR #2 remains draft, and `main` remains
+unchanged.

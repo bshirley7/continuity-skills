@@ -6,9 +6,9 @@ Execution, provider scheduling, and merging: disabled; source-branch
 publication and draft PR creation were separately authorized
 
 This audit reconciles the original Windows-port goal with the current local
-evidence. Every functional acceptance gate now has direct evidence. The overall
-goal remains open until the updated placeholder-hardening commit passes final
-native validation and the complete hosted matrix at its exact head.
+evidence. Every functional acceptance gate now has direct evidence. The updated
+placeholder-hardening commit passes final native validation and the complete
+hosted matrix at its exact code-bearing head.
 
 ## Local release-readiness result
 
@@ -28,9 +28,9 @@ native validation and the complete hosted matrix at its exact head.
   installs hashed dependencies, runs the cross-platform distribution audit and
   full suite, and performs diff hygiene. Official GitHub actions are pinned to
   full verified release commit SHAs with persisted checkout credentials off.
-- All six jobs pass at exact audit head
-  `d977490adcd7eeb8664c5a74b13107c2b58f9b0b` in
-  [run 29564361138](https://github.com/bshirley7/continuity-skills/actions/runs/29564361138).
+- All six jobs pass at exact code-bearing audit head
+  `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c` in
+  [run 29609171121](https://github.com/bshirley7/continuity-skills/actions/runs/29609171121).
 
 ## Documented capability reconciliation
 
@@ -64,9 +64,9 @@ native validation and the complete hosted matrix at its exact head.
   from 521 project, checkpoint, report, metadata, and encrypted-archive files.
 - Draft PR [#2](https://github.com/bshirley7/continuity-skills/pull/2) binds
   base `main` to head `windows-compatibility-update`; its exact head
-  `d977490adcd7eeb8664c5a74b13107c2b58f9b0b` passes Windows, macOS, and Ubuntu
+  `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c` passes Windows, macOS, and Ubuntu
   on Python 3.11 and 3.14 in
-  [run 29564361138](https://github.com/bshirley7/continuity-skills/actions/runs/29564361138).
+  [run 29609171121](https://github.com/bshirley7/continuity-skills/actions/runs/29609171121).
   The PR remains draft and `main` was not changed.
 - In a trusted native VS Code window rooted exactly at
   `C:\Users\Nick\OneDrive\Documents\DEV\continuity\Continuity Age Acceptance Ω`,
@@ -87,31 +87,33 @@ native validation and the complete hosted matrix at its exact head.
   private ID is represented only by SHA-256
   `f51fecc373a8c104554601fb5485d12a98fe19495355fbfd4d39354fec4ac0f4`.
 
-## Remaining release validation
+## Release validation result
 
-No functional or provider-native acceptance item remains. The final updated
-branch head must still pass:
-
-1. Deterministic release-manifest regeneration and distribution validation.
-2. The complete native Windows suite and static checks.
-3. The six-cell Windows, macOS, and Ubuntu hosted matrix on Python 3.11 and
-   3.14 at the exact final head.
+No functional, provider-native, or code-bearing release-validation item
+remains. Deterministic manifest/distribution checks pass, the complete native
+Windows suite passes, and the six-cell hosted matrix passes at exact
+code-bearing head `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c`. The final
+evidence-only commit changes this audit, the acceptance matrix, implementation
+log, and the resulting deterministic manifest; it must retain the same green
+matrix before handoff.
 
 No live PR merge, force push, administrator bypass, auto-merge, product-code
 execution, cloud routine, or production side effect is needed.
 
-## Exact final validation sequence
+## Exact final handoff sequence
 
-1. Regenerate the manifest and run the native distribution, compile, link,
-   dependency, skill, and full-suite checks.
-2. Commit only the reviewed compatibility files, excluding unrelated
-   `debug.log`, and push the compatibility branch without changing `main`.
-3. Require all six hosted matrix jobs to pass at that exact commit, then update
-   the final evidence rows and reassess overall completion.
+1. Regenerate and validate the deterministic manifest after these evidence
+   updates.
+2. Commit only the reviewed evidence files, excluding unrelated `debug.log`,
+   and push the compatibility branch without changing `main`.
+3. Require all six hosted matrix jobs to pass at that exact evidence-only head
+   before final handoff. Record that run in the handoff rather than creating an
+   evidence-about-evidence commit loop.
 
 ## Completion decision
 
-Stages 1–9 pass with current evidence, including the provider-native Stage 7
-no-op. Stage 10 remains in progress only because the placeholder-hardening and
-evidence updates must pass the final native and hosted matrix at the exact
-updated branch head. Therefore the overall goal is not yet complete.
+Stages 1–10 pass with current evidence, including the provider-native Stage 7
+no-op and the exact-head Stage 10 cross-platform matrix. The Windows
+compatibility implementation is complete. Final handoff remains conditional
+only on the evidence-only head retaining the same green hosted matrix; no
+additional implementation or functional acceptance work is outstanding.
