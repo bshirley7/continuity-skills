@@ -82,6 +82,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 "design-themes",
                 "theme-calm-clarity",
                 "design-message-structures",
+                "message-structure-value-first",
                 "design-ux-lenses",
             ],
         )
@@ -100,6 +101,22 @@ class DesignLifecycleTests(unittest.TestCase):
                 "design-themes",
                 "theme-calm-clarity",
                 "design-message-structures",
+                "message-structure-value-first",
+                "design-ux-lenses",
+            ],
+        )
+
+    def test_reviewed_value_first_overlay_is_bound(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value()))
+        self.assertEqual(
+            [pack["pack_id"] for pack in draft["catalog_packs"]],
+            [
+                "design-industries",
+                "design-sections-flows",
+                "design-themes",
+                "theme-calm-clarity",
+                "design-message-structures",
+                "message-structure-value-first",
                 "design-ux-lenses",
             ],
         )

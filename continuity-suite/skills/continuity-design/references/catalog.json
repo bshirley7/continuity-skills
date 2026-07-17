@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.2.0",
+  "catalog_version": "1.3.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -126,6 +126,22 @@
       "applicability": ["all supported message sequences"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Order messages so claims, evidence, tradeoffs, and actions remain distinguishable."]
+    },
+    {
+      "pack_id": "message-structure-value-first",
+      "version": "1.0.0",
+      "axis": "message-structure",
+      "role": "category",
+      "reference": "message-structure-value-first.md",
+      "categories": ["value-first"],
+      "applicability": ["homepage heroes", "product landing pages", "feature sections", "campaign pages", "service introductions", "workflow explanations", "regulated offers", "product-led acquisition"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "Lead with a recognizable user outcome or completed state before naming the product category, technology, or company ambition.",
+        "Make the value concrete by naming the relevant input, task, change, or result closely enough that the intended audience can judge whether it applies.",
+        "Follow the outcome immediately with the mechanism that produces it, using process detail, workflow structure, or a legible product state rather than assertion alone."
+      ],
+      "evidence_sufficiency": {"sample_count": 15, "product_count": 14, "industry_count": 6}
     },
     {
       "pack_id": "design-ux-lenses",

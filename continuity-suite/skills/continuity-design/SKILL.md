@@ -45,4 +45,4 @@ A later design revision creates new evidence. It never changes an existing goal 
 - [message-structures.md](references/message-structures.md)
 - [ux-lenses.md](references/ux-lenses.md)
 
-Category references are discovered through [catalog.json](references/catalog.json). Current reviewed overlays include [Finance](references/industry-finance.md), [Marketing](references/section-flow-marketing.md), [Conversion](references/section-flow-conversion.md), [Onboarding](references/section-flow-onboarding.md), [Checkout](references/section-flow-checkout.md), and [Calm clarity](references/theme-calm-clarity.md).
+Category references are discovered through [catalog.json](references/catalog.json). Current reviewed overlays include [Finance](references/industry-finance.md), [Marketing](references/section-flow-marketing.md), [Conversion](references/section-flow-conversion.md), [Onboarding](references/section-flow-onboarding.md), [Checkout](references/section-flow-checkout.md), [Calm clarity](references/theme-calm-clarity.md), and [Value first](references/message-structure-value-first.md).
