@@ -85,6 +85,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 "message-structure-value-first",
                 "design-ux-lenses",
                 "lens-hierarchy",
+                "lens-accessibility",
                 "lens-trust",
             ],
         )
@@ -96,6 +97,7 @@ class DesignLifecycleTests(unittest.TestCase):
             [pack["pack_id"] for pack in draft["catalog_packs"]],
             [
                 "design-industries",
+                "industry-b2b-saas",
                 "design-sections-flows",
                 "section-flow-marketing",
                 "section-flow-conversion",
@@ -106,6 +108,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 "message-structure-value-first",
                 "design-ux-lenses",
                 "lens-hierarchy",
+                "lens-accessibility",
                 "lens-trust",
             ],
         )
@@ -116,21 +119,117 @@ class DesignLifecycleTests(unittest.TestCase):
             [pack["pack_id"] for pack in draft["catalog_packs"]],
             [
                 "design-industries",
+                "industry-b2b-saas",
                 "design-sections-flows",
+                "section-flow-dashboards",
                 "design-themes",
                 "theme-calm-clarity",
                 "design-message-structures",
                 "message-structure-value-first",
                 "design-ux-lenses",
                 "lens-hierarchy",
+                "lens-accessibility",
                 "lens-trust",
             ],
         )
 
+    def test_reviewed_consumer_and_b2b_saas_overlays_are_bound(self):
+        consumer = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="consumer", industry="consumer")),
+        )
+        self.assertEqual(
+            [pack["pack_id"] for pack in consumer["catalog_packs"][:2]],
+            ["design-industries", "industry-consumer"],
+        )
+        b2b = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="b2b", industry="b2b-saas")),
+        )
+        self.assertEqual(
+            [pack["pack_id"] for pack in b2b["catalog_packs"][:2]],
+            ["design-industries", "industry-b2b-saas"],
+        )
+
+    def test_reviewed_dashboard_overlay_is_bound(self):
+        value = input_value(sections=["dashboards"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-dashboards", packs)
+        self.assertEqual(packs[packs.index("section-flow-dashboards") - 1], "design-sections-flows")
+
+    def test_reviewed_discovery_overlay_is_bound(self):
+        value = input_value(sections=["discovery"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-discovery", packs)
+        self.assertEqual(packs[packs.index("section-flow-discovery") - 1], "design-sections-flows")
+
+    def test_reviewed_creation_overlay_is_bound(self):
+        value = input_value(sections=["creation"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-creation", packs)
+        self.assertEqual(packs[packs.index("section-flow-creation") - 1], "design-sections-flows")
+
+    def test_reviewed_collaboration_overlay_is_bound(self):
+        value = input_value(sections=["collaboration"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-collaboration", packs)
+        self.assertEqual(packs[packs.index("section-flow-collaboration") - 1], "design-sections-flows")
+
+    def test_reviewed_settings_overlay_is_bound(self):
+        value = input_value(sections=["settings"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-settings", packs)
+        self.assertEqual(packs[packs.index("section-flow-settings") - 1], "design-sections-flows")
+
+    def test_reviewed_permissions_overlay_is_bound(self):
+        value = input_value(sections=["permissions"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-permissions", packs)
+        self.assertEqual(packs[packs.index("section-flow-permissions") - 1], "design-sections-flows")
+
+    def test_reviewed_empty_error_states_overlay_is_bound(self):
+        value = input_value(sections=["empty-error-states"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-empty-error-states", packs)
+        self.assertEqual(packs[packs.index("section-flow-empty-error-states") - 1], "design-sections-flows")
+
     def test_reviewed_application_lens_overlays_are_bound(self):
-        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value()))
+        draft = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(
+                input_value(
+                    lenses=[
+                        "hierarchy",
+                        "comprehension",
+                        "usability",
+                        "accessibility",
+                        "interaction",
+                        "responsiveness",
+                        "trust",
+                    ]
+                )
+            ),
+        )
         packs = {pack["pack_id"]: pack for pack in draft["catalog_packs"]}
         self.assertEqual(packs["lens-hierarchy"]["version"], "1.0.0")
+        self.assertEqual(packs["lens-comprehension"]["version"], "1.0.0")
+        self.assertEqual(packs["lens-usability"]["version"], "1.0.0")
+        self.assertEqual(packs["lens-accessibility"]["version"], "1.0.0")
+        self.assertEqual(packs["lens-interaction"]["version"], "1.0.0")
+        self.assertEqual(packs["lens-responsiveness"]["version"], "1.0.0")
         self.assertEqual(packs["lens-trust"]["version"], "1.0.0")
 
     def test_reviewed_professional_services_overlay_is_bound(self):
@@ -143,7 +242,8 @@ class DesignLifecycleTests(unittest.TestCase):
         value = input_value(sections=["corporate-website"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
         packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
-        self.assertEqual(packs[1:3], ["design-sections-flows", "section-flow-corporate-website"])
+        self.assertIn("section-flow-corporate-website", packs)
+        self.assertEqual(packs[packs.index("section-flow-corporate-website") - 1], "design-sections-flows")
 
     def test_reviewed_editorial_overlay_is_bound(self):
         value = input_value(themes=["editorial"])
@@ -151,6 +251,20 @@ class DesignLifecycleTests(unittest.TestCase):
         packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
         self.assertIn("theme-editorial", packs)
         self.assertEqual(packs[packs.index("theme-editorial") - 1], "design-themes")
+
+    def test_reviewed_premium_overlay_is_bound(self):
+        value = input_value(themes=["premium"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("theme-premium", packs)
+        self.assertEqual(packs[packs.index("theme-premium") - 1], "design-themes")
+
+    def test_reviewed_proof_first_overlay_is_bound(self):
+        value = input_value(message_structures=["proof-first"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("message-structure-proof-first", packs)
+        self.assertEqual(packs[packs.index("message-structure-proof-first") - 1], "design-message-structures")
 
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:

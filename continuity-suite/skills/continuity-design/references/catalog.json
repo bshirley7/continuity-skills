@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.7.0",
+  "catalog_version": "1.23.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -12,6 +12,76 @@
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
+    },
+    {
+      "applicability": [
+        "personalized homes and feeds",
+        "search, discovery, and libraries",
+        "commerce and fulfillment",
+        "consumer subscriptions and memberships",
+        "receipts and support",
+        "social creation and publishing",
+        "audience and privacy controls",
+        "repeat engagement and notifications"
+      ],
+      "axis": "industry",
+      "categories": [
+        "consumer"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 16,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make personalization inspectable and controllable by naming the signal or basis, separating recommendations from recent and saved content, and retaining direct search, category, history, notification, and library controls.",
+        "Offer retention alternatives only when they genuinely map to a user need and disclose their effect on charges, access, holdings, orders, progress, and future cancellation; keep cancellation visible and independently available.",
+        "Name audience reach in concrete terms and explain moderation or participation consequences, distinguishing who can view, who can comment, who can reuse, where copies are saved, and where content is distributed."
+      ],
+      "pack_id": "industry-consumer",
+      "reference": "industry-consumer.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "workspace and organization onboarding",
+        "operational dashboards and home views",
+        "team and role administration",
+        "security and identity settings",
+        "billing and multi-product entitlements",
+        "tasks, records, and approvals",
+        "activity history and audit logs",
+        "role-based assistance and automation"
+      ],
+      "axis": "industry",
+      "categories": [
+        "b2b-saas"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 13,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Structure B2B onboarding around the operating model and accountable outcomes: separate identity, data connection, workspace structure, security, billing, member invitation, customization, and the first assigned or completed unit of real work.",
+        "Make administrative scope explicit across organization, workspace, product, team, and individual levels, showing effective policy, role, authentication, member or seat population, entitlement, save state, and audit history together.",
+        "Represent assignment, discussion, state change, dependency, approval, notification, subscription, and completion as different mechanisms with accountable actors and lifecycle; activity alone must not imply ownership or completion."
+      ],
+      "pack_id": "industry-b2b-saas",
+      "reference": "industry-b2b-saas.md",
+      "role": "category",
+      "version": "1.0.0"
     },
     {
       "pack_id": "industry-finance",
@@ -112,6 +182,213 @@
       "evidence_sufficiency": {"sample_count": 16, "product_count": 16, "industry_count": 7}
     },
     {
+      "applicability": [
+        "operational dashboards",
+        "analytics overviews",
+        "security and compliance posture",
+        "financial and commerce dashboards",
+        "project and portfolio health",
+        "workforce operations",
+        "executive summaries",
+        "automatically generated dashboard summaries"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "dashboards"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 13,
+        "product_count": 14,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Organize the dashboard around current state, unresolved consequence, and the next meaningful decision, placing urgent eligibility, incident, risk, overdue, or failed-work signals above descriptive totals and secondary exploration.",
+        "Attach each headline measure to its comparison basis, target, denominator, composition, or trend so the value communicates direction and significance rather than a context-free snapshot.",
+        "Distinguish healthy zero, empty result, missing data, stale data, excluded scope, not configured, and no recent activity; each state should explain what is known and the most useful next step."
+      ],
+      "pack_id": "section-flow-dashboards",
+      "reference": "section-flow-dashboards.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "commerce and marketplace results",
+        "content and creator discovery",
+        "travel, event, and location exploration",
+        "enterprise and knowledge search",
+        "service and provider selection",
+        "in-context find and retrieval",
+        "recommendation surfaces",
+        "saved searches and comparison"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "discovery"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 16,
+        "product_count": 19,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Keep the active query, category, location, date, audience, and other material scope visible beside the results, representing applied constraints as removable state so users can explain, narrow, or broaden the set without reconstructing the search.",
+        "Expose the attributes that determine choice at result level, including price basis, availability, eligibility, source, recency, location, scope, or commitment cost, and align comparable fields so users do not have to open every item to judge fit.",
+        "Separate retrieval modes such as recent, saved, popular, editorially curated, sponsored, personalized, and query-matched results, and disclose the rationale closely enough that familiarity, payment, or recommendation does not masquerade as relevance."
+      ],
+      "pack_id": "section-flow-discovery",
+      "reference": "section-flow-discovery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "document and page editors",
+        "visual and motion design tools",
+        "workflow and automation builders",
+        "form and structured-content creation",
+        "video and presentation editing",
+        "generative media workspaces",
+        "template-based creation",
+        "draft, review, publish, activate, and export flows"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "creation"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 16,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Keep artifact identity, editable draft state, save or sync status, and consequential release state visibly distinct, using a review boundary before publish, activate, send, share broadly, deploy, or export.",
+        "Attach validation to the exact field, node, step, asset, audience, or output setting that blocks progress, explain the consequence, and provide a direct route to repair before the release action.",
+        "At release, summarize output scope, audience or access, timing, quality, destination, ownership, restrictions, and irreversible or costly consequences, then show progress and a recoverable result state."
+      ],
+      "pack_id": "section-flow-creation",
+      "reference": "section-flow-creation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "collaborative documents and knowledge",
+        "project and task coordination",
+        "research synthesis",
+        "design and asset review",
+        "team messaging and threaded discussions",
+        "AI-assisted collaborative work",
+        "external client and guest access",
+        "handoff, approval, and decision workflows"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "collaboration"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 13,
+        "product_count": 15,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Keep collaboration anchored to the exact artifact, object, passage, task, message, source evidence, or version under discussion, preserving author, time, location, and current state so feedback cannot drift from its subject.",
+        "Represent discussion, assignment, state transition, decision, approval, and permission as distinct record types with their own owners and lifecycle; a comment, reaction, or personal done state must not imply team completion or authorization.",
+        "Make handoffs explicit through one accountable owner, required outcome, due or review condition, dependency and source context, notification scope, and acceptance state, retaining the conversation as evidence rather than as the task itself."
+      ],
+      "pack_id": "section-flow-collaboration",
+      "reference": "section-flow-collaboration.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["personal account settings", "workspace and organization administration", "billing and entitlement", "security and authentication", "connected apps and integrations", "privacy and data rights", "notifications and accessibility", "destructive account and data actions"],
+      "axis": "section-flow",
+      "categories": ["settings"],
+      "evidence_sufficiency": {"industry_count": 18, "product_count": 20, "sample_count": 20},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Identify the setting's subject and scope before the control, distinguishing personal, workspace, organization, product, environment, audience, and inherited policy so users know who and what will change.",
+        "Explain the operational consequence beside each material control, including visibility audience, notification event and channel, billing commitment, authentication reach, integration data flow, or accessibility behavior.",
+        "Separate reversible preference changes from consequential security, privacy, ownership, billing, publication, and deletion actions, using stronger review, authorization, and confirmation in proportion to impact."
+      ],
+      "pack_id": "section-flow-settings",
+      "reference": "section-flow-settings.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["connected-app consent", "workspace roles and membership", "device and operating-system permissions", "file and project sharing", "external links and guests", "administrator access review", "temporary elevated support access", "security and network policy"],
+      "axis": "section-flow",
+      "categories": ["permissions"],
+      "evidence_sufficiency": {"industry_count": 17, "product_count": 18, "sample_count": 20},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Name the requester, granting identity, resource owner, and destination before asking for access, distinguishing a person, application, service, group, administrator, and external party.",
+        "Describe permissions as concrete data reads, writes, actions, exports, downloads, comments, edits, administration, billing, or impersonation capabilities, separating independently optional scopes to support least privilege.",
+        "State duration and lifecycle explicitly through one-time, while-in-use, ongoing, pending, expiring, deactivated, or revoked status, and provide the later review and revocation path at grant time."
+      ],
+      "pack_id": "section-flow-permissions",
+      "reference": "section-flow-permissions.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "first-use workspaces and canvases",
+        "healthy zero-activity states",
+        "search and filtered zero results",
+        "form and payment validation",
+        "authentication and identity recovery",
+        "permission and session failures",
+        "uploads, imports, synchronization, and background jobs",
+        "partial and consequential transaction failures"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "empty-error-states"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 17,
+        "product_count": 19,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Classify the state before designing it: distinguish first use, healthy zero activity, zero results under a query or filter, unavailable data, access restriction, validation failure, transient failure, and partial completion so the explanation and recovery match the actual condition.",
+        "State what happened, which object or step is affected, and the known cause in operational language; when the cause is unknown, say what is known without replacing uncertainty with a generic message.",
+        "For consequential retries, disclose whether the prior action completed, failed before commitment, may still be pending, or affected only a subset; prevent ambiguous repeated submissions and preserve a receipt or diagnostic reference when outcome is uncertain."
+      ],
+      "pack_id": "section-flow-empty-error-states",
+      "reference": "section-flow-empty-error-states.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
       "pack_id": "section-flow-corporate-website",
       "version": "1.0.0",
       "axis": "section-flow",
@@ -155,6 +432,22 @@
       "evidence_sufficiency": {"sample_count": 19, "product_count": 16, "industry_count": 14}
     },
     {
+      "pack_id": "theme-premium",
+      "version": "1.0.0",
+      "axis": "theme",
+      "role": "category",
+      "reference": "theme-premium.md",
+      "categories": ["premium"],
+      "applicability": ["premium product and collection pages", "high-consideration service offers", "membership and tier comparisons", "hospitality and travel experiences", "craft and material stories", "technical product detail", "professional and financial services", "editorial brand modules"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "Create premium expression through selective emphasis: establish one focal product, promise, or experience, then preserve visible orientation, evidence, and action rather than equating scarcity of information with exclusivity.",
+        "Turn material and craft into inspectable evidence by connecting close imagery to process, provenance, finish variation, durability, technical specification, compatibility, or the qualities the buyer will receive.",
+        "Keep price, duration, billing cadence, included benefits, eligibility, fulfillment, cancellation, and material limitations legible at the commitment boundary; premium presentation must not make the transaction less inspectable."
+      ],
+      "evidence_sufficiency": {"sample_count": 20, "product_count": 20, "industry_count": 20}
+    },
+    {
       "pack_id": "theme-calm-clarity",
       "version": "1.0.0",
       "axis": "theme",
@@ -194,6 +487,22 @@
       "evidence_sufficiency": {"sample_count": 15, "product_count": 14, "industry_count": 6}
     },
     {
+      "pack_id": "message-structure-proof-first",
+      "version": "1.0.0",
+      "axis": "message-structure",
+      "role": "category",
+      "reference": "message-structure-proof-first.md",
+      "categories": ["proof-first"],
+      "applicability": ["product marketing and demonstrations", "customer-result sections", "case-study summaries", "security and compliance messaging", "benchmark and research findings", "high-consideration service offers", "enterprise sales pages", "claims near conversion actions"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "Name the evidence type and keep it distinct: a product state demonstrates mechanism, a customer result demonstrates an observed outcome, a benchmark demonstrates comparison, an assurance demonstrates control, and a testimonial demonstrates attributed experience.",
+        "Make quantitative proof self-describing by attaching the measured outcome to the actor or population, intervention or product use, timeframe, baseline or comparator, unit, and source needed to judge the number.",
+        "Preserve uncertainty and transferability limits: identify when evidence comes from one customer, selected examples, commissioned research, a particular dataset, or a specific operating context."
+      ],
+      "evidence_sufficiency": {"sample_count": 20, "product_count": 18, "industry_count": 18}
+    },
+    {
       "pack_id": "design-ux-lenses",
       "version": "1.0.0",
       "axis": "lens",
@@ -219,6 +528,181 @@
         "Use consistent form for comparable items and vary size, color, position, or persistence only when the semantic priority or consequence is genuinely different."
       ],
       "evidence_sufficiency": {"sample_count": 15, "product_count": 14, "industry_count": 7}
+    },
+    {
+      "applicability": [
+        "dashboards and operational summaries",
+        "metrics and analytic definitions",
+        "settings and configuration",
+        "guided setup and onboarding",
+        "multi-step creation and review",
+        "agreements and consequential commitments",
+        "status, progress, and exception views",
+        "technical and domain-specific products"
+      ],
+      "axis": "lens",
+      "categories": [
+        "comprehension"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 14,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Build an explicit semantic definition around important information: name the object, define the measure or status, state scope and time basis, identify source and freshness, and show ownership or authority before users act on it.",
+        "Teach workflows as a causal sequence: explain prerequisites, what each stage produces, who participates, expected timing, current progress, remaining work, and what the next transition will make true.",
+        "Translate consequential reviews into the underlying people, resources, dates, money, permissions, and obligations, preserving editability and a preview of the exact artifact before commitment."
+      ],
+      "pack_id": "lens-comprehension",
+      "reference": "lens-comprehension.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "tables, inboxes, and queues",
+        "forms and setup wizards",
+        "editors and builders",
+        "bulk and repetitive work",
+        "long-running tasks",
+        "workflow branching",
+        "destructive and reversible actions",
+        "expert and first-time use"
+      ],
+      "axis": "lens",
+      "categories": [
+        "usability"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 14,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Keep task context persistent across search, filters, selection, detail, and action: show the active scope, selected count, current object, saved-versus-temporary state, and the result of each operation without forcing users to reconstruct their place.",
+        "Prevent form errors with purpose text, appropriate input controls, examples, sensible inherited defaults, conditional fields, and validation close to the source while preserving every valid value and a usable back path.",
+        "When an action affects dependent workflow steps, offer explicit downstream choices and explain what will continue, stop, be canceled, be removed, remain preserved, or become inaccessible."
+      ],
+      "pack_id": "lens-usability",
+      "reference": "lens-usability.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "forms and validation",
+        "charts, dashboards, and maps",
+        "video, audio, and meeting content",
+        "learning interfaces",
+        "command palettes and dialogs",
+        "keyboard and pointer interaction",
+        "dense light and dark themes",
+        "multi-step application workflows"
+      ],
+      "axis": "lens",
+      "categories": [
+        "accessibility"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 16,
+        "product_count": 18,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Keep names, labels, instructions, required or optional status, current values, and errors persistently associated with their controls; placeholders and entered content must not become the only way to identify a field.",
+        "Make important visual data redundant through direct labels, values, units, legends, symbols, patterns, ranges, written comparisons, and an inspectable table or list alternative so hue, position, or shape is never the sole carrier of meaning.",
+        "Use readable type, sufficient contrast, spacing, clear hierarchy, and controls large enough to identify and activate across dense, dark, bright, and data-rich contexts; de-emphasis must not erase essential instructions or status."
+      ],
+      "pack_id": "lens-accessibility",
+      "reference": "lens-accessibility.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "buttons, toggles, menus, and popovers",
+        "status and workflow controls",
+        "drag, reorder, and direct manipulation",
+        "uploads, imports, tests, and generation",
+        "command palettes and shortcuts",
+        "modals and staged changes",
+        "pointer and keyboard use",
+        "stateful application workflows"
+      ],
+      "axis": "lens",
+      "categories": [
+        "interaction"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 17,
+        "product_count": 18,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Model interactions as explicit transitions with a source state, trigger, target state, timing, prerequisites, and completion condition so users and builders can predict what an action will make true.",
+        "Keep interaction context continuous: preserve the affected object, underlying place, current selection, staged changes, and dismissal or return path while menus, popovers, modals, and command surfaces are open.",
+        "Separate optimistic acknowledgement from durable completion: show pending or syncing state after immediate feedback, reconcile partial or failed outcomes, and do not let a success notification contradict unresolved work."
+      ],
+      "pack_id": "lens-interaction",
+      "reference": "lens-interaction.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "multi-pane application workspaces",
+        "lists and detail views",
+        "dashboards, charts, and tables",
+        "task and project management",
+        "forms, settings, and editors",
+        "mobile and desktop continuity",
+        "keyboard-visible compact states",
+        "wide and narrow navigation"
+      ],
+      "axis": "lens",
+      "categories": [
+        "responsiveness"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 14,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Adapt by semantic priority rather than proportional shrinking: preserve current scope, selected object, essential state, primary action, and safe return first, then collapse, move, or defer secondary navigation, inspectors, metadata, and utilities.",
+        "Maintain continuity when a multi-pane workspace becomes a compact sequence by preserving selection, title, project or collection, filters, scroll position, unsaved state, and a predictable back path between list and detail.",
+        "Test responsive behavior as content and state combinations, including long labels, many panes, wide tables, keyboard visible, empty and error states, selected rows, open menus, active inspectors, and unsaved work—not only at nominal viewport widths."
+      ],
+      "pack_id": "lens-responsiveness",
+      "reference": "lens-responsiveness.md",
+      "role": "category",
+      "version": "1.0.0"
     },
     {
       "pack_id": "lens-trust",
