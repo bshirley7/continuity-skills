@@ -40,7 +40,7 @@ The protected assets are:
 
 | Boundary | Threats | Required controls |
 | --- | --- | --- |
-| Project and filesystem | traversal, symlink or junction escape, case or Unicode collisions, reserved device names, alternate data streams, interrupted writes | resolved-root confinement, portable NFC paths, reparse-point checks, native locks, atomic replacement, recovery journals, NTFS ACL diagnostics |
+| Project and filesystem | traversal, symlink or junction escape, case or Unicode collisions, reserved device names, alternate data streams, interrupted writes | resolved-root confinement, portable NFC paths, reparse-point checks, native locks, atomic replacement, recovery journals, transactional private-tree DACL hardening, effective-rights diagnostics |
 | Project configuration and commands | shell injection, inline credentials, hostile executable arguments, environment-token disclosure | schema and fixed-guardrail validation, direct argv only, shell launchers prohibited, credential-shaped environment variables filtered, captured diagnostics redacted |
 | Git and remote leases | option injection, replay, ancestry substitution, wrong clone or project, clock skew, concurrent execution | strict remote names and full object IDs, validated refs, fast-forward-only lease commits, single-parent ancestry binding, signed/hashed receipts, bounded TTL and skew, local and remote identity checks |
 | GitHub and delivery | wrong host/repository/account/PR/head, stale checks, admin bypass, unintended merge | origin-derived host and repository, explicit `gh` host/repository arguments, active-account verification, full head SHA, reviewer/check gates, exact fresh authorization, no force push, auto-merge, or admin bypass |

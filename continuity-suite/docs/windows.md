@@ -19,6 +19,14 @@ and verifies either official distribution with SHA-256 hashes. Do not remove
 hash checking to work around an installation failure; investigate the package
 source, proxy, cache, interpreter, and reviewed dependency version instead.
 
+During every install or reinstall, Continuity transactionally replaces broad
+inherited write grants on `.continuity/private/` with inheritable full access
+for the current Windows user and `SYSTEM`. The install fails and rolls back if
+the private tree contains a reparse point or hard-linked file, if `icacls.exe`
+cannot apply the DACL, or if the resulting effective-rights check still finds
+write access for `Everyone`, `Authenticated Users`, `BUILTIN\Users`, or
+`BUILTIN\Guests`.
+
 ### Install the reviewed native age tools
 
 Encrypted backup and restore require the official native `age.exe` and
@@ -250,8 +258,12 @@ project memory, roadmap content, and user-owned skills.
   intended `python.exe`.
 - If timezone loading fails, rerun the requirements installation with that same
   interpreter.
-- If doctor reports broad write access on `.continuity/private`, repair the
-  inherited NTFS permissions before using sensitive approval or backup state.
+- If doctor reports broad write access on `.continuity/private`, stop using
+  sensitive approval or backup state and reinstall from the reviewed suite.
+  Reinstall repairs the private-tree DACL transactionally. If it refuses a
+  reparse point or hard-linked file, inspect and remove that unsafe content
+  before retrying; do not bypass the confinement check or hand-apply a broader
+  ACL.
 - If GitHub authentication fails, repair the active account for the exact
   `origin` hostname with `gh.exe auth login` or `gh.exe auth switch`, then rerun
   the read-only `gh.exe api user --hostname <host> --jq .login` check.

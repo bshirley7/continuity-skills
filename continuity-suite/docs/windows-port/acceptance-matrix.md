@@ -10,7 +10,7 @@ complete while any required row lacks passing evidence.
 | 1.2 | Atomic persistence and interruption recovery | passing | `test_runtime`: replacement retry, killed writer, stale-temp recovery |
 | 1.3 | Canonical project-relative paths | passing | shared POSIX serializer, manifest-path test, full suite |
 | 1.4 | UTF-8 and locale independence | passing | Unicode path/content plus CLI output under forced legacy `cp1252` stdio |
-| 1.5 | Windows ACL protection | passing | native effective-rights inspection for `Everyone` and `BUILTIN\\Users`; doctor fails insecure private state |
+| 1.5 | Windows ACL protection | passing | native effective-rights inspection covers `Everyone`, `Authenticated Users`, `BUILTIN\\Users`, and `BUILTIN\\Guests`; install/reinstall transactionally hardens root, child directory, and file DACLs and rolls back on unsafe trees or failed verification |
 | 1.6 | Long path behavior | passing | >260-character Unicode atomic-write round trip |
 | 1.7 | Case-insensitive collisions | passing | normalized collision detector plus installer preflight |
 | 1.8 | Symlink/junction/reparse containment | passing | real Windows junction escape rejection |
@@ -18,7 +18,7 @@ complete while any required row lacks passing evidence.
 | 1.10 | UNC/mapped-drive policy | passing | explicit fail-closed remote-drive profile and test |
 | 1.11 | Transient sharing violations | passing | bounded idempotent replacement retry test |
 | 1.12 | Cancellation and crash recovery | passing | killed-lock/writer tests plus Job Object-backed grandchild termination on timeout |
-| 1.G | Stage 1 completion gate | in-progress | every native Windows row passes; POSIX regression CI remains a Stage 10 dependency |
+| 1.G | Stage 1 completion gate | passing | every native Windows row passes; hosted Ubuntu and macOS regressions pass on Python 3.11 and 3.14 in [run 29563386124](https://github.com/bshirley7/continuity-skills/actions/runs/29563386124) |
 | 2.1 | Native installer and deterministic interpreter | passing | OneDrive install binds `sys.executable`; doctor verifies it |
 | 2.2 | PowerShell, CMD, and VS Code launchers | passing | both installed launchers preserve argv/exit codes from a different cwd; CMD bypasses restricted PowerShell policy |
 | 2.3 | Dependency discovery and diagnostics | passing | doctor reports Python/Git/gh/age/age-keygen/ssh-keygen and conditional requirements |
@@ -58,10 +58,10 @@ complete while any required row lacks passing evidence.
 | 9.2 | Option/command injection defense | passing | validated Git remote/ref/object/branch and SemVer selectors; native direct argv parser rejects shells, batch wrappers, operators, and inline credential flags |
 | 9.3 | ACL, credentials, dependencies, secret redaction | passing | native ACL tests, filtered validation environment, centralized persisted/error redaction, exact tzdata 2026.3 pin with two SHA-256 hashes |
 | 9.4 | Windows threat model | passing | `docs/security-threat-model.md` covers assets, adversaries, trust boundaries, controls, operator duties, and residual risk |
-| 9.G | Stage 9 completion gate | passing | security-focused suite plus complete 117-test native regression passes without weakened gates |
-| 10.1 | Complete native Windows suite | passing | 117 tests passed in 332.623 seconds on Python 3.13.6 after the final distribution audit |
-| 10.2 | Linux and macOS suites | blocked | commit `fa00d685767c452fc78dc167307762d831b7ae5b` is published on `windows-compatibility-update`; the workflow intentionally runs feature branches only through `pull_request`, so no hosted run exists until a PR is explicitly authorized |
-| 10.3 | CI matrix and no safety skips | in-progress | GitHub parses the published branch workflow as Windows/macOS/Linux × Python 3.11/3.14 with hashed dependency install, complete suite, distribution audit, and diff hygiene; no run exists because the branch is not yet a PR |
+| 9.G | Stage 9 completion gate | passing | security-focused suite plus complete 119-test native regression passes without weakened gates |
+| 10.1 | Complete native Windows suite | passing | final native audit: 119 tests passed in 318.261 seconds on Python 3.13.6 with the updated acceptance documentation and release manifest |
+| 10.2 | Linux and macOS suites | passing | Ubuntu and macOS pass on Python 3.11 and 3.14 at exact head `277aa404b869cb34c71ffe10becefad022c433d0` in [run 29563386124](https://github.com/bshirley7/continuity-skills/actions/runs/29563386124) |
+| 10.3 | CI matrix and no safety skips | passing | all six Windows/macOS/Ubuntu × Python 3.11/3.14 jobs pass distribution validation, the complete suite, and diff hygiene in [run 29563386124](https://github.com/bshirley7/continuity-skills/actions/runs/29563386124); the hosted-only OneDrive environmental smoke is separately covered by the real native OneDrive run |
 | 10.4 | Skill, compile, manifest, docs, dependency checks | passing | 13 skills, 9 Python sources, 129 local Markdown links, one two-hash exact dependency, and 139 release files validate |
-| 10.5 | Requirement-by-requirement completion audit | in-progress | `final-audit.md` reconciles every capability and names three remaining external evidence gates; blocked rows cannot yet pass |
-| 10.G | Stage 10 completion gate | blocked | local Windows, official native age, authenticated read-only GitHub, and release-readiness evidence pass; provider, VS Code, and hosted cross-platform gates remain |
+| 10.5 | Requirement-by-requirement completion audit | in-progress | `final-audit.md` reconciles every capability and names the two remaining interactive provider evidence gates; blocked rows cannot yet pass |
+| 10.G | Stage 10 completion gate | blocked | local Windows, official native age, GitHub integration, and the hosted six-cell cross-platform matrix pass; provider-native no-op and Codex/Claude VS Code gates remain |

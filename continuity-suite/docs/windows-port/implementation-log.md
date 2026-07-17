@@ -413,3 +413,44 @@ read-only invocation, and the six hosted CI jobs.
   redaction rules, not secret material.
 
 Stage 5 now passes with official native Windows executables and direct evidence.
+
+## 2026-07-17 — Draft PR, hosted CI, and inherited-DACL hardening
+
+- Opened user-authorized draft PR
+  [#2](https://github.com/bshirley7/continuity-skills/pull/2) from
+  `windows-compatibility-update` to `main`. It remained draft throughout; no
+  merge, direct `main` push, force push, administrator bypass, or auto-merge
+  occurred.
+- Used the first hosted runs diagnostically. Canonicalized release-manifest
+  hashes for Git-normalized UTF-8 text while preserving byte-exact installed
+  drift checks; supplied a repository-local identity to the second lease clone
+  instead of relying on user Git configuration; and compared provider paths
+  after platform canonicalization so macOS `/var` and `/private/var` aliases do
+  not create a false failure.
+- Hosted Windows exposed two earlier-stage gaps that the local inherited ACLs
+  did not: Python 3.11 lacked `Path.is_junction`, and checkout-root inheritance
+  granted broad write access to private state. Added attribute-level reparse
+  detection and transactional install/reinstall DACL hardening. Hardening
+  rejects reparse points and hard-linked files, invokes `whoami.exe` and
+  `icacls.exe` only as structured argv with `shell=false`, grants the exact
+  current-user SID and `SYSTEM`, removes broad principals, and fails closed if
+  effective-rights verification remains unhealthy. A focused native security
+  run passed 31 tests, and the complete native suite passed 119 tests in
+  318.006 seconds before the audit update.
+- Corrected the hosted OneDrive install fixture to declare its isolated
+  temporary parent as the subprocess OneDrive root. This exercises detection
+  deterministically on a runner checkout outside OneDrive; the separate real
+  native OneDrive smoke remains the filesystem-semantic acceptance evidence.
+- At exact head `277aa404b869cb34c71ffe10becefad022c433d0`, all six Windows,
+  macOS, and Ubuntu jobs pass on Python 3.11 and 3.14 in
+  [run 29563386124](https://github.com/bshirley7/continuity-skills/actions/runs/29563386124).
+  Each job passed hashed dependency installation, distribution validation, the
+  complete suite, and diff hygiene.
+
+Stage 1's cross-platform dependency and Stage 10's hosted matrix now pass. The
+remaining gates are the authenticated Codex/Claude VS Code smokes and one
+execution-disabled provider-native scheduled no-op.
+
+After recording the hosted evidence and automatic DACL repair guidance, the
+final native audit reran all 119 tests successfully in 318.261 seconds on
+Python 3.13.6.

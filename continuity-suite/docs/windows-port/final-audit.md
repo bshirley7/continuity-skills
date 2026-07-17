@@ -2,8 +2,8 @@
 
 Recorded: 2026-07-17
 Local host: native Windows, OneDrive NTFS workspace, Python 3.13.6
-Execution, scheduling, live GitHub feature mutation, and merging: disabled;
-source-branch publication was separately authorized
+Execution, provider scheduling, and merging: disabled; source-branch
+publication and draft PR creation were separately authorized
 
 This audit reconciles the original Windows-port goal with the current local
 evidence. It does not mark the overall goal complete while external acceptance
@@ -11,7 +11,7 @@ rows remain blocked.
 
 ## Local release-readiness result
 
-- The complete native suite passes: 117 tests in 332.623 seconds.
+- The complete native suite passes: 119 tests in 318.261 seconds.
 - The security-focused adversarial suite passes without a shell-backed
   validation or security command.
 - Thirteen canonical skills validate; Codex and Claude installed-project tests
@@ -26,6 +26,9 @@ rows remain blocked.
   installs hashed dependencies, runs the cross-platform distribution audit and
   full suite, and performs diff hygiene. Official GitHub actions are pinned to
   full verified release commit SHAs with persisted checkout credentials off.
+- All six jobs pass at exact compatibility head
+  `277aa404b869cb34c71ffe10becefad022c433d0` in
+  [run 29563386124](https://github.com/bshirley7/continuity-skills/actions/runs/29563386124).
 
 ## Documented capability reconciliation
 
@@ -38,7 +41,7 @@ rows remain blocked.
 | Encrypted backup, verification, restore, rollback | official native age v1.3.1 plus signed protocol fixtures pass backup, independent verification, dry-run restore, restore, safety rollback, ACL, stale/tamper/crash, and secret-isolation gates | none |
 | GitHub.com, Enterprise, PR assessment, Projects, guarded merge | network-isolated host/repository/account/base/head/check/reviewer/merge tests pass; official `gh.exe` 2.83.2 and authenticated read-only GitHub.com identity/repository calls succeed | no live merge is required by this port audit |
 | Codex and Claude VS Code integration | all project skills/adapters/commands, trust/cwd/multi-root rules, byte parity, simultaneous mutation, and private-context isolation tested | `/skills` discovery and one read-only invocation in each authenticated extension |
-| Release integrity and cross-platform compatibility | deterministic manifest, portable paths, hashed dependency, native suite, and GitHub-parsed six-cell CI definition pass locally | green hosted Linux, macOS, and Windows matrix on the published compatibility commit |
+| Release integrity and cross-platform compatibility | deterministic manifest, portable paths, hashed dependency, and native suite pass locally; all six hosted Windows/macOS/Ubuntu jobs pass on Python 3.11 and 3.14 at exact compatibility head | none; the final evidence-only documentation commit must retain the same green matrix |
 | Security boundaries | threat model plus path/ref/archive/config/command/secret/ACL/rollback/credential adversarial coverage passes | external tool/provider gates above must use the same controls; no bypass is acceptable |
 
 ## Completed external acceptance evidence
@@ -57,6 +60,10 @@ rows remain blocked.
   failed closed. The final restored state contained all three expected notes,
   no restore journal remained, and exact age/SSH private material was absent
   from 521 project, checkpoint, report, metadata, and encrypted-archive files.
+- Draft PR [#2](https://github.com/bshirley7/continuity-skills/pull/2) binds
+  base `main` to head `windows-compatibility-update`; its exact head
+  `277aa404b869cb34c71ffe10becefad022c433d0` passes Windows, macOS, and Ubuntu
+  on Python 3.11 and 3.14. The PR remains draft and `main` was not changed.
 
 ## Explicit remaining gates
 
@@ -67,9 +74,6 @@ The following evidence cannot be manufactured by local fixtures:
    each provider.
 2. Create and observe one explicitly authorized local Codex automation or
    Claude Desktop scheduled no-op task with execution disabled.
-3. Open an explicitly authorized PR from the already-published
-   `windows-compatibility-update` branch and collect green Python 3.11 and 3.14
-   jobs on Windows, macOS, and Linux.
 
 No live PR merge, force push, administrator bypass, auto-merge, product-code
 execution, cloud routine, or production side effect is needed for these gates.
@@ -82,17 +86,13 @@ After the operator separately authorizes each applicable action:
    extension version, project root, skill name, and canonical handoff result.
 2. Complete the scheduler no-op observation and verify its signed provider
    conformance receipt with execution still disabled.
-3. The source branch is already published at commit
-   `fa00d685767c452fc78dc167307762d831b7ae5b`. After separate PR authorization,
-   inspect all six hosted CI jobs; retry only infrastructure failures, never
-   product or safety failures.
-4. Update the acceptance matrix with direct run URLs/artifact identifiers and
+3. Update the acceptance matrix with direct run URLs/artifact identifiers and
    exact tool versions. Only then reassess the overall completion gate.
 
 ## Completion decision
 
 Stages 1–6 and 9 pass with current evidence. Stages 7 and 8 have complete local
-implementations but retain the explicit external gates above.
-Stage 10's native and static release checks pass, while hosted
-Linux/macOS/Windows evidence is pending.
+implementations but retain the explicit interactive gates above. Stage 10's
+native, static, and hosted cross-platform checks pass; its final audit remains
+open until those Stage 7 and 8 rows pass on the final commit.
 Therefore the overall goal remains incomplete by design.
