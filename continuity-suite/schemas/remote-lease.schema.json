@@ -13,6 +13,10 @@
     "acquired_at": {"type": "string", "minLength": 1},
     "expires_at": {"type": "string", "minLength": 1},
     "previous_lease_commit": {},
+    "renewed_at": {"type": "string", "minLength": 1},
+    "bound_run_id": {"type": "string", "minLength": 1},
+    "bound_task_id": {"type": "string", "minLength": 1},
+    "bound_idempotency_key": {"type": "string", "minLength": 1},
     "released_at": {"type": "string", "minLength": 1},
     "release_reason": {"type": "string", "minLength": 1}
   },

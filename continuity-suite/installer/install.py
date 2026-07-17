@@ -91,6 +91,10 @@ def release_manifest(suite: Path) -> dict[str, Any]:
     if (suite / "VERSION").read_text(encoding="utf-8").strip() != manifest.get("version"):
         raise RuntimeError("VERSION does not match the release manifest")
     for relative, expected in manifest.get("files", {}).items():
+        try:
+            runtime_lib.validate_portable_relative_path(relative, label="Release manifest path")
+        except runtime_lib.RuntimeIntegrityError as exc:
+            raise RuntimeError(str(exc)) from exc
         source = confined(suite, relative, "release file")
         if not source.is_file() or file_hash(source) != expected:
             raise RuntimeError(f"Release file failed integrity verification: {relative}")
@@ -106,12 +110,12 @@ def install_file_map(suite: Path, manifest: dict[str, Any]) -> dict[str, Path]:
             target = Path(".agents") / relative
         elif parts[0] == "references":
             target = Path(".agents") / "continuity" / relative
-            mapped[str(target)] = source
-            mapped[str(Path(".agents") / relative)] = source
+            mapped[target.as_posix()] = source
+            mapped[(Path(".agents") / relative).as_posix()] = source
             continue
         else:
             target = Path(".agents") / "continuity" / relative
-        mapped[str(target)] = source
+        mapped[target.as_posix()] = source
     mapped[".agents/continuity/VERSION"] = suite / "VERSION"
     mapped[".agents/continuity/release-manifest.json"] = suite / "release-manifest.json"
     return dict(sorted(mapped.items()))
@@ -145,12 +149,18 @@ def create_upgrade_snapshot(root: Path, paths: set[str], prior: dict[str, Any]) 
     absent: list[str] = []
     selected: list[str] = []
     for relative in sorted(paths, key=lambda value: (len(Path(value).parts), value)):
+        try:
+            relative = runtime_lib.validate_portable_relative_path(relative, label="Snapshot path")
+        except runtime_lib.RuntimeIntegrityError as exc:
+            raise RuntimeError(str(exc)) from exc
         if any(Path(relative).is_relative_to(Path(parent)) for parent in selected):
             continue
         selected.append(relative)
     for relative in selected:
         target = confined(root, relative, "snapshot file")
         destination = payload / relative
+        if _is_junction(target):
+            raise RuntimeError(f"Refusing to snapshot a Windows junction: {relative}")
         if target.is_symlink():
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.symlink_to(os.readlink(target))
@@ -160,6 +170,7 @@ def create_upgrade_snapshot(root: Path, paths: set[str], prior: dict[str, Any]) 
             shutil.copy2(target, destination)
             present.append({"path": relative, "type": "file"})
         elif target.is_dir():
+            _reject_junction_tree(target, relative)
             shutil.copytree(target, destination, symlinks=True)
             present.append({"path": relative, "type": "directory"})
         else:
@@ -171,25 +182,119 @@ def create_upgrade_snapshot(root: Path, paths: set[str], prior: dict[str, Any]) 
     return snapshot
 
 
+def _is_junction(path: Path) -> bool:
+    checker = getattr(path, "is_junction", None)
+    return bool(checker()) if callable(checker) else False
+
+
+def _reject_junction_tree(path: Path, label: str) -> None:
+    for candidate in path.rglob("*"):
+        if _is_junction(candidate):
+            raise RuntimeError(f"Refusing a Windows junction in snapshot content: {label}")
+
+
+def validate_snapshot_name(value: str) -> str:
+    if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z(?:-[0-9]+)?", value):
+        raise RuntimeError("rollback snapshot must be a generated UTC timestamp name")
+    return value
+
+
+def _validated_snapshot_path(root: Path, snapshot: Path) -> Path:
+    upgrades = confined(root, ".continuity/private/upgrades", "upgrade snapshot directory")
+    name = validate_snapshot_name(snapshot.name)
+    candidate = upgrades / name
+    if snapshot.resolve(strict=False) != candidate.resolve(strict=False):
+        raise RuntimeError("rollback snapshot must be inside this project's upgrade snapshot directory")
+    if candidate.is_symlink() or _is_junction(candidate):
+        raise RuntimeError("rollback snapshot cannot be a symbolic link or Windows junction")
+    resolved = candidate.resolve(strict=False)
+    if not resolved.is_relative_to(upgrades):
+        raise RuntimeError("rollback snapshot escapes this project's upgrade snapshot directory")
+    if not resolved.is_dir():
+        raise RuntimeError(f"Invalid upgrade snapshot: {candidate}")
+    return resolved
+
+
+def _lexical_confined(base: Path, relative: str, label: str) -> Path:
+    candidate = base.joinpath(*relative.split("/"))
+    resolved_base = base.resolve()
+    if not candidate.parent.resolve(strict=False).is_relative_to(resolved_base):
+        raise RuntimeError(f"{label} escapes its expected directory")
+    return candidate
+
+
+def _validated_snapshot_metadata(metadata: Any) -> tuple[list[dict[str, str]], list[str], bool]:
+    if not isinstance(metadata, dict) or metadata.get("schema_version") != 1:
+        raise RuntimeError("Invalid upgrade snapshot metadata")
+    entries = metadata.get("present")
+    absent = metadata.get("absent")
+    if not isinstance(entries, list) or not isinstance(absent, list) or not isinstance(metadata.get("prior_manifest", {}), dict):
+        raise RuntimeError("Invalid upgrade snapshot metadata")
+    legacy = bool(entries) and all(isinstance(entry, str) for entry in entries)
+    if any(isinstance(entry, str) for entry in entries) and not legacy:
+        raise RuntimeError("Invalid mixed-format upgrade snapshot metadata")
+    normalized = ([{"path": entry, "type": "file"} for entry in entries] if legacy else entries)
+    if any(
+        not isinstance(entry, dict)
+        or set(entry) != {"path", "type"}
+        or not isinstance(entry.get("path"), str)
+        or entry.get("type") not in {"file", "directory", "symlink"}
+        for entry in normalized
+    ) or any(not isinstance(relative, str) for relative in absent):
+        raise RuntimeError("Invalid upgrade snapshot entries")
+    paths: list[str] = []
+    for relative in [*absent, *(entry["path"] for entry in normalized)]:
+        try:
+            paths.append(runtime_lib.validate_portable_relative_path(relative, label="Snapshot metadata path"))
+        except runtime_lib.RuntimeIntegrityError as exc:
+            raise RuntimeError(str(exc)) from exc
+    if len(paths) != len(set(paths)) or runtime_lib.casefold_path_collisions(paths):
+        raise RuntimeError("Upgrade snapshot metadata contains duplicate or colliding paths")
+    for index, path in enumerate(paths):
+        candidate = Path(path)
+        if any(candidate.is_relative_to(Path(other)) or Path(other).is_relative_to(candidate) for other in paths[index + 1 :]):
+            raise RuntimeError("Upgrade snapshot metadata contains overlapping paths")
+    return list(normalized), list(absent), legacy
+
+
+def _remove_restore_entry(path: Path) -> None:
+    if _is_junction(path):
+        os.rmdir(path)
+    elif path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    elif path.exists() or path.is_symlink():
+        path.unlink()
+
+
 def restore_upgrade_snapshot(root: Path, snapshot: Path) -> dict[str, Any]:
+    snapshot = _validated_snapshot_path(root, snapshot)
     metadata_path = snapshot / "snapshot.json"
     if not metadata_path.is_file():
         raise RuntimeError(f"Invalid upgrade snapshot: {snapshot}")
     metadata = load_json(metadata_path)
-    entries = metadata.get("present", [])
-    legacy_entries = [entry for entry in entries if isinstance(entry, str)]
-    normalized = ([{"path": entry, "type": "file"} for entry in legacy_entries] if legacy_entries else entries)
-    for relative in [*metadata.get("absent", []), *(entry["path"] for entry in normalized)]:
-        target = confined(root, relative, "restore file")
-        if target.is_dir() and not target.is_symlink():
-            shutil.rmtree(target)
-        elif target.exists() or target.is_symlink():
-            target.unlink()
-    payload_root = snapshot / ("files" if legacy_entries else "payload")
+    normalized, absent, legacy = _validated_snapshot_metadata(metadata)
+    payload_root = snapshot / ("files" if legacy else "payload")
+    if payload_root.is_symlink() or _is_junction(payload_root) or not payload_root.is_dir():
+        raise RuntimeError("Invalid upgrade snapshot payload directory")
+    sources: list[tuple[dict[str, str], Path]] = []
     for entry in normalized:
         relative = entry["path"]
-        source = confined(payload_root, relative, "snapshot source")
-        target = confined(root, relative, "restore target")
+        source = _lexical_confined(payload_root, relative, "snapshot source")
+        if entry["type"] == "directory":
+            if not source.is_dir() or source.is_symlink() or _is_junction(source):
+                raise RuntimeError(f"Invalid snapshot directory source: {relative}")
+            _reject_junction_tree(source, relative)
+        elif entry["type"] == "symlink":
+            if not source.is_symlink():
+                raise RuntimeError(f"Invalid snapshot symlink source: {relative}")
+        elif not source.is_file() or source.is_symlink() or _is_junction(source):
+            raise RuntimeError(f"Invalid snapshot file source: {relative}")
+        sources.append((entry, source))
+    for relative in [*absent, *(entry["path"] for entry in normalized)]:
+        _remove_restore_entry(_lexical_confined(root, relative, "restore target"))
+    for entry, source in sources:
+        relative = entry["path"]
+        target = _lexical_confined(root, relative, "restore target")
         if entry["type"] == "directory":
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(source, target, symlinks=True)
@@ -263,9 +368,11 @@ def trusted_approver_entries_exist(root: Path, relative: str) -> bool:
 
 
 def confined(root: Path, value: str, label: str) -> Path:
-    relative = Path(value)
-    if relative.is_absolute():
-        raise RuntimeError(f"{label} must be project-relative")
+    try:
+        portable = runtime_lib.validate_portable_relative_path(value, label=label)
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise RuntimeError(str(exc)) from exc
+    relative = Path(portable)
     target = (root / relative).resolve()
     if not target.is_relative_to(root.resolve()):
         raise RuntimeError(f"{label} escapes the project root")
@@ -314,8 +421,26 @@ def git(root: Path, *args: str) -> str:
         check=False,
     )
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"git {' '.join(args)} failed")
+        raise RuntimeError(runtime_lib.redact_sensitive_text(result.stderr.strip()) or f"git {' '.join(args)} failed")
     return result.stdout.strip()
+
+
+def validate_git_branch(root: Path, value: Any) -> str:
+    if not isinstance(value, str):
+        raise RuntimeError("integration-branch must be a Git branch name")
+    branch = value
+    if (
+        not branch
+        or len(branch.encode("utf-8")) > 255
+        or branch.startswith("-")
+        or any(character.isspace() or ord(character) < 32 for character in branch)
+        or any(token in branch for token in ("..", "@{", "\\", "~", "^", ":", "?", "*", "["))
+        or branch.endswith(("/", "."))
+        or any(part in {"", ".", ".."} or part.endswith(".lock") for part in branch.split("/"))
+    ):
+        raise RuntimeError("integration-branch is not a safe Git branch name")
+    git(root, "check-ref-format", "--branch", branch)
+    return branch
 
 
 def render_memory(entry: dict[str, Any], stamp: str, commit: str) -> str:
@@ -375,10 +500,12 @@ def main() -> int:
     if root == Path("/") or not root.is_dir():
         raise RuntimeError("Refusing unsafe or missing project root")
     git(root, "rev-parse", "--is-inside-work-tree")
+    try:
+        runtime_lib.validate_project_filesystem(root, git(root, "ls-files").splitlines())
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise RuntimeError(str(exc)) from exc
     if args.rollback_snapshot:
-        snapshot_name = Path(args.rollback_snapshot).name
-        if snapshot_name != args.rollback_snapshot:
-            raise RuntimeError("rollback snapshot must be a snapshot name, not a path")
+        snapshot_name = validate_snapshot_name(args.rollback_snapshot)
         result = restore_upgrade_snapshot(root, root / ".continuity" / "private" / "upgrades" / snapshot_name)
         print(json.dumps(result, indent=2))
         return 0
@@ -389,7 +516,7 @@ def main() -> int:
         raise RuntimeError("project-id and integration-branch are required for a new installation")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args.project_id):
         raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
-    git(root, "check-ref-format", "--branch", args.integration_branch)
+    args.integration_branch = validate_git_branch(root, args.integration_branch)
     release = release_manifest(suite)
     file_map = install_file_map(suite, release)
     prior_install = installed_manifest(root)
@@ -571,6 +698,7 @@ def main() -> int:
     ignore_block = f"""{IGNORE_START}
 .continuity/private/
 .continuity-portfolio/
+.continuity-restore/
 .continuity-write.lock
 .continuity/state.lock
 .agents/continuity/lib/__pycache__/
@@ -633,6 +761,10 @@ def main() -> int:
         remove_legacy_install_paths(root)
         write_json(root / ".continuity" / "config.json", config)
         write_json(root / ".continuity" / "project.json", project_manifest)
+        runtime_lib.atomic_write_text(
+            root / ".continuity" / "private" / "python-interpreter.txt",
+            str(Path(sys.executable).resolve()) + "\n",
+        )
         install_fault("managed-files")
     except Exception:
         transaction.rollback()
@@ -686,8 +818,10 @@ def main() -> int:
         )
     install_fault("seed-content")
 
+    installed_cli = str(control_target / "bin" / "continuity")
     configure_command = [
-        str(control_target / "bin" / "continuity"),
+        *([sys.executable] if os.name == "nt" else []),
+        installed_cli,
         "--project-root",
         str(root),
         "--json",
@@ -747,5 +881,13 @@ def main() -> int:
     return 0
 
 
+def entrypoint() -> int:
+    try:
+        return main()
+    except Exception as exc:
+        print(f"continuity installer: {runtime_lib.redact_sensitive_text(exc)}", file=sys.stderr)
+        return 1
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(entrypoint())

@@ -413,7 +413,7 @@ The selected scheduler owns actual persistent task registration. Continuity reco
 
 ```text
 codex        register Codex scheduled tasks or automations
-claude-code  register Claude Code Desktop tasks or cloud routines
+claude-code  register a Claude Desktop local scheduled task
 external     use cron, launchd, GitHub Actions, CI, or another scheduler
 none         keep schedule intent without registering recurring tasks
 ```
@@ -432,7 +432,11 @@ For Codex, render the exact provider definition instead of transcribing schedule
 .agents/continuity/bin/continuity --project-root "$PWD" --json scheduler adapter codex render --root /workspace/root
 ```
 
-After creating the Codex automation and registering its returned task ID, exercise and record `claim-replay-rejected`, `stale-registration-rejected`, and `remote-lease-contention-rejected` with `scheduler adapter codex record-probe`. Each production record requires concrete evidence and the evidence artifact SHA-256. In a signed-approval project, also include `--signing-key` from an integration-branch-anchored approver. Require `scheduler adapter codex verify` to observe and verify those current-behavior probe records, two sweeps, and one claimed no-op review or report run before enabling dispatch.
+For Claude Desktop, use the parallel
+`scheduler adapter claude-code render` command. A Claude cloud routine cannot
+replace this local-state adapter because it starts from a fresh clone.
+
+After creating the selected provider task and registering its returned task ID, exercise and record `claim-replay-rejected`, `stale-registration-rejected`, and `remote-lease-contention-rejected` with `scheduler adapter <provider> record-probe`. Each production record requires concrete evidence and the evidence artifact SHA-256. In a signed-approval project, also include `--signing-key` from an integration-branch-anchored approver. Require `scheduler adapter <provider> verify` to observe and verify those current-behavior probe records, two sweeps, and one claimed no-op review or report run before enabling dispatch.
 
 Run it at the configured `sweep_minutes` interval. Give the task the developer-local workspace roots it may scan. After the scheduling surface returns its task ID, record the receipt inside every enrolled project covered by that supervisor:
 

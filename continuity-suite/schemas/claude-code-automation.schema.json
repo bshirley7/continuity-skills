@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Continuity Codex automation definition",
+  "title": "Continuity Claude Code local scheduled-task definition",
   "type": "object",
   "required": ["schema_version", "provider", "title", "schedule", "workspace_roots", "prompt", "launcher", "supervisor_argv", "registration_argv", "shell_required", "cwd_independent", "project_schedules", "registration_command", "human_action_required"],
   "properties": {
     "schema_version": {"const": 1},
-    "provider": {"const": "codex"},
+    "provider": {"const": "claude-code"},
     "title": {"type": "string", "minLength": 1},
     "schedule": {
       "type": "object",

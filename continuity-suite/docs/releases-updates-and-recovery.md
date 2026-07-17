@@ -4,7 +4,10 @@ This guide explains how to install and update Continuity without replacing proje
 
 ## Supported environment
 
-The release candidate supports macOS and Linux with Python 3.11 or newer. Operational features use:
+The release candidate supports native Windows, macOS, and Linux with Python
+3.11 or newer. Windows users should read [Native Windows Setup and
+Operation](windows.md) and use the installed `continuity.cmd` launcher where
+the examples below show the extensionless POSIX launcher. Operational features use:
 
 - `git` for source identity, worktrees, and remote execution leases.
 - `gh` for release verification, pull-request evidence, and authenticated human identity.
@@ -189,6 +192,20 @@ Always inspect a restore first:
 
 Backup and restore acquire the project-state lock and refuse to run while a goal, scheduler run, or project execution lock is active. Production backup policy requires immediate decryption and inventory verification through `--verify-identity`. The non-dry restore verifies the integration-branch-anchored SSH trust store, project identity, and every payload hash, creates and verifies a new signed encrypted safety backup of current state, stages extraction, and replaces private state. It restores no committed application files.
 
+Backup output is never overwritten: choose a new output path if a file already
+exists. Encryption is staged and verified before atomic publication. Restore
+uses an ignored rollback journal under `.continuity-restore/`; after a killed
+or interrupted restore, doctor reports the pending transaction and normal
+state mutation remains blocked until this restores the pre-transaction state:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" state recover-restore
+```
+
+When external audit checkpoints are required, a restore archive must extend the
+signed checkpoint. A valid but older backup that would truncate anchored ledger
+history fails before canonical private state is replaced.
+
 ## External audit checkpoint
 
 The private JSONL chains detect partial corruption. Anchor their current heads outside the project so a complete local history rewrite is also detectable:
@@ -215,4 +232,6 @@ An update is operationally complete only after these pass:
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status
 ```
 
-When Codex scheduling is enabled, also run `scheduler adapter codex verify`. Do not enable unattended dispatch while any check reports unhealthy.
+When Codex or Claude Code scheduling is enabled, also run the matching
+`scheduler adapter codex verify` or `scheduler adapter claude-code verify`.
+Do not enable unattended dispatch while any check reports unhealthy.

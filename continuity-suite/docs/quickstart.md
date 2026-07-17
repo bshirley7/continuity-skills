@@ -2,6 +2,15 @@
 
 This guide walks through a first local Continuity install: install into one project, keep execution disabled, configure project behavior, verify health, then use the installed skills and slash commands.
 
+Native Windows users should keep this workflow but use `python.exe` during
+installation and the installed `.agents\continuity\bin\continuity.cmd` for
+daily commands. See [Native Windows Setup and Operation](windows.md) for exact
+PowerShell, Command Prompt, OneDrive, and execution-policy guidance.
+
+For VS Code agent setup, session reload rules, workspace trust, multi-root
+workspaces, and Remote Development, read [VS Code, Codex, and Claude
+Code](vscode-codex-claude.md).
+
 Use this path when you want Continuity available in a project without turning on unattended implementation yet.
 
 ## 1. Start From The Suite Checkout

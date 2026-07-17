@@ -147,10 +147,18 @@ To activate scheduled operation:
 
 6. Run `project doctor` and confirm the scheduler state is `registered`.
 7. Observe at least two successful sweeps and one claimed no-op review or report action.
-8. Confirm claim replay, stale registration, and second-workstation lease contention are rejected; record each observation with `scheduler adapter codex record-probe` and concrete evidence.
+8. Confirm claim replay, stale registration, and second-workstation lease contention are rejected; record each observation with the selected provider's `scheduler adapter <provider> record-probe` command and concrete evidence.
 9. Configure provider-native failure notification where available.
 
 For Codex, generate the provider-native definition with `scheduler adapter codex render`, then require `scheduler adapter codex verify` to pass. Before every code-changing start, acquire the exact goal-attempt remote lease. Scheduled start binds it to the consuming run and task; only that dispatch completion may release it. Review and report actions remain read-only and cannot release the execution lease.
+
+For Claude Code, use `scheduler adapter claude-code render` and
+`scheduler adapter claude-code verify`. The rendered local-filesystem adapter
+is for a Claude Desktop local scheduled task. A cloud routine starts from a
+fresh remote clone and cannot substitute for the local adapter because it does
+not have Continuity's ignored project state. Keep either provider task disabled
+until its exact returned task ID is registered and the full conformance proof
+passes.
 
 When the scheduler provider is `none`, schedule intent is retained but all review, dispatch, and report commands are manual.
 
@@ -404,6 +412,12 @@ Use `$continuity-merge` only after the exact tested commit is pushed to a draft 
 ```
 
 The assessment verifies the clean worktree, branch, tested commit, remote head, pull-request head, pull-request base, and required compliance stages.
+
+The pull-request host, owner, repository, and number must match the canonical
+`origin` remote. This applies to both GitHub.com and GitHub Enterprise.
+Continuity pins every GitHub CLI request to that host and repository and
+verifies the active login on the same host; it never switches accounts during
+an unattended or merge operation.
 
 Successful off-hours work stops at `review-ready`. Continuity does not merge or claim business completion.
 
