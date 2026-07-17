@@ -184,7 +184,9 @@ def create_upgrade_snapshot(root: Path, paths: set[str], prior: dict[str, Any]) 
 
 def _is_junction(path: Path) -> bool:
     checker = getattr(path, "is_junction", None)
-    return bool(checker()) if callable(checker) else False
+    if callable(checker) and checker():
+        return True
+    return os.name == "nt" and runtime_lib.windows_reparse_point(path) and path.is_dir() and not path.is_symlink()
 
 
 def _reject_junction_tree(path: Path, label: str) -> None:
@@ -867,6 +869,11 @@ def main() -> int:
         installation["previous_version"] = prior_install["version"]
     write_json(root / ".continuity" / "install-manifest.json", installation)
     install_fault("install-manifest")
+    try:
+        runtime_lib.harden_windows_acl(root / ".continuity" / "private")
+    except Exception:
+        transaction.rollback()
+        raise
     transaction.commit()
     user_defaults_problem = None
     user_defaults_saved = False

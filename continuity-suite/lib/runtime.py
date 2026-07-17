@@ -30,6 +30,12 @@ class RuntimeIntegrityError(RuntimeError):
 
 _Result = TypeVar("_Result")
 _WINDOWS_TRANSIENT_ERRORS = {5, 32, 33}
+_WINDOWS_BROAD_PRINCIPALS = (
+    ("Everyone", "S-1-1-0"),
+    ("Authenticated Users", "S-1-5-11"),
+    ("BUILTIN\\Users", "S-1-5-32-545"),
+    ("BUILTIN\\Guests", "S-1-5-32-546"),
+)
 _WINDOWS_RESERVED_PATH_NAMES = {
     "CON",
     "PRN",
@@ -400,7 +406,7 @@ def windows_acl_profile(path: Path) -> dict[str, Any]:
     write_mask = 0x00000002 | 0x00000004 | 0x00000010 | 0x00000100 | 0x00010000 | 0x00040000 | 0x00080000 | 0x10000000 | 0x40000000
     broad: list[str] = []
     try:
-        for name, sid_text in (("Everyone", "S-1-1-0"), ("BUILTIN\\Users", "S-1-5-32-545")):
+        for name, sid_text in _WINDOWS_BROAD_PRINCIPALS:
             sid = ctypes.c_void_p()
             if not convert_sid(sid_text, ctypes.byref(sid)):
                 raise RuntimeIntegrityError(f"Unable to construct Windows SID {sid_text}")
@@ -417,6 +423,106 @@ def windows_acl_profile(path: Path) -> dict[str, Any]:
     finally:
         kernel.LocalFree(descriptor)
     return {"applicable": True, "broad_write_principals": broad, "healthy": not broad}
+
+
+def windows_reparse_point(path: Path) -> bool:
+    """Detect Windows reparse points on Python versions without Path.is_junction."""
+    if os.name != "nt":
+        return path.is_symlink()
+    try:
+        attributes = int(getattr(path.lstat(), "st_file_attributes", 0))
+    except OSError:
+        return False
+    return bool(attributes & 0x00000400)  # FILE_ATTRIBUTE_REPARSE_POINT
+
+
+def _windows_current_user_sid() -> str:
+    whoami = shutil.which("whoami.exe")
+    if not whoami:
+        raise RuntimeIntegrityError("Unable to harden Windows ACL: whoami.exe was not found")
+    result = subprocess.run(
+        [whoami, "/user", "/fo", "csv", "/nh"],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=15,
+        check=False,
+        env=restricted_subprocess_environment(),
+    )
+    match = re.search(r"\bS-\d-\d+(?:-\d+)+\b", result.stdout)
+    if result.returncode != 0 or not match:
+        detail = (result.stderr or result.stdout).strip()
+        raise RuntimeIntegrityError(
+            f"Unable to determine the current Windows user SID: {detail or f'exit {result.returncode}'}"
+        )
+    return match.group(0)
+
+
+def _validate_windows_acl_tree(root: Path) -> None:
+    for directory, names, files in os.walk(root, followlinks=False):
+        current = Path(directory)
+        for name in [*names, *files]:
+            candidate = current / name
+            if windows_reparse_point(candidate):
+                raise RuntimeIntegrityError(
+                    f"Refusing to harden a Windows ACL tree containing a reparse point: {candidate}"
+                )
+            resolved = candidate.resolve(strict=True)
+            if not resolved.is_relative_to(root):
+                raise RuntimeIntegrityError(f"Windows ACL target escapes its private root: {candidate}")
+            if candidate.is_file() and candidate.stat().st_nlink > 1:
+                raise RuntimeIntegrityError(
+                    f"Refusing to harden a Windows ACL tree containing a hard-linked file: {candidate}"
+                )
+
+
+def harden_windows_acl(path: Path) -> dict[str, Any]:
+    """Replace broad inherited Windows grants with current-user and SYSTEM access."""
+    if os.name != "nt":
+        return {"applicable": False, "broad_write_principals": [], "healthy": True}
+    root = path.resolve(strict=True)
+    if not root.is_dir():
+        raise RuntimeIntegrityError(f"Windows ACL hardening target is not a directory: {root}")
+    _validate_windows_acl_tree(root)
+    icacls = shutil.which("icacls.exe")
+    if not icacls:
+        raise RuntimeIntegrityError("Unable to harden Windows ACL: icacls.exe was not found")
+    user_sid = _windows_current_user_sid()
+    broad_sids = [f"*{sid}" for _name, sid in _WINDOWS_BROAD_PRINCIPALS]
+    commands = [
+        [icacls, str(root), "/inheritance:r", "/Q"],
+        [icacls, str(root), "/remove:g", *broad_sids, "/Q"],
+        [
+            icacls,
+            str(root),
+            "/grant:r",
+            f"*{user_sid}:(OI)(CI)F",
+            "*S-1-5-18:(OI)(CI)F",
+            "/Q",
+        ],
+        [icacls, str(root), "/remove:g", *broad_sids, "/T", "/Q"],
+    ]
+    for command in commands:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=120,
+            check=False,
+            env=restricted_subprocess_environment(),
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip()
+            raise RuntimeIntegrityError(
+                f"Unable to harden Windows ACL for {root}: {detail or f'exit {result.returncode}'}"
+            )
+    profile = windows_acl_profile(root)
+    if not profile["healthy"]:
+        raise RuntimeIntegrityError(
+            f"Windows ACL hardening left broad write access: {profile['broad_write_principals']}"
+        )
+    return profile
 
 
 @contextlib.contextmanager

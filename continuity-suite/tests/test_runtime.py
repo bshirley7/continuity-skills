@@ -118,6 +118,39 @@ class RuntimePortabilityTest(unittest.TestCase):
             self.assertTrue(profile["applicable"])
             self.assertTrue(profile["healthy"], profile)
 
+    @unittest.skipUnless(os.name == "nt", "Windows ACL hardening")
+    def test_windows_acl_hardening_removes_broad_recursive_grants(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            private = Path(directory) / ".continuity" / "private"
+            child = private / "goals"
+            child.mkdir(parents=True)
+            record = child / "state.json"
+            record.write_text("{}\n", encoding="utf-8")
+            granted = subprocess.run(
+                [
+                    "icacls.exe",
+                    str(private),
+                    "/grant",
+                    "*S-1-5-11:(OI)(CI)M",
+                    "*S-1-5-32-545:(OI)(CI)M",
+                    "/T",
+                    "/Q",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(granted.returncode, 0, granted.stderr or granted.stdout)
+            insecure = runtime.windows_acl_profile(private)
+            self.assertFalse(insecure["healthy"])
+            self.assertIn("Authenticated Users", insecure["broad_write_principals"])
+            self.assertIn("BUILTIN\\Users", insecure["broad_write_principals"])
+            profile = runtime.harden_windows_acl(private)
+            self.assertTrue(profile["healthy"], profile)
+            self.assertTrue(runtime.windows_acl_profile(child)["healthy"])
+            self.assertTrue(runtime.windows_acl_profile(record)["healthy"])
+            record.write_text('{"healthy":true}\n', encoding="utf-8")
+
     def test_long_unicode_path_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
