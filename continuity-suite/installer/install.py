@@ -96,7 +96,7 @@ def release_manifest(suite: Path) -> dict[str, Any]:
         except runtime_lib.RuntimeIntegrityError as exc:
             raise RuntimeError(str(exc)) from exc
         source = confined(suite, relative, "release file")
-        if not source.is_file() or file_hash(source) != expected:
+        if not source.is_file() or runtime_lib.sha256_release_file(source) != expected:
             raise RuntimeError(f"Release file failed integrity verification: {relative}")
     return manifest
 

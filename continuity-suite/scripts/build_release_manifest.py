@@ -4,9 +4,14 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import sys
 from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "lib"))
+import runtime  # noqa: E402
 
 
 INCLUDED_ROOTS = ("automation", "bin", "docs", "installer", "lib", "references", "roadmap-ui", "schemas", "scripts", "skills", "templates")
@@ -14,7 +19,7 @@ INCLUDED_FILES = ("CONTRIBUTING.md", "README.md", "SUITE.md", "VERSION", "requir
 
 
 def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return runtime.sha256_release_file(path)
 
 
 def build_manifest(root: Path, release_commit: str | None = None) -> dict[str, object]:

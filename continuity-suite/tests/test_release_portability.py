@@ -13,6 +13,8 @@ from pathlib import Path
 REPOSITORY = Path(__file__).resolve().parents[2]
 SUITE = REPOSITORY / "continuity-suite"
 BUILDER = SUITE / "scripts" / "build_release_manifest.py"
+sys.path.insert(0, str(SUITE / "lib"))
+import runtime as runtime_lib  # noqa: E402
 
 
 class ReleasePortabilityTest(unittest.TestCase):
@@ -40,6 +42,7 @@ class ReleasePortabilityTest(unittest.TestCase):
         self.assertTrue(all("\\" not in path for path in manifest["files"]))
 
     def test_release_hashes_are_stable_across_autocrlf_modes(self) -> None:
+        recorded = json.loads((SUITE / "release-manifest.json").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory(prefix="continuity-autocrlf-") as directory:
             fixture = Path(directory) / "fixture"
             fixture.mkdir()
@@ -79,6 +82,24 @@ class ReleasePortabilityTest(unittest.TestCase):
                 manifests.append((exported / "continuity-suite" / "release-manifest.json").read_bytes())
             self.assertEqual(manifests[0], manifests[1])
             self.assertEqual(manifests[1], manifests[2])
+            self.assertEqual(recorded, json.loads(manifests[0]))
+
+    def test_release_digest_normalizes_text_but_preserves_binary_bytes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="continuity-release-digest-") as directory:
+            root = Path(directory)
+            lf = root / "lf.txt"
+            crlf = root / "crlf.txt"
+            binary_one = root / "one.gif"
+            binary_two = root / "two.gif"
+            lf.write_bytes(b"alpha\nbeta\n")
+            crlf.write_bytes(b"alpha\r\nbeta\r\n")
+            binary_one.write_bytes(b"GIF89a\r\n")
+            binary_two.write_bytes(b"GIF89a\n")
+            self.assertEqual(runtime_lib.sha256_release_file(lf), runtime_lib.sha256_release_file(crlf))
+            self.assertNotEqual(
+                runtime_lib.sha256_release_file(binary_one),
+                runtime_lib.sha256_release_file(binary_two),
+            )
 
     def _build(self, manifest_path: Path) -> bytes:
         result = subprocess.run([sys.executable, str(BUILDER)], capture_output=True, text=True, check=False)

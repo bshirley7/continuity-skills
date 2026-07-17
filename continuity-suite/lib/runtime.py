@@ -478,6 +478,22 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+_RELEASE_BINARY_SUFFIXES = frozenset({".gif", ".gz", ".ico", ".jpeg", ".jpg", ".png", ".zip"})
+
+
+def sha256_release_file(path: Path) -> str:
+    """Hash UTF-8 release text with LF endings and declared binary files byte-for-byte."""
+    payload = path.read_bytes()
+    if path.suffix.casefold() in _RELEASE_BINARY_SUFFIXES:
+        return sha256_bytes(payload)
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError:
+        return sha256_bytes(payload)
+    canonical = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return sha256_bytes(canonical)
+
+
 def _private_root(path: Path) -> Path | None:
     resolved = path.resolve()
     parts = resolved.parts

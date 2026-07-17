@@ -5609,7 +5609,7 @@ def source_release_status(source: Path) -> dict[str, Any]:
         except runtime_lib.RuntimeIntegrityError as exc:
             raise ContinuityError(str(exc)) from exc
         path = confined_path(source, relative, "release file")
-        if not path.is_file() or runtime_lib.sha256_file(path) != expected:
+        if not path.is_file() or runtime_lib.sha256_release_file(path) != expected:
             failures.append(relative)
     if failures:
         raise ContinuityError(f"Release source integrity failed: {failures}")
