@@ -18,7 +18,9 @@ INSTALLER = SUITE / "installer" / "install.py"
 class WindowsInstallTest(unittest.TestCase):
     def test_onedrive_path_with_spaces_installs_and_cmd_launcher_runs_doctor(self) -> None:
         with tempfile.TemporaryDirectory(prefix="continuity install unicode ", dir=SUITE.parent) as directory:
-            root = self._install_project(Path(directory))
+            environment = os.environ.copy()
+            environment["OneDrive"] = str(Path(directory).resolve())
+            root = self._install_project(Path(directory), environment=environment)
             interpreter = root / ".continuity" / "private" / "python-interpreter.txt"
             self.assertEqual(Path(interpreter.read_text(encoding="utf-8").strip()).resolve(), Path(sys.executable).resolve())
             launcher = root / ".agents" / "continuity" / "bin" / "continuity.cmd"
@@ -27,6 +29,7 @@ class WindowsInstallTest(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 check=False,
+                env=environment,
             )
             self.assertEqual(doctor.returncode, 0, doctor.stderr or doctor.stdout)
             health = json.loads(doctor.stdout)
@@ -39,6 +42,7 @@ class WindowsInstallTest(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 check=False,
+                env=environment,
             )
             self.assertNotEqual(invalid.returncode, 0)
             powershell_launcher = root / ".agents" / "continuity" / "bin" / "continuity.ps1"
@@ -62,6 +66,7 @@ class WindowsInstallTest(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 check=False,
+                env=environment,
             )
             self.assertEqual(powershell_doctor.returncode, 0, powershell_doctor.stderr or powershell_doctor.stdout)
             self.assertTrue(json.loads(powershell_doctor.stdout)["healthy"])
@@ -82,6 +87,7 @@ class WindowsInstallTest(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 check=False,
+                env=environment,
             )
             self.assertEqual(powershell_invalid.returncode, invalid.returncode)
 
@@ -406,7 +412,7 @@ class WindowsInstallTest(unittest.TestCase):
             self.assertFalse(manifest["execution_enabled"])
             self.assertNotIn("<!-- continuity:start -->", (root / "AGENTS.md").read_text(encoding="utf-8"))
 
-    def _install_project(self, directory: Path) -> Path:
+    def _install_project(self, directory: Path, *, environment: dict[str, str] | None = None) -> Path:
         root = directory / "Project With Spaces"
         root.mkdir()
         self._git(root, "init", "-b", "main")
@@ -415,12 +421,17 @@ class WindowsInstallTest(unittest.TestCase):
         (root / "README.md").write_text("# Windows fixture\n", encoding="utf-8")
         self._git(root, "add", ".")
         self._git(root, "commit", "-m", "initial")
-        installed = self._run_installer(root)
+        installed = self._run_installer(root, environment=environment)
         self.assertEqual(installed.returncode, 0, installed.stderr or installed.stdout)
         self.assertTrue(json.loads(installed.stdout)["installed"])
         return root
 
-    def _run_installer(self, root: Path) -> subprocess.CompletedProcess[str]:
+    def _run_installer(
+        self,
+        root: Path,
+        *,
+        environment: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
                 sys.executable,
@@ -436,6 +447,7 @@ class WindowsInstallTest(unittest.TestCase):
             capture_output=True,
             text=True,
             check=False,
+            env=environment,
         )
 
     def _git(self, root: Path, *arguments: str) -> None:
