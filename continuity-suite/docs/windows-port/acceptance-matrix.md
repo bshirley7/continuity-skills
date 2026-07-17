@@ -37,14 +37,14 @@ complete while any required row lacks passing evidence.
 | 4.2 | Remote lease lifecycle across two clones | passing | local bare remote, two clones, contention/release/reacquire |
 | 4.3 | Renewal, binding, expiry, replay, wrong-goal/attempt, skew | passing | remote renewal/binding commits, ancestry validation, stale-receipt rejection, skew fail-closed, expiry recovery |
 | 4.G | Stage 4 completion gate | passing | complete two-clone lease scenario passed five consecutive native Windows runs |
-| 5.1 | Official age.exe and age-keygen.exe discovery | blocked | tools absent on host |
-| 5.2 | Encrypt, verify, restore, rollback | in-progress | complete signed protocol, tamper/incomplete/stale rejection, and rollback fixtures pass; official executable needed |
+| 5.1 | Official age.exe and age-keygen.exe discovery | passing | WinGet installed official `FiloSottile.age` v1.3.1; both executables report v1.3.1 and doctor discovers them; independently downloaded Windows archive matches upstream SHA-256 `c56e8c…8154`; expired publisher certificate is recorded as non-passing rather than misrepresented |
+| 5.2 | Encrypt, verify, restore, rollback | passing | official native tools encrypted and immediately verified state in a Unicode OneDrive path with spaces; independent verify, dry-run, restore, verified safety backup, rollback, ciphertext tamper rejection, stale-checkpoint rejection, and protocol adversarial fixtures pass |
 | 5.3 | Backup interruption, staging, ACLs, secret redaction | passing | staged publish cleanup, secure temp DACL checks, journaled crash recovery, no-overwrite and redaction assertions |
-| 5.G | Stage 5 completion gate | blocked | local hardening passes; explicit authority is required to install and test official native age v1.3.1 |
-| 6.1 | Native gh.exe and isolated mocks | in-progress | official gh.exe 2.83.2 executes natively; isolated mocks pass; authenticated read-only call is blocked by the host's expired credential |
-| 6.2 | GitHub.com/Enterprise identity and PR binding | in-progress | GitHub.com/Enterprise, repository mismatch, returned-URL mismatch, host-pinned account, check, and reviewer matrix passes; live authenticated identity evidence remains |
+| 5.G | Stage 5 completion gate | passing | official native age v1.3.1 lifecycle passes with execution disabled, external signed checkpoint, confined staging, secure DACLs, no-overwrite behavior, rollback, and no exact key leakage across 521 evidence files |
+| 6.1 | Native gh.exe and isolated mocks | passing | official gh.exe 2.83.2 executes natively; isolated mocks never contact GitHub; active GitHub.com auth plus the read-only user API succeeded on 2026-07-17 |
+| 6.2 | GitHub.com/Enterprise identity and PR binding | passing | live read-only lookup resolved exactly `bshirley7/continuity-skills` with default branch `main`; Enterprise, repository/URL/account mismatch, check, reviewer, base, and full-head binding tests pass |
 | 6.3 | Exact guarded human merge | passing | Enterprise-hosted mock binds origin/PR/base/head/account, exact authorization, and `--match-head-commit`; wrong account/text fail before mutation and no auto/admin flags occur |
-| 6.G | Stage 6 completion gate | blocked | all local/network-isolated evidence passes; native gh reports the active github.com token invalid and requires user reauthentication |
+| 6.G | Stage 6 completion gate | passing | native authenticated read-only identity/repository verification and the complete network-isolated guarded-delivery matrix pass; no live merge or repository mutation was used as acceptance evidence |
 | 7.1 | Provider render/register/heartbeat/claims | passing | Codex and Claude Desktop definitions use absolute native shell-free argv; path/metachar transport, real registration, three heartbeats, and one-time claims pass |
 | 7.2 | Capacity, retry, stale recovery, process cancellation | passing | portfolio capacity race, retry/backoff, stale run/lock/lease recovery, and Job Object process-tree cancellation pass |
 | 7.3 | No-op provider conformance | in-progress | direct local protocol run observes three sweeps, one claimed no-op, and signed real replay/stale/second-clone contention rejections; provider-native task remains uncreated |
@@ -60,8 +60,8 @@ complete while any required row lacks passing evidence.
 | 9.4 | Windows threat model | passing | `docs/security-threat-model.md` covers assets, adversaries, trust boundaries, controls, operator duties, and residual risk |
 | 9.G | Stage 9 completion gate | passing | security-focused suite plus complete 117-test native regression passes without weakened gates |
 | 10.1 | Complete native Windows suite | passing | 117 tests passed in 332.623 seconds on Python 3.13.6 after the final distribution audit |
-| 10.2 | Linux and macOS suites | blocked | six-cell workflow is defined; hosted Linux/macOS results require publishing the proposed commit |
-| 10.3 | CI matrix and no safety skips | in-progress | Windows/macOS/Linux × Python 3.11/3.14 matrix, hashed dependency install, complete suite, distribution audit, and diff hygiene are defined; hosted runs pending |
+| 10.2 | Linux and macOS suites | blocked | commit `fa00d685767c452fc78dc167307762d831b7ae5b` is published on `windows-compatibility-update`; the workflow intentionally runs feature branches only through `pull_request`, so no hosted run exists until a PR is explicitly authorized |
+| 10.3 | CI matrix and no safety skips | in-progress | GitHub parses the published branch workflow as Windows/macOS/Linux × Python 3.11/3.14 with hashed dependency install, complete suite, distribution audit, and diff hygiene; no run exists because the branch is not yet a PR |
 | 10.4 | Skill, compile, manifest, docs, dependency checks | passing | 13 skills, 9 Python sources, 129 local Markdown links, one two-hash exact dependency, and 139 release files validate |
-| 10.5 | Requirement-by-requirement completion audit | in-progress | `final-audit.md` reconciles every capability and names five external evidence gates; blocked rows cannot yet pass |
-| 10.G | Stage 10 completion gate | blocked | local Windows and release-readiness evidence passes; external age, gh, provider, VS Code, and hosted cross-platform gates remain |
+| 10.5 | Requirement-by-requirement completion audit | in-progress | `final-audit.md` reconciles every capability and names three remaining external evidence gates; blocked rows cannot yet pass |
+| 10.G | Stage 10 completion gate | blocked | local Windows, official native age, authenticated read-only GitHub, and release-readiness evidence pass; provider, VS Code, and hosted cross-platform gates remain |

@@ -19,6 +19,58 @@ and verifies either official distribution with SHA-256 hashes. Do not remove
 hash checking to work around an installation failure; investigate the package
 source, proxy, cache, interpreter, and reviewed dependency version instead.
 
+### Install the reviewed native age tools
+
+Encrypted backup and restore require the official native `age.exe` and
+`age-keygen.exe`. Install the reviewed v1.3.1 package once for the Windows
+account that will run Continuity:
+
+```powershell
+winget.exe show --id FiloSottile.age --exact --versions
+winget.exe install --id FiloSottile.age --exact --version 1.3.1 --source winget
+```
+
+The reviewed upstream artifact is
+[`age-v1.3.1-windows-amd64.zip`](https://github.com/FiloSottile/age/releases/tag/v1.3.1),
+whose published SHA-256 digest is
+`c56e8ce22f7e80cb85ad946cc82d198767b056366201d3e1a2b93d865be38154`.
+Do not substitute a similarly named package or an unsigned third-party build.
+On a 2026 Windows clock, the v1.3.1 executables expose their historical
+publisher certificate but Windows reports it outside its validity period.
+Treat the current Authenticode result as non-passing: establish provenance
+through the exact official WinGet package, the verified upstream archive hash,
+and the executable version instead of claiming a valid current signature.
+After installation, restart existing terminals and VS Code so they inherit the
+updated `PATH`, then verify both native executables:
+
+```powershell
+Get-Command age.exe, age-keygen.exe | Select-Object Name, Source
+age.exe --version
+age-keygen.exe --version
+```
+
+Generate one identity outside every project repository. Never print, commit,
+paste into chat, or place the identity in a backup report; only the derived
+recipient is public:
+
+```powershell
+$AgeHome = Join-Path $env:USERPROFILE ".config\age"
+$AgeIdentity = Join-Path $AgeHome "keys.txt"
+New-Item -ItemType Directory -Force -Path $AgeHome | Out-Null
+if (Test-Path -LiteralPath $AgeIdentity) { throw "Refusing to overwrite the existing age identity" }
+age-keygen.exe -o $AgeIdentity
+$AgeRecipient = (& age-keygen.exe -y $AgeIdentity).Trim()
+if (-not $AgeRecipient.StartsWith("age1")) { throw "age-keygen returned an invalid recipient" }
+icacls.exe $AgeIdentity
+```
+
+Review the final ACL output before using the identity. `Everyone` or
+`BUILTIN\Users` must not have write access. A real-tool acceptance run must use
+a disposable enrolled project in a path containing spaces, keep execution
+disabled, exercise backup, verify, dry-run restore, restore, and safety-backup
+rollback, and confirm the identity and key material are absent from every
+captured diagnostic. Protocol fixtures alone do not satisfy that gate.
+
 `project doctor` discovers Git, GitHub CLI, `age`, `age-keygen`, and
 `ssh-keygen`. Missing optional tools do not make a planning-only installation
 unhealthy. They become required only when the corresponding execution,

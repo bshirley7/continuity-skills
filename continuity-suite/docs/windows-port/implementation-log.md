@@ -335,3 +335,81 @@ must be published before the six hosted jobs can produce Linux, macOS, and
 Windows evidence; official age, repaired gh identity, provider-native no-op,
 and authenticated Codex/Claude VS Code smokes also remain explicitly
 human-controlled. The overall Windows goal is therefore not marked complete.
+
+## 2026-07-17 — Compatibility branch and live read-only GitHub gate
+
+- Re-ran the complete native Windows suite immediately before publication: all
+  117 tests passed in 332.623 seconds. Rebuilt the release manifest, validated
+  13 skills, 9 Python sources, 129 local Markdown links, one two-hash exact
+  dependency, and 139 release-managed files, and passed diff hygiene.
+- Created and pushed the user-authorized `windows-compatibility-update` branch.
+  Local and remote both resolve commit
+  `fa00d685767c452fc78dc167307762d831b7ae5b`; `main` was not changed. The
+  unrelated untracked `debug.log` was excluded from the commit.
+- Rechecked official native GitHub CLI 2.83.2. The active GitHub.com credential
+  is now healthy; `gh api user` succeeded, and the read-only repository lookup
+  resolved exactly `bshirley7/continuity-skills` with default branch `main`.
+  No token value was requested or persisted, and no PR, issue, project, merge,
+  or other GitHub feature mutation was performed for this gate.
+- Queried hosted runs for the published branch. No run exists because
+  `continuity-ci.yml` runs feature-branch commits through `pull_request` and
+  direct pushes only on `main`. Opening a PR remains a separate external
+  mutation requiring explicit authorization.
+
+Stage 6 now passes. The remaining overall gates are official native age,
+provider-native scheduling, authenticated Codex/Claude VS Code discovery and
+read-only invocation, and the six hosted CI jobs.
+
+## 2026-07-17 — External-gate reproducibility hardening
+
+- Queried WinGet metadata without installing anything. The official
+  `FiloSottile.age` package exposes the reviewed v1.3.1 release alongside older
+  versions.
+- Added a native Windows setup procedure that pins v1.3.1, identifies both
+  expected executables, records the upstream Windows archive SHA-256 digest,
+  requires a new out-of-repository identity, refuses identity overwrite, and
+  calls out the ACL, terminal-reload, secret-handling, path-with-spaces,
+  safety-backup rollback, and execution-disabled acceptance conditions.
+- The documentation does not convert this preflight into passing evidence.
+  `age.exe` and `age-keygen.exe` remain absent, and no package was downloaded,
+  installed, or executed without explicit authority.
+- Asked GitHub to return the published branch's CI workflow definition without
+  triggering it. GitHub recognized and rendered the six-cell matrix, pinned
+  actions, hashed dependency install, distribution audit, complete suite, and
+  diff-hygiene steps. Hosted execution remains pending a separately authorized
+  pull request.
+
+## 2026-07-17 — Official native age acceptance
+
+- Installed the exact official WinGet package `FiloSottile.age` v1.3.1. Both
+  native executables report v1.3.1. A separate WinGet download matched the
+  upstream 10,741,348-byte Windows archive SHA-256
+  `c56e8ce22f7e80cb85ad946cc82d198767b056366201d3e1a2b93d865be38154`.
+  The executable hashes are `90f5cc…58dd` (`age.exe`) and `8b9c27…f687`
+  (`age-keygen.exe`). Windows exposes publisher `Up in the Air Consulting LLC`
+  but reports its 2024-expired certificate as `UnknownError`; this audit does
+  not claim a valid current Authenticode signature.
+- Installed the current suite into disposable OneDrive project
+  `Continuity Age Acceptance Ω`. The path contains spaces and Unicode,
+  execution stayed disabled, the private-state DACL was healthy, and native
+  doctor discovered both age tools. Corrected only the disposable repository
+  ownership after Git rejected the sandbox-created checkout as dubious; no
+  global `safe.directory` exception was added.
+- Generated disposable age and SSH keys outside the repository under a DACL
+  granting only the current user and SYSTEM, anchored the public signer through
+  a local bare integration remote, and created a signed external checkpoint.
+- Official age produced immediately verified archives with hashes
+  `253e2b…c99ae` and `62b576…c7e67`. Independent verification passed;
+  existing-output, ciphertext-tamper, and stale-checkpoint restore attempts
+  failed closed without secret-shaped diagnostics.
+- A checkpoint-aligned dry run preserved all three notes. Real restore removed
+  the post-backup note only after creating and verifying safety archive
+  `windows-age-acceptance-20260717T013217-0500.tar.gz.age`; restoring that safety
+  archive recovered all three notes. Doctor then remained healthy, execution
+  remained disabled, and no restore journal remained.
+- Scanned 521 relevant project, report, checkpoint, metadata, and encrypted
+  archive files: neither exact age identity nor exact SSH private-key bytes
+  appeared. The only literal private-key-pattern strings were the suite's own
+  redaction rules, not secret material.
+
+Stage 5 now passes with official native Windows executables and direct evidence.
