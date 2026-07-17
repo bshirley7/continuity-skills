@@ -37,7 +37,7 @@ Choose work that has bounded files, explicit acceptance criteria, fast validatio
   scheduler adapter codex render --root /path/to/workspace
 ```
 
-6. Create or update the Codex automation with the exact returned title, interval, roots, and prompt. Register its returned task ID with the returned command.
+6. Create or update the Codex automation with the exact returned title, interval, roots, and self-contained prompt, and leave it paused. Replace only the supervisor-task placeholder with the returned task ID. Inspect the provider's raw saved prompt and require the remaining sweep placeholder to equal `literal_placeholders.sweep_id` exactly once with no Markdown bold markers or backslash escapes. Register the task ID with the returned command only after that raw check passes.
 7. Observe two sweeps and one claimed review or report no-op. Exercise claim replay rejection, stale-registration rejection, and second-workstation lease contention in an isolated rehearsal. Record each observed result with `scheduler adapter codex record-probe --probe <probe> --status passed --evidence <evidence> --artifact-sha256 <sha256> --actor <identity> --signing-key <trusted-ssh-private-key>`, then require this command to become healthy:
 
 ```bash

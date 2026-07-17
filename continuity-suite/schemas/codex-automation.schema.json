@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Continuity Codex automation definition",
   "type": "object",
-  "required": ["schema_version", "provider", "title", "schedule", "workspace_roots", "prompt", "launcher", "supervisor_argv", "registration_argv", "shell_required", "cwd_independent", "project_schedules", "registration_command", "human_action_required"],
+  "required": ["schema_version", "provider", "title", "schedule", "workspace_roots", "prompt", "literal_placeholders", "launcher", "supervisor_argv", "registration_argv", "shell_required", "cwd_independent", "project_schedules", "registration_command", "human_action_required"],
   "properties": {
     "schema_version": {"const": 1},
     "provider": {"const": "codex"},
@@ -20,6 +20,17 @@
     },
     "workspace_roots": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
     "prompt": {"type": "string", "minLength": 1},
+    "literal_placeholders": {
+      "type": "object",
+      "required": ["supervisor_task_id", "sweep_id", "provider_task_id", "markdown_escaping_forbidden"],
+      "properties": {
+        "supervisor_task_id": {"const": "__CONTINUITY_SUPERVISOR_TASK_ID__"},
+        "sweep_id": {"const": "__CONTINUITY_SWEEP_ID__"},
+        "provider_task_id": {"const": "__CONTINUITY_PROVIDER_TASK_ID__"},
+        "markdown_escaping_forbidden": {"const": true}
+      },
+      "additionalProperties": false
+    },
     "launcher": {"type": "string", "minLength": 1},
     "supervisor_argv": {"type": "array", "minItems": 9, "items": {"type": "string"}},
     "registration_argv": {"type": "array", "minItems": 9, "items": {"type": "string"}},

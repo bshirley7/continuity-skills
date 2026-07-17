@@ -207,6 +207,13 @@ invoke the array directly with `shell=false`; do not reconstruct it through
 PowerShell, CMD, or string concatenation. This preserves spaces, Unicode, and
 shell metacharacters and makes the task independent of its starting folder.
 
+Use the rendered self-contained `prompt` verbatim. Chat and rich-text surfaces
+can interpret double-underscore placeholder values as Markdown. Keep the task
+paused after creation, inspect its raw saved prompt, and require the sweep
+value to equal `literal_placeholders.sweep_id` exactly once. Backslash-escaped
+underscores or bold markers are a failed task definition; correct and recheck
+the raw record before registration or any run.
+
 Use the Claude definition only for a Claude Desktop local scheduled task. A
 Claude cloud routine uses a fresh clone and cannot see ignored local Continuity
 state. Provider task creation is always a human action. Leave execution

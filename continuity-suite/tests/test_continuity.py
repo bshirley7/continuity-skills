@@ -2997,6 +2997,21 @@ unresolved_gaps: []
         rendered = json.loads(self.cli("scheduler", "adapter", "codex", "render", "--root", str(special_workspace)).stdout)
         self.assertEqual(rendered["provider"], "codex")
         self.assertIn("portfolio actions", rendered["prompt"])
+        self.assertEqual(
+            rendered["literal_placeholders"],
+            {
+                "supervisor_task_id": "__CONTINUITY_SUPERVISOR_TASK_ID__",
+                "sweep_id": "__CONTINUITY_SWEEP_ID__",
+                "provider_task_id": "__CONTINUITY_PROVIDER_TASK_ID__",
+                "markdown_escaping_forbidden": True,
+            },
+        )
+        self.assertIn(json.dumps(rendered["supervisor_argv"], ensure_ascii=False, indent=2), rendered["prompt"])
+        self.assertEqual(rendered["prompt"].count(rendered["literal_placeholders"]["supervisor_task_id"]), 1)
+        self.assertEqual(rendered["prompt"].count(rendered["literal_placeholders"]["sweep_id"]), 1)
+        self.assertNotIn("CONTINUITY\\_", rendered["prompt"])
+        self.assertNotIn("**CONTINUITY", rendered["prompt"])
+        self.assertIn("raw saved prompt", rendered["human_action_required"])
         self.assertFalse(rendered["shell_required"])
         self.assertTrue(rendered["cwd_independent"])
         self.assertEqual(
@@ -3088,6 +3103,9 @@ unresolved_gaps: []
         )
         self.assertEqual(claude_rendered["provider"], "claude-code")
         self.assertEqual(claude_rendered["supervisor_argv"], rendered["supervisor_argv"])
+        self.assertEqual(claude_rendered["literal_placeholders"], rendered["literal_placeholders"])
+        self.assertIn(json.dumps(claude_rendered["supervisor_argv"], ensure_ascii=False, indent=2), claude_rendered["prompt"])
+        self.assertEqual(claude_rendered["prompt"].count(claude_rendered["literal_placeholders"]["sweep_id"]), 1)
         self.assertIn("Claude Desktop local scheduled task", claude_rendered["human_action_required"])
         self.assertIn("Do not substitute a cloud routine", claude_rendered["human_action_required"])
         claude_verify = json.loads(self.cli("scheduler", "adapter", "claude-code", "verify").stdout)

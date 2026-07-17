@@ -6874,11 +6874,19 @@ def scheduler_adapter_render(args: argparse.Namespace, provider: str) -> dict[st
         "__CONTINUITY_PROVIDER_TASK_ID__",
         *(argument for path in roots for argument in ("--root", str(path))),
     ]
+    literal_placeholders = {
+        "supervisor_task_id": "__CONTINUITY_SUPERVISOR_TASK_ID__",
+        "sweep_id": "__CONTINUITY_SWEEP_ID__",
+        "provider_task_id": "__CONTINUITY_PROVIDER_TASK_ID__",
+        "markdown_escaping_forbidden": True,
+    }
     prompt = (
-        "Use the installed Continuity portfolio supervisor contract for portfolio actions. Invoke the exact supervisor_argv array from this "
-        "definition as a direct process with shell=false after replacing only the task and sweep placeholders. "
-        "Start one project task only for returned due or retry claims, pass every claim field unchanged, heartbeat active runs, "
-        "record run-finish, and never cross approval or merge boundaries."
+        "Use the installed Continuity portfolio supervisor contract for portfolio actions. Invoke the exact supervisor_argv JSON array below "
+        "as a direct process with shell=false after replacing only the task and sweep placeholder values. Treat every underscore in those "
+        "placeholder values as literal data: never add Markdown bold markers or backslash escapes. Start one project task only for returned "
+        "due or retry claims, pass every claim field unchanged, heartbeat active runs, record run-finish, and never cross approval or merge "
+        "boundaries.\n\nsupervisor_argv:\n"
+        + json.dumps(supervisor_argv, ensure_ascii=False, indent=2)
     )
     definition = {
         "schema_version": 1,
@@ -6887,6 +6895,7 @@ def scheduler_adapter_render(args: argparse.Namespace, provider: str) -> dict[st
         "schedule": {"type": "interval", "minutes": scheduler["sweep_minutes"], "timezone": config["timezone"], "business_days": scheduler["business_days"]},
         "workspace_roots": [str(path) for path in roots],
         "prompt": prompt,
+        "literal_placeholders": literal_placeholders,
         "launcher": str(launcher),
         "supervisor_argv": supervisor_argv,
         "registration_argv": registration_argv,
@@ -6895,9 +6904,16 @@ def scheduler_adapter_render(args: argparse.Namespace, provider: str) -> dict[st
         "project_schedules": manifest["schedules"],
         "registration_command": render_direct_command(registration_argv),
         "human_action_required": (
-            "Create or update the Codex automation with this exact definition, then run registration_command with its returned task ID."
+            "Create or update the Codex automation with the exact prompt from this definition and leave it paused. Replace only the "
+            "supervisor-task placeholder value with the returned task ID. Inspect the provider's raw saved prompt before registration: the "
+            "sweep placeholder must equal literal_placeholders.sweep_id exactly once, with no Markdown markers or backslashes. Then run "
+            "registration_command with the returned task ID."
             if provider == "codex"
-            else "Create or update a Claude Desktop local scheduled task with this exact definition, then run registration_command with its returned task ID. Do not substitute a cloud routine for local private project state."
+            else "Create or update a Claude Desktop local scheduled task with the exact prompt from this definition and leave it paused. "
+            "Replace only the supervisor-task placeholder value with the returned task ID. Inspect the provider's raw saved prompt before "
+            "registration: the sweep placeholder must equal literal_placeholders.sweep_id exactly once, with no Markdown markers or "
+            "backslashes. Then run registration_command with the returned task ID. Do not substitute a cloud routine for local private "
+            "project state."
         ),
     }
     try:

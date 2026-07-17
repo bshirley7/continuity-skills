@@ -6,12 +6,14 @@ Execution, provider scheduling, and merging: disabled; source-branch
 publication and draft PR creation were separately authorized
 
 This audit reconciles the original Windows-port goal with the current local
-evidence. It does not mark the overall goal complete while external acceptance
-rows remain blocked.
+evidence. Every functional acceptance gate now has direct evidence. The overall
+goal remains open until the updated placeholder-hardening commit passes final
+native validation and the complete hosted matrix at its exact head.
 
 ## Local release-readiness result
 
-- The complete native suite passes: 119 tests in 318.261 seconds.
+- The complete native suite passes after scheduler placeholder hardening: 119
+  tests in 491.345 seconds.
 - The security-focused adversarial suite passes without a shell-backed
   validation or security command.
 - Thirteen canonical skills validate; Codex and Claude installed-project tests
@@ -26,21 +28,21 @@ rows remain blocked.
   installs hashed dependencies, runs the cross-platform distribution audit and
   full suite, and performs diff hygiene. Official GitHub actions are pinned to
   full verified release commit SHAs with persisted checkout credentials off.
-- All six jobs pass at exact compatibility head
-  `277aa404b869cb34c71ffe10becefad022c433d0` in
-  [run 29563386124](https://github.com/bshirley7/continuity-skills/actions/runs/29563386124).
+- All six jobs pass at exact audit head
+  `d977490adcd7eeb8664c5a74b13107c2b58f9b0b` in
+  [run 29564361138](https://github.com/bshirley7/continuity-skills/actions/runs/29564361138).
 
 ## Documented capability reconciliation
 
 | Documented capability | Local Windows evidence | Remaining external evidence |
 | --- | --- | --- |
 | Install, configure, doctor, reinstall, update, rollback, uninstall, migration | fresh OneDrive/path-with-spaces installs; CMD and PowerShell launchers; drift, rollback, uninstall, autocrlf, and migration tests | none for local/source installs; tagged download remains covered by hosted release workflow |
-| `$continuity`, capture, triage, memory, roadmap, plan, dispatch-disabled, execute-disabled, test, merge-assess, report, share, workflow | all local end-to-end tests pass; canonical platform-neutral state and authority handoffs asserted | authenticated provider UI invocation for Codex and Claude |
+| `$continuity`, capture, triage, memory, roadmap, plan, dispatch-disabled, execute-disabled, test, merge-assess, report, share, workflow | all local end-to-end tests pass; canonical platform-neutral state and authority handoffs asserted; authenticated Codex and Claude report-only invocations passed | none |
 | Atomic persistence, locking, concurrent agents, crash and cancellation recovery | process locks, concurrent ledgers/captures, interrupted writes, restore journal, and Windows Job Object tests pass | none |
-| Remote leases and scheduler protocol | repeated two-clone bare-remote lifecycle plus signed local no-op conformance passes | one real Codex automation or Claude Desktop local task observation |
+| Remote leases and scheduler protocol | repeated two-clone bare-remote lifecycle, signed isolated protocol rehearsal, two real paused Codex Scheduled sweeps, one claimed report no-op, and current-behavior replay/stale/contention evidence pass | none |
 | Encrypted backup, verification, restore, rollback | official native age v1.3.1 plus signed protocol fixtures pass backup, independent verification, dry-run restore, restore, safety rollback, ACL, stale/tamper/crash, and secret-isolation gates | none |
 | GitHub.com, Enterprise, PR assessment, Projects, guarded merge | network-isolated host/repository/account/base/head/check/reviewer/merge tests pass; official `gh.exe` 2.83.2 and authenticated read-only GitHub.com identity/repository calls succeed | no live merge is required by this port audit |
-| Codex and Claude VS Code integration | all project skills/adapters/commands, trust/cwd/multi-root rules, byte parity, simultaneous mutation, and private-context isolation tested | `/skills` discovery and one read-only invocation in each authenticated extension |
+| Codex and Claude VS Code integration | all project skills/adapters/commands, trust/cwd/multi-root rules, byte parity, simultaneous mutation, and private-context isolation tested; Codex 26.707.91948 and Claude Code 2.1.212 discovered all 14 canonical project skills and invoked `continuity-report` read-only from the exact trusted Unicode workspace | none |
 | Release integrity and cross-platform compatibility | deterministic manifest, portable paths, hashed dependency, and native suite pass locally; all six hosted Windows/macOS/Ubuntu jobs pass on Python 3.11 and 3.14 at exact compatibility head | none; the final evidence-only documentation commit must retain the same green matrix |
 | Security boundaries | threat model plus path/ref/archive/config/command/secret/ACL/rollback/credential adversarial coverage passes | external tool/provider gates above must use the same controls; no bypass is acceptable |
 
@@ -62,37 +64,54 @@ rows remain blocked.
   from 521 project, checkpoint, report, metadata, and encrypted-archive files.
 - Draft PR [#2](https://github.com/bshirley7/continuity-skills/pull/2) binds
   base `main` to head `windows-compatibility-update`; its exact head
-  `277aa404b869cb34c71ffe10becefad022c433d0` passes Windows, macOS, and Ubuntu
-  on Python 3.11 and 3.14. The PR remains draft and `main` was not changed.
+  `d977490adcd7eeb8664c5a74b13107c2b58f9b0b` passes Windows, macOS, and Ubuntu
+  on Python 3.11 and 3.14 in
+  [run 29564361138](https://github.com/bshirley7/continuity-skills/actions/runs/29564361138).
+  The PR remains draft and `main` was not changed.
+- In a trusted native VS Code window rooted exactly at
+  `C:\Users\Nick\OneDrive\Documents\DEV\continuity\Continuity Age Acceptance Ω`,
+  Codex extension 26.707.91948 showed all 14 Continuity entries through
+  `/skills` and invoked `$continuity-report` in report-only mode. Claude Code
+  extension 2.1.212 loaded the same 14 project skills and 14 matching legacy
+  commands, showed the suite through `/skills`, and invoked
+  `/continuity-report` in report-only mode. The operator confirmed both passes;
+  execution stayed disabled and neither invocation mutated project state.
+- ChatGPT desktop 26.715.2305.0 created a local Codex Scheduled supervisor and
+  kept it paused. After raw prompt verification corrected a Markdown-escaped
+  double-underscore sweep placeholder, two manual runs produced two distinct
+  supervisor heartbeats. The first claimed and completed one report no-op; the
+  second returned no due or retry claims. `scheduler adapter codex verify`
+  observes both sweeps, the no-op, and current-behavior replay, stale
+  registration, and second-clone remote-lease contention artifacts. The task
+  remains paused, active runs are zero, execution remains disabled, and its
+  private ID is represented only by SHA-256
+  `f51fecc373a8c104554601fb5485d12a98fe19495355fbfd4d39354fec4ac0f4`.
 
-## Explicit remaining gates
+## Remaining release validation
 
-The following evidence cannot be manufactured by local fixtures:
+No functional or provider-native acceptance item remains. The final updated
+branch head must still pass:
 
-1. In a trusted VS Code project window, verify all Continuity entries in
-   Codex and Claude `/skills`, then invoke one read-only status/report skill in
-   each provider.
-2. Create and observe one explicitly authorized local Codex automation or
-   Claude Desktop scheduled no-op task with execution disabled.
+1. Deterministic release-manifest regeneration and distribution validation.
+2. The complete native Windows suite and static checks.
+3. The six-cell Windows, macOS, and Ubuntu hosted matrix on Python 3.11 and
+   3.14 at the exact final head.
 
 No live PR merge, force push, administrator bypass, auto-merge, product-code
-execution, cloud routine, or production side effect is needed for these gates.
+execution, cloud routine, or production side effect is needed.
 
-## Exact external acceptance sequence
+## Exact final validation sequence
 
-After the operator separately authorizes each applicable action:
-
-1. Complete the two VS Code read-only provider smokes and record provider,
-   extension version, project root, skill name, and canonical handoff result.
-2. Complete the scheduler no-op observation and verify its signed provider
-   conformance receipt with execution still disabled.
-3. Update the acceptance matrix with direct run URLs/artifact identifiers and
-   exact tool versions. Only then reassess the overall completion gate.
+1. Regenerate the manifest and run the native distribution, compile, link,
+   dependency, skill, and full-suite checks.
+2. Commit only the reviewed compatibility files, excluding unrelated
+   `debug.log`, and push the compatibility branch without changing `main`.
+3. Require all six hosted matrix jobs to pass at that exact commit, then update
+   the final evidence rows and reassess overall completion.
 
 ## Completion decision
 
-Stages 1–6 and 9 pass with current evidence. Stages 7 and 8 have complete local
-implementations but retain the explicit interactive gates above. Stage 10's
-native, static, and hosted cross-platform checks pass; its final audit remains
-open until those Stage 7 and 8 rows pass on the final commit.
-Therefore the overall goal remains incomplete by design.
+Stages 1–9 pass with current evidence, including the provider-native Stage 7
+no-op. Stage 10 remains in progress only because the placeholder-hardening and
+evidence updates must pass the final native and hosted matrix at the exact
+updated branch head. Therefore the overall goal is not yet complete.

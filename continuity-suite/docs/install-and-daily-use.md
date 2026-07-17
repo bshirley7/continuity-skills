@@ -436,6 +436,14 @@ For Claude Desktop, use the parallel
 `scheduler adapter claude-code render` command. A Claude cloud routine cannot
 replace this local-state adapter because it starts from a fresh clone.
 
+Use the rendered self-contained `prompt` verbatim. Keep the provider task
+paused while creating it, replace only the supervisor-task placeholder with
+the returned task ID, and inspect the provider's raw saved prompt before
+registration. The remaining sweep placeholder must equal
+`literal_placeholders.sweep_id` exactly once. Markdown bold markers or
+backslash-escaped underscores invalidate the task definition and must be
+corrected before the first run.
+
 After creating the selected provider task and registering its returned task ID, exercise and record `claim-replay-rejected`, `stale-registration-rejected`, and `remote-lease-contention-rejected` with `scheduler adapter <provider> record-probe`. Each production record requires concrete evidence and the evidence artifact SHA-256. In a signed-approval project, also include `--signing-key` from an integration-branch-anchored approver. Require `scheduler adapter <provider> verify` to observe and verify those current-behavior probe records, two sweeps, and one claimed no-op review or report run before enabling dispatch.
 
 Run it at the configured `sweep_minutes` interval. Give the task the developer-local workspace roots it may scan. After the scheduling surface returns its task ID, record the receipt inside every enrolled project covered by that supervisor:

@@ -454,3 +454,62 @@ execution-disabled provider-native scheduled no-op.
 After recording the hosted evidence and automatic DACL repair guidance, the
 final native audit reran all 119 tests successfully in 318.261 seconds on
 Python 3.13.6.
+
+## 2026-07-17 — Authenticated Codex and Claude VS Code acceptance
+
+- The initial shared discovery failure was environmental, not a Continuity
+  adapter defect: a VS Code launch lost quoting around the disposable project
+  path and opened the parent workspace. Reopened and reloaded the trusted
+  native window at the exact Unicode/path-with-spaces root
+  `C:\Users\Nick\OneDrive\Documents\DEV\continuity\Continuity Age Acceptance Ω`.
+- VS Code workspace storage then bound the exact encoded project URI. Claude
+  Code 2.1.212 logged 14 project skills and 14 matching legacy commands loaded
+  from that root and watched its `.claude/skills` and `.claude/commands`
+  directories. Codex 26.707.91948 issued its skill-list request with that same
+  project cwd.
+- The operator confirmed both authenticated user-interface gates: Codex
+  `/skills` displayed all 14 Continuity entries and `$continuity-report`
+  completed in report-only mode; Claude `/skills` displayed the same suite and
+  `/continuity-report` completed in report-only mode. Neither invocation
+  mutated state, execution remained disabled, and both providers used the
+  canonical project-local skill trees.
+
+Stage 8 now passes. The only remaining overall acceptance item is one registered
+and observed execution-disabled Codex Scheduled supervised no-op.
+
+## 2026-07-17 — Provider-native Codex Scheduled acceptance
+
+- Created a real standalone local Codex Scheduled supervisor in ChatGPT desktop
+  26.715.2305.0 with a 15-minute weekday cadence, local workspace binding, and
+  project execution disabled. The provider task ID remains private; the audit
+  uses SHA-256 `f51fecc373a8c104554601fb5485d12a98fe19495355fbfd4d39354fec4ac0f4`.
+- Independent raw-record inspection found that the creation chat had converted
+  the double-underscore sweep token into Markdown bold/backslash syntax. The
+  task remained paused, the prompt was corrected through the provider update
+  surface, and raw TOML verification then found the exact 23-character token
+  once with no malformed form.
+- Registered the paused provider task in the disposable Unicode OneDrive
+  project. Two manual provider-native runs produced two distinct heartbeats.
+  The first claimed one due report, recorded start/heartbeat/success, and
+  completed as a no-op; the second returned no due or retry claim. No approval,
+  merge, or product-execution boundary was crossed.
+- Re-ran the direct isolated Windows protocol rehearsal for consumed-claim
+  replay, stale registration, and two-clone active remote-lease contention. It
+  passed all three fail-closed assertions and its signed-receipt verifier. The
+  live local acceptance project, which intentionally has signed approvals
+  disabled, records artifact-hash-bound current-behavior probe receipts under
+  that local-test policy.
+- Final `scheduler adapter codex verify` is healthy with two sweeps, one no-op,
+  and all three probes. `project doctor` is healthy, active runs are zero, the
+  automation remains paused, and execution remains disabled.
+- Hardened both Codex and Claude Desktop rendered definitions: `prompt` is now
+  self-contained with the exact structured argv, schemas expose an explicit
+  `literal_placeholders` contract, task-creation instructions require raw saved
+  prompt inspection, tests reject Markdown/backslash mangling, and Windows,
+  daily-use, pilot, and provider-contract documentation cover the edge case.
+
+Stage 7 now passes. Stage 10 remains in progress only for final manifest,
+native-suite, exact-head commit, and hosted six-cell CI validation.
+
+The post-hardening native regression completed with all 119 tests passing in
+491.345 seconds on Python 3.13.6.
