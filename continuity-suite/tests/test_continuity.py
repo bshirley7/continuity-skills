@@ -2659,6 +2659,16 @@ unresolved_gaps: []
         self.write_json(local_lease_path, renewed)
         workstation_two = self.root.parent / "workstation-two"
         subprocess.run(["git", "clone", "--branch", "main", str(remote), str(workstation_two)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(workstation_two), "config", "user.name", "Continuity Tests"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(workstation_two), "config", "user.email", "tests@example.invalid"],
+            check=True,
+            capture_output=True,
+        )
         shutil.copy2(self.root / ".continuity" / "config.json", workstation_two / ".continuity" / "config.json")
         shutil.copy2(self.root / ".continuity" / "project.json", workstation_two / ".continuity" / "project.json")
         shutil.copytree(self.root / ".continuity" / "private", workstation_two / ".continuity" / "private")
