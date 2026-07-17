@@ -3001,9 +3001,17 @@ unresolved_gaps: []
         self.assertTrue(rendered["cwd_independent"])
         self.assertEqual(
             rendered["launcher"],
-            str(self.root / ".agents" / "continuity" / "bin" / ("continuity.cmd" if os.name == "nt" else "continuity")),
+            str(
+                (
+                    self.root
+                    / ".agents"
+                    / "continuity"
+                    / "bin"
+                    / ("continuity.cmd" if os.name == "nt" else "continuity")
+                ).resolve()
+            ),
         )
-        self.assertIn(str(special_workspace), rendered["supervisor_argv"])
+        self.assertIn(str(special_workspace.resolve()), rendered["supervisor_argv"])
         launcher_root = Path(rendered["launcher"]).parent
         install_python_tool(
             launcher_root,
