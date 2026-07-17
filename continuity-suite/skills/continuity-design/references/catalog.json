@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.3.0",
+  "catalog_version": "1.7.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai"],
+      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -26,12 +26,30 @@
       "evidence_sufficiency": {"sample_count": 12, "product_count": 10, "industry_count": 2}
     },
     {
+      "pack_id": "industry-professional-services",
+      "version": "1.0.0",
+      "axis": "industry",
+      "role": "category",
+      "reference": "industry-professional-services.md",
+      "categories": ["professional-services"],
+      "applicability": ["consulting firm homepages", "professional-services corporate sites", "capability and practice pages", "industry and sector pages", "thought-leadership hubs", "reports and research", "client-impact and case-study sections", "leadership and expert directories", "corporate purpose and impact pages", "contact and engagement sections"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "Lead with a distinctive, decision-relevant point of view and immediately clarify the audience, business situation, or transformation it applies to; do not ask a slogan to carry the full proposition.",
+        "Describe each capability through the business change, mechanism, and boundary it addresses rather than presenting an undifferentiated inventory of consulting deliverables.",
+        "Treat thought leadership as inspectable intellectual evidence: identify the question or audience, format, date, author or expert, evidence basis, and a concise reason the finding matters now.",
+        "Structure client impact around the client context, challenge, intervention, and resulting outcome, attaching metrics to timeframe and comparison basis instead of relying on logos or isolated numbers.",
+        "Keep point of view, capability architecture, client proof, intellectual property, expert profiles, and engagement language mutually reinforcing so the corporate story does not fragment into unrelated content systems."
+      ],
+      "evidence_sufficiency": {"sample_count": 20, "product_count": 17, "industry_count": 9}
+    },
+    {
       "pack_id": "design-sections-flows",
       "version": "1.0.0",
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -94,6 +112,22 @@
       "evidence_sufficiency": {"sample_count": 16, "product_count": 16, "industry_count": 7}
     },
     {
+      "pack_id": "section-flow-corporate-website",
+      "version": "1.0.0",
+      "axis": "section-flow",
+      "role": "category",
+      "reference": "section-flow-corporate-website.md",
+      "categories": ["corporate-website"],
+      "applicability": ["corporate homepages", "global navigation and mega menus", "corporate footers", "multi-audience company sites", "institutional microsites", "investor-relations subsites", "newsrooms and media centers", "careers sites", "sustainability and impact reporting", "office and location directories"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "Model the corporate website as a multi-audience information system: identify the primary business audience, then provide explicit routes for customers, partners, investors, media, candidates, communities, and existing users without giving every audience equal top-level weight.",
+        "Keep a stable institutional hierarchy across header, homepage, footer, search, and subsites, using the same language for products or capabilities, solutions, industries, resources, company, and audience-specific destinations.",
+        "Make newsroom, sustainability, governance, and impact content inspectable through date, reporting period, category, metric definition, accountable contact, archive continuity, and a route to the underlying report or release."
+      ],
+      "evidence_sufficiency": {"sample_count": 20, "product_count": 20, "industry_count": 19}
+    },
+    {
       "pack_id": "design-themes",
       "version": "1.0.0",
       "axis": "theme",
@@ -103,6 +137,22 @@
       "applicability": ["all supported expressive directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Use a consistent expressive hierarchy without allowing style to hide meaning."]
+    },
+    {
+      "pack_id": "theme-editorial",
+      "version": "1.0.0",
+      "axis": "theme",
+      "role": "category",
+      "reference": "theme-editorial.md",
+      "categories": ["editorial"],
+      "applicability": ["thought-leadership hubs", "corporate newsrooms", "research and report libraries", "article archives", "case-study collections", "insight modules", "long-form story introductions", "editorial content feeds"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "Establish an explicit editorial hierarchy with one lead idea or story, a bounded supporting set, and a separate route into the broader archive; do not make every item compete at the same visual level.",
+        "Treat headline, deck, category or format, author or publisher, date, and reading scope as one orientation system, keeping the metadata close enough to the story that it cannot be mistaken for another item.",
+        "Vary card size or composition only when it communicates a real difference in priority, format, or reading path; preserve a stable content grammar for comparable items."
+      ],
+      "evidence_sufficiency": {"sample_count": 19, "product_count": 16, "industry_count": 14}
     },
     {
       "pack_id": "theme-calm-clarity",
@@ -153,6 +203,39 @@
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
+    },
+    {
+      "pack_id": "lens-hierarchy",
+      "version": "1.0.0",
+      "axis": "lens",
+      "role": "category",
+      "reference": "lens-hierarchy.md",
+      "categories": ["hierarchy"],
+      "applicability": ["application shells", "dashboards", "workspace homes", "list and detail views", "editors", "creation entry points", "settings", "contextual panels", "mobile task homes", "empty states"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "Reserve the strongest emphasis for the current state, unresolved consequence, or next meaningful action rather than greetings, tutorials, upgrades, or generic recommendations.",
+        "Separate orientation, state, evidence, decision, and secondary exploration through stable regions, spacing, type, order, and contrast instead of relying on one signal alone.",
+        "Use consistent form for comparable items and vary size, color, position, or persistence only when the semantic priority or consequence is genuinely different."
+      ],
+      "evidence_sufficiency": {"sample_count": 15, "product_count": 14, "industry_count": 7}
+    },
+    {
+      "pack_id": "lens-trust",
+      "version": "1.0.0",
+      "axis": "lens",
+      "role": "category",
+      "reference": "lens-trust.md",
+      "categories": ["trust"],
+      "applicability": ["permission and access management", "security dashboards", "audit logs", "destructive actions", "purchase and transaction confirmations", "subscription commitments", "connection setup", "failure recovery", "account administration", "consequential settings"],
+      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "modality_independent_principles": [
+        "At the decision boundary, show the exact actor or account, affected object or resource, destination, amount or data scope, permission, and timing needed to verify what will happen.",
+        "State consequences in operational terms, including affected dependencies, irreversibility, cost, duration, eligibility, or resulting state, before the final action is available.",
+        "Separate current state, observed evidence, inferred risk, and recommended action so a health summary does not become a stronger claim than its visible basis supports.",
+        "Place warnings, qualifications, and material terms beside the decision they govern; use linked detail as supporting evidence rather than a substitute for decision-critical disclosure."
+      ],
+      "evidence_sufficiency": {"sample_count": 20, "product_count": 20, "industry_count": 16}
     }
   ]
 }

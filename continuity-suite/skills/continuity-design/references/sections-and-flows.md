@@ -8,3 +8,4 @@
 - **Checkout:** keep total cost, fulfillment, correction, and commitment state continuously legible.
 - **Empty and error states:** explain what happened, what remains safe, and the most useful recovery path.
 - **Retention:** create return value through continuity and progress, never through concealed cancellation or artificial urgency.
+- **Corporate website:** establish a stable institutional hierarchy across primary business, stakeholder, regional, and governed disclosure routes.

@@ -9,5 +9,6 @@
 - **Travel:** support comparison under uncertainty, itinerary continuity, disruption recovery, and local context.
 - **Education:** show progress and feedback without confusing completion with understanding.
 - **Developer/AI:** expose system state, inputs, outputs, limitations, inspection paths, and safe recovery.
+- **Professional services:** connect point of view, practices, sector relevance, intellectual evidence, client impact, identifiable experts, and a proportionate engagement path.
 
 These are decision lenses, not visual stereotypes. Apply only what the product context supports.
