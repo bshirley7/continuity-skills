@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.55.0",
+  "catalog_version": "1.56.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1331,6 +1331,21 @@
       ],
       "pack_id": "lens-differentiation",
       "reference": "lens-differentiation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["brand and product palettes", "light and dark themes", "semantic state and status", "application surfaces and controls", "data visualization", "creative and content-heavy tools", "high-consequence workflows", "accessible design systems"],
+      "axis": "lens",
+      "categories": ["color"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Choose palette character—warm or cool, muted or saturated, monochrome or multicolor, light or dark—from brand voice, content, environment, task duration, and industry credibility; do not reduce industries to fixed color stereotypes.",
+        "Use semantic color proportionally to consequence and always pair status, severity, gain, loss, risk, success, warning, and error with text, iconography, shape, position, or pattern that preserves meaning without color."
+      ],
+      "pack_id": "lens-color",
+      "reference": "lens-color.md",
       "role": "category",
       "version": "1.0.0"
     }
