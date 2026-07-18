@@ -436,6 +436,13 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("lens-accessibility-language", packs)
         self.assertEqual(packs[packs.index("lens-accessibility-language") - 1], "design-ux-lenses")
 
+    def test_reviewed_localization_content_overlay_is_bound(self):
+        value = input_value(lenses=["localization-content"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("lens-localization-content", packs)
+        self.assertEqual(packs[packs.index("lens-localization-content") - 1], "design-ux-lenses")
+
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

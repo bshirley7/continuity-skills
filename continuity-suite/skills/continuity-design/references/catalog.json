@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.59.0",
+  "catalog_version": "1.60.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1391,6 +1391,21 @@
       ],
       "pack_id": "lens-accessibility-language",
       "reference": "lens-accessibility-language.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["language and regional settings", "international onboarding and identity", "commerce, pricing, and payments", "travel dates and time zones", "global workforce and compliance", "content and publishing systems", "data-dense applications", "responsive and bidirectional layouts"],
+      "axis": "lens",
+      "categories": ["localization-content"],
+      "evidence_sufficiency": {"industry_count": 10, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Model language, region, market, currency, units, time zone, calendar, and content availability as separate preferences or states whenever they can produce different behavior; show the source, scope, precedence, and effect of each.",
+        "Treat culturally dependent icons, colors, metaphors, examples, address conventions, consent language, and legal claims as reviewable content rather than universal meaning; retain a plain semantic label and jurisdiction-aware validation."
+      ],
+      "pack_id": "lens-localization-content",
+      "reference": "lens-localization-content.md",
       "role": "category",
       "version": "1.0.0"
     }
