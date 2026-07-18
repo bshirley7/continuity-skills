@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.42.0",
+  "catalog_version": "1.43.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1151,6 +1151,21 @@
       ],
       "pack_id": "lens-motion-feedback",
       "reference": "lens-motion-feedback.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["drag-and-drop reordering", "visual layout builders", "object resize and alignment", "maps and geospatial editing", "drawing and geometry creation", "photo adjustment and cropping", "video trimming and scrubbing", "layered expert tools"],
+      "axis": "lens",
+      "categories": ["direct-manipulation"],
+      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Expose manipulation as a complete contract: identifiable object, available affordance, active tool or mode, valid target or range, live preview, constraint feedback, commit boundary, and recovery path.",
+        "Preview outcome continuously while distinguishing transient manipulation from persisted state; make cancel, reset, undo, and redo proportional to consequence and available after commitment."
+      ],
+      "pack_id": "lens-direct-manipulation",
+      "reference": "lens-direct-manipulation.md",
       "role": "category",
       "version": "1.0.0"
     }
