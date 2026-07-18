@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.45.0",
+  "catalog_version": "1.46.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations"],
+      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -1196,6 +1196,21 @@
       ],
       "pack_id": "industry-geospatial-operations",
       "reference": "industry-geospatial-operations.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["video and motion editors", "audio production", "generative media", "mobile media editing", "asset libraries", "creative review", "versioned publishing", "rendering and export"],
+      "axis": "industry",
+      "categories": ["media-production"],
+      "evidence_sufficiency": {"industry_count": 11, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Keep asset identity, source, rights, metadata, version, proxy or original status, usage context, and preview available from library through edit, review, render, and publication.",
+        "Bind collaboration feedback to an exact version and, where relevant, frame, timecode, layer, region, or object; distinguish discussion, requested change, approval, and resolved status."
+      ],
+      "pack_id": "industry-media-production",
+      "reference": "industry-media-production.md",
       "role": "category",
       "version": "1.0.0"
     }

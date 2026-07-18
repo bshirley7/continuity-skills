@@ -11,5 +11,6 @@
 - **Developer/AI:** expose system state, inputs, outputs, limitations, inspection paths, and safe recovery.
 - **Professional services:** connect point of view, practices, sector relevance, intellectual evidence, client impact, identifiable experts, and a proportionate engagement path.
 - **Geospatial operations:** preserve spatial scale, time, layers, provenance, uncertainty, selection, alerts, and overview-to-detail continuity.
+- **Media production:** coordinate asset identity, time, layers, versions, review, rendering, rights, and reversible edits through publication.
 
 These are decision lenses, not visual stereotypes. Apply only what the product context supports.
