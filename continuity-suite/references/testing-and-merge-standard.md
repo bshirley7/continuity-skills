@@ -7,7 +7,8 @@ Apply this standard to every Continuity execution before PR handoff and merge re
 - Start from the approved goal, acceptance criteria, exclusions, cited memory, roadmap IDs, and current diff.
 - Run candidate checks during implementation, but run the authoritative configured `validation_commands`, goal `required_checks`, and security commands through `continuity test run` only after documentation, memory, roadmap, and evidence artifacts are committed.
 - Execute commands as direct argument arrays without shell operators. Verify that the worktree belongs to the enrolled repository and its actual branch matches the goal execution record. Record output and exit status, and bind the run to repository identity, the approved plan hash, behavior hash, commit, tracked and untracked source fingerprint, and exact command set.
-- Reject a passing report and merge-safety assessment if machine evidence is absent or any tracked or untracked source, commit, branch, plan, behavior, or configured command has changed since the run.
+- Reject a passing report, candidate product audit, and merge-safety assessment if machine evidence is absent or any tracked or untracked source, commit, branch, plan, behavior, or configured command has changed since the run.
+- Run candidate product conformance after the final source-bound test and before merge safety. Require a passed source-bound audit or explicit not-applicable evidence; only current-goal mismatches may block.
 - Prefer repository-native commands and existing test patterns. Add new tests where behavior changed and the repo has a practical test surface.
 - Cover success, failure, boundary, regression, data integrity, compatibility, accessibility, performance, and privacy concerns when applicable.
 - Include manual or visual verification only as evidence for behavior that cannot be fully covered by automated checks.

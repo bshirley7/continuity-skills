@@ -25,6 +25,7 @@ Route a useful unrelated improvement to a new capture. Do not include it because
 - `request-alignment.md`: approved request, scope, exclusions, decisions, and source IDs.
 - `implementation-report.md`: changed behavior, architecture, files, slices, and deviations.
 - `validation-and-security.md`: candidate checks, final checks, code review, security findings, and residual risk.
+- `product-conformance.md`: source hierarchy, audited journeys, portable evidence, scoped findings, result hash, and disposition.
 - `memory-impact.md`: exact memory used, contradictions, additions, verification, or reason for no change.
 - `roadmap-impact.md`: exact roadmap IDs, approved impact, completed update, or reason for no change.
 - `evidence.md`: commands, hashes, checkpoints, PR, and compliance-stage references.
@@ -39,6 +40,6 @@ Use `partially-completed` when a bounded approved portion is implemented and evi
 
 - Final implementation matches the approved goal and active slice frontier.
 - New scope is captured separately.
-- Documentation, memory, roadmap, and all six artifacts are complete.
+- Documentation, memory, roadmap, and all seven artifacts are complete.
 - Product and evidence changes are committed and the worktree is clean.
 - `$continuity-test` receives the exact worktree, branch, commit, plan, commands, and expected acceptance evidence.

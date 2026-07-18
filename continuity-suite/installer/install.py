@@ -50,6 +50,7 @@ USER_DEFAULT_FIELDS = {
     "schedules",
     "max_runtime_minutes",
     "memory_stale_after_days",
+    "product_audit_stale_after_days",
     "visual_evidence_mode",
     "branch_prefix",
     "planning_patterns",
@@ -434,6 +435,7 @@ def main() -> int:
         "roadmap_docs": "docs/project-roadmap",
         "private_dir": ".continuity/private",
         "memory_stale_after_days": user_defaults.get("memory_stale_after_days", 90),
+        "product_audit_stale_after_days": user_defaults.get("product_audit_stale_after_days", 30),
         "require_remote": True,
         "require_pr": True,
         "require_pr_auth": True,
@@ -511,6 +513,7 @@ def main() -> int:
         config["behavior_config_path"] = ".continuity/project-behavior.json"
         config["behavior_skill_path"] = ".agents/skills/continuity-local/SKILL.md"
         config.setdefault("approval_allowed_signers", ".continuity/trusted-approvers")
+        config.setdefault("product_audit_stale_after_days", user_defaults.get("product_audit_stale_after_days", 30))
         existing_signers = existing_config.get("approval_allowed_signers", ".continuity/trusted-approvers")
         config["require_signed_approvals"] = bool(
             args.require_signed_approvals
@@ -552,6 +555,7 @@ def main() -> int:
 - Treat notes as project knowledge first. Capture occurrence time, internal/external perspective, sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes; capture, classification, pattern review, promotion, planning, approval, and dispatch are separate events.
 - Never change committed documentation or code from a captured note alone.
 - Before planning or execution, run project-memory and roadmap briefs and cite the memory and roadmap IDs used.
+- Use `$continuity-product-audit` for baseline, candidate, release, and drift reconciliation against approved goals, project-intent documents, documentation, memory, insights, and roadmap. Audit findings never authorize execution; only current-goal mismatches may block product conformance.
 - Keep sanitized canonical roadmap records under `docs/project-roadmap/`; use `$continuity-roadmap` and the ignored local projection for timeline, hierarchy, release, milestone, sprint, board, dependency, risk, and blocker context.
 - Treat `.agents/continuity/roadmap-ui/` as a local read-only admin companion. It must bind to loopback and remain outside application routes, builds, packages, preview, staging, and production artifacts.
 - Share notes only through `$continuity-share`: prepare a sanitized hash-bound packet, approve its exact version and target project, and use a human-reviewed PR. A packet never authorizes memory, roadmap, goal, code, system, or private-state changes.
@@ -561,8 +565,8 @@ def main() -> int:
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
 - Record explicit human approvals with the approving identity and authorization text. When `.continuity/config.json` sets `require_signed_approvals: true`, require SSH-signed receipts and treat `.continuity/trusted-approvers` as pending tracked configuration until protected human review merges it to the integration branch and that branch is fetched.
 - Require the external audit checkpoint and immediately verified encrypted backup configured by the project before enabling production execution. Backup, restore, and checkpoint creation require quiescent project state.
-- Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
-- Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts before committing and running the final source-bound `$continuity-test`. Push that exact tested commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
+- Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, product conformance, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
+- Complete implementation, candidate checks, documentation, memory, roadmap, and all seven evidence artifacts before committing and running the final source-bound `$continuity-test`. Run the candidate `$continuity-product-audit` against that same source state, then push the exact tested and audited commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
 - Record human review as `approved`, `changes-requested`, `merged`, or `closed` with explicit evidence. In signed-approval projects, those dispositions and in-scope resume authorizations must carry trusted SSH-signed receipts. Expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. When `github_cli_merge_enabled` is explicitly enabled, an interactive human may authorize the exact PR, head SHA, and merge method for a guarded `gh pr merge`; Continuity never auto-merges, uses admin bypass, or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.

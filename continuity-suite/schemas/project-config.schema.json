@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Continuity configuration",
   "type": "object",
-  "required": ["schema_version", "assurance_standard_version", "project_id", "integration_branch", "timezone", "default_start_time", "max_runtime_minutes", "memory_docs", "roadmap_docs", "private_dir", "memory_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "behavior_config_path", "behavior_skill_path", "behavior_configuration_hash"],
+  "required": ["schema_version", "assurance_standard_version", "project_id", "integration_branch", "timezone", "default_start_time", "max_runtime_minutes", "memory_docs", "roadmap_docs", "private_dir", "memory_stale_after_days", "product_audit_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "behavior_config_path", "behavior_skill_path", "behavior_configuration_hash"],
   "properties": {
     "schema_version": {"const": 1},
     "assurance_standard_version": {"const": 2},
@@ -15,6 +15,7 @@
     "roadmap_docs": {"const": "docs/project-roadmap"},
     "private_dir": {"type": "string"},
     "memory_stale_after_days": {"type": "integer", "minimum": 1},
+    "product_audit_stale_after_days": {"type": "integer", "minimum": 1, "maximum": 3650},
     "require_remote": {"type": "boolean"},
     "require_pr": {"type": "boolean"},
     "require_pr_auth": {"type": "boolean"},
