@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.23.0",
+  "catalog_version": "1.29.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -94,6 +94,216 @@
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Explain regulated data requests in plain language by naming what is collected, why it is necessary, and what the user will do next."],
       "evidence_sufficiency": {"sample_count": 12, "product_count": 10, "industry_count": 2}
+    },
+    {
+      "applicability": [
+        "patient health homes",
+        "preventive care",
+        "appointments and telehealth",
+        "medication adherence",
+        "lab and biomarker results",
+        "clinical consent",
+        "diagnostic submissions",
+        "provider task coordination"
+      ],
+      "axis": "industry",
+      "categories": [
+        "health"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 5,
+        "product_count": 7,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Keep clinical measurements self-describing through name, value, unit, reference range, time, trend, source, and interpretation, separating educational context from individualized medical advice.",
+        "Separate patient-reported behavior, observed symptoms, clinician-authored findings, automated interpretation, and completed-care claims so one evidence class cannot silently stand in for another.",
+        "Treat consent as an inspectable agreement tied to the service, disclosure, signer, date, modality, data use, and withdrawal or support path rather than as an unexplained checkbox."
+      ],
+      "pack_id": "industry-health",
+      "reference": "industry-health.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "product discovery",
+        "variant selection",
+        "comparison",
+        "cart and checkout",
+        "fees and authorization",
+        "fulfillment tracking",
+        "returns and refunds",
+        "merchant catalog and inventory"
+      ],
+      "axis": "industry",
+      "categories": [
+        "commerce"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 4,
+        "product_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Support comparison through aligned decision fields, stable units, definition help, variant equivalence, and visible differences rather than forcing memory across product pages.",
+        "Make the checkout total reconstructable from items, quantities, discounts, delivery, service charges, regulatory fees, tax, tip, deposits, subscriptions, and temporary authorization.",
+        "Treat fulfillment and return as explicit lifecycles with current stage, next expected event, deadline, affected item, amount, payment destination, tracking, support, and safe cancellation."
+      ],
+      "pack_id": "industry-commerce",
+      "reference": "industry-commerce.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "content feeds",
+        "recommendation controls",
+        "publishing review",
+        "audience and privacy",
+        "community messaging",
+        "attention management",
+        "creator analytics",
+        "subscriptions and monetization"
+      ],
+      "axis": "industry",
+      "categories": [
+        "media-social"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Distinguish followed, searched, saved, editorial, sponsored, trending, and recommended content, exposing enough source and rationale for users to understand why an item entered the feed.",
+        "Name publication reach and participation consequences concretely so viewers, commenters, reusers, community members, and external destinations are not collapsed into one public state.",
+        "Make creator economics reconstructable through audience source, active and paid members, trials, conversions, cancellations, tier changes, revenue, payout state, and the content or offer that produced each result."
+      ],
+      "pack_id": "industry-media-social",
+      "reference": "industry-media-social.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "flight and lodging search",
+        "map discovery",
+        "fare and room comparison",
+        "booking review",
+        "passenger and payment commitment",
+        "delay and cancellation",
+        "refund and rebooking",
+        "trip itinerary continuity"
+      ],
+      "axis": "industry",
+      "categories": [
+        "travel"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 7,
+        "product_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "At booking review, preserve the exact itinerary, traveler identity, operator, segment, baggage, ticket relationship, amendability, refundability, fees, add-ons, payment, currency, and final total.",
+        "Treat delay, cancellation, schedule change, missed connection, and supplier cancellation as distinct states with source, last update, affected segment, time consequence, and accountable recovery party.",
+        "Build trip continuity around a time-zone-aware sequence of transport, lodging, activities, check-in, documents, local details, and support rather than a disconnected reservation archive."
+      ],
+      "pack_id": "industry-travel",
+      "reference": "industry-travel.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "learning homes",
+        "daily goals and streaks",
+        "course progression",
+        "lesson players",
+        "transcripts and notes",
+        "course enrollment",
+        "team learning",
+        "instructor and organization analytics"
+      ],
+      "axis": "industry",
+      "categories": [
+        "education"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Separate effort, continuity, mastery, completion, assessment, and credential state so time spent or streak length cannot stand in for learning outcome.",
+        "At enrollment, preserve program outcome, format, instructor or authority, start and end timing, cadence, prerequisites, capacity or learner scope, price, discounts, tax, cancellation, and total commitment.",
+        "Make instructional analytics actionable by connecting aggregate completion or score to individual learners, assignment state, last activity, due state, evidence, and a proportionate intervention route."
+      ],
+      "pack_id": "industry-education",
+      "reference": "industry-education.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "developer onboarding",
+        "project and credential setup",
+        "API first run",
+        "logs and tracing",
+        "cost and latency monitoring",
+        "prompt and model evaluation",
+        "agent configuration",
+        "automation rollout and governance"
+      ],
+      "axis": "industry",
+      "categories": [
+        "developer-ai"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 7,
+        "product_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make observability reconstructable from environment, version, time window, request or trace identity, model or service, latency, cost, usage, errors, tool calls, feedback, and raw drilldown.",
+        "Treat prompts and agent configuration as versioned artifacts binding model, instructions, variables, tools, parameters, datasets, evaluators, sharing scope, and deployment state.",
+        "Before agent or automation rollout, expose audience, trigger, tools, data scope, permissions, unresolved-case behavior, expected affected population, human review, go-live state, and rollback route."
+      ],
+      "pack_id": "industry-developer-ai",
+      "reference": "industry-developer-ai.md",
+      "role": "category",
+      "version": "1.0.0"
     },
     {
       "pack_id": "industry-professional-services",

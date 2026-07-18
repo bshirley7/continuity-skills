@@ -155,6 +155,20 @@ class DesignLifecycleTests(unittest.TestCase):
             ["design-industries", "industry-b2b-saas"],
         )
 
+    def test_reviewed_industry_depth_overlays_are_bound(self):
+        for industry in ["health", "commerce", "media-social", "travel", "education", "developer-ai"]:
+            with self.subTest(industry=industry):
+                draft = design.draft(
+                    self.root,
+                    self.config,
+                    CATALOG,
+                    self.write_input(input_value(design_id=industry, industry=industry)),
+                )
+                self.assertEqual(
+                    [pack["pack_id"] for pack in draft["catalog_packs"][:2]],
+                    ["design-industries", f"industry-{industry}"],
+                )
+
     def test_reviewed_dashboard_overlay_is_bound(self):
         value = input_value(sections=["dashboards"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
