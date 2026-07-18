@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.53.0",
+  "catalog_version": "1.54.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1301,6 +1301,21 @@
       ],
       "pack_id": "message-structure-personalization",
       "reference": "message-structure-personalization.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["forms and onboarding", "settings and configuration", "transactions and review", "errors and validation", "status and audit detail", "document workflows", "high-consequence operations", "responsive and accessible interfaces"],
+      "axis": "lens",
+      "categories": ["content"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Give every field, value, state, message, and action a persistent semantic label that names the concept or operation; use supporting text for format, units, scope, evidence, consequence, or examples rather than repeating the label.",
+        "Make validation and errors local, specific, and recovery-oriented: identify the affected field or object, unmet rule or known cause, retained work, resulting state, and safest next action without blaming the user."
+      ],
+      "pack_id": "lens-content",
+      "reference": "lens-content.md",
       "role": "category",
       "version": "1.0.0"
     }
