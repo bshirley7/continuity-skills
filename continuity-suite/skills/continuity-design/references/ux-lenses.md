@@ -13,3 +13,4 @@
 - **Component architecture:** Do reusable elements have stable anatomy, bounded variants, explicit states, coherent interaction contracts, and defined responsive behavior?
 - **Theming:** Do appearance, brand, accessibility, and density modes preserve semantic roles, component behavior, and predictable preference precedence?
 - **Design-system governance:** Are ownership, contribution, review, publication, versioning, deprecation, migration, exceptions, and quality evidence explicit and accountable?
+- **Adaptive layout:** Does semantic priority, state continuity, comparison context, and action hierarchy survive changes in width, device, pane structure, and information density?

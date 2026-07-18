@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.40.0",
+  "catalog_version": "1.41.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1121,6 +1121,21 @@
       ],
       "pack_id": "lens-system-governance",
       "reference": "lens-system-governance.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["multi-pane application workspaces", "list-detail workflows", "analytical dashboards", "operational dashboards", "mobile productivity", "mobile financial and business applications", "wide-screen expert tools", "cross-device task continuity"],
+      "axis": "lens",
+      "categories": ["adaptive-layout"],
+      "evidence_sufficiency": {"industry_count": 11, "product_count": 11, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Adapt by semantic priority: preserve current scope, selected object, consequential state, primary action, and safe return first; collapse, move, summarize, or defer secondary navigation, inspectors, metadata, and utilities.",
+        "When simultaneous panes become a compact sequence, preserve selection, title, parent scope, filters, unsaved state, scroll position, and a predictable back path so layout change does not become context loss."
+      ],
+      "pack_id": "lens-adaptive-layout",
+      "reference": "lens-adaptive-layout.md",
       "role": "category",
       "version": "1.0.0"
     }
