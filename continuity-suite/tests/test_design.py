@@ -301,6 +301,13 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("lens-component-architecture", packs)
         self.assertEqual(packs[packs.index("lens-component-architecture") - 1], "design-ux-lenses")
 
+    def test_reviewed_theming_overlay_is_bound(self):
+        value = input_value(lenses=["theming"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("lens-theming", packs)
+        self.assertEqual(packs[packs.index("lens-theming") - 1], "design-ux-lenses")
+
     def test_reviewed_proof_first_overlay_is_bound(self):
         value = input_value(message_structures=["proof-first"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
