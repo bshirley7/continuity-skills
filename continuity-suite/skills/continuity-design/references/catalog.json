@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.49.0",
+  "catalog_version": "1.50.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1230,19 +1230,19 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["editorial and long-form content", "marketing websites", "B2B product communication", "dense application interfaces", "tables and numeric data", "settings and forms", "responsive layouts", "localized and accessible reading"],
+      "applicability": ["brand typography decisions", "industry-aware design directions", "editorial and premium experiences", "enterprise and data products", "consumer and playful brands", "developer and technical products", "hybrid type systems", "typeface evaluation and procurement"],
       "axis": "lens",
       "categories": ["typography"],
       "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
       "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
       "modality_independent_principles": [
-        "Define typography by semantic role—display, heading, body, label, action, metadata, caption, code, numeric data, status, and assistance—then map family, size, weight, line height, spacing, and contrast consistently to each role.",
-        "Design for localization and accessibility by testing longer strings, varied scripts, diacritics, numeric and date formats, bidirectional text, user font scaling, contrast, and non-color emphasis without assuming one language or font metric."
+        "Choose type categories from the job each role must perform—reading, scanning, comparison, action, expression, code, evidence, or annotation—then test whether the resulting voice is true to the brand and credible in its industry context.",
+        "Evaluate every proposed family and pairing against role coverage, small-size legibility, similar-character distinction, numerals, punctuation, italics, variable axes, loading, licensing, script support, localization, accessibility, and fallback behavior before treating aesthetic fit as sufficient."
       ],
       "pack_id": "lens-typography",
       "reference": "lens-typography.md",
       "role": "category",
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "applicability": ["long-form product pages", "scroll-driven storytelling", "enterprise transformation", "workflow explanation", "consumer finance and health", "technical platforms", "mission-driven narratives", "sales and education sequences"],

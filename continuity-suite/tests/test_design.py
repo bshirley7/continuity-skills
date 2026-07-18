@@ -300,6 +300,8 @@ class DesignLifecycleTests(unittest.TestCase):
         packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
         self.assertIn("lens-typography", packs)
         self.assertEqual(packs[packs.index("lens-typography") - 1], "design-ux-lenses")
+        typography = next(pack for pack in draft["catalog_packs"] if pack["pack_id"] == "lens-typography")
+        self.assertEqual(typography["version"], "1.1.0")
 
     def test_reviewed_component_architecture_overlay_is_bound(self):
         value = input_value(lenses=["component-architecture"])

@@ -2,58 +2,61 @@
 
 ## Generalized principles
 
-- Define typography by semantic role—display, heading, body, label, action, metadata, caption, code, numeric data, status, and assistance—then map family, size, weight, line height, spacing, and contrast consistently to each role.
-- Create hierarchy through coordinated differences in role, scale, weight, measure, spacing, placement, and contrast rather than oversized headings or weight alone.
-- Protect sustained reading with bounded line length, adequate line height, paragraph rhythm, distinguishable links, stable alignment, and user-respectful zoom or text scaling.
-- For dense data, align values by type, preserve tabular comparison where needed, distinguish labels from values and statuses, and make truncation, expansion, selection, and disabled state explicit.
-- Specify responsive type behavior by content role and available measure, including wrap, reflow, truncation, minimum readable size, heading balance, and preservation of action and data hierarchy.
-- Design for localization and accessibility by testing longer strings, varied scripts, diacritics, numeric and date formats, bidirectional text, user font scaling, contrast, and non-color emphasis without assuming one language or font metric.
+- Choose type categories from the job each role must perform—reading, scanning, comparison, action, expression, code, evidence, or annotation—then test whether the resulting voice is true to the brand and credible in its industry context.
+- Use serif when editorial depth, cultural authority, literary warmth, or considered human voice is supported by the brand; bound high-contrast or ornate faces to sizes and roles where their detail survives.
+- Use sans serif for broad interface utility, compact labeling, cross-device consistency, and neutral reading only when the family supplies clear character differentiation, complete scripts, useful weights, and a brand voice beyond generic minimalism.
+- Use handwritten, script, rounded, or highly characterful display faces as short expressive accents when informality, craft, play, or human presence is authentic; keep body, forms, prices, warnings, and consequential actions in durable readable roles.
+- Use monospace where fixed width or code-like form communicates literal technical structure, alignment, identifiers, commands, or data; pair it with a reading-oriented family and do not use it as a generic signal of intelligence or innovation.
+- Evaluate every proposed family and pairing against role coverage, small-size legibility, similar-character distinction, numerals, punctuation, italics, variable axes, loading, licensing, script support, localization, accessibility, and fallback behavior before treating aesthetic fit as sufficient.
 
 ## Variation levers
 
-- Use an expressive display family only for bounded roles and a durable reading family for body and interface text.
-- Use fluid scale within tested minimum and maximum bounds for marketing layouts.
-- Use compact density by reducing whitespace and redundant labels before reducing readable text.
-- Use tabular numerals for repeated comparison and proportional numerals for prose.
-- Use monospace for code or structurally aligned technical values, not as a generic technical aesthetic.
+- Use serif display with sans interface roles for editorial authority plus operational clarity.
+- Use one versatile sans family when system simplicity and script coverage outweigh contrast.
+- Use display or handwritten accents only for short brand moments.
+- Use monospace for code, identifiers, aligned technical values, or command examples.
+- Use a two-family system only when each family has a stable semantic job and compatible proportions.
 
 ## Tensions and tradeoffs
 
-- Brand distinctiveness can reduce reading familiarity.
-- Large display type creates impact while consuming responsive space.
-- Compact density improves scanning while stressing legibility.
-- Strict role consistency improves predictability while limiting editorial variation.
-- User text scaling protects access while disrupting fixed layouts.
+- Industry familiarity improves credibility while encouraging sameness.
+- Distinctive display faces strengthen recognition while reducing role coverage.
+- Serif detail can add authority while degrading at small sizes or low resolution.
+- Neutral sans improves utility while becoming generic.
+- Handwritten warmth improves personality while weakening accessibility and localization.
+- Monospace signals structure while reducing prose efficiency.
+- Multiple families create hierarchy while increasing performance, licensing, and maintenance cost.
 
 ## Failure modes
 
-- Every heading is oversized.
-- Body measure becomes too wide or cramped.
-- Weight is the only hierarchy signal.
-- Metadata and disabled text fall below readable contrast.
-- Numbers do not align for comparison.
-- Truncation hides consequential content with no expansion.
-- Responsive type shrinks proportionally instead of reflowing.
-- Localized strings break controls or hierarchy.
+- A type category is chosen from an industry stereotype alone.
+- Serif body text is too delicate, tight, or wide for sustained reading.
+- Sans serif neutrality erases brand character.
+- Handwritten text carries prices, forms, warnings, or long copy.
+- Monospace is used for all technical branding regardless of semantic role.
+- A pairing has no stable role boundary.
+- The chosen family lacks critical scripts, numerals, weights, italics, or fallback compatibility.
 
 ## Anti-patterns
 
-- Display font for body copy.
-- All caps for long labels.
-- Gray-on-gray metadata.
-- Font size below readable minimum to preserve layout.
-- Manual line breaks that fail responsively.
-- Icon-only replacement for overflowed text.
-- Monospace as technical decoration.
-- Truncated amount, status, warning, or action.
-- Typography tokens named by appearance instead of role.
+- Luxury equals thin serif.
+- Technology equals monospace.
+- Healthcare equals sterile geometric sans.
+- Playful equals unreadable handwriting.
+- Serif for every premium role.
+- Three families with overlapping jobs.
+- Typeface chosen from one hero screenshot.
+- Brand font without web or product license.
+- Fallback metrics ignored.
+- Display face forced into dense UI.
 
 ## Acceptance and review questions
 
-- Are display, heading, body, label, action, metadata, caption, code, numeric, status, and assistance roles explicit?
-- Does hierarchy use coordinated role, scale, weight, measure, spacing, placement, and contrast?
-- Are reading measure, line height, paragraph rhythm, links, zoom, and text scaling protected?
-- Do dense data and settings preserve alignment, comparison, truncation, expansion, selection, disabled state, and consequence?
-- Is responsive behavior specified by role with tested minimums, wrapping, reflow, and hierarchy?
-- Are longer strings, varied scripts, formats, bidirectionality, font scaling, contrast, and non-color emphasis tested?
-- Is guidance based on visible typography behavior rather than claiming unobserved font implementation?
+- What semantic job does each type category perform: reading, scanning, comparison, action, expression, code, evidence, or annotation?
+- Is the chosen voice authentic to the brand rather than an industry stereotype?
+- If serif is used, do contrast, detail, size, measure, and rendering support the assigned role?
+- If sans serif is used, does the family provide legibility, character distinction, scripts, weights, and genuine brand character?
+- Are handwritten or display faces limited to short non-consequential roles with readable alternatives?
+- Is monospace limited to literal technical structure, alignment, identifiers, commands, or data?
+- Do pairings have stable semantic boundaries and compatible metrics?
+- Have licensing, loading, fallback, localization, numerals, punctuation, accessibility, and variable axes been evaluated?
