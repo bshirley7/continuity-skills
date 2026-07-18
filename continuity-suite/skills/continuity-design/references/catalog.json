@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.43.0",
+  "catalog_version": "1.44.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1166,6 +1166,21 @@
       ],
       "pack_id": "lens-direct-manipulation",
       "reference": "lens-direct-manipulation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["command palettes", "keyboard shortcut systems", "expert editors", "data grids", "bulk operations", "record management", "creation tools", "dense application workspaces"],
+      "axis": "lens",
+      "categories": ["keyboard-expert-workflows"],
+      "evidence_sufficiency": {"industry_count": 7, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "For batch operations, expose selection count, selection scope, filters, paging implications, affected objects, available actions, and consequence before commitment.",
+        "Support expert acceleration as a parallel path over the same semantic actions, permissions, validation, feedback, and undo model used by pointer and assistive interaction."
+      ],
+      "pack_id": "lens-keyboard-expert-workflows",
+      "reference": "lens-keyboard-expert-workflows.md",
       "role": "category",
       "version": "1.0.0"
     }
