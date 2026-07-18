@@ -380,6 +380,13 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("message-structure-comparison", packs)
         self.assertEqual(packs[packs.index("message-structure-comparison") - 1], "design-message-structures")
 
+    def test_reviewed_progressive_disclosure_overlay_is_bound(self):
+        value = input_value(message_structures=["progressive-disclosure"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("message-structure-progressive-disclosure", packs)
+        self.assertEqual(packs[packs.index("message-structure-progressive-disclosure") - 1], "design-message-structures")
+
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

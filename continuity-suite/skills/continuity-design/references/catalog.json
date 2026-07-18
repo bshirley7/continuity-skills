@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.51.0",
+  "catalog_version": "1.52.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1271,6 +1271,21 @@
       ],
       "pack_id": "message-structure-comparison",
       "reference": "message-structure-comparison.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["settings and administration", "analytics and dashboards", "creation and expert tools", "checkout and subscriptions", "financial decisions", "forms and configuration", "responsive interfaces", "mixed-skill audiences"],
+      "axis": "message-structure",
+      "categories": ["progressive-disclosure"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Reveal information according to the current task, user intent, decision consequence, and need for inspection; do not equate infrequent, advanced, or complex content with safe-to-hide content.",
+        "Keep price, renewal, eligibility, risk, irreversible effects, permissions, destructive consequences, and other material terms visible before the decision they govern, regardless of the disclosure pattern."
+      ],
+      "pack_id": "message-structure-progressive-disclosure",
+      "reference": "message-structure-progressive-disclosure.md",
       "role": "category",
       "version": "1.0.0"
     }
