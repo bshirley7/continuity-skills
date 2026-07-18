@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.46.0",
+  "catalog_version": "1.47.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1211,6 +1211,21 @@
       ],
       "pack_id": "industry-media-production",
       "reference": "industry-media-production.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["product landing pages", "B2B workflow software", "consumer and small-business products", "health and high-empathy services", "financial operations", "security and compliance", "technical products", "sales and onboarding narratives"],
+      "axis": "message-structure",
+      "categories": ["problem-solution"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Explain why the problem persists through a credible cause—fragmented ownership, manual handoffs, missing visibility, repeated work, uncontrolled risk, or incompatible tools—rather than blaming the user.",
+        "Present the solution as a mechanism that changes specific inputs, handoffs, decisions, controls, or outputs; avoid jumping from pain directly to feature inventory or an unearned outcome."
+      ],
+      "pack_id": "message-structure-problem-solution",
+      "reference": "message-structure-problem-solution.md",
       "role": "category",
       "version": "1.0.0"
     }

@@ -1,7 +1,7 @@
 # Message structures
 
 - **Value-first:** lead with the useful outcome, then explain mechanism and proof.
-- **Problem-solution:** name a recognizable friction, show the change, then bound the claim.
+- **Problem-solution:** name the affected actor and consequence, explain the cause without blame, show the mechanism, connect evidence and constraints, and offer a proportionate next step.
 - **Proof-first:** establish credible evidence before asking for trust or commitment.
 - **Guided narrative:** reveal context in a deliberate sequence while preserving orientation and escape paths.
 - **Comparison:** use stable criteria and disclose tradeoffs; avoid manufacturing a winner through uneven detail.
