@@ -59,7 +59,7 @@ The main skill guides the user through recommended defaults and explicit overrid
 .agents/continuity/bin/continuity --project-root <repository> --json project configure --answers-file <answers.json> --actor <identity>
 ```
 
-Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, validation and security commands, GitHub checks and reviewer threshold, opt-in exact human-authorized GitHub CLI merge, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, business days, sweep/retry/stale timing, portfolio concurrency, and execution enrollment. Authorization, security review, merge safety, one code-changing goal per project, human merge authority, restricted side effects, no administrator bypass, no force-push, and no auto-merge remain fixed.
+Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, product-audit refresh age, validation and security commands, GitHub checks and reviewer threshold, opt-in exact human-authorized GitHub CLI merge, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, business days, sweep/retry/stale timing, portfolio concurrency, and execution enrollment. Authorization, security review, product-conformance gating, merge safety, one code-changing goal per project, human merge authority, restricted side effects, no administrator bypass, no force-push, and no auto-merge remain fixed.
 
 Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. External tracker publication remains a separate explicit-human-approval action.
 
@@ -105,7 +105,7 @@ continuity note migrate-links --actor <human>
 continuity note migrate-lifecycle --actor <human>
 continuity memory similar "<situation>" --scope all
 
-continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id> | --roadmap-id <id> | --packet-id <id> | --goal-id <id>]
+continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id> | --roadmap-id <id> | --packet-id <id> | --audit-id <id> | --goal-id <id>]
 
 continuity portfolio update --root <workspace>
 continuity portfolio update --root <workspace> --apply
@@ -114,6 +114,13 @@ continuity portfolio update --root <workspace> --version <tag> --apply
 continuity test plan [goal-id]
 continuity test run <goal-id> --worktree <path> --branch <branch>
 continuity test record <goal-id> --status <passed|failed> --summary <text> --update-gates
+
+continuity audit plan --input <audit-input.json> [--goal-id <goal-id>]
+continuity audit start <audit-id> --worktree <path> --branch <branch>
+continuity audit record <audit-id> --result-file <result.json> --artifact <product-conformance.md> --update-gate
+continuity audit capture-findings <audit-id>
+continuity audit compare <audit-id> --against <prior-audit-id>
+continuity audit due
 
 continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
 continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --disposition <approved|changes-requested|merged|closed> --evidence <text>
@@ -136,10 +143,11 @@ The steps below are the concise reference. [Operating Workflow](docs/operating-w
 7. Approve an exact goal version; it queues for the project-configured dispatch time.
 8. Use `$continuity-dispatch` to start an approved goal earlier when needed.
 9. Use `$continuity-execute` in the assigned isolated worktree. Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts, then commit them.
-10. Use `$continuity-test` for the final source-bound run on that committed state, then push the tested commit and create or update the draft PR.
-11. Use `$continuity-merge` to bind merge safety to the local head, remote head, PR head, and configured base, then record the later human disposition.
-12. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
-13. Record human review separately as `approved`, `changes-requested`, `merged`, or `closed`. In-scope changes reopen the same goal with explicit authorization; scope changes require revision and fresh approval. Only recorded merge evidence moves the goal to `completed`.
+10. Use `$continuity-test` for the final source-bound run on that committed state.
+11. Use `$continuity-product-audit` to reconcile applicable product behavior with approved intent on the same source state, or record explicit not-applicable evidence.
+12. Push the tested and audited commit, then use `$continuity-merge` to bind merge safety to the local head, remote head, PR head, and configured base.
+13. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
+14. Record human review separately as `approved`, `changes-requested`, `merged`, or `closed`. In-scope changes reopen the same goal with explicit authorization; scope changes require revision and fresh approval. Only recorded merge evidence moves the goal to `completed`.
 
 ```mermaid
 flowchart LR
@@ -156,15 +164,16 @@ flowchart LR
     I -->|"Yes"| K["10 PM queue or manual start"]
     K --> L["Isolated project worktree"]
     L --> M["Testing, code review, validation, and security report"]
-    M --> N["Merge-safety assessment"]
-    N --> O["Review-ready PR"]
-    O --> P["Morning decision report"]
+    M --> N["Product-conformance audit"]
+    N --> O["Merge-safety assessment"]
+    O --> R["Review-ready PR"]
+    R --> P["Morning decision report"]
     P --> Q["Human review and merge"]
 ```
 
 ## Responsible development compliance
 
-Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks `review-ready` until implementation, code review, validation, security review, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. A passing validation record requires machine-run evidence that still matches the current source fingerprint, approved plan hash, behavior hash, and configured commands. `$continuity-test` and `$continuity-merge` make these gates explicit. Only recorded human merge evidence moves the goal to `completed`; an opted-in direct CLI merge still requires an exact interactive human authorization and GitHub verification.
+Every goal has a `compliance.json` ledger. The CLI blocks approval until memory retrieval, roadmap retrieval, and plan review are evidenced, blocks dispatch on failed preflight, and blocks `review-ready` until implementation, code review, validation, security review, product conformance, merge safety, documentation, memory impact, roadmap impact, and final alignment are passed or explicitly not applicable with evidence. A passing validation or product-audit record requires source-bound evidence that still matches the current source fingerprint, approved plan hash, behavior hash, and configured commands. `$continuity-test`, `$continuity-product-audit`, and `$continuity-merge` make these gates explicit. Only recorded human merge evidence moves the goal to `completed`; an opted-in direct CLI merge still requires an exact interactive human authorization and GitHub verification.
 
 The planning patterns were adapted from lessons in Matt Pocock's MIT-licensed `triage`, `wayfinder`, and `to-tickets` skills. See `references/planning-patterns.md` for the reviewed upstream commit, provenance, and continuity-specific safety changes. The upstream skills are not bundled or invoked.
 

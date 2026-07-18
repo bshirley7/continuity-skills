@@ -275,9 +275,11 @@ When a plan is explicitly approved:
 When an approved dispatched goal is assigned:
   $continuity-execute
   $continuity-test
+  $continuity-product-audit
   $continuity-merge
   /continuity-execute
   /continuity-test
+  /continuity-product-audit
   /continuity-merge
 ```
 
@@ -299,6 +301,7 @@ Use the machine handoff before and after any skill:
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --memory-id <memory-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --roadmap-id <roadmap-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --packet-id <packet-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --audit-id <audit-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --goal-id <goal-id>
 ```
 
@@ -505,10 +508,11 @@ and the goal is explicitly approved, due or manually started, dependency-satisfi
 
 ## Quality And Merge Gates
 
-Continuity has two explicit post-implementation skills:
+Continuity has three explicit post-implementation skills:
 
 ```text
 $continuity-test
+$continuity-product-audit
 $continuity-merge
 ```
 
@@ -522,7 +526,13 @@ $continuity-merge
 
 `test run` executes configured validation, goal-specific, and security commands directly without shell syntax. It verifies that the worktree belongs to the enrolled repository and is on the branch recorded for the goal, then records argv, output, exit status, approved plan hash, behavior hash, commit, repository identity, and a source fingerprint that includes tracked diffs and untracked-file content. `test record --status passed` and merge assessment fail when that evidence is absent or any binding has changed.
 
-The enforced delivery order is: preflight; isolated worktree; implementation; candidate checks; documentation, memory, roadmap, and evidence artifacts; commit; final source-bound test run; push and draft PR; PR/head/base-bound merge assessment; `review-ready`; human disposition. Any source or branch change after the final run makes its evidence stale.
+The enforced delivery order is: preflight; isolated worktree; implementation; candidate checks; documentation, memory, roadmap, and evidence artifacts; commit; final source-bound test run; source-bound product-conformance audit or explicit not-applicable evidence; push and draft PR; PR/head/base-bound merge assessment; `review-ready`; human disposition. Any source or branch change after the final run makes its evidence stale.
+
+`$continuity-product-audit` compares a baseline, candidate, release, or drift
+target with applicable approved goals, PRDs, documentation, memory, insights,
+and roadmap sources. It records portable evidence, source authority and time
+horizon, classified findings, coverage, hashes, and non-authorizing finding
+captures. Only current-goal mismatches can block the product-conformance gate.
 
 `$continuity-merge` assesses PR readiness and merge safety only after the final tested commit is pushed to a draft PR. It checks branch focus, base freshness, working tree cleanliness, remote and PR head identity, PR base, evidence, and compliance status:
 

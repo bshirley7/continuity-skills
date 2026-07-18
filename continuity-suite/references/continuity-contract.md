@@ -14,7 +14,7 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 - Store effective project-specific settings in `.continuity/project-behavior.json` and generate `.agents/skills/continuity-local/SKILL.md` from that committed record.
 - Apply the generated local behavior skill with every task-specific continuity skill. Configuration, manifest, behavior record, and generated skill hashes must agree.
 - Permit explicit overrides only for documented project settings such as schedules, validation, documentation map, evidence mode, branch prefix, runtime, and execution enrollment.
-- Never allow project configuration to weaken the fixed authorization, concurrency, security, merge-safety, force-push, auto-merge, or human-merge guardrails.
+- Never allow project configuration to weaken the fixed authorization, concurrency, security, product-conformance, merge-safety, force-push, auto-merge, or human-merge guardrails.
 - Record configuration changes in the ignored append-only audit ledger and fail closed on manual drift.
 - Install and update from tagged, attested, hash-manifested releases. Abort on locally modified suite-managed files, snapshot before replacement, and never treat project configuration or ignored private state as release-owned.
 
@@ -89,12 +89,13 @@ Record evidence for every responsible development stage:
 8. code-review
 9. validation
 10. security-review
-11. merge-safety
-12. documentation
-13. memory-impact
-14. roadmap-impact
-15. final-alignment
-16. human-review
+11. product-conformance
+12. merge-safety
+13. documentation
+14. memory-impact
+15. roadmap-impact
+16. final-alignment
+17. human-review
 
 Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` result requires a concrete reason. Do not mark a goal review-ready while any pre-human-review stage is pending or failed, and do not mark it completed without passed human-review and merge evidence.
 
@@ -109,7 +110,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 - Review the diff for correctness, maintainability, accessibility, performance, privacy, and security as applicable.
 - Run project-prescribed tests, type checks, builds, linters, format checks, and targeted regression tests.
 - Run evidence-based security review for touched languages and frameworks. Check secrets, dependencies, data handling, authentication/authorization, injection, unsafe paths, subprocess use, migrations, and supply-chain changes as relevant.
-- Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. A passing report or merge assessment must reject absent or stale machine evidence. The enforced delivery order is implementation, candidate checks, documentation/memory/roadmap/evidence artifacts, commit, final source-bound tests, push and draft PR, PR/head/base-bound merge assessment, `review-ready`, then human disposition.
+- Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. Reconcile applicable product behavior against approved goals, project-intent documents, documentation, memory, insights, and roadmap through a candidate product audit bound to the same source state. A passing report, product audit, or merge assessment must reject absent or stale machine evidence. The enforced delivery order is implementation, candidate checks, documentation/memory/roadmap/evidence artifacts, commit, final source-bound tests, product conformance, push and draft PR, PR/head/base-bound merge assessment, `review-ready`, then human disposition.
 - Record quality evidence through the structured test report and merge-safety evidence through the structured merge assessment when those skills are installed.
 - Require successful configured hosted checks before review-ready, then verify authenticated GitHub identity, review decision, and reviewer threshold before recording approval or merge.
 - Use parameterized APIs and subprocess argument arrays. Never construct shell commands from captured note text.
@@ -136,4 +137,4 @@ Local similarity may recommend related nonterminal goals. A recommendation never
 
 ## Completion evidence
 
-Every goal PR must include request alignment, implementation report, validation and security results, memory impact, roadmap impact, and evidence. A review-ready PR requires all local, hosted, and agent review gates to pass. Human review and merge remain user actions; an explicitly enabled interactive CLI merge is a user action only when its exact authorization is persisted and GitHub verifies the same head and actor. Portfolio output must use the deterministic sanitized CLI allowlist rather than agent-authored aggregation.
+Every goal PR must include request alignment, implementation report, validation and security results, product conformance, memory impact, roadmap impact, and evidence. A review-ready PR requires all local, hosted, and agent review gates to pass. Human review and merge remain user actions; an explicitly enabled interactive CLI merge is a user action only when its exact authorization is persisted and GitHub verifies the same head and actor. Portfolio output must use the deterministic sanitized CLI allowlist rather than agent-authored aggregation.

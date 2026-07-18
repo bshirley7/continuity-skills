@@ -20,11 +20,11 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 ## Workflow
 
 1. Confirm every source item is eligible for planning.
-2. Run `memory brief` and `roadmap brief` for the goal and record every memory and roadmap ID used.
+2. Run `memory brief`, `roadmap brief`, and `audit due`. Retrieve relevant baseline, release, drift, or captured product-audit findings when available; record their IDs and freshness without treating findings as authority.
 3. Apply the configured planning patterns. Use the evidence triage brief for verified action context. For complex or uncertain work, create a decision map with one destination, explicit decisions, dependency edges, unresolved territory, and out-of-scope boundaries. Do not plan execution across unresolved or human-required decisions.
 4. Group only work supporting one cohesive outcome. Split unrelated intents.
 5. For a multi-part outcome, create dependency-aware end-to-end delivery slices. Each slice must be independently verifiable, small enough for one focused run, and blocked only by genuine prerequisites. Use an expand-migrate-contract sequence for wide changes that cannot remain valid as vertical slices.
-6. Distinguish context, trusted memory, roadmap context, new insights, proposed instructions, scope, exclusions, dependencies, decisions, documentation impact, structured roadmap impact, acceptance, validation, security, merge-safety, and evidence.
+6. Distinguish context, trusted memory, roadmap context, product-audit evidence, new insights, proposed instructions, scope, exclusions, dependencies, decisions, documentation impact, structured roadmap impact, acceptance, product conformance, validation, security, merge-safety, and evidence.
 7. Apply repository architecture and developer best practices. Review the plan for correctness, maintainability, privacy, security, testing, rollout, and rollback implications.
 8. Set unattended suitability and runtime, defaulting to six hours.
 9. Give every `source_note_id` exactly one explicit `note_disposition`: `current-goal`, `later`, `context-only`, or `duplicate`. Omission fails closed for new goals and source-changing revisions. Later work requires `review_after` or a roadmap anchor. Map current-goal notes to delivery slices when applicable and state why every disposition was selected.

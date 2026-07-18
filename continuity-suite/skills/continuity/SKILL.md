@@ -41,6 +41,7 @@ The answers file may override only:
 - `schedules.review`, `schedules.dispatch`, and `schedules.report`
 - `max_runtime_minutes` up to six hours
 - `memory_stale_after_days`
+- `product_audit_stale_after_days`
 - `validation_commands` and `security_commands`
 - `github_required_checks`, `github_required_reviewers`, and default-off `github_cli_merge_enabled` for hosted readiness, disposition policy, and exact interactive merge authorization
 - `documentation_map`
@@ -72,6 +73,7 @@ Use `suite update --check`, `suite update --dry-run`, and an explicit tagged upd
 - Approval, schedule, or manual start: `$continuity-dispatch`
 - Approved isolated execution: `$continuity-execute`
 - Quality, tests, validation, and security review: `$continuity-test`
+- Product, website, release, and intent-conformance audits: `$continuity-product-audit`
 - PR readiness, merge safety, and human merge records: `$continuity-merge`
 - Morning, completion, or portfolio reporting: `$continuity-report`
 

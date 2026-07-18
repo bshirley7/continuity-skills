@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity product audit input",
+  "type": "object",
+  "required": ["title", "profile", "purpose", "target", "sources", "journeys"],
+  "properties": {
+    "audit_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "goal_id": {"type": "string"},
+    "title": {"type": "string", "minLength": 1},
+    "profile": {"enum": ["baseline", "candidate", "release", "drift"]},
+    "purpose": {"type": "string", "minLength": 1},
+    "capture_adapter": {"type": "string", "minLength": 1},
+    "constraints": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "target": {
+      "type": "object",
+      "required": ["environment"],
+      "properties": {
+        "environment": {"enum": ["local", "preview", "staging", "production", "document", "code"]},
+        "url": {"type": "string", "minLength": 1},
+        "branch": {"type": "string", "minLength": 1},
+        "commit_sha": {"type": "string", "minLength": 1},
+        "build_hash": {"type": "string", "minLength": 1},
+        "reference": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_id", "source_type", "authority", "applicability", "time_horizon", "reference"],
+        "properties": {
+          "source_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "source_type": {"enum": ["approved-goal", "approved-design", "project-intent", "documentation", "memory", "roadmap", "insight", "code", "other"]},
+          "authority": {"enum": ["current-approved", "canonical", "advisory", "observed"]},
+          "applicability": {"type": "string", "minLength": 1},
+          "time_horizon": {"enum": ["current", "candidate", "future", "historical", "unknown"]},
+          "reference": {"type": "string", "minLength": 1},
+          "content_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "revision": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "journeys": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["journey_id", "title", "requirements"],
+        "properties": {
+          "journey_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "title": {"type": "string", "minLength": 1},
+          "requirements": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "viewports": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

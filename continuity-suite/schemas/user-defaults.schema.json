@@ -21,6 +21,7 @@
         },
         "max_runtime_minutes": {"type": "integer", "minimum": 1, "maximum": 360},
         "memory_stale_after_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+        "product_audit_stale_after_days": {"type": "integer", "minimum": 1, "maximum": 3650},
         "visual_evidence_mode": {"enum": ["when-applicable", "always", "explanation-allowed"]},
         "branch_prefix": {"type": "string", "minLength": 1},
         "planning_patterns": {

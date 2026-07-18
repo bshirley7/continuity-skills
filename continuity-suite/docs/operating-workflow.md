@@ -330,6 +330,7 @@ At the review schedule, the supervisor starts one isolated review task per due p
 - Reconsiders deferred notes whose review date is due
 - Rebuilds memory and roadmap indexes
 - Detects contradictions, stale links, cycles, and documentation drift
+- Surfaces due, stale, failed, partial, or blocked product audits and uncaptured findings
 - Prepares decision-complete goals when evidence supports them
 - Produces a report even when no action is warranted
 
@@ -370,10 +371,11 @@ Use `$continuity-execute` only after dispatch. The enforced delivery order is:
 6. Final alignment against scope, exclusions, and acceptance criteria
 7. Commit all implementation and evidence artifacts
 8. Final source-bound test run
-9. Push the exact tested commit
-10. Create or update the draft pull request
-11. Assess local head, remote head, pull-request head, and integration base
-12. Mark the goal `review-ready`
+9. Reconcile the candidate against applicable approved goals, PRDs, documentation, memory, insights, and roadmap
+10. Push the exact tested and audited commit
+11. Create or update the draft pull request
+12. Assess local head, remote head, pull-request head, and integration base
+13. Mark the goal `review-ready`
 
 Any out-of-scope discovery becomes a note, question, roadmap candidate, or later goal. It is not silently added to the current implementation.
 
@@ -391,7 +393,24 @@ The machine record binds the result to the repository, branch, commit, source fi
 
 Candidate tests run earlier are useful for implementation but do not replace this final source-bound run.
 
-### 10. Assess merge safety and stop
+### 10. Audit product conformance
+
+Use `$continuity-product-audit` after the final source-bound test. A candidate
+audit is bound to the same goal plan, behavior configuration, repository,
+branch, commit, and source fingerprint:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" audit plan --input <audit-input.json> --goal-id <goal-id>
+.agents/continuity/bin/continuity --project-root "$PWD" audit start <audit-id> --worktree <worktree> --branch <branch>
+.agents/continuity/bin/continuity --project-root "$PWD" audit record <audit-id> --result-file <result.json> --worktree <worktree> --branch <branch> --artifact <product-conformance.md> --update-gate
+```
+
+Only current-goal mismatches may block candidate delivery. Future roadmap and
+later-work findings remain advisory and enter private triage with
+`audit capture-findings`. A genuinely non-product goal requires explicit
+not-applicable evidence.
+
+### 11. Assess merge safety and stop
 
 Use `$continuity-merge` only after the exact tested commit is pushed to a draft pull request:
 
@@ -403,11 +422,11 @@ Use `$continuity-merge` only after the exact tested commit is pushed to a draft 
   --update-gate
 ```
 
-The assessment verifies the clean worktree, branch, tested commit, remote head, pull-request head, pull-request base, and required compliance stages.
+The assessment verifies the clean worktree, branch, tested and audited commit, remote head, pull-request head, pull-request base, and required compliance stages.
 
 Successful off-hours work stops at `review-ready`. Continuity does not merge or claim business completion.
 
-### 11. Begin the next business day with the morning report
+### 12. Begin the next business day with the morning report
 
 The morning report leads with three surfaces:
 
@@ -415,7 +434,7 @@ The morning report leads with three surfaces:
 2. Completed overnight
 3. Blocked or at risk
 
-It then supplies per-goal workflow state, allowed and blocked dispositions, pull-request and evidence references, test and security status, merge state, compliance blockers, queue counts, memory and roadmap health, active runs, recurring patterns, and prepared next work.
+It then supplies per-goal workflow state, allowed and blocked dispositions, pull-request and evidence references, product-audit freshness and findings, test and security status, merge state, compliance blockers, queue counts, memory and roadmap health, active runs, recurring patterns, and prepared next work.
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" --json report morning
@@ -424,7 +443,7 @@ It then supplies per-goal workflow state, allowed and blocked dispositions, pull
 
 `review-ready` is successful preparation for a decision. It is not completion.
 
-### 12. Record the human disposition
+### 13. Record the human disposition
 
 After reviewing the pull request and evidence, record one factually accurate disposition:
 
@@ -489,6 +508,7 @@ Every Continuity skill reads workflow status on entry and reports it on exit:
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --memory-id <memory-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --roadmap-id <roadmap-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --packet-id <packet-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --audit-id <audit-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --goal-id <goal-id>
 ```
 

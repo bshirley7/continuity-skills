@@ -53,6 +53,7 @@ $continuity-plan      create approval-ready plans
 $continuity-dispatch  approve, queue, or manually start approved goals
 $continuity-execute   execute one approved dispatched goal
 $continuity-test      run and record quality, validation, and security gates
+$continuity-product-audit reconcile observed product behavior with approved project intent
 $continuity-merge     assess PR readiness and execute or record an exact human-authorized merge
 $continuity-report    summarize status, blockers, memory, roadmap, and evidence
 $continuity-share     prepare sanitized note packets for explicit sharing

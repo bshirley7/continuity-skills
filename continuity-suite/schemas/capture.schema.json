@@ -8,7 +8,7 @@
     "capture_id": {"type": "string"},
     "captured_at": {"type": "string"},
     "project_id": {"type": "string"},
-    "source_type": {"enum": ["conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"]},
+    "source_type": {"enum": ["conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet", "product-audit"]},
     "document_type": {"enum": ["prd", "feature-request"]},
     "document_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
     "document_title": {"type": "string", "minLength": 1},
