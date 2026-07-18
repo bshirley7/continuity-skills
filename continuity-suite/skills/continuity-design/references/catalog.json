@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.54.0",
+  "catalog_version": "1.55.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1316,6 +1316,21 @@
       ],
       "pack_id": "lens-content",
       "reference": "lens-content.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["product strategy and interaction models", "application workspaces", "brand-led marketing", "creative and collaboration products", "technical and data products", "high-trust operations", "design systems", "competitive redesigns"],
+      "axis": "lens",
+      "categories": ["differentiation"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Tie expressive choices to the product mechanism, audience, or artifacts users create; pair metaphor and category cues with concrete examples, evidence, constraints, and a clear action.",
+        "Evaluate differentiation against comprehension, task success, accessibility, performance, localization, trust, maintenance, and recognizable value—not aesthetic novelty or competitor distance alone."
+      ],
+      "pack_id": "lens-differentiation",
+      "reference": "lens-differentiation.md",
       "role": "category",
       "version": "1.0.0"
     }

@@ -401,6 +401,13 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("lens-content", packs)
         self.assertEqual(packs[packs.index("lens-content") - 1], "design-ux-lenses")
 
+    def test_reviewed_differentiation_overlay_is_bound(self):
+        value = input_value(lenses=["differentiation"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("lens-differentiation", packs)
+        self.assertEqual(packs[packs.index("lens-differentiation") - 1], "design-ux-lenses")
+
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
