@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.41.0",
+  "catalog_version": "1.42.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1136,6 +1136,21 @@
       ],
       "pack_id": "lens-adaptive-layout",
       "reference": "lens-adaptive-layout.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["uploads and imports", "save and publish actions", "background processing", "payments and bookings", "generative media", "live activities and notifications", "multi-stage validation", "success and recovery feedback"],
+      "axis": "lens",
+      "categories": ["motion-feedback"],
+      "evidence_sufficiency": {"industry_count": 8, "product_count": 10, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Separate immediate acknowledgement from durable completion, then resolve success into the actual saved, booked, published, or generated product state rather than a disconnected celebratory endpoint.",
+        "Make failure and interruption actionable by preserving completed work, identifying the failed scope, explaining what remains uncertain, and offering retry, correction, cancellation, or safe exit without duplicate commitment."
+      ],
+      "pack_id": "lens-motion-feedback",
+      "reference": "lens-motion-feedback.md",
       "role": "category",
       "version": "1.0.0"
     }

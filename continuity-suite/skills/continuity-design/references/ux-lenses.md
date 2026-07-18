@@ -14,3 +14,4 @@
 - **Theming:** Do appearance, brand, accessibility, and density modes preserve semantic roles, component behavior, and predictable preference precedence?
 - **Design-system governance:** Are ownership, contribution, review, publication, versioning, deprecation, migration, exceptions, and quality evidence explicit and accountable?
 - **Adaptive layout:** Does semantic priority, state continuity, comparison context, and action hierarchy survive changes in width, device, pane structure, and information density?
+- **Motion and feedback:** Do transitions and progress explain actual state, preserve task context, distinguish acknowledgement from completion, support recovery, and retain all information with reduced motion?
