@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.37.0",
+  "catalog_version": "1.38.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1076,6 +1076,21 @@
       ],
       "pack_id": "lens-design-tokens",
       "reference": "lens-design-tokens.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["design-system components", "application forms", "transactional forms", "data tables", "record-management surfaces", "menus and popovers", "modals and confirmations", "responsive application layouts"],
+      "axis": "lens",
+      "categories": ["component-architecture"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 11, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Define each component through stable anatomy, named properties, bounded variants, and explicit states so optional content and behavior remain understandable without duplicating near-identical components.",
+        "Make layered components communicate trigger or parent context, focus scope, dismissal behavior, action priority, and consequence rather than relying on visual elevation alone."
+      ],
+      "pack_id": "lens-component-architecture",
+      "reference": "lens-component-architecture.md",
       "role": "category",
       "version": "1.0.0"
     }
