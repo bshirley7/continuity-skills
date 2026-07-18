@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.57.0",
+  "catalog_version": "1.58.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1361,6 +1361,21 @@
       ],
       "pack_id": "message-structure-trust-risk-reversal",
       "reference": "message-structure-trust-risk-reversal.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["product vocabulary and terminology", "settings and administration", "technical and AI products", "notifications and activity", "collaboration and approvals", "marketplaces and transactions", "empty, error, and recovery states", "multi-scope enterprise products"],
+      "axis": "lens",
+      "categories": ["interface-language"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Define canonical names for objects, actors, scopes, states, and operations; use one term for one concept and introduce a different term only when lifecycle, authority, or user meaning genuinely differs.",
+        "Let tone adapt to context while keeping state, cause, evidence, consequence, retained work, and recovery literal; do not use warmth, humor, confidence, or apology to blur operational truth."
+      ],
+      "pack_id": "lens-interface-language",
+      "reference": "lens-interface-language.md",
       "role": "category",
       "version": "1.0.0"
     }

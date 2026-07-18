@@ -422,6 +422,13 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("message-structure-trust-risk-reversal", packs)
         self.assertEqual(packs[packs.index("message-structure-trust-risk-reversal") - 1], "design-message-structures")
 
+    def test_reviewed_interface_language_overlay_is_bound(self):
+        value = input_value(lenses=["interface-language"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("lens-interface-language", packs)
+        self.assertEqual(packs[packs.index("lens-interface-language") - 1], "design-ux-lenses")
+
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
