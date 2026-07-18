@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.56.0",
+  "catalog_version": "1.57.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1346,6 +1346,21 @@
       ],
       "pack_id": "lens-color",
       "reference": "lens-color.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["subscriptions and trials", "checkout and refunds", "permissions and consent", "destructive actions", "shared work and access", "automation and integrations", "high-consideration commitments", "regulated and high-consequence decisions"],
+      "axis": "message-structure",
+      "categories": ["trust-risk-reversal"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Name the specific uncertainty or risk at the decision point, then show the relevant safeguard, evidence, remaining limitation, accountable party, and next step rather than using generic reassurance.",
+        "Describe reversibility precisely: what can be cancelled, refunded, restored, revoked, archived, downgraded, exported, or deleted; who can do it; through which path; within what time; at what cost; and what state or data remains."
+      ],
+      "pack_id": "message-structure-trust-risk-reversal",
+      "reference": "message-structure-trust-risk-reversal.md",
       "role": "category",
       "version": "1.0.0"
     }
