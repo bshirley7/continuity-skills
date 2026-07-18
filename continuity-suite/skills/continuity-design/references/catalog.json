@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.44.0",
+  "catalog_version": "1.45.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services"],
+      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -1181,6 +1181,21 @@
       ],
       "pack_id": "lens-keyboard-expert-workflows",
       "reference": "lens-keyboard-expert-workflows.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["operational maps", "fleet and delivery tracking", "weather and hazard maps", "navigation and routing", "outdoor route planning", "location selection", "map-based discovery", "geospatial editing"],
+      "axis": "industry",
+      "categories": ["geospatial-operations"],
+      "evidence_sufficiency": {"industry_count": 7, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Bind every time-varying mark to observation, update, forecast, or validity time and distinguish current, predicted, delayed, stale, and unknown states.",
+        "Preserve provenance and uncertainty through source, update cadence, units, confidence or forecast status, coverage limits, and non-color cues beside the mapped decision."
+      ],
+      "pack_id": "industry-geospatial-operations",
+      "reference": "industry-geospatial-operations.md",
       "role": "category",
       "version": "1.0.0"
     }
