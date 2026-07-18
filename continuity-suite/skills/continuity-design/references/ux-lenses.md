@@ -20,3 +20,4 @@
 - **Direct manipulation:** Are object, affordance, mode, target, constraints, preview, precision, commitment, and recovery visible across pointer, touch, and keyboard input?
 - **Keyboard and expert workflows:** Are commands, focus, selection, batch scope, shortcuts, recovery, and equivalent pointer or assistive paths visible and semantically consistent?
 - **Interface language:** Do canonical object, actor, scope, state, and operation names remain precise and consistent across labels, actions, activity, help, and recovery?
+- **Accessibility language:** Are preferences, alternative input, interruptions, recovery, and accommodations described by behavior and consequence without stigma, blame, or required disclosure?

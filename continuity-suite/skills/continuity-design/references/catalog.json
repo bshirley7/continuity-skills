@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.58.0",
+  "catalog_version": "1.59.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1376,6 +1376,21 @@
       ],
       "pack_id": "lens-interface-language",
       "reference": "lens-interface-language.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["accessibility and display settings", "keyboard and alternative input", "captions and sensory preferences", "verification and identity", "session limits and interruptions", "validation and recovery", "enterprise preference policy", "support and accommodations"],
+      "axis": "lens",
+      "categories": ["accessibility-language"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Name accessibility settings by the interface behavior they change—text size, contrast, motion, sound, captions, timing, focus, input, or navigation—without diagnosing, stigmatizing, or requiring users to justify the preference.",
+        "Offer accommodations and human assistance through ordinary, respectful language that describes the available path, expected effort, timing, privacy, and outcome without requiring disclosure of disability or presenting support as an exception."
+      ],
+      "pack_id": "lens-accessibility-language",
+      "reference": "lens-accessibility-language.md",
       "role": "category",
       "version": "1.0.0"
     }
