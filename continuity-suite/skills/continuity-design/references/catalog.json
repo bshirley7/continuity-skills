@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.39.0",
+  "catalog_version": "1.40.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1106,6 +1106,21 @@
       ],
       "pack_id": "lens-theming",
       "reference": "lens-theming.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["design-system libraries", "shared component and token catalogs", "content systems", "component documentation", "release publishing", "deprecation and migration", "organization-wide design standards", "multi-team contribution workflows"],
+      "axis": "lens",
+      "categories": ["system-governance"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 11, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Create an explicit publication boundary where proposed system changes have a named scope, rationale, owner, review state, version, release note, and effective audience before downstream consumers receive them.",
+        "Treat deprecation as a lifecycle with announcement, affected scope, replacement, compatibility period, migration steps, deadline, support path, and final removal rather than a deleted asset."
+      ],
+      "pack_id": "lens-system-governance",
+      "reference": "lens-system-governance.md",
       "role": "category",
       "version": "1.0.0"
     }

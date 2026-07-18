@@ -12,3 +12,4 @@
 - **Design tokens:** Are visual choices organized by semantic role, consistently mapped across modes and states, and evolved without silent breakage?
 - **Component architecture:** Do reusable elements have stable anatomy, bounded variants, explicit states, coherent interaction contracts, and defined responsive behavior?
 - **Theming:** Do appearance, brand, accessibility, and density modes preserve semantic roles, component behavior, and predictable preference precedence?
+- **Design-system governance:** Are ownership, contribution, review, publication, versioning, deprecation, migration, exceptions, and quality evidence explicit and accountable?
