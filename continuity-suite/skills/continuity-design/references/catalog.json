@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.52.0",
+  "catalog_version": "1.53.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1286,6 +1286,21 @@
       ],
       "pack_id": "message-structure-progressive-disclosure",
       "reference": "message-structure-progressive-disclosure.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["personalized onboarding", "recommendation and discovery", "adaptive learning", "workspace defaults", "notifications and content preferences", "AI assistants and memory", "multi-user products", "privacy-sensitive experiences"],
+      "axis": "message-structure",
+      "categories": ["personalization"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Explain what each personalization input changes, where it applies, how long it persists, and whether it was explicitly supplied, inferred from behavior, inherited from policy, or derived from current context.",
+        "Give users correction at the level of the signal and outcome—item, topic, source, goal, role, default, inferred fact, or remembered detail—and state what future behavior the correction will affect."
+      ],
+      "pack_id": "message-structure-personalization",
+      "reference": "message-structure-personalization.md",
       "role": "category",
       "version": "1.0.0"
     }
