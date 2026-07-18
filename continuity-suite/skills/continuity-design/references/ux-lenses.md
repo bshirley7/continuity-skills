@@ -9,3 +9,4 @@
 - **Responsiveness:** Does priority survive narrow, wide, touch, keyboard, and variable-content conditions?
 - **Content:** Does every message help orient, decide, act, verify, or recover?
 - **Differentiation:** Is distinctiveness rooted in product truth rather than novelty alone?
+- **Design tokens:** Are visual choices organized by semantic role, consistently mapped across modes and states, and evolved without silent breakage?

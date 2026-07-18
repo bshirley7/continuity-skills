@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.33.0",
+  "catalog_version": "1.37.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -758,6 +758,51 @@
       "version": "1.0.0"
     },
     {
+      "applicability": ["onboarding and first use", "learning and wellness", "completion and rewards", "empty states", "technical setup", "professional workspaces", "creation and productivity"],
+      "axis": "theme",
+      "categories": ["playful"],
+      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Give play a functional role: reduce anxiety, explain a concept, reinforce progress, celebrate a verified result, distinguish identity, or invite the next safe action.",
+        "Bind celebration to an inspectable outcome through the completed behavior, achievement condition, earned value, progress count, or next milestone; animation alone must not imply success."
+      ],
+      "pack_id": "theme-playful",
+      "reference": "theme-playful.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["guided introductions", "travel and entertainment discovery", "media playback", "creative asset detail", "brand and values stories", "emotional campaigns", "full-bleed narrative interfaces"],
+      "axis": "theme",
+      "categories": ["cinematic"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Bind every cinematic hero to decision context through identity, source, metadata, suitability, scope, and a concrete action rather than relying on atmosphere alone.",
+        "For consequential or emotional experiences, connect imagery to provenance, measurable state, safeguards, exact commitment, and recovery so emotion cannot substitute for evidence."
+      ],
+      "pack_id": "theme-cinematic",
+      "reference": "theme-cinematic.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["work queues", "tables and grids", "administrative settings", "permissions", "mobile utility homes", "batch operations", "automation and AI workspaces"],
+      "axis": "theme",
+      "categories": ["utilitarian"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Organize the interface around the current object, scope, state, and next operation; use direct labels and stable regions before adding summaries or personality.",
+        "At destructive, automated, or costly boundaries, name the affected scope, consequence, run or save state, cost or resource use, history, cancel or stop, and recovery."
+      ],
+      "pack_id": "theme-utilitarian",
+      "reference": "theme-utilitarian.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
       "pack_id": "design-message-structures",
       "version": "1.0.0",
       "axis": "message-structure",
@@ -806,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1018,6 +1063,21 @@
         "Place warnings, qualifications, and material terms beside the decision they govern; use linked detail as supporting evidence rather than a substitute for decision-critical disclosure."
       ],
       "evidence_sufficiency": {"sample_count": 20, "product_count": 20, "industry_count": 16}
+    },
+    {
+      "applicability": ["application appearance settings", "light and dark modes", "brand and accent themes", "presentation and website builders", "component variants", "layout and density systems", "data visualization and formatting"],
+      "axis": "lens",
+      "categories": ["design-tokens"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Define visual choices by semantic role—surface, text, action, status, focus, border, chart series, heading, body, spacing, and density—then map modes and brands onto those roles instead of exposing unrelated raw values.",
+        "Evolve visual systems through explicit save state, legacy mapping, migration notices, and bounded overrides so existing artifacts and behaviors do not silently change."
+      ],
+      "pack_id": "lens-design-tokens",
+      "reference": "lens-design-tokens.md",
+      "role": "category",
+      "version": "1.0.0"
     }
   ]
 }
