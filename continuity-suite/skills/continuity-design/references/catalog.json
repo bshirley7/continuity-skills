@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.47.0",
+  "catalog_version": "1.48.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1226,6 +1226,21 @@
       ],
       "pack_id": "message-structure-problem-solution",
       "reference": "message-structure-problem-solution.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["editorial and long-form content", "marketing websites", "B2B product communication", "dense application interfaces", "tables and numeric data", "settings and forms", "responsive layouts", "localized and accessible reading"],
+      "axis": "lens",
+      "categories": ["typography"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Define typography by semantic role—display, heading, body, label, action, metadata, caption, code, numeric data, status, and assistance—then map family, size, weight, line height, spacing, and contrast consistently to each role.",
+        "Design for localization and accessibility by testing longer strings, varied scripts, diacritics, numeric and date formats, bidirectional text, user font scaling, contrast, and non-color emphasis without assuming one language or font metric."
+      ],
+      "pack_id": "lens-typography",
+      "reference": "lens-typography.md",
       "role": "category",
       "version": "1.0.0"
     }
