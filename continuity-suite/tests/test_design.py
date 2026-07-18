@@ -364,6 +364,13 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("message-structure-problem-solution", packs)
         self.assertEqual(packs[packs.index("message-structure-problem-solution") - 1], "design-message-structures")
 
+    def test_reviewed_guided_narrative_overlay_is_bound(self):
+        value = input_value(message_structures=["guided-narrative"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("message-structure-guided-narrative", packs)
+        self.assertEqual(packs[packs.index("message-structure-guided-narrative") - 1], "design-message-structures")
+
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

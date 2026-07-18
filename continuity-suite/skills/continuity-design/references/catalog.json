@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.48.0",
+  "catalog_version": "1.49.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1241,6 +1241,21 @@
       ],
       "pack_id": "lens-typography",
       "reference": "lens-typography.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["long-form product pages", "scroll-driven storytelling", "enterprise transformation", "workflow explanation", "consumer finance and health", "technical platforms", "mission-driven narratives", "sales and education sequences"],
+      "axis": "message-structure",
+      "categories": ["guided-narrative"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Make every stage independently useful with a descriptive heading, concise claim, mechanism or example, and optional deeper path so scanning and skipping do not destroy comprehension.",
+        "Place consequential terms, safeguards, uncertainty, eligibility, fees, and limits before the action they govern, even when doing so interrupts the emotional arc."
+      ],
+      "pack_id": "message-structure-guided-narrative",
+      "reference": "message-structure-guided-narrative.md",
       "role": "category",
       "version": "1.0.0"
     }
