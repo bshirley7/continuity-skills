@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.50.0",
+  "catalog_version": "1.51.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1256,6 +1256,21 @@
       ],
       "pack_id": "message-structure-guided-narrative",
       "reference": "message-structure-guided-narrative.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["pricing and plan selection", "product and service alternatives", "capability matrices", "usage-based offers", "technical procurement", "consumer subscriptions", "professional services", "high-consequence decisions"],
+      "axis": "message-structure",
+      "categories": ["comparison"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Begin with the decision context—who is choosing, the job or outcome, the options in scope, and the few criteria that materially change fit—before presenting a detailed comparison.",
+        "Explain recommendations and defaults through explicit audience, assumptions, evidence, and tradeoffs; preserve a neutral path to inspect and select every viable option."
+      ],
+      "pack_id": "message-structure-comparison",
+      "reference": "message-structure-comparison.md",
       "role": "category",
       "version": "1.0.0"
     }
