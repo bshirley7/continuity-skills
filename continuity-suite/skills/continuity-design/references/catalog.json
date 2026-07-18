@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.29.0",
+  "catalog_version": "1.33.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -668,6 +668,94 @@
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Create calm through controlled attention by establishing one dominant status, decision, or starting action before styling secondary content."],
       "evidence_sufficiency": {"sample_count": 12, "product_count": 11, "industry_count": 3}
+    },
+    {
+      "applicability": [
+        "application dashboards",
+        "onboarding and setup",
+        "forms and validation",
+        "document and creative editors",
+        "mobile utility homes",
+        "empty and low-data states"
+      ],
+      "axis": "theme",
+      "categories": ["minimal"],
+      "evidence_sufficiency": {"industry_count": 11, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Reduce visual competition by establishing one dominant task or state, a small number of stable regions, restrained accents, and generous separation while keeping operational meaning explicit.",
+        "Treat state as essential content: preserve progress, selection, validation, save or publish status, success feedback, urgency, and recovery even when the surrounding interface is sparse."
+      ],
+      "pack_id": "theme-minimal",
+      "reference": "theme-minimal.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "application homes",
+        "onboarding and guided setup",
+        "empty states",
+        "creative and visual editors",
+        "social and discovery feeds",
+        "consumer creation"
+      ],
+      "axis": "theme",
+      "categories": ["expressive"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Assign expressive elements a job—explain a mental model, motivate progress, identify a content category, or create a focal action—and remove ornament that competes with task comprehension.",
+        "Use consistent image treatment, typography, tags, and navigation to turn varied expressive content into a coherent system."
+      ],
+      "pack_id": "theme-expressive",
+      "reference": "theme-expressive.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "operational dashboards",
+        "work queues and tables",
+        "analytics builders",
+        "logs and traces",
+        "incident views",
+        "financial planning and forecasting"
+      ],
+      "axis": "theme",
+      "categories": ["data-dense"],
+      "evidence_sufficiency": {"industry_count": 10, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Layer dense work from current health or outcome to trends, exceptions, contributing dimensions, and raw evidence so users can scan first and drill down without losing context.",
+        "Separate inputs, assumptions, calculations, outputs, and comparisons visually and semantically; never rely on position or color alone to communicate data role."
+      ],
+      "pack_id": "theme-data-dense",
+      "reference": "theme-data-dense.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "developer onboarding",
+        "API and credential setup",
+        "observability and incidents",
+        "environment configuration",
+        "versioning and deployments",
+        "AI prompts, agents, and evaluations"
+      ],
+      "axis": "theme",
+      "categories": ["technical"],
+      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Make technical scope persistent by naming project, environment, service, resource, region, version, time range, live state, permission, and secret boundary wherever actions or evidence depend on them.",
+        "Use technical density to expose causality and control, not to signal expertise: labels, units, status, exact scope, copyable commands, and safe defaults must remain understandable to a new operator."
+      ],
+      "pack_id": "theme-technical",
+      "reference": "theme-technical.md",
+      "role": "category",
+      "version": "1.0.0"
     },
     {
       "pack_id": "design-message-structures",

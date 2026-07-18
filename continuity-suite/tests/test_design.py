@@ -273,6 +273,20 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("theme-premium", packs)
         self.assertEqual(packs[packs.index("theme-premium") - 1], "design-themes")
 
+    def test_reviewed_application_theme_overlays_are_bound(self):
+        for theme in ("minimal", "expressive", "data-dense", "technical"):
+            with self.subTest(theme=theme):
+                draft = design.draft(
+                    self.root,
+                    self.config,
+                    CATALOG,
+                    self.write_input(input_value(design_id=theme, themes=[theme])),
+                )
+                packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+                overlay = f"theme-{theme}"
+                self.assertIn(overlay, packs)
+                self.assertEqual(packs[packs.index(overlay) - 1], "design-themes")
+
     def test_reviewed_proof_first_overlay_is_bound(self):
         value = input_value(message_structures=["proof-first"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
