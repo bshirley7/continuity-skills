@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.63.0",
+  "catalog_version": "1.64.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration", "security-operations"],
+      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration", "security-operations", "developer-tooling"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -1451,6 +1451,21 @@
       ],
       "pack_id": "industry-security-operations",
       "reference": "industry-security-operations.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["repositories and code review", "projects and environments", "configuration and secrets", "builds, jobs, and workflows", "deployments and rollouts", "logs, metrics, traces, and errors", "runtime inspection", "rollback and incident recovery"],
+      "axis": "industry",
+      "categories": ["developer-tooling"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Keep source and runtime lineage continuous: repository, branch or tag, immutable revision, author and review state, configuration fingerprint, build or artifact identity, target environment, deployment, active version, and rollback ancestor.",
+        "Preview consequential developer actions with exact source and target, environment, configuration diff, affected services and dependencies, credentials or data touched, expected downtime or behavior, authorization, verification, partial failure, rollback, and audit record."
+      ],
+      "pack_id": "industry-developer-tooling",
+      "reference": "industry-developer-tooling.md",
       "role": "category",
       "version": "1.0.0"
     }

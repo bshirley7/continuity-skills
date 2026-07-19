@@ -14,5 +14,6 @@
 - **Media production:** coordinate asset identity, time, layers, versions, review, rendering, rights, and reversible edits through publication.
 - **Enterprise administration:** make active scope, effective authority, inherited policy, entitlements, high-impact change, partial failure, and immutable audit evidence explicit.
 - **Security operations:** separate severity, confidence, priority, evidence, scope, ownership, containment, recovery, and verified resolution.
+- **Developer tooling:** preserve source-to-runtime lineage, environment scope, run causality, diagnostic context, readiness, safe retry, and rollback.
 
 These are decision lenses, not visual stereotypes. Apply only what the product context supports.
