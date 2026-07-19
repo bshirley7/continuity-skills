@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.61.0",
+  "catalog_version": "1.62.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production"],
+      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -1421,6 +1421,21 @@
       ],
       "pack_id": "lens-design-evaluation",
       "reference": "lens-design-evaluation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["organization and workspace hierarchy", "member, group, and role management", "identity and access policy", "security and compliance settings", "billing and feature entitlements", "integrations and automation", "bulk administration", "audit, export, and recovery"],
+      "axis": "industry",
+      "categories": ["enterprise-administration"],
+      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Keep the active organization, workspace, environment, legal entity, resource, and affected population persistently visible; distinguish navigation context from the scope where a change will apply.",
+        "Preview high-impact and bulk changes as a concrete diff: selected targets, included and excluded objects, before and after state, dependencies, downstream effects, notification behavior, reversibility, retained data, and recovery procedure."
+      ],
+      "pack_id": "industry-enterprise-administration",
+      "reference": "industry-enterprise-administration.md",
       "role": "category",
       "version": "1.0.0"
     }

@@ -156,7 +156,7 @@ class DesignLifecycleTests(unittest.TestCase):
         )
 
     def test_reviewed_industry_depth_overlays_are_bound(self):
-        for industry in ["health", "commerce", "media-social", "travel", "education", "developer-ai", "geospatial-operations", "media-production"]:
+        for industry in ["health", "commerce", "media-social", "travel", "education", "developer-ai", "geospatial-operations", "media-production", "enterprise-administration"]:
             with self.subTest(industry=industry):
                 draft = design.draft(
                     self.root,
