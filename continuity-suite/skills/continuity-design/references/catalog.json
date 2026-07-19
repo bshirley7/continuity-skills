@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.62.0",
+  "catalog_version": "1.63.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration"],
+      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration", "security-operations"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -1436,6 +1436,21 @@
       ],
       "pack_id": "industry-enterprise-administration",
       "reference": "industry-enterprise-administration.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["alert and incident queues", "identity and access investigations", "asset and dependency scope", "evidence timelines", "containment and recovery", "incident coordination", "security audit history", "post-incident verification"],
+      "axis": "industry",
+      "categories": ["security-operations"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Separate source severity, operational priority, confidence, exposure, business consequence, lifecycle state, and response urgency; show the evidence and rubric behind each rather than relying on color or one composite risk score.",
+        "Maintain an immutable, queryable operational record connecting actor and authority, evidence, hypothesis, decision, action, target, before and after state, time, source, outcome, communication, recovery, and later correction; bind resolution to verification rather than status alone."
+      ],
+      "pack_id": "industry-security-operations",
+      "reference": "industry-security-operations.md",
       "role": "category",
       "version": "1.0.0"
     }
