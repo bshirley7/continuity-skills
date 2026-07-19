@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.60.0",
+  "catalog_version": "1.61.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1406,6 +1406,21 @@
       ],
       "pack_id": "lens-localization-content",
       "reference": "lens-localization-content.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["design critiques and approvals", "usability and concept testing", "accessibility reviews", "heuristic evaluation", "comparative design decisions", "quality audits and issue triage", "release readiness", "iteration and regression review"],
+      "axis": "lens",
+      "categories": ["design-evaluation"],
+      "evidence_sufficiency": {"industry_count": 6, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Define the evaluation contract before reviewing: artifact and revision, audience, task scenario, environment, constraints, success conditions, heuristic or requirement set, evidence sources, exclusions, and decision owner.",
+        "Close the loop by recording disposition, owner, target revision, implemented change, retest method, verification evidence, residual risk, regressions checked, and final decision; approval binds only the exact reviewed revision."
+      ],
+      "pack_id": "lens-design-evaluation",
+      "reference": "lens-design-evaluation.md",
       "role": "category",
       "version": "1.0.0"
     }
