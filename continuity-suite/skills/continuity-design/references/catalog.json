@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.64.0",
+  "catalog_version": "1.65.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration", "security-operations", "developer-tooling"],
+      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration", "security-operations", "developer-tooling", "agentic-ai"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -1466,6 +1466,21 @@
       ],
       "pack_id": "industry-developer-tooling",
       "reference": "industry-developer-tooling.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["assistant and agent task initiation", "planning and multi-step execution", "tool and data authorization", "external mutations and communication", "generated research and recommendations", "content and code changes", "human review and intervention", "history, rollback, and verification"],
+      "axis": "industry",
+      "categories": ["agentic-ai"],
+      "evidence_sufficiency": {"industry_count": 6, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Translate the user's request into an inspectable execution contract: intended outcome, target objects and people, scope, constraints, assumptions, inputs, allowed tools and actions, expected artifacts, approval points, stop conditions, and verifiable completion criteria.",
+        "Declare completion only from verified external state: identify attempted and successful actions, changed and unchanged targets, partial failures, pending work, notifications, artifacts, evidence, cost, residual risk, and rollback or correction path; retain an immutable task and tool history."
+      ],
+      "pack_id": "industry-agentic-ai",
+      "reference": "industry-agentic-ai.md",
       "role": "category",
       "version": "1.0.0"
     }
