@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.66.0",
+  "catalog_version": "1.67.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -1497,6 +1497,21 @@
       ],
       "pack_id": "lens-behavioral-psychology",
       "reference": "lens-behavioral-psychology.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["plan comparison and upgrade", "billing commitments", "subscription cancellation", "account closure", "data deletion", "irreversible administrative actions"],
+      "axis": "section-flow",
+      "categories": ["high-consequence-decisions"],
+      "evidence_sufficiency": {"industry_count": 10, "product_count": 14, "sample_count": 15},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Place current state, target state, billing or timing consequence, affected scope, and the exact commitment in one reviewable decision frame.",
+        "Scale confirmation friction to consequence: ordinary plan selection needs clear review, while irreversible deletion may require identity verification or a target-specific phrase without obscuring a visible cancel path."
+      ],
+      "pack_id": "section-flow-high-consequence-decisions",
+      "reference": "section-flow-high-consequence-decisions.md",
       "role": "category",
       "version": "1.0.0"
     }
