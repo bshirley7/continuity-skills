@@ -98,14 +98,26 @@ def load_catalog(catalog_path: Path) -> dict[str, Any]:
             if len(pack["categories"]) != 1:
                 raise DesignError("Category design packs must cover exactly one bounded category")
             evidence = pack.get("evidence_sufficiency")
-            if (
-                not isinstance(evidence, dict)
-                or set(evidence) != {"sample_count", "product_count", "industry_count"}
-                or not all(isinstance(value, int) for value in evidence.values())
-                or evidence["sample_count"] < 12
-                or evidence["product_count"] < 6
-                or evidence["industry_count"] < 1
-            ):
+            evidence_kind = pack.get("evidence_kind", "ui-observation")
+            ui_evidence = (
+                evidence_kind == "ui-observation"
+                and isinstance(evidence, dict)
+                and set(evidence) == {"sample_count", "product_count", "industry_count"}
+                and all(isinstance(value, int) for value in evidence.values())
+                and evidence["sample_count"] >= 12
+                and evidence["product_count"] >= 6
+                and evidence["industry_count"] >= 1
+            )
+            literature_evidence = (
+                evidence_kind == "literature"
+                and isinstance(evidence, dict)
+                and set(evidence) == {"sample_count", "publisher_count", "evidence_family_count"}
+                and all(isinstance(value, int) for value in evidence.values())
+                and evidence["sample_count"] >= 12
+                and evidence["publisher_count"] >= 3
+                and evidence["evidence_family_count"] >= 3
+            )
+            if not (ui_evidence or literature_evidence):
                 raise DesignError("Category design packs require sufficient aggregate evidence")
             category_packs.append(pack)
         seen_pack_ids.add(pack_id)

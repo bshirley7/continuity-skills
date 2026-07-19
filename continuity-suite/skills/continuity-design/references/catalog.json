@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.65.0",
+  "catalog_version": "1.66.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1481,6 +1481,22 @@
       ],
       "pack_id": "industry-agentic-ai",
       "reference": "industry-agentic-ai.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["choice and decision architecture", "information hierarchy and comprehension", "onboarding and progressive learning", "forms, settings, and high-consequence actions", "notifications, reminders, and re-engagement", "pricing, comparison, and conversion", "error prevention and recovery", "behavioral design evaluation"],
+      "axis": "lens",
+      "categories": ["behavioral-psychology"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 4, "evidence_family_count": 5},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Treat every behavioral principle as a context-bound hypothesis, not a universal law: name the user, task, environment, cognitive constraint, predicted effect, possible counter-effect, affected groups, and evidence needed to accept or reject it.",
+        "Preserve autonomy with a visible neutral alternative, informed consequence, proportional friction, granular consent, correction, exit, undo, and recovery; make the easiest path compatible with the user's interests rather than only the organization's preferred outcome."
+      ],
+      "pack_id": "lens-behavioral-psychology",
+      "reference": "lens-behavioral-psychology.md",
       "role": "category",
       "version": "1.0.0"
     }

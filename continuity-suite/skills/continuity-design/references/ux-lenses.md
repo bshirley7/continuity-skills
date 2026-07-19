@@ -23,3 +23,4 @@
 - **Accessibility language:** Are preferences, alternative input, interruptions, recovery, and accommodations described by behavior and consequence without stigma, blame, or required disclosure?
 - **Localization and content resilience:** Do language, region, formats, international identity, translation coverage, bidirectional flow, and culturally dependent meaning remain explicit and robust?
 - **Design evaluation:** Is review tied to an exact artifact, task, criterion, evidence type, severity rationale, controlled comparison, verification method, and revision-bound decision?
+- **Behavioral psychology:** Is the selected principle a falsifiable, context-bound hypothesis that preserves accurate understanding, autonomy, accessibility, refusal, correction, exit, recovery, and delayed-outcome evaluation?
