@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.85.0",
+  "catalog_version": "1.93.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management", "experimentation-staged-rollout"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management", "experimentation-staged-rollout", "accessible-media-multimodal-content", "offline-sync-conflict-recovery", "speech-input-voice-interaction", "camera-scan-visual-capture"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance", "contextual-integrity-meaningful-data-agency", "experimental-validity-exposure-ethics"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance", "contextual-integrity-meaningful-data-agency", "experimental-validity-exposure-ethics", "multimodal-equivalence-sensory-agency", "data-continuity-convergence-confidence", "speech-agency-recognition-repair", "capture-integrity-evidentiary-review"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -2298,6 +2298,282 @@
       ],
       "pack_id": "lens-experimental-validity-exposure-ethics",
       "reference": "lens-experimental-validity-exposure-ethics.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "video, audio and streaming",
+        "meetings, webinars and live events",
+        "education and training",
+        "fitness and guided activity",
+        "podcasts and publishing",
+        "recording and editing tools",
+        "social and user-generated media",
+        "high-stakes instructions and public information"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "accessible-media-multimodal-content"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make every available alternative discoverable before commitment and controllable during use: identify captions, subtitle and spoken languages, narrated visual alternatives, complete multimodal transcripts, sign interpretation, chapters and text equivalents; distinguish human-reviewed, generated, translated, live, delayed, partial and unavailable states; disclose material limits without making people start playback or reveal a disability to learn what is offered.",
+        "Provide an equivalent route to the essential outcome, not merely an attached text dump: carry instructions, decisions, actions, alerts, assessments, links and important visual or auditory context into the appropriate alternative; keep interactive options operable; and test whether a person can understand and complete the task through the chosen combination of modalities."
+      ],
+      "pack_id": "section-flow-accessible-media-multimodal-content",
+      "reference": "section-flow-accessible-media-multimodal-content.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "audio, video and animation",
+        "live meetings, classes and events",
+        "education, assessment and public information",
+        "entertainment, news and social media",
+        "recording, editing and publishing",
+        "multilingual and translated content",
+        "shared devices and constrained environments",
+        "high-stakes instructions and decisions"
+      ],
+      "axis": "lens",
+      "categories": [
+        "multimodal-equivalence-sensory-agency"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define equivalence by access to essential information, context, interaction and outcome rather than identical presentation: identify what speech, meaningful sound, action, expression, visual change, on-screen text, timing and interactivity contribute; provide captions, description, descriptive transcripts, sign language or structural alternatives as the audience requires; and preserve language, sequence, semantics and actionable controls.",
+        "Protect privacy and dignity around access preferences and captured communication: do not require a person to reveal diagnosis to obtain alternatives; distinguish personal preferences from shared-device defaults; give notice and meaningful control over live transcription, recording, retention, access, correction and deletion; avoid treating one modality as the normal experience and alternatives as burdensome exceptions."
+      ],
+      "pack_id": "lens-multimodal-equivalence-sensory-agency",
+      "reference": "lens-multimodal-equivalence-sensory-agency.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "collaborative documents and creative tools",
+        "field, travel and mobile workflows",
+        "media and learning downloads",
+        "forms, signatures and inspections",
+        "health, emergency and public services",
+        "commerce, payments and irreversible submissions",
+        "messaging, uploads and background jobs",
+        "multi-device personal data"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "offline-sync-conflict-recovery"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define and expose distinct durability states around the exact object or action: unsaved in memory, saved locally, prepared for offline use, queued for transmission, sending, accepted remotely, synchronized across relevant devices, completed by the business process, failed, conflicted or cancelled; use plain language, timestamps and affected scope so a positive local-save signal is never mistaken for remote acceptance or final completion.",
+        "Resolve divergence without silent overwrite: identify the exact fields, blocks, files or actions in conflict; preserve both versions and authorship; compare meaningful differences in context; auto-merge only demonstrably compatible changes; let authorized people keep, combine, duplicate or defer; preview consequences; and retain reversible history with a clear resulting canonical version."
+      ],
+      "pack_id": "section-flow-offline-sync-conflict-recovery",
+      "reference": "section-flow-offline-sync-conflict-recovery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "offline and intermittently connected applications",
+        "collaborative and multi-device work",
+        "background uploads, downloads and jobs",
+        "forms, signatures and field collection",
+        "payments, orders and irreversible actions",
+        "public, health and emergency services",
+        "cached dashboards and operational systems",
+        "data ownership, export and long-term access"
+      ],
+      "axis": "lens",
+      "categories": [
+        "data-continuity-convergence-confidence"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Model continuity as an explicit state machine rather than a connectivity icon: distinguish local persistence, queued intent, attempted transmission, remote receipt, durable acceptance, downstream processing, convergence and final outcome; bind each state to the exact object, revision and action; expose timestamps, provenance and uncertainty; and never use success language for a stage whose later guarantees have not been met.",
+        "Preserve user intent before optimizing convergence: make local work durable and inspectable, retain stable action identity and ordering, preserve drafts and both sides of divergence, support export and recovery independent of service availability, and avoid resolution strategies that silently discard semantically distinct work merely because one timestamp or server is newer."
+      ],
+      "pack_id": "lens-data-continuity-convergence-confidence",
+      "reference": "lens-data-continuity-convergence-confidence.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "search, navigation and filtering",
+        "dictation and content creation",
+        "messaging and voice notes",
+        "assistants and conversational agents",
+        "health, finance and high-consequence services",
+        "language learning and pronunciation",
+        "hands-busy and eyes-busy contexts",
+        "ambient, shared-device and public environments"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "speech-input-voice-interaction"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Turn recognition into inspectable and editable intent before commitment: show partial and final text where a display exists, preserve language and relevant context, mark uncertain spans without overstating confidence, allow touch, keyboard or speech correction at the word, parameter or whole-request level, retain the original draft until replacement is confirmed, and never make a transcript the sole record when the original audio carries essential meaning.",
+        "Scale confirmation to consequence and reversibility: use lightweight grounding for ordinary search, explicit review for names, addresses, medication, recipients and shared messages, and exact confirmation before payment, consent, deletion, publication or physical control; state what was understood and what will happen; distinguish a recognized utterance from authorized action and a requested action from completed outcome."
+      ],
+      "pack_id": "section-flow-speech-input-voice-interaction",
+      "reference": "section-flow-speech-input-voice-interaction.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "voice search and dictation",
+        "assistants, agents and chatbots",
+        "messaging and user-generated audio",
+        "health, finance and public services",
+        "smart home, vehicle and physical control",
+        "language learning and assessment",
+        "shared devices, kiosks and ambient systems",
+        "children, atypical speech and multilingual use"
+      ],
+      "axis": "lens",
+      "categories": [
+        "speech-agency-recognition-repair"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve the distinction between signal, words, meaning, intent, authorization and outcome: expose what the system captured and inferred at the useful grain; represent uncertainty without claiming that a score proves correctness; ground ordinary parameters lightly; explicitly confirm consequential parameters and actions; and never let recognition alone authorize irreversible, financial, legal, health, safety or physical-world effects.",
+        "Design repair as a first-class cooperative path: expect hesitation, self-correction, code-switching, noise, interruption, no input, no match and system failure; preserve valid context; support one-step spoken or nonspoken correction, repeat, undo and review; explain the specific recoverable problem without blaming speech; bound reprompts; and offer an equivalent route or graceful exit before frustration becomes exclusion."
+      ],
+      "pack_id": "lens-speech-agency-recognition-repair",
+      "reference": "lens-speech-agency-recognition-repair.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "documents, forms and receipts",
+        "identity and eligibility evidence",
+        "checks, invoices and financial instruments",
+        "health and insurance cards",
+        "barcodes, QR codes and visual search",
+        "field inspection and incident evidence",
+        "education and accessibility capture",
+        "legal, compliance and case records"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "camera-scan-visual-capture"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Separate capture, recognition, extraction, authenticity, ownership, eligibility and final outcome: show recognized code, document type, fields or amount before using them; bind extracted values to their source region; flag uncertainty and mismatch; require exact review for names, identifiers, dates, medication, account and monetary values; and never imply that a clear image, OCR result, liveness result or successful upload independently proves a later claim.",
+        "Scale commitment and recovery to consequence: preview the exact pages, fields, recipient, account and action before legal, financial, health, identity or public submission; keep recapture and precise edit routes; distinguish saved draft, uploaded, received, under review, accepted and rejected; preserve a receipt and source-bound correction path; and offer trained human or offline review when automated capture repeatedly fails."
+      ],
+      "pack_id": "section-flow-camera-scan-visual-capture",
+      "reference": "section-flow-camera-scan-visual-capture.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "document and receipt scanning",
+        "identity and biometric proofing",
+        "financial instruments and payments",
+        "health, insurance and legal evidence",
+        "barcodes, QR codes and visual lookup",
+        "field inspection and incident reporting",
+        "OCR-assisted forms and accessibility",
+        "user-generated image and file uploads"
+      ],
+      "axis": "lens",
+      "categories": [
+        "capture-integrity-evidentiary-review"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 8,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Treat acquisition, transformation, recognition and decision as separate accountable stages: preserve source identity and capture conditions; record crop, enhancement, compression, redaction and extraction; bind every recognized value to its source region and version; distinguish image quality, OCR confidence, document authenticity, person-to-evidence binding, eligibility and final action; and expose the evidence needed to review each claim.",
+        "Require consequence-sensitive review and completion evidence: before financial, legal, health, identity, safety or public action, present exact source pages, extracted values, destination, recipient and commitment; distinguish captured, saved, uploaded, received, validated, under review, accepted and rejected; preserve receipts and correction routes; and ensure a successful technical transfer never masquerades as substantive approval."
+      ],
+      "pack_id": "lens-capture-integrity-evidentiary-review",
+      "reference": "lens-capture-integrity-evidentiary-review.md",
       "role": "category",
       "version": "1.0.0"
     }
