@@ -262,6 +262,16 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("section-flow-retention", packs)
         self.assertEqual(packs[packs.index("section-flow-retention") - 1], "design-sections-flows")
 
+    def test_reviewed_authentication_recovery_overlay_is_bound(self):
+        value = input_value(sections=["authentication-recovery"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-authentication-recovery", packs)
+        self.assertEqual(
+            packs[packs.index("section-flow-authentication-recovery") - 1],
+            "design-sections-flows",
+        )
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.72.0",
+  "catalog_version": "1.73.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -1635,6 +1635,21 @@
       ],
       "pack_id": "section-flow-retention",
       "reference": "section-flow-retention.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["sign-in and identity-provider choice", "passwordless and passkey setup", "multi-factor enrollment", "forgotten credential recovery", "recovery method fallback", "trusted device and session review", "recovery codes", "post-recovery confirmation"],
+      "axis": "section-flow",
+      "categories": ["authentication-recovery"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 11, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Separate account identity, sign-in method, verification factor, recovery channel, trusted device, active session, and connected provider as distinct states; show which are configured, verified, current, weaker, unavailable, or incomplete.",
+        "Design recovery as a visible assurance sequence: identify the account without oversharing, show the masked verification destination, allow alternate or support routes, disclose material side effects, confirm credential change, and state what the person should do next."
+      ],
+      "pack_id": "section-flow-authentication-recovery",
+      "reference": "section-flow-authentication-recovery.md",
       "role": "category",
       "version": "1.0.0"
     }
