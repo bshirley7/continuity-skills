@@ -231,6 +231,20 @@ class DesignLifecycleTests(unittest.TestCase):
             "design-sections-flows",
         )
 
+    def test_reviewed_contextual_learning_overlay_is_bound(self):
+        value = input_value(sections=["contextual-learning"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-contextual-learning", packs)
+        self.assertEqual(packs[packs.index("section-flow-contextual-learning") - 1], "design-sections-flows")
+
+    def test_reviewed_contextual_help_recovery_overlay_is_bound(self):
+        value = input_value(sections=["contextual-help-recovery"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-contextual-help-recovery", packs)
+        self.assertEqual(packs[packs.index("section-flow-contextual-help-recovery") - 1], "design-sections-flows")
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
@@ -483,6 +497,13 @@ class DesignLifecycleTests(unittest.TestCase):
         packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
         self.assertIn("lens-decision-architecture", packs)
         self.assertEqual(packs[packs.index("lens-decision-architecture") - 1], "design-ux-lenses")
+
+    def test_reviewed_cognitive_load_learning_overlay_is_bound(self):
+        value = input_value(lenses=["cognitive-load-learning"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("lens-cognitive-load-learning", packs)
+        self.assertEqual(packs[packs.index("lens-cognitive-load-learning") - 1], "design-ux-lenses")
 
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:

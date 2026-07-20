@@ -25,3 +25,4 @@
 - **Design evaluation:** Is review tied to an exact artifact, task, criterion, evidence type, severity rationale, controlled comparison, verification method, and revision-bound decision?
 - **Behavioral psychology:** Is the selected principle a falsifiable, context-bound hypothesis that preserves accurate understanding, autonomy, accessibility, refusal, correction, exit, recovery, and delayed-outcome evaluation?
 - **Decision architecture:** Are material facts visible before commitment, alternatives comparably understandable, and review, refusal, correction, withdrawal, and recovery available without manufactured friction?
+- **Cognitive load and progressive learning:** Is avoidable burden removed without hiding material information, memory externalized, guidance tied to real outcomes, and later independent use evaluated?

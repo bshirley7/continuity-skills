@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.68.0",
+  "catalog_version": "1.69.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1543,6 +1543,52 @@
       ],
       "pack_id": "section-flow-reminders-reengagement",
       "reference": "section-flow-reminders-reengagement.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["first-run setup", "administrative configuration", "feature discovery", "guided checklists", "product tours", "release education", "learning centers", "first-success workflows"],
+      "axis": "section-flow",
+      "categories": ["contextual-learning"],
+      "evidence_sufficiency": {"industry_count": 10, "product_count": 14, "sample_count": 16},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Organize learning around meaningful product outcomes and real objects, not a tour of interface regions; distinguish required setup, recommended improvement, optional education, and work pending on another actor.",
+        "Teach a capability at the moment it becomes relevant using one bounded concept, a representative example or demonstration, its constraints or access state, and choices to try, learn more, defer, dismiss, or finish."
+      ],
+      "pack_id": "section-flow-contextual-learning",
+      "reference": "section-flow-contextual-learning.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["first-run and setup", "complex forms", "feature education", "guided workflows", "contextual help", "expertise development", "error recovery", "return and resumption"],
+      "axis": "lens",
+      "categories": ["cognitive-load-learning"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {"sample_count": 14, "publisher_count": 6, "evidence_family_count": 11},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Reduce extraneous load before simplifying the task itself: remove unrelated content, group information by the decision or action it supports, use familiar structure and language, and keep necessary instructions adjacent to the step where they apply.",
+        "Externalize memory through visible current state, prior choices, completed and remaining steps, examples, defaults, saved work, and review surfaces; never require recall when the interface can provide recognition or continuity."
+      ],
+      "pack_id": "lens-cognitive-load-learning",
+      "reference": "lens-cognitive-load-learning.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["inline validation and failure", "transaction and payment recovery", "integration troubleshooting", "operational diagnosis", "in-product help centers", "support escalation", "feedback and diagnostics"],
+      "axis": "section-flow",
+      "categories": ["contextual-help-recovery"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 15, "sample_count": 16},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Keep the affected object, user input, workflow position, prior successful state, and surrounding task visible or restorable while explaining what failed and what remains safe, pending, changed, or unknown.",
+        "Route help from the current object and task into relevant guidance first, then searchable documentation, examples, peer support, feedback, and human support without replacing the workspace or losing the return path."
+      ],
+      "pack_id": "section-flow-contextual-help-recovery",
+      "reference": "section-flow-contextual-help-recovery.md",
       "role": "category",
       "version": "1.0.0"
     }
