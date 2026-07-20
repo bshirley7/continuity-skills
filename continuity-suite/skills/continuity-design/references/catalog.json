@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.122.0",
+  "catalog_version": "1.128.0",
   "packs": [
     {
       "applicability": [
@@ -448,7 +448,10 @@
         "essential-utility-service-lifecycle",
         "organizational-procurement-supplier-purchase-order-invoice-lifecycle",
         "contract-authoring-negotiation-approval-signature-obligation-renewal-termination-lifecycle",
-        "project-planning-task-execution-dependency-delivery-learning-lifecycle"
+        "project-planning-task-execution-dependency-delivery-learning-lifecycle",
+        "inventory-asset-acquisition-catalog-custody-use-maintenance-transfer-retirement-lifecycle",
+        "business-expense-capture-substantiation-approval-reimbursement-lifecycle",
+        "customer-lead-qualification-opportunity-proposal-close-handoff-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1397,7 +1400,10 @@
         "essential-service-access-billing-affordability-continuity-remedy",
         "procurement-integrity-spend-authority-supplier-access-value-accountability",
         "agreement-comprehension-consent-authority-version-integrity-obligation-remedy",
-        "outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning"
+        "outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning",
+        "asset-identity-custody-availability-maintenance-safety-circularity-accountability",
+        "expense-policy-legibility-evidence-proportionality-worker-agency-reimbursement-accountability",
+        "customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff"
       ],
       "modalities": {
         "document": "inferred",
@@ -5430,6 +5436,213 @@
       ],
       "pack_id": "lens-outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning",
       "reference": "lens-outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "retail, warehouse and consumable inventory",
+        "company equipment and serialized assets",
+        "tools, vehicles, devices and safety-critical equipment",
+        "catalog, receipt, inspection and putaway",
+        "assignment, loan, custody, transfer and return",
+        "counts, adjustments, reservations and availability",
+        "maintenance, inspection, repair, recall and quarantine",
+        "reuse, write-off, sanitization, recycling and disposal"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "inventory-asset-acquisition-catalog-custody-use-maintenance-transfer-retirement-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 9,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one lifecycle identity while distinguishing item definition from physical instance: identify organization and owner, item type, model and variant, exact asset or lot, manufacturer and supplier, SKU and barcode, serial or tag, acquisition source and date, location, custodian, condition, serviceability, financial class, current state and revision; bind receipt, count, assignment, maintenance, incident, transfer and end-of-life evidence to it; and never let a product name, SKU, employee, bin or accounting line become the asset by itself.",
+        "Treat retirement as a decision tree rather than an archive action: distinguish excess declaration, transfer, repair, redeployment, donation, resale, parts recovery, write-off, data sanitization, recycling, hazardous handling and destruction; preserve title, authority, condition, residual value, recipient or processor, chain of custody and completion evidence; and never let depreciation, end-of-life date or archive reason prove safe and lawful disposition."
+      ],
+      "pack_id": "section-flow-inventory-asset-acquisition-catalog-custody-use-maintenance-transfer-retirement-lifecycle",
+      "reference": "section-flow-inventory-asset-acquisition-catalog-custody-use-maintenance-transfer-retirement-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "inventory, warehouse and stock applications",
+        "workplace equipment and serialized asset systems",
+        "devices, tools, machinery, vehicles and safety equipment",
+        "receipt, counting, allocation, reservation and transfer",
+        "assignment, custody, return and loss management",
+        "inspection, maintenance, repair and return to service",
+        "recall, quarantine, incident and remedy",
+        "reuse, sanitization, recycling and disposal"
+      ],
+      "axis": "lens",
+      "categories": [
+        "asset-identity-custody-availability-maintenance-safety-circularity-accountability"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 11,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate asset identity as a versioned evidence graph: can people distinguish definition, model and variant from lot, batch and serialized instance; identify owner, title, manufacturer, supplier, location, custodian, condition, serviceability, risk class, financial class and current state; trace each lifecycle event and correction; and prevent a SKU, label, person, room, ledger line or imported row from becoming identity by convenience?",
+        "Evaluate end-of-life as authorized circular disposition: determine continued need, repairability, redeployment, transfer, donation, resale, parts recovery, sanitization, recycling, hazardous treatment and destruction; preserve title, condition, residual and social value, data sensitivity, recipient or processor, chain of custody and verified result; and never let depreciation, age, write-off or archive prove that reuse was considered or disposal completed safely."
+      ],
+      "pack_id": "lens-asset-identity-custody-availability-maintenance-safety-circularity-accountability",
+      "reference": "lens-asset-identity-custody-availability-maintenance-safety-circularity-accountability.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "company-card and employee-paid expenses",
+        "mileage, per diem and travel allowances",
+        "receipt capture and transaction matching",
+        "business purpose, attendees and substantiation",
+        "category, tax, project and cost allocation",
+        "policy checks, exceptions and approval routing",
+        "correction, rejection, resubmission and appeal",
+        "reimbursement, payroll, payment and accounting handoff"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "business-expense-capture-substantiation-approval-reimbursement-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 11,
+        "product_count": 9,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one versioned expense identity while separating the source transaction from the claim: identify payer and beneficiary, employee or contractor, merchant, date and place, original amount and currency, payment method and transaction reference, business purpose, category, tax, project and cost owner, attendees where necessary, receipt and other evidence, policy revision, report, reviewers, reimbursement and accounting state; bind corrections and decisions to it; and never let a card swipe, receipt image, report row or reimbursement label become the expense by itself.",
+        "Keep submitted, approved, payable, scheduled, sent, deposited, failed, returned, offset and marked-reimbursed states distinct: identify payment method, funding source, amount and currency, rate and fee, expected and actual dates, payment reference and exception owner; notify the claimant of changed evidence; reconcile accounting separately; and never let approval, payroll inclusion or an administrator's manual mark prove that the worker received funds."
+      ],
+      "pack_id": "section-flow-business-expense-capture-substantiation-approval-reimbursement-lifecycle",
+      "reference": "section-flow-business-expense-capture-substantiation-approval-reimbursement-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "employee and contractor business expenses",
+        "company cards and employee-paid reimbursement",
+        "travel, mileage, per diem and allowances",
+        "receipts, business purpose and supporting evidence",
+        "policy configuration and automated checks",
+        "manager, finance and independent review",
+        "reimbursement, payroll, tax and accounting handoff",
+        "exceptions, correction, appeal and audit"
+      ],
+      "axis": "lens",
+      "categories": [
+        "expense-policy-legibility-evidence-proportionality-worker-agency-reimbursement-accountability"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 16,
+        "publisher_count": 15,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate expense identity from business purpose to final disposition: can people distinguish source transaction, allowance or advance, claim, report, approval, payment and accounting entry; identify payer, worker, beneficiary, merchant, date, place, original amount and currency, purpose, category, tax, allocation, evidence, policy revision, authority and correction history; and prevent a card record, receipt, report total or paid label from substituting for the complete expense?",
+        "Audit reimbursement through actual receipt of funds: distinguish approved, payable, scheduled, sent, deposited, failed, returned, offset, payroll-processed and manually marked states; identify claimant, method, funding source, amount, currency, exchange and fees, expected and actual dates, reference and exception owner; reconcile without hiding worker-facing status; and never treat approval, accounting export or administrator attestation as payment evidence."
+      ],
+      "pack_id": "lens-expense-policy-legibility-evidence-proportionality-worker-agency-reimbursement-accountability",
+      "reference": "lens-expense-policy-legibility-evidence-proportionality-worker-agency-reimbursement-accountability.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "customer, contact, account and organization records",
+        "lead capture, source, permission and qualification",
+        "opportunities, stages, stakeholders and next actions",
+        "pipeline, forecasting, targets and uncertainty",
+        "products, pricing, proposals, quotes and approval handoff",
+        "won, lost, disqualified, dormant and re-entry states",
+        "sales-to-onboarding, implementation and service handoff",
+        "renewal, expansion, realized value and relationship history"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "customer-lead-qualification-opportunity-proposal-close-handoff-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Treat contactability and permission as different facts: capture each channel, communication purpose, lawful or policy basis where applicable, source, scope, region, timestamp, preference and withdrawal; make current permission visible before outreach and automation; preserve suppression through imports, merges and handoffs; and never infer consent from possession of contact data, a prior transaction, an organizational role or a sales stage.",
+        "Treat handoff as an accountable transfer of customer context and commitments: carry confirmed need, sold scope, proposal and agreement versions, promises, exclusions, acceptance criteria, stakeholders, channel preferences, dependencies, dates, risks, open questions, implementation and relationship owners; let the customer inspect consequential assumptions; acknowledge receipt and resolve gaps; and never reduce onboarding or delivery to a deal name, amount and internal notes."
+      ],
+      "pack_id": "section-flow-customer-lead-qualification-opportunity-proposal-close-handoff-lifecycle",
+      "reference": "section-flow-customer-lead-qualification-opportunity-proposal-close-handoff-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "customer identity, contact channels and communication permission",
+        "lead source, enrichment, scoring and qualification",
+        "stakeholder mapping and customer decision context",
+        "opportunity stages, activities, uncertainty and forecasting",
+        "pricing, claims, proposals, quotes and approvals",
+        "won, lost, no-decision, dormant and re-entry states",
+        "sales-to-delivery handoff, complaints and realized value",
+        "AI-assisted summaries, scoring, recommendations and forecasts"
+      ],
+      "axis": "lens",
+      "categories": [
+        "customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 16,
+        "publisher_count": 13,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate communication permission in its applicable legal and relationship context: preserve channel, purpose, source, scope, region, timestamp, sender responsibility, preference and withdrawal; distinguish marketing from transactional communication and consent from other applicable bases; carry suppression through vendors, imports and handoffs; and never generalize one jurisdiction's rule or infer permission from possession of contact data.",
+        "Audit handoff as a confirmed transfer of obligations and relationship context: carry the approved proposal and agreement versions, customer-defined need, promises, exclusions, acceptance criteria, stakeholders, permissions, dependencies, dates, risks, open questions and accountable owners; minimize unrelated private notes; let recipients and the customer identify gaps; preserve acknowledgement and correction; and never substitute seller shorthand for delivery-ready commitments."
+      ],
+      "pack_id": "lens-customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff",
+      "reference": "lens-customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff.md",
       "role": "category",
       "version": "1.0.0"
     }

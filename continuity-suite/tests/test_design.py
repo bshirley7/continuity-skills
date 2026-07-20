@@ -978,6 +978,96 @@ class DesignLifecycleTests(unittest.TestCase):
             "design-ux-lenses",
         )
 
+    def test_reviewed_asset_lifecycle_and_accountability_overlay_are_bound(self):
+        value = input_value(
+            sections=[
+                "inventory-asset-acquisition-catalog-custody-use-maintenance-transfer-retirement-lifecycle"
+            ],
+            lenses=[
+                "asset-identity-custody-availability-maintenance-safety-circularity-accountability"
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-inventory-asset-acquisition-catalog-custody-use-maintenance-transfer-retirement-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-asset-identity-custody-availability-maintenance-safety-circularity-accountability"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
+    def test_reviewed_expense_lifecycle_and_worker_agency_overlay_are_bound(self):
+        value = input_value(
+            sections=[
+                "business-expense-capture-substantiation-approval-reimbursement-lifecycle"
+            ],
+            lenses=[
+                "expense-policy-legibility-evidence-proportionality-worker-agency-reimbursement-accountability"
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-business-expense-capture-substantiation-approval-reimbursement-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-expense-policy-legibility-evidence-proportionality-worker-agency-reimbursement-accountability"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
+    def test_reviewed_sales_lifecycle_and_customer_agency_overlay_are_bound(self):
+        value = input_value(
+            sections=[
+                "customer-lead-qualification-opportunity-proposal-close-handoff-lifecycle"
+            ],
+            lenses=[
+                "customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff"
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-customer-lead-qualification-opportunity-proposal-close-handoff-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
 
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):
