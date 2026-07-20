@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -2026,6 +2026,71 @@
       ],
       "pack_id": "lens-situation-awareness-resilient-control",
       "reference": "lens-situation-awareness-resilient-control.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "document and content review",
+        "design and campaign approval",
+        "expense and procurement requests",
+        "access and configuration changes",
+        "leave and workforce requests",
+        "deploy and release controls",
+        "contracts and regulated records",
+        "multi-stage review and publication"
+      ],
+      "axis": "section-flow",
+      "categories": ["review-approval-lifecycle"],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 9,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Bind every request to an exact review object: show a stable request ID, requester, purpose, artifact or resource, version or hash, affected scope, material changes, requested decision, evidence and checks, policy or criteria, urgency, desired effective time, and expiry; any material edit creates a linked revision and invalidates prior approval rather than moving the approval to the latest version.",
+        "Record a decision as durable evidence: preserve decision maker, role and authority, exact object and version, outcome, reasons, evidence considered, conditions, scope, effective and expiry time, dependencies, timestamp, and attestation; never promote a comment, reaction, view, silence, reviewer count, or generated summary into approval."
+      ],
+      "pack_id": "section-flow-review-approval-lifecycle",
+      "reference": "section-flow-review-approval-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "reviews and approvals",
+        "financial and procurement controls",
+        "access and permission changes",
+        "content publication and release",
+        "regulated electronic records",
+        "administrative and operational actions",
+        "automated recommendations and decisions",
+        "audit, reconciliation, and control testing"
+      ],
+      "axis": "lens",
+      "categories": ["accountability-separation-of-duties-independent-review"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 5,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Begin with the control objective and map incompatible duties across request, create, modify, review, approve, execute, reconcile, administer, and audit: assign roles and system permissions so one actor cannot both cause and conceal a material error, abuse, or unauthorized change; document exceptions and compensating controls when staffing makes full separation impractical.",
+        "Bind authorization to what was actually reviewed: present all significant object, scope, consequence, version, and transaction data; require an outcome-specific act with clear meaning; invalidate authorization after any material change; limit validity by time and state; and verify the same approved object and conditions again before execution."
+      ],
+      "pack_id": "lens-accountability-separation-of-duties-independent-review",
+      "reference": "lens-accountability-separation-of-duties-independent-review.md",
       "role": "category",
       "version": "1.0.0"
     }

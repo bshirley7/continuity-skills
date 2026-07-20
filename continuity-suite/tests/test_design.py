@@ -361,6 +361,15 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(packs[packs.index("section-flow-operational-exception-incident") - 1], "design-sections-flows")
         self.assertEqual(packs[packs.index("lens-situation-awareness-resilient-control") - 1], "design-ux-lenses")
 
+    def test_reviewed_review_approval_and_accountability_overlays_are_bound(self):
+        value = input_value(sections=["review-approval-lifecycle"], lenses=["accountability-separation-of-duties-independent-review"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-review-approval-lifecycle", packs)
+        self.assertIn("lens-accountability-separation-of-duties-independent-review", packs)
+        self.assertEqual(packs[packs.index("section-flow-review-approval-lifecycle") - 1], "design-sections-flows")
+        self.assertEqual(packs[packs.index("lens-accountability-separation-of-duties-independent-review") - 1], "design-ux-lenses")
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))

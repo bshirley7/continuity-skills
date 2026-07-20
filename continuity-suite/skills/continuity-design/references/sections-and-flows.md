@@ -25,3 +25,4 @@
 - **Support case lifecycle:** preserve one durable case across intake, routing, channels, transfers, investigation, remedy, verification, reopening, escalation, and appeal without making the person reconstruct their history.
 - **Conversation lifecycle:** keep audience, topic, reply scope, provenance, correction, and handoff legible; promote consequential decisions and commitments into durable linked objects rather than inferring them from conversational signals.
 - **Operational exception and incident handling:** distinguish signals, anomalies, exceptions, and incidents; maintain a challengeable situation view, bounded mitigation controls, evidence-backed recovery, and verified learning.
+- **Review and approval lifecycle:** bind requests to exact versions, make authority and routing inspectable, support evidence-based decisions, and keep approval distinct from execution, publication, payment, or completion.

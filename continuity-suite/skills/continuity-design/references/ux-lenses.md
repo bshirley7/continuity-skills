@@ -34,3 +34,4 @@
 - **Procedural fairness and service recovery:** Can affected people be heard, inspect status and evidence, receive specific reasons and proportional remedies, obtain independent review, and verify durable correction without retaliation or repeated burden?
 - **Conversation grounding, turn-taking, and repair:** Are topic, referent, actor, audience, understanding, response obligation, repair, commitment, correction, and handoff explicit enough for the consequence?
 - **Situation awareness and resilient control:** Can operators perceive, comprehend, and project relevant state while challenging evidence, controlling automation safely, coordinating roles, verifying recovery, and completing learning?
+- **Accountability, separation of duties, and independent review:** Are incompatible duties separated, authority bounded, review substantively independent, authorization exact-object bound, and decision evidence sufficient without becoming surveillance?
