@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.103.0",
+  "catalog_version": "1.109.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,10 +8,35 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer","b2b-saas","finance","health","commerce","media-social","travel","education","developer-ai","professional-services","geospatial-operations","media-production","enterprise-administration","security-operations","developer-tooling","agentic-ai"],
-      "applicability": ["all supported product contexts"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
+      "categories": [
+        "consumer",
+        "b2b-saas",
+        "finance",
+        "health",
+        "commerce",
+        "media-social",
+        "travel",
+        "education",
+        "developer-ai",
+        "professional-services",
+        "geospatial-operations",
+        "media-production",
+        "enterprise-administration",
+        "security-operations",
+        "developer-tooling",
+        "agentic-ai"
+      ],
+      "applicability": [
+        "all supported product contexts"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Match information emphasis to user risk, consequence, and decision context."
+      ]
     },
     {
       "applicability": [
@@ -89,11 +114,30 @@
       "axis": "industry",
       "role": "category",
       "reference": "industry-finance.md",
-      "categories": ["finance"],
-      "applicability": ["account opening", "identity verification", "money transfer", "transaction review", "account overview", "financial dashboards"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Explain regulated data requests in plain language by naming what is collected, why it is necessary, and what the user will do next."],
-      "evidence_sufficiency": {"sample_count": 12, "product_count": 10, "industry_count": 2}
+      "categories": [
+        "finance"
+      ],
+      "applicability": [
+        "account opening",
+        "identity verification",
+        "money transfer",
+        "transaction review",
+        "account overview",
+        "financial dashboards"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Explain regulated data requests in plain language by naming what is collected, why it is necessary, and what the user will do next."
+      ],
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "product_count": 10,
+        "industry_count": 2
+      }
     },
     {
       "applicability": [
@@ -311,9 +355,26 @@
       "axis": "industry",
       "role": "category",
       "reference": "industry-professional-services.md",
-      "categories": ["professional-services"],
-      "applicability": ["consulting firm homepages", "professional-services corporate sites", "capability and practice pages", "industry and sector pages", "thought-leadership hubs", "reports and research", "client-impact and case-study sections", "leadership and expert directories", "corporate purpose and impact pages", "contact and engagement sections"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "professional-services"
+      ],
+      "applicability": [
+        "consulting firm homepages",
+        "professional-services corporate sites",
+        "capability and practice pages",
+        "industry and sector pages",
+        "thought-leadership hubs",
+        "reports and research",
+        "client-impact and case-study sections",
+        "leadership and expert directories",
+        "corporate purpose and impact pages",
+        "contact and engagement sections"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Lead with a distinctive, decision-relevant point of view and immediately clarify the audience, business situation, or transformation it applies to; do not ask a slogan to carry the full proposition.",
         "Describe each capability through the business change, mechanism, and boundary it addresses rather than presenting an undifferentiated inventory of consulting deliverables.",
@@ -321,7 +382,11 @@
         "Structure client impact around the client context, challenge, intervention, and resulting outcome, attaching metrics to timeframe and comparison basis instead of relying on logos or isolated numbers.",
         "Keep point of view, capability architecture, client proof, intellectual property, expert profiles, and engagement language mutually reinforcing so the corporate story does not fragment into unrelated content systems."
       ],
-      "evidence_sufficiency": {"sample_count": 20, "product_count": 17, "industry_count": 9}
+      "evidence_sufficiency": {
+        "sample_count": 20,
+        "product_count": 17,
+        "industry_count": 9
+      }
     },
     {
       "pack_id": "design-sections-flows",
@@ -329,10 +394,64 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management", "experimentation-staged-rollout", "accessible-media-multimodal-content", "offline-sync-conflict-recovery", "speech-input-voice-interaction", "camera-scan-visual-capture", "file-attachment-lifecycle", "ratings-reviews-reputation-lifecycle", "booking-reservation-availability-lifecycle", "returns-exchanges-refunds-lifecycle"],
-      "applicability": ["all supported sections and multi-step flows"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
+      "categories": [
+        "marketing",
+        "conversion",
+        "onboarding",
+        "navigation",
+        "dashboards",
+        "discovery",
+        "creation",
+        "collaboration",
+        "settings",
+        "permissions",
+        "checkout",
+        "empty-error-states",
+        "retention",
+        "corporate-website",
+        "high-consequence-decisions",
+        "reminders-reengagement",
+        "contextual-learning",
+        "contextual-help-recovery",
+        "consent-privacy-controls",
+        "authentication-recovery",
+        "data-portability",
+        "bulk-operations",
+        "activity-audit-history",
+        "notification-inbox",
+        "search-discovery",
+        "complex-forms",
+        "analytical-exploration",
+        "support-case-lifecycle",
+        "conversation-lifecycle",
+        "operational-exception-incident",
+        "review-approval-lifecycle",
+        "policy-rule-administration",
+        "ai-memory-context-management",
+        "experimentation-staged-rollout",
+        "accessible-media-multimodal-content",
+        "offline-sync-conflict-recovery",
+        "speech-input-voice-interaction",
+        "camera-scan-visual-capture",
+        "file-attachment-lifecycle",
+        "ratings-reviews-reputation-lifecycle",
+        "booking-reservation-availability-lifecycle",
+        "returns-exchanges-refunds-lifecycle",
+        "loyalty-rewards-membership-lifecycle",
+        "financial-transfer-payment-lifecycle",
+        "order-fulfillment-delivery-handoff-lifecycle"
+      ],
+      "applicability": [
+        "all supported sections and multi-step flows"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Sequence information around orientation, decision, consequence, and recovery."
+      ]
     },
     {
       "pack_id": "section-flow-marketing",
@@ -340,14 +459,31 @@
       "axis": "section-flow",
       "role": "category",
       "reference": "section-flow-marketing.md",
-      "categories": ["marketing"],
-      "applicability": ["homepage heroes", "product landing pages", "audience landing pages", "campaign pages", "regulated service marketing", "product-led acquisition"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "marketing"
+      ],
+      "applicability": [
+        "homepage heroes",
+        "product landing pages",
+        "audience landing pages",
+        "campaign pages",
+        "regulated service marketing",
+        "product-led acquisition"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Establish relevance by naming the audience or situation and the concrete outcome before introducing supporting detail.",
         "Sequence evidence according to the claim and decision risk, using adoption proof, quantitative support, process detail, or safeguards where each is relevant."
       ],
-      "evidence_sufficiency": {"sample_count": 14, "product_count": 12, "industry_count": 4}
+      "evidence_sufficiency": {
+        "sample_count": 14,
+        "product_count": 12,
+        "industry_count": 4
+      }
     },
     {
       "pack_id": "section-flow-conversion",
@@ -355,14 +491,32 @@
       "axis": "section-flow",
       "role": "category",
       "reference": "section-flow-conversion.md",
-      "categories": ["conversion"],
-      "applicability": ["pricing pages", "plan comparison", "free-trial enrollment", "subscription paywalls", "tier upgrades", "plan changes", "lead-to-signup decisions"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "conversion"
+      ],
+      "applicability": [
+        "pricing pages",
+        "plan comparison",
+        "free-trial enrollment",
+        "subscription paywalls",
+        "tier upgrades",
+        "plan changes",
+        "lead-to-signup decisions"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Preserve the promised outcome and included value at the point where the user chooses a plan, trial, signup, or upgrade.",
         "State the full commitment model before the action, including price basis, cadence, immediate charge, trial transition, renewal, and material tax or cancellation conditions."
       ],
-      "evidence_sufficiency": {"sample_count": 15, "product_count": 15, "industry_count": 5}
+      "evidence_sufficiency": {
+        "sample_count": 15,
+        "product_count": 15,
+        "industry_count": 5
+      }
     },
     {
       "pack_id": "section-flow-onboarding",
@@ -370,11 +524,29 @@
       "axis": "section-flow",
       "role": "category",
       "reference": "section-flow-onboarding.md",
-      "categories": ["onboarding"],
-      "applicability": ["account creation", "identity verification", "permission requests", "workspace setup", "personalization"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Explain the immediate benefit or necessity before requesting personal data, permissions, or effort."],
-      "evidence_sufficiency": {"sample_count": 12, "product_count": 10, "industry_count": 3}
+      "categories": [
+        "onboarding"
+      ],
+      "applicability": [
+        "account creation",
+        "identity verification",
+        "permission requests",
+        "workspace setup",
+        "personalization"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Explain the immediate benefit or necessity before requesting personal data, permissions, or effort."
+      ],
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "product_count": 10,
+        "industry_count": 3
+      }
     },
     {
       "pack_id": "section-flow-checkout",
@@ -382,14 +554,34 @@
       "axis": "section-flow",
       "role": "category",
       "reference": "section-flow-checkout.md",
-      "categories": ["checkout"],
-      "applicability": ["shopping carts", "retail checkout", "marketplace orders", "travel booking", "food delivery", "ticket purchase", "service reservations", "payment review", "order confirmation"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "checkout"
+      ],
+      "applicability": [
+        "shopping carts",
+        "retail checkout",
+        "marketplace orders",
+        "travel booking",
+        "food delivery",
+        "ticket purchase",
+        "service reservations",
+        "payment review",
+        "order confirmation"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Present the full cost as a reconstructable equation that updates when taxes, fees, discounts, tips, add-ons, quantities, or fulfillment choices change.",
         "Carry material fulfillment, eligibility, cancellation, and refund consequences into final review instead of leaving them only at discovery."
       ],
-      "evidence_sufficiency": {"sample_count": 16, "product_count": 16, "industry_count": 7}
+      "evidence_sufficiency": {
+        "sample_count": 16,
+        "product_count": 16,
+        "industry_count": 7
+      }
     },
     {
       "applicability": [
@@ -532,11 +724,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["personal account settings", "workspace and organization administration", "billing and entitlement", "security and authentication", "connected apps and integrations", "privacy and data rights", "notifications and accessibility", "destructive account and data actions"],
+      "applicability": [
+        "personal account settings",
+        "workspace and organization administration",
+        "billing and entitlement",
+        "security and authentication",
+        "connected apps and integrations",
+        "privacy and data rights",
+        "notifications and accessibility",
+        "destructive account and data actions"
+      ],
       "axis": "section-flow",
-      "categories": ["settings"],
-      "evidence_sufficiency": {"industry_count": 18, "product_count": 20, "sample_count": 20},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "settings"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 18,
+        "product_count": 20,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Identify the setting's subject and scope before the control, distinguishing personal, workspace, organization, product, environment, audience, and inherited policy so users know who and what will change.",
         "Explain the operational consequence beside each material control, including visibility audience, notification event and channel, billing commitment, authentication reach, integration data flow, or accessibility behavior.",
@@ -548,11 +759,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["connected-app consent", "workspace roles and membership", "device and operating-system permissions", "file and project sharing", "external links and guests", "administrator access review", "temporary elevated support access", "security and network policy"],
+      "applicability": [
+        "connected-app consent",
+        "workspace roles and membership",
+        "device and operating-system permissions",
+        "file and project sharing",
+        "external links and guests",
+        "administrator access review",
+        "temporary elevated support access",
+        "security and network policy"
+      ],
       "axis": "section-flow",
-      "categories": ["permissions"],
-      "evidence_sufficiency": {"industry_count": 17, "product_count": 18, "sample_count": 20},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "permissions"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 17,
+        "product_count": 18,
+        "sample_count": 20
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Name the requester, granting identity, resource owner, and destination before asking for access, distinguishing a person, application, service, group, administrator, and external party.",
         "Describe permissions as concrete data reads, writes, actions, exports, downloads, comments, edits, administration, billing, or impersonation capabilities, separating independently optional scopes to support least privilege.",
@@ -604,15 +834,36 @@
       "axis": "section-flow",
       "role": "category",
       "reference": "section-flow-corporate-website.md",
-      "categories": ["corporate-website"],
-      "applicability": ["corporate homepages", "global navigation and mega menus", "corporate footers", "multi-audience company sites", "institutional microsites", "investor-relations subsites", "newsrooms and media centers", "careers sites", "sustainability and impact reporting", "office and location directories"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "corporate-website"
+      ],
+      "applicability": [
+        "corporate homepages",
+        "global navigation and mega menus",
+        "corporate footers",
+        "multi-audience company sites",
+        "institutional microsites",
+        "investor-relations subsites",
+        "newsrooms and media centers",
+        "careers sites",
+        "sustainability and impact reporting",
+        "office and location directories"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Model the corporate website as a multi-audience information system: identify the primary business audience, then provide explicit routes for customers, partners, investors, media, candidates, communities, and existing users without giving every audience equal top-level weight.",
         "Keep a stable institutional hierarchy across header, homepage, footer, search, and subsites, using the same language for products or capabilities, solutions, industries, resources, company, and audience-specific destinations.",
         "Make newsroom, sustainability, governance, and impact content inspectable through date, reporting period, category, metric definition, accountable contact, archive continuity, and a route to the underlying report or release."
       ],
-      "evidence_sufficiency": {"sample_count": 20, "product_count": 20, "industry_count": 19}
+      "evidence_sufficiency": {
+        "sample_count": 20,
+        "product_count": 20,
+        "industry_count": 19
+      }
     },
     {
       "pack_id": "design-themes",
@@ -620,10 +871,29 @@
       "axis": "theme",
       "role": "foundation",
       "reference": "themes.md",
-      "categories": ["editorial", "minimal", "expressive", "premium", "playful", "calm", "data-dense", "technical", "cinematic", "utilitarian"],
-      "applicability": ["all supported expressive directions"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Use a consistent expressive hierarchy without allowing style to hide meaning."]
+      "categories": [
+        "editorial",
+        "minimal",
+        "expressive",
+        "premium",
+        "playful",
+        "calm",
+        "data-dense",
+        "technical",
+        "cinematic",
+        "utilitarian"
+      ],
+      "applicability": [
+        "all supported expressive directions"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Use a consistent expressive hierarchy without allowing style to hide meaning."
+      ]
     },
     {
       "pack_id": "theme-editorial",
@@ -631,15 +901,34 @@
       "axis": "theme",
       "role": "category",
       "reference": "theme-editorial.md",
-      "categories": ["editorial"],
-      "applicability": ["thought-leadership hubs", "corporate newsrooms", "research and report libraries", "article archives", "case-study collections", "insight modules", "long-form story introductions", "editorial content feeds"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "editorial"
+      ],
+      "applicability": [
+        "thought-leadership hubs",
+        "corporate newsrooms",
+        "research and report libraries",
+        "article archives",
+        "case-study collections",
+        "insight modules",
+        "long-form story introductions",
+        "editorial content feeds"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Establish an explicit editorial hierarchy with one lead idea or story, a bounded supporting set, and a separate route into the broader archive; do not make every item compete at the same visual level.",
         "Treat headline, deck, category or format, author or publisher, date, and reading scope as one orientation system, keeping the metadata close enough to the story that it cannot be mistaken for another item.",
         "Vary card size or composition only when it communicates a real difference in priority, format, or reading path; preserve a stable content grammar for comparable items."
       ],
-      "evidence_sufficiency": {"sample_count": 19, "product_count": 16, "industry_count": 14}
+      "evidence_sufficiency": {
+        "sample_count": 19,
+        "product_count": 16,
+        "industry_count": 14
+      }
     },
     {
       "pack_id": "theme-premium",
@@ -647,15 +936,34 @@
       "axis": "theme",
       "role": "category",
       "reference": "theme-premium.md",
-      "categories": ["premium"],
-      "applicability": ["premium product and collection pages", "high-consideration service offers", "membership and tier comparisons", "hospitality and travel experiences", "craft and material stories", "technical product detail", "professional and financial services", "editorial brand modules"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "premium"
+      ],
+      "applicability": [
+        "premium product and collection pages",
+        "high-consideration service offers",
+        "membership and tier comparisons",
+        "hospitality and travel experiences",
+        "craft and material stories",
+        "technical product detail",
+        "professional and financial services",
+        "editorial brand modules"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Create premium expression through selective emphasis: establish one focal product, promise, or experience, then preserve visible orientation, evidence, and action rather than equating scarcity of information with exclusivity.",
         "Turn material and craft into inspectable evidence by connecting close imagery to process, provenance, finish variation, durability, technical specification, compatibility, or the qualities the buyer will receive.",
         "Keep price, duration, billing cadence, included benefits, eligibility, fulfillment, cancellation, and material limitations legible at the commitment boundary; premium presentation must not make the transaction less inspectable."
       ],
-      "evidence_sufficiency": {"sample_count": 20, "product_count": 20, "industry_count": 20}
+      "evidence_sufficiency": {
+        "sample_count": 20,
+        "product_count": 20,
+        "industry_count": 20
+      }
     },
     {
       "pack_id": "theme-calm-clarity",
@@ -663,11 +971,29 @@
       "axis": "theme",
       "role": "category",
       "reference": "theme-calm-clarity.md",
-      "categories": ["calm"],
-      "applicability": ["health dashboards", "financial overviews", "productivity workspaces", "status pages", "empty and completed states"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Create calm through controlled attention by establishing one dominant status, decision, or starting action before styling secondary content."],
-      "evidence_sufficiency": {"sample_count": 12, "product_count": 11, "industry_count": 3}
+      "categories": [
+        "calm"
+      ],
+      "applicability": [
+        "health dashboards",
+        "financial overviews",
+        "productivity workspaces",
+        "status pages",
+        "empty and completed states"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Create calm through controlled attention by establishing one dominant status, decision, or starting action before styling secondary content."
+      ],
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "product_count": 11,
+        "industry_count": 3
+      }
     },
     {
       "applicability": [
@@ -679,9 +1005,19 @@
         "empty and low-data states"
       ],
       "axis": "theme",
-      "categories": ["minimal"],
-      "evidence_sufficiency": {"industry_count": 11, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "minimal"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 11,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Reduce visual competition by establishing one dominant task or state, a small number of stable regions, restrained accents, and generous separation while keeping operational meaning explicit.",
         "Treat state as essential content: preserve progress, selection, validation, save or publish status, success feedback, urgency, and recovery even when the surrounding interface is sparse."
@@ -701,9 +1037,19 @@
         "consumer creation"
       ],
       "axis": "theme",
-      "categories": ["expressive"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "expressive"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Assign expressive elements a job—explain a mental model, motivate progress, identify a content category, or create a focal action—and remove ornament that competes with task comprehension.",
         "Use consistent image treatment, typography, tags, and navigation to turn varied expressive content into a coherent system."
@@ -723,9 +1069,19 @@
         "financial planning and forecasting"
       ],
       "axis": "theme",
-      "categories": ["data-dense"],
-      "evidence_sufficiency": {"industry_count": 10, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "data-dense"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Layer dense work from current health or outcome to trends, exceptions, contributing dimensions, and raw evidence so users can scan first and drill down without losing context.",
         "Separate inputs, assumptions, calculations, outputs, and comparisons visually and semantically; never rely on position or color alone to communicate data role."
@@ -745,9 +1101,19 @@
         "AI prompts, agents, and evaluations"
       ],
       "axis": "theme",
-      "categories": ["technical"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "technical"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Make technical scope persistent by naming project, environment, service, resource, region, version, time range, live state, permission, and secret boundary wherever actions or evidence depend on them.",
         "Use technical density to expose causality and control, not to signal expertise: labels, units, status, exact scope, copyable commands, and safe defaults must remain understandable to a new operator."
@@ -758,11 +1124,29 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["onboarding and first use", "learning and wellness", "completion and rewards", "empty states", "technical setup", "professional workspaces", "creation and productivity"],
+      "applicability": [
+        "onboarding and first use",
+        "learning and wellness",
+        "completion and rewards",
+        "empty states",
+        "technical setup",
+        "professional workspaces",
+        "creation and productivity"
+      ],
       "axis": "theme",
-      "categories": ["playful"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "playful"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Give play a functional role: reduce anxiety, explain a concept, reinforce progress, celebrate a verified result, distinguish identity, or invite the next safe action.",
         "Bind celebration to an inspectable outcome through the completed behavior, achievement condition, earned value, progress count, or next milestone; animation alone must not imply success."
@@ -773,11 +1157,29 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["guided introductions", "travel and entertainment discovery", "media playback", "creative asset detail", "brand and values stories", "emotional campaigns", "full-bleed narrative interfaces"],
+      "applicability": [
+        "guided introductions",
+        "travel and entertainment discovery",
+        "media playback",
+        "creative asset detail",
+        "brand and values stories",
+        "emotional campaigns",
+        "full-bleed narrative interfaces"
+      ],
       "axis": "theme",
-      "categories": ["cinematic"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "cinematic"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Bind every cinematic hero to decision context through identity, source, metadata, suitability, scope, and a concrete action rather than relying on atmosphere alone.",
         "For consequential or emotional experiences, connect imagery to provenance, measurable state, safeguards, exact commitment, and recovery so emotion cannot substitute for evidence."
@@ -788,11 +1190,29 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["work queues", "tables and grids", "administrative settings", "permissions", "mobile utility homes", "batch operations", "automation and AI workspaces"],
+      "applicability": [
+        "work queues",
+        "tables and grids",
+        "administrative settings",
+        "permissions",
+        "mobile utility homes",
+        "batch operations",
+        "automation and AI workspaces"
+      ],
       "axis": "theme",
-      "categories": ["utilitarian"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "utilitarian"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Organize the interface around the current object, scope, state, and next operation; use direct labels and stable regions before adding summaries or personality.",
         "At destructive, automated, or costly boundaries, name the affected scope, consequence, run or save state, cost or resource use, history, cancel or stop, and recovery."
@@ -808,10 +1228,27 @@
       "axis": "message-structure",
       "role": "foundation",
       "reference": "message-structures.md",
-      "categories": ["value-first", "problem-solution", "proof-first", "guided-narrative", "comparison", "progressive-disclosure", "personalization", "trust-risk-reversal"],
-      "applicability": ["all supported message sequences"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Order messages so claims, evidence, tradeoffs, and actions remain distinguishable."]
+      "categories": [
+        "value-first",
+        "problem-solution",
+        "proof-first",
+        "guided-narrative",
+        "comparison",
+        "progressive-disclosure",
+        "personalization",
+        "trust-risk-reversal"
+      ],
+      "applicability": [
+        "all supported message sequences"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Order messages so claims, evidence, tradeoffs, and actions remain distinguishable."
+      ]
     },
     {
       "pack_id": "message-structure-value-first",
@@ -819,15 +1256,34 @@
       "axis": "message-structure",
       "role": "category",
       "reference": "message-structure-value-first.md",
-      "categories": ["value-first"],
-      "applicability": ["homepage heroes", "product landing pages", "feature sections", "campaign pages", "service introductions", "workflow explanations", "regulated offers", "product-led acquisition"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "value-first"
+      ],
+      "applicability": [
+        "homepage heroes",
+        "product landing pages",
+        "feature sections",
+        "campaign pages",
+        "service introductions",
+        "workflow explanations",
+        "regulated offers",
+        "product-led acquisition"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Lead with a recognizable user outcome or completed state before naming the product category, technology, or company ambition.",
         "Make the value concrete by naming the relevant input, task, change, or result closely enough that the intended audience can judge whether it applies.",
         "Follow the outcome immediately with the mechanism that produces it, using process detail, workflow structure, or a legible product state rather than assertion alone."
       ],
-      "evidence_sufficiency": {"sample_count": 15, "product_count": 14, "industry_count": 6}
+      "evidence_sufficiency": {
+        "sample_count": 15,
+        "product_count": 14,
+        "industry_count": 6
+      }
     },
     {
       "pack_id": "message-structure-proof-first",
@@ -835,15 +1291,34 @@
       "axis": "message-structure",
       "role": "category",
       "reference": "message-structure-proof-first.md",
-      "categories": ["proof-first"],
-      "applicability": ["product marketing and demonstrations", "customer-result sections", "case-study summaries", "security and compliance messaging", "benchmark and research findings", "high-consideration service offers", "enterprise sales pages", "claims near conversion actions"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "proof-first"
+      ],
+      "applicability": [
+        "product marketing and demonstrations",
+        "customer-result sections",
+        "case-study summaries",
+        "security and compliance messaging",
+        "benchmark and research findings",
+        "high-consideration service offers",
+        "enterprise sales pages",
+        "claims near conversion actions"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Name the evidence type and keep it distinct: a product state demonstrates mechanism, a customer result demonstrates an observed outcome, a benchmark demonstrates comparison, an assurance demonstrates control, and a testimonial demonstrates attributed experience.",
         "Make quantitative proof self-describing by attaching the measured outcome to the actor or population, intervention or product use, timeframe, baseline or comparator, unit, and source needed to judge the number.",
         "Preserve uncertainty and transferability limits: identify when evidence comes from one customer, selected examples, commissioned research, a particular dataset, or a specific operating context."
       ],
-      "evidence_sufficiency": {"sample_count": 20, "product_count": 18, "industry_count": 18}
+      "evidence_sufficiency": {
+        "sample_count": 20,
+        "product_count": 18,
+        "industry_count": 18
+      }
     },
     {
       "pack_id": "design-ux-lenses",
@@ -851,10 +1326,70 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy","comprehension","usability","accessibility","trust","interaction","responsiveness","content","differentiation","design-tokens","typography","color","component-architecture","theming","system-governance","adaptive-layout","motion-feedback","direct-manipulation","keyboard-expert-workflows","interface-language","accessibility-language","localization-content","design-evaluation","behavioral-psychology","decision-architecture","cognitive-load-learning","behavioral-ethics","attention-interruption","information-foraging","error-prevention-recovery","quantitative-evidence-uncertainty","procedural-fairness-service-recovery","conversation-grounding-turn-taking-repair","situation-awareness-resilient-control","accountability-separation-of-duties-independent-review","rule-legibility-consistency-exception-governance","contextual-integrity-meaningful-data-agency","experimental-validity-exposure-ethics","multimodal-equivalence-sensory-agency","data-continuity-convergence-confidence","speech-agency-recognition-repair","capture-integrity-evidentiary-review","imagery-illustration-art-direction","representational-integrity-inclusive-imagery","submission-agency-data-minimization-content-safety","feedback-validity-power-reputational-remedy","scarce-capacity-allocation-commitment-fairness","remedy-parity-value-restoration-burden-allocation"],
-      "applicability": ["all supported design reviews and directions"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
-      "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
+      "categories": [
+        "hierarchy",
+        "comprehension",
+        "usability",
+        "accessibility",
+        "trust",
+        "interaction",
+        "responsiveness",
+        "content",
+        "differentiation",
+        "design-tokens",
+        "typography",
+        "color",
+        "component-architecture",
+        "theming",
+        "system-governance",
+        "adaptive-layout",
+        "motion-feedback",
+        "direct-manipulation",
+        "keyboard-expert-workflows",
+        "interface-language",
+        "accessibility-language",
+        "localization-content",
+        "design-evaluation",
+        "behavioral-psychology",
+        "decision-architecture",
+        "cognitive-load-learning",
+        "behavioral-ethics",
+        "attention-interruption",
+        "information-foraging",
+        "error-prevention-recovery",
+        "quantitative-evidence-uncertainty",
+        "procedural-fairness-service-recovery",
+        "conversation-grounding-turn-taking-repair",
+        "situation-awareness-resilient-control",
+        "accountability-separation-of-duties-independent-review",
+        "rule-legibility-consistency-exception-governance",
+        "contextual-integrity-meaningful-data-agency",
+        "experimental-validity-exposure-ethics",
+        "multimodal-equivalence-sensory-agency",
+        "data-continuity-convergence-confidence",
+        "speech-agency-recognition-repair",
+        "capture-integrity-evidentiary-review",
+        "imagery-illustration-art-direction",
+        "representational-integrity-inclusive-imagery",
+        "submission-agency-data-minimization-content-safety",
+        "feedback-validity-power-reputational-remedy",
+        "scarce-capacity-allocation-commitment-fairness",
+        "remedy-parity-value-restoration-burden-allocation",
+        "earned-value-legibility-breakage-loyalty-fairness",
+        "transaction-finality-recipient-certainty-recoverable-payment-control",
+        "promise-accuracy-custody-transparency-exception-agency"
+      ],
+      "applicability": [
+        "all supported design reviews and directions"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
+      "modality_independent_principles": [
+        "Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."
+      ]
     },
     {
       "pack_id": "lens-hierarchy",
@@ -862,15 +1397,36 @@
       "axis": "lens",
       "role": "category",
       "reference": "lens-hierarchy.md",
-      "categories": ["hierarchy"],
-      "applicability": ["application shells", "dashboards", "workspace homes", "list and detail views", "editors", "creation entry points", "settings", "contextual panels", "mobile task homes", "empty states"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "hierarchy"
+      ],
+      "applicability": [
+        "application shells",
+        "dashboards",
+        "workspace homes",
+        "list and detail views",
+        "editors",
+        "creation entry points",
+        "settings",
+        "contextual panels",
+        "mobile task homes",
+        "empty states"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "Reserve the strongest emphasis for the current state, unresolved consequence, or next meaningful action rather than greetings, tutorials, upgrades, or generic recommendations.",
         "Separate orientation, state, evidence, decision, and secondary exploration through stable regions, spacing, type, order, and contrast instead of relying on one signal alone.",
         "Use consistent form for comparable items and vary size, color, position, or persistence only when the semantic priority or consequence is genuinely different."
       ],
-      "evidence_sufficiency": {"sample_count": 15, "product_count": 14, "industry_count": 7}
+      "evidence_sufficiency": {
+        "sample_count": 15,
+        "product_count": 14,
+        "industry_count": 7
+      }
     },
     {
       "applicability": [
@@ -1053,23 +1609,62 @@
       "axis": "lens",
       "role": "category",
       "reference": "lens-trust.md",
-      "categories": ["trust"],
-      "applicability": ["permission and access management", "security dashboards", "audit logs", "destructive actions", "purchase and transaction confirmations", "subscription commitments", "connection setup", "failure recovery", "account administration", "consequential settings"],
-      "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
+      "categories": [
+        "trust"
+      ],
+      "applicability": [
+        "permission and access management",
+        "security dashboards",
+        "audit logs",
+        "destructive actions",
+        "purchase and transaction confirmations",
+        "subscription commitments",
+        "connection setup",
+        "failure recovery",
+        "account administration",
+        "consequential settings"
+      ],
+      "modalities": {
+        "ui": "validated",
+        "document": "inferred",
+        "image": "inferred"
+      },
       "modality_independent_principles": [
         "At the decision boundary, show the exact actor or account, affected object or resource, destination, amount or data scope, permission, and timing needed to verify what will happen.",
         "State consequences in operational terms, including affected dependencies, irreversibility, cost, duration, eligibility, or resulting state, before the final action is available.",
         "Separate current state, observed evidence, inferred risk, and recommended action so a health summary does not become a stronger claim than its visible basis supports.",
         "Place warnings, qualifications, and material terms beside the decision they govern; use linked detail as supporting evidence rather than a substitute for decision-critical disclosure."
       ],
-      "evidence_sufficiency": {"sample_count": 20, "product_count": 20, "industry_count": 16}
+      "evidence_sufficiency": {
+        "sample_count": 20,
+        "product_count": 20,
+        "industry_count": 16
+      }
     },
     {
-      "applicability": ["application appearance settings", "light and dark modes", "brand and accent themes", "presentation and website builders", "component variants", "layout and density systems", "data visualization and formatting"],
+      "applicability": [
+        "application appearance settings",
+        "light and dark modes",
+        "brand and accent themes",
+        "presentation and website builders",
+        "component variants",
+        "layout and density systems",
+        "data visualization and formatting"
+      ],
       "axis": "lens",
-      "categories": ["design-tokens"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "design-tokens"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Define visual choices by semantic role—surface, text, action, status, focus, border, chart series, heading, body, spacing, and density—then map modes and brands onto those roles instead of exposing unrelated raw values.",
         "Evolve visual systems through explicit save state, legacy mapping, migration notices, and bounded overrides so existing artifacts and behaviors do not silently change."
@@ -1080,11 +1675,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["design-system components", "application forms", "transactional forms", "data tables", "record-management surfaces", "menus and popovers", "modals and confirmations", "responsive application layouts"],
+      "applicability": [
+        "design-system components",
+        "application forms",
+        "transactional forms",
+        "data tables",
+        "record-management surfaces",
+        "menus and popovers",
+        "modals and confirmations",
+        "responsive application layouts"
+      ],
       "axis": "lens",
-      "categories": ["component-architecture"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 11, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "component-architecture"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Define each component through stable anatomy, named properties, bounded variants, and explicit states so optional content and behavior remain understandable without duplicating near-identical components.",
         "Make layered components communicate trigger or parent context, focus scope, dismissal behavior, action priority, and consequence rather than relying on visual elevation alone."
@@ -1095,11 +1709,29 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["light, dark, and system modes", "brandable applications", "customer-facing portals", "high-contrast and accessibility preferences", "compact and comfortable density", "content and documentation themes", "authentication and consequential flows"],
+      "applicability": [
+        "light, dark, and system modes",
+        "brandable applications",
+        "customer-facing portals",
+        "high-contrast and accessibility preferences",
+        "compact and comfortable density",
+        "content and documentation themes",
+        "authentication and consequential flows"
+      ],
       "axis": "lens",
-      "categories": ["theming"],
-      "evidence_sufficiency": {"industry_count": 10, "product_count": 10, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "theming"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Layer brand expression onto stable semantic roles and interaction contracts so logos, accents, typography, and imagery can vary without changing meaning, priority, or expected behavior.",
         "Specify how user preference, operating-system preference, product defaults, organization policy, and saved personal choices resolve when they disagree."
@@ -1110,11 +1742,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["design-system libraries", "shared component and token catalogs", "content systems", "component documentation", "release publishing", "deprecation and migration", "organization-wide design standards", "multi-team contribution workflows"],
+      "applicability": [
+        "design-system libraries",
+        "shared component and token catalogs",
+        "content systems",
+        "component documentation",
+        "release publishing",
+        "deprecation and migration",
+        "organization-wide design standards",
+        "multi-team contribution workflows"
+      ],
       "axis": "lens",
-      "categories": ["system-governance"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 11, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "system-governance"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Create an explicit publication boundary where proposed system changes have a named scope, rationale, owner, review state, version, release note, and effective audience before downstream consumers receive them.",
         "Treat deprecation as a lifecycle with announcement, affected scope, replacement, compatibility period, migration steps, deadline, support path, and final removal rather than a deleted asset."
@@ -1125,11 +1776,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["multi-pane application workspaces", "list-detail workflows", "analytical dashboards", "operational dashboards", "mobile productivity", "mobile financial and business applications", "wide-screen expert tools", "cross-device task continuity"],
+      "applicability": [
+        "multi-pane application workspaces",
+        "list-detail workflows",
+        "analytical dashboards",
+        "operational dashboards",
+        "mobile productivity",
+        "mobile financial and business applications",
+        "wide-screen expert tools",
+        "cross-device task continuity"
+      ],
       "axis": "lens",
-      "categories": ["adaptive-layout"],
-      "evidence_sufficiency": {"industry_count": 11, "product_count": 11, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "adaptive-layout"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 11,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Adapt by semantic priority: preserve current scope, selected object, consequential state, primary action, and safe return first; collapse, move, summarize, or defer secondary navigation, inspectors, metadata, and utilities.",
         "When simultaneous panes become a compact sequence, preserve selection, title, parent scope, filters, unsaved state, scroll position, and a predictable back path so layout change does not become context loss."
@@ -1140,11 +1810,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["uploads and imports", "save and publish actions", "background processing", "payments and bookings", "generative media", "live activities and notifications", "multi-stage validation", "success and recovery feedback"],
+      "applicability": [
+        "uploads and imports",
+        "save and publish actions",
+        "background processing",
+        "payments and bookings",
+        "generative media",
+        "live activities and notifications",
+        "multi-stage validation",
+        "success and recovery feedback"
+      ],
       "axis": "lens",
-      "categories": ["motion-feedback"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 10, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "motion-feedback"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Separate immediate acknowledgement from durable completion, then resolve success into the actual saved, booked, published, or generated product state rather than a disconnected celebratory endpoint.",
         "Make failure and interruption actionable by preserving completed work, identifying the failed scope, explaining what remains uncertain, and offering retry, correction, cancellation, or safe exit without duplicate commitment."
@@ -1155,11 +1844,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["drag-and-drop reordering", "visual layout builders", "object resize and alignment", "maps and geospatial editing", "drawing and geometry creation", "photo adjustment and cropping", "video trimming and scrubbing", "layered expert tools"],
+      "applicability": [
+        "drag-and-drop reordering",
+        "visual layout builders",
+        "object resize and alignment",
+        "maps and geospatial editing",
+        "drawing and geometry creation",
+        "photo adjustment and cropping",
+        "video trimming and scrubbing",
+        "layered expert tools"
+      ],
       "axis": "lens",
-      "categories": ["direct-manipulation"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "direct-manipulation"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Expose manipulation as a complete contract: identifiable object, available affordance, active tool or mode, valid target or range, live preview, constraint feedback, commit boundary, and recovery path.",
         "Preview outcome continuously while distinguishing transient manipulation from persisted state; make cancel, reset, undo, and redo proportional to consequence and available after commitment."
@@ -1170,11 +1878,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["command palettes", "keyboard shortcut systems", "expert editors", "data grids", "bulk operations", "record management", "creation tools", "dense application workspaces"],
+      "applicability": [
+        "command palettes",
+        "keyboard shortcut systems",
+        "expert editors",
+        "data grids",
+        "bulk operations",
+        "record management",
+        "creation tools",
+        "dense application workspaces"
+      ],
       "axis": "lens",
-      "categories": ["keyboard-expert-workflows"],
-      "evidence_sufficiency": {"industry_count": 7, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "keyboard-expert-workflows"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 7,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "For batch operations, expose selection count, selection scope, filters, paging implications, affected objects, available actions, and consequence before commitment.",
         "Support expert acceleration as a parallel path over the same semantic actions, permissions, validation, feedback, and undo model used by pointer and assistive interaction."
@@ -1185,11 +1912,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["operational maps", "fleet and delivery tracking", "weather and hazard maps", "navigation and routing", "outdoor route planning", "location selection", "map-based discovery", "geospatial editing"],
+      "applicability": [
+        "operational maps",
+        "fleet and delivery tracking",
+        "weather and hazard maps",
+        "navigation and routing",
+        "outdoor route planning",
+        "location selection",
+        "map-based discovery",
+        "geospatial editing"
+      ],
       "axis": "industry",
-      "categories": ["geospatial-operations"],
-      "evidence_sufficiency": {"industry_count": 7, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "geospatial-operations"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 7,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Bind every time-varying mark to observation, update, forecast, or validity time and distinguish current, predicted, delayed, stale, and unknown states.",
         "Preserve provenance and uncertainty through source, update cadence, units, confidence or forecast status, coverage limits, and non-color cues beside the mapped decision."
@@ -1200,11 +1946,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["video and motion editors", "audio production", "generative media", "mobile media editing", "asset libraries", "creative review", "versioned publishing", "rendering and export"],
+      "applicability": [
+        "video and motion editors",
+        "audio production",
+        "generative media",
+        "mobile media editing",
+        "asset libraries",
+        "creative review",
+        "versioned publishing",
+        "rendering and export"
+      ],
       "axis": "industry",
-      "categories": ["media-production"],
-      "evidence_sufficiency": {"industry_count": 11, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "media-production"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 11,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Keep asset identity, source, rights, metadata, version, proxy or original status, usage context, and preview available from library through edit, review, render, and publication.",
         "Bind collaboration feedback to an exact version and, where relevant, frame, timecode, layer, region, or object; distinguish discussion, requested change, approval, and resolved status."
@@ -1215,11 +1980,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["product landing pages", "B2B workflow software", "consumer and small-business products", "health and high-empathy services", "financial operations", "security and compliance", "technical products", "sales and onboarding narratives"],
+      "applicability": [
+        "product landing pages",
+        "B2B workflow software",
+        "consumer and small-business products",
+        "health and high-empathy services",
+        "financial operations",
+        "security and compliance",
+        "technical products",
+        "sales and onboarding narratives"
+      ],
       "axis": "message-structure",
-      "categories": ["problem-solution"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "problem-solution"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Explain why the problem persists through a credible cause—fragmented ownership, manual handoffs, missing visibility, repeated work, uncontrolled risk, or incompatible tools—rather than blaming the user.",
         "Present the solution as a mechanism that changes specific inputs, handoffs, decisions, controls, or outputs; avoid jumping from pain directly to feature inventory or an unearned outcome."
@@ -1230,11 +2014,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["brand typography decisions", "industry-aware design directions", "editorial and premium experiences", "enterprise and data products", "consumer and playful brands", "developer and technical products", "hybrid type systems", "typeface evaluation and procurement"],
+      "applicability": [
+        "brand typography decisions",
+        "industry-aware design directions",
+        "editorial and premium experiences",
+        "enterprise and data products",
+        "consumer and playful brands",
+        "developer and technical products",
+        "hybrid type systems",
+        "typeface evaluation and procurement"
+      ],
       "axis": "lens",
-      "categories": ["typography"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "typography"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Choose type categories from the job each role must perform—reading, scanning, comparison, action, expression, code, evidence, or annotation—then test whether the resulting voice is true to the brand and credible in its industry context.",
         "Evaluate every proposed family and pairing against role coverage, small-size legibility, similar-character distinction, numerals, punctuation, italics, variable axes, loading, licensing, script support, localization, accessibility, and fallback behavior before treating aesthetic fit as sufficient."
@@ -1245,11 +2048,30 @@
       "version": "1.1.0"
     },
     {
-      "applicability": ["long-form product pages", "scroll-driven storytelling", "enterprise transformation", "workflow explanation", "consumer finance and health", "technical platforms", "mission-driven narratives", "sales and education sequences"],
+      "applicability": [
+        "long-form product pages",
+        "scroll-driven storytelling",
+        "enterprise transformation",
+        "workflow explanation",
+        "consumer finance and health",
+        "technical platforms",
+        "mission-driven narratives",
+        "sales and education sequences"
+      ],
       "axis": "message-structure",
-      "categories": ["guided-narrative"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "guided-narrative"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Make every stage independently useful with a descriptive heading, concise claim, mechanism or example, and optional deeper path so scanning and skipping do not destroy comprehension.",
         "Place consequential terms, safeguards, uncertainty, eligibility, fees, and limits before the action they govern, even when doing so interrupts the emotional arc."
@@ -1260,11 +2082,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["pricing and plan selection", "product and service alternatives", "capability matrices", "usage-based offers", "technical procurement", "consumer subscriptions", "professional services", "high-consequence decisions"],
+      "applicability": [
+        "pricing and plan selection",
+        "product and service alternatives",
+        "capability matrices",
+        "usage-based offers",
+        "technical procurement",
+        "consumer subscriptions",
+        "professional services",
+        "high-consequence decisions"
+      ],
       "axis": "message-structure",
-      "categories": ["comparison"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "comparison"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Begin with the decision context—who is choosing, the job or outcome, the options in scope, and the few criteria that materially change fit—before presenting a detailed comparison.",
         "Explain recommendations and defaults through explicit audience, assumptions, evidence, and tradeoffs; preserve a neutral path to inspect and select every viable option."
@@ -1275,11 +2116,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["settings and administration", "analytics and dashboards", "creation and expert tools", "checkout and subscriptions", "financial decisions", "forms and configuration", "responsive interfaces", "mixed-skill audiences"],
+      "applicability": [
+        "settings and administration",
+        "analytics and dashboards",
+        "creation and expert tools",
+        "checkout and subscriptions",
+        "financial decisions",
+        "forms and configuration",
+        "responsive interfaces",
+        "mixed-skill audiences"
+      ],
       "axis": "message-structure",
-      "categories": ["progressive-disclosure"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "progressive-disclosure"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Reveal information according to the current task, user intent, decision consequence, and need for inspection; do not equate infrequent, advanced, or complex content with safe-to-hide content.",
         "Keep price, renewal, eligibility, risk, irreversible effects, permissions, destructive consequences, and other material terms visible before the decision they govern, regardless of the disclosure pattern."
@@ -1290,11 +2150,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["personalized onboarding", "recommendation and discovery", "adaptive learning", "workspace defaults", "notifications and content preferences", "AI assistants and memory", "multi-user products", "privacy-sensitive experiences"],
+      "applicability": [
+        "personalized onboarding",
+        "recommendation and discovery",
+        "adaptive learning",
+        "workspace defaults",
+        "notifications and content preferences",
+        "AI assistants and memory",
+        "multi-user products",
+        "privacy-sensitive experiences"
+      ],
       "axis": "message-structure",
-      "categories": ["personalization"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "personalization"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Explain what each personalization input changes, where it applies, how long it persists, and whether it was explicitly supplied, inferred from behavior, inherited from policy, or derived from current context.",
         "Give users correction at the level of the signal and outcome—item, topic, source, goal, role, default, inferred fact, or remembered detail—and state what future behavior the correction will affect."
@@ -1305,11 +2184,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["forms and onboarding", "settings and configuration", "transactions and review", "errors and validation", "status and audit detail", "document workflows", "high-consequence operations", "responsive and accessible interfaces"],
+      "applicability": [
+        "forms and onboarding",
+        "settings and configuration",
+        "transactions and review",
+        "errors and validation",
+        "status and audit detail",
+        "document workflows",
+        "high-consequence operations",
+        "responsive and accessible interfaces"
+      ],
       "axis": "lens",
-      "categories": ["content"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "content"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Give every field, value, state, message, and action a persistent semantic label that names the concept or operation; use supporting text for format, units, scope, evidence, consequence, or examples rather than repeating the label.",
         "Make validation and errors local, specific, and recovery-oriented: identify the affected field or object, unmet rule or known cause, retained work, resulting state, and safest next action without blaming the user."
@@ -1320,11 +2218,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["product strategy and interaction models", "application workspaces", "brand-led marketing", "creative and collaboration products", "technical and data products", "high-trust operations", "design systems", "competitive redesigns"],
+      "applicability": [
+        "product strategy and interaction models",
+        "application workspaces",
+        "brand-led marketing",
+        "creative and collaboration products",
+        "technical and data products",
+        "high-trust operations",
+        "design systems",
+        "competitive redesigns"
+      ],
       "axis": "lens",
-      "categories": ["differentiation"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "differentiation"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Tie expressive choices to the product mechanism, audience, or artifacts users create; pair metaphor and category cues with concrete examples, evidence, constraints, and a clear action.",
         "Evaluate differentiation against comprehension, task success, accessibility, performance, localization, trust, maintenance, and recognizable value—not aesthetic novelty or competitor distance alone."
@@ -1335,11 +2252,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["brand and product palettes", "light and dark themes", "semantic state and status", "application surfaces and controls", "data visualization", "creative and content-heavy tools", "high-consequence workflows", "accessible design systems"],
+      "applicability": [
+        "brand and product palettes",
+        "light and dark themes",
+        "semantic state and status",
+        "application surfaces and controls",
+        "data visualization",
+        "creative and content-heavy tools",
+        "high-consequence workflows",
+        "accessible design systems"
+      ],
       "axis": "lens",
-      "categories": ["color"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "color"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Choose palette character—warm or cool, muted or saturated, monochrome or multicolor, light or dark—from brand voice, content, environment, task duration, and industry credibility; do not reduce industries to fixed color stereotypes.",
         "Use semantic color proportionally to consequence and always pair status, severity, gain, loss, risk, success, warning, and error with text, iconography, shape, position, or pattern that preserves meaning without color."
@@ -1350,11 +2286,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["subscriptions and trials", "checkout and refunds", "permissions and consent", "destructive actions", "shared work and access", "automation and integrations", "high-consideration commitments", "regulated and high-consequence decisions"],
+      "applicability": [
+        "subscriptions and trials",
+        "checkout and refunds",
+        "permissions and consent",
+        "destructive actions",
+        "shared work and access",
+        "automation and integrations",
+        "high-consideration commitments",
+        "regulated and high-consequence decisions"
+      ],
       "axis": "message-structure",
-      "categories": ["trust-risk-reversal"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "trust-risk-reversal"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Name the specific uncertainty or risk at the decision point, then show the relevant safeguard, evidence, remaining limitation, accountable party, and next step rather than using generic reassurance.",
         "Describe reversibility precisely: what can be cancelled, refunded, restored, revoked, archived, downgraded, exported, or deleted; who can do it; through which path; within what time; at what cost; and what state or data remains."
@@ -1365,11 +2320,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["product vocabulary and terminology", "settings and administration", "technical and AI products", "notifications and activity", "collaboration and approvals", "marketplaces and transactions", "empty, error, and recovery states", "multi-scope enterprise products"],
+      "applicability": [
+        "product vocabulary and terminology",
+        "settings and administration",
+        "technical and AI products",
+        "notifications and activity",
+        "collaboration and approvals",
+        "marketplaces and transactions",
+        "empty, error, and recovery states",
+        "multi-scope enterprise products"
+      ],
       "axis": "lens",
-      "categories": ["interface-language"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "interface-language"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Define canonical names for objects, actors, scopes, states, and operations; use one term for one concept and introduce a different term only when lifecycle, authority, or user meaning genuinely differs.",
         "Let tone adapt to context while keeping state, cause, evidence, consequence, retained work, and recovery literal; do not use warmth, humor, confidence, or apology to blur operational truth."
@@ -1380,11 +2354,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["accessibility and display settings", "keyboard and alternative input", "captions and sensory preferences", "verification and identity", "session limits and interruptions", "validation and recovery", "enterprise preference policy", "support and accommodations"],
+      "applicability": [
+        "accessibility and display settings",
+        "keyboard and alternative input",
+        "captions and sensory preferences",
+        "verification and identity",
+        "session limits and interruptions",
+        "validation and recovery",
+        "enterprise preference policy",
+        "support and accommodations"
+      ],
       "axis": "lens",
-      "categories": ["accessibility-language"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "accessibility-language"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Name accessibility settings by the interface behavior they change—text size, contrast, motion, sound, captions, timing, focus, input, or navigation—without diagnosing, stigmatizing, or requiring users to justify the preference.",
         "Offer accommodations and human assistance through ordinary, respectful language that describes the available path, expected effort, timing, privacy, and outcome without requiring disclosure of disability or presenting support as an exception."
@@ -1395,11 +2388,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["language and regional settings", "international onboarding and identity", "commerce, pricing, and payments", "travel dates and time zones", "global workforce and compliance", "content and publishing systems", "data-dense applications", "responsive and bidirectional layouts"],
+      "applicability": [
+        "language and regional settings",
+        "international onboarding and identity",
+        "commerce, pricing, and payments",
+        "travel dates and time zones",
+        "global workforce and compliance",
+        "content and publishing systems",
+        "data-dense applications",
+        "responsive and bidirectional layouts"
+      ],
       "axis": "lens",
-      "categories": ["localization-content"],
-      "evidence_sufficiency": {"industry_count": 10, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "localization-content"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Model language, region, market, currency, units, time zone, calendar, and content availability as separate preferences or states whenever they can produce different behavior; show the source, scope, precedence, and effect of each.",
         "Treat culturally dependent icons, colors, metaphors, examples, address conventions, consent language, and legal claims as reviewable content rather than universal meaning; retain a plain semantic label and jurisdiction-aware validation."
@@ -1410,11 +2422,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["design critiques and approvals", "usability and concept testing", "accessibility reviews", "heuristic evaluation", "comparative design decisions", "quality audits and issue triage", "release readiness", "iteration and regression review"],
+      "applicability": [
+        "design critiques and approvals",
+        "usability and concept testing",
+        "accessibility reviews",
+        "heuristic evaluation",
+        "comparative design decisions",
+        "quality audits and issue triage",
+        "release readiness",
+        "iteration and regression review"
+      ],
       "axis": "lens",
-      "categories": ["design-evaluation"],
-      "evidence_sufficiency": {"industry_count": 6, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "design-evaluation"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 6,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Define the evaluation contract before reviewing: artifact and revision, audience, task scenario, environment, constraints, success conditions, heuristic or requirement set, evidence sources, exclusions, and decision owner.",
         "Close the loop by recording disposition, owner, target revision, implemented change, retest method, verification evidence, residual risk, regressions checked, and final decision; approval binds only the exact reviewed revision."
@@ -1425,11 +2456,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["organization and workspace hierarchy", "member, group, and role management", "identity and access policy", "security and compliance settings", "billing and feature entitlements", "integrations and automation", "bulk administration", "audit, export, and recovery"],
+      "applicability": [
+        "organization and workspace hierarchy",
+        "member, group, and role management",
+        "identity and access policy",
+        "security and compliance settings",
+        "billing and feature entitlements",
+        "integrations and automation",
+        "bulk administration",
+        "audit, export, and recovery"
+      ],
       "axis": "industry",
-      "categories": ["enterprise-administration"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "enterprise-administration"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Keep the active organization, workspace, environment, legal entity, resource, and affected population persistently visible; distinguish navigation context from the scope where a change will apply.",
         "Preview high-impact and bulk changes as a concrete diff: selected targets, included and excluded objects, before and after state, dependencies, downstream effects, notification behavior, reversibility, retained data, and recovery procedure."
@@ -1440,11 +2490,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["alert and incident queues", "identity and access investigations", "asset and dependency scope", "evidence timelines", "containment and recovery", "incident coordination", "security audit history", "post-incident verification"],
+      "applicability": [
+        "alert and incident queues",
+        "identity and access investigations",
+        "asset and dependency scope",
+        "evidence timelines",
+        "containment and recovery",
+        "incident coordination",
+        "security audit history",
+        "post-incident verification"
+      ],
       "axis": "industry",
-      "categories": ["security-operations"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "security-operations"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Separate source severity, operational priority, confidence, exposure, business consequence, lifecycle state, and response urgency; show the evidence and rubric behind each rather than relying on color or one composite risk score.",
         "Maintain an immutable, queryable operational record connecting actor and authority, evidence, hypothesis, decision, action, target, before and after state, time, source, outcome, communication, recovery, and later correction; bind resolution to verification rather than status alone."
@@ -1455,11 +2524,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["repositories and code review", "projects and environments", "configuration and secrets", "builds, jobs, and workflows", "deployments and rollouts", "logs, metrics, traces, and errors", "runtime inspection", "rollback and incident recovery"],
+      "applicability": [
+        "repositories and code review",
+        "projects and environments",
+        "configuration and secrets",
+        "builds, jobs, and workflows",
+        "deployments and rollouts",
+        "logs, metrics, traces, and errors",
+        "runtime inspection",
+        "rollback and incident recovery"
+      ],
       "axis": "industry",
-      "categories": ["developer-tooling"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "developer-tooling"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Keep source and runtime lineage continuous: repository, branch or tag, immutable revision, author and review state, configuration fingerprint, build or artifact identity, target environment, deployment, active version, and rollback ancestor.",
         "Preview consequential developer actions with exact source and target, environment, configuration diff, affected services and dependencies, credentials or data touched, expected downtime or behavior, authorization, verification, partial failure, rollback, and audit record."
@@ -1470,11 +2558,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["assistant and agent task initiation", "planning and multi-step execution", "tool and data authorization", "external mutations and communication", "generated research and recommendations", "content and code changes", "human review and intervention", "history, rollback, and verification"],
+      "applicability": [
+        "assistant and agent task initiation",
+        "planning and multi-step execution",
+        "tool and data authorization",
+        "external mutations and communication",
+        "generated research and recommendations",
+        "content and code changes",
+        "human review and intervention",
+        "history, rollback, and verification"
+      ],
       "axis": "industry",
-      "categories": ["agentic-ai"],
-      "evidence_sufficiency": {"industry_count": 6, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "agentic-ai"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 6,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Translate the user's request into an inspectable execution contract: intended outcome, target objects and people, scope, constraints, assumptions, inputs, allowed tools and actions, expected artifacts, approval points, stop conditions, and verifiable completion criteria.",
         "Declare completion only from verified external state: identify attempted and successful actions, changed and unchanged targets, partial failures, pending work, notifications, artifacts, evidence, cost, residual risk, and rollback or correction path; retain an immutable task and tool history."
@@ -1485,12 +2592,31 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["choice and decision architecture", "information hierarchy and comprehension", "onboarding and progressive learning", "forms, settings, and high-consequence actions", "notifications, reminders, and re-engagement", "pricing, comparison, and conversion", "error prevention and recovery", "behavioral design evaluation"],
+      "applicability": [
+        "choice and decision architecture",
+        "information hierarchy and comprehension",
+        "onboarding and progressive learning",
+        "forms, settings, and high-consequence actions",
+        "notifications, reminders, and re-engagement",
+        "pricing, comparison, and conversion",
+        "error prevention and recovery",
+        "behavioral design evaluation"
+      ],
       "axis": "lens",
-      "categories": ["behavioral-psychology"],
+      "categories": [
+        "behavioral-psychology"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 4, "evidence_family_count": 5},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "publisher_count": 4,
+        "evidence_family_count": 5
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Treat every behavioral principle as a context-bound hypothesis, not a universal law: name the user, task, environment, cognitive constraint, predicted effect, possible counter-effect, affected groups, and evidence needed to accept or reject it.",
         "Preserve autonomy with a visible neutral alternative, informed consequence, proportional friction, granular consent, correction, exit, undo, and recovery; make the easiest path compatible with the user's interests rather than only the organization's preferred outcome."
@@ -1501,11 +2627,28 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["plan comparison and upgrade", "billing commitments", "subscription cancellation", "account closure", "data deletion", "irreversible administrative actions"],
+      "applicability": [
+        "plan comparison and upgrade",
+        "billing commitments",
+        "subscription cancellation",
+        "account closure",
+        "data deletion",
+        "irreversible administrative actions"
+      ],
       "axis": "section-flow",
-      "categories": ["high-consequence-decisions"],
-      "evidence_sufficiency": {"industry_count": 10, "product_count": 14, "sample_count": 15},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "high-consequence-decisions"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 14,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Place current state, target state, billing or timing consequence, affected scope, and the exact commitment in one reviewable decision frame.",
         "Scale confirmation friction to consequence: ordinary plan selection needs clear review, while irreversible deletion may require identity verification or a target-specific phrase without obscuring a visible cancel path."
@@ -1516,12 +2659,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["plan and option comparison", "consent and privacy choices", "financial and contractual commitment", "destructive or irreversible action", "multi-step forms", "cancellation and withdrawal", "error correction and recovery"],
+      "applicability": [
+        "plan and option comparison",
+        "consent and privacy choices",
+        "financial and contractual commitment",
+        "destructive or irreversible action",
+        "multi-step forms",
+        "cancellation and withdrawal",
+        "error correction and recovery"
+      ],
       "axis": "lens",
-      "categories": ["decision-architecture"],
+      "categories": [
+        "decision-architecture"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 14, "publisher_count": 4, "evidence_family_count": 8},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 14,
+        "publisher_count": 4,
+        "evidence_family_count": 8
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Present each material choice with its purpose, included and excluded outcomes, risk, cost, timing, affected scope, and correction path before the user commits; never defer a decision-changing fact to a later step.",
         "Make accept, refuse, defer, revise, and withdraw recognizable and comparably understandable; do not change prominence, effort, defaults, order, or information flow to manufacture the preferred answer."
@@ -1532,11 +2693,29 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["notification preferences", "reminders", "progress and goals", "streaks and milestones", "return prompts", "quiet hours and schedules", "collaborative nudges"],
+      "applicability": [
+        "notification preferences",
+        "reminders",
+        "progress and goals",
+        "streaks and milestones",
+        "return prompts",
+        "quiet hours and schedules",
+        "collaborative nudges"
+      ],
       "axis": "section-flow",
-      "categories": ["reminders-reengagement"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 12, "sample_count": 16},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "reminders-reengagement"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 12,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Connect each reminder to a user-recognizable goal, task, threshold, or changed state, and expose skip, dismiss, snooze, pause, reschedule, or disable in proportion to the interruption.",
         "Keep target, activity, progress, elapsed time, remaining work, streak, reward, and outcome as separate states so attention metrics do not impersonate meaningful achievement."
@@ -1547,11 +2726,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["first-run setup", "administrative configuration", "feature discovery", "guided checklists", "product tours", "release education", "learning centers", "first-success workflows"],
+      "applicability": [
+        "first-run setup",
+        "administrative configuration",
+        "feature discovery",
+        "guided checklists",
+        "product tours",
+        "release education",
+        "learning centers",
+        "first-success workflows"
+      ],
       "axis": "section-flow",
-      "categories": ["contextual-learning"],
-      "evidence_sufficiency": {"industry_count": 10, "product_count": 14, "sample_count": 16},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "contextual-learning"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 14,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Organize learning around meaningful product outcomes and real objects, not a tour of interface regions; distinguish required setup, recommended improvement, optional education, and work pending on another actor.",
         "Teach a capability at the moment it becomes relevant using one bounded concept, a representative example or demonstration, its constraints or access state, and choices to try, learn more, defer, dismiss, or finish."
@@ -1562,12 +2760,31 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["first-run and setup", "complex forms", "feature education", "guided workflows", "contextual help", "expertise development", "error recovery", "return and resumption"],
+      "applicability": [
+        "first-run and setup",
+        "complex forms",
+        "feature education",
+        "guided workflows",
+        "contextual help",
+        "expertise development",
+        "error recovery",
+        "return and resumption"
+      ],
       "axis": "lens",
-      "categories": ["cognitive-load-learning"],
+      "categories": [
+        "cognitive-load-learning"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 14, "publisher_count": 6, "evidence_family_count": 11},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 14,
+        "publisher_count": 6,
+        "evidence_family_count": 11
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Reduce extraneous load before simplifying the task itself: remove unrelated content, group information by the decision or action it supports, use familiar structure and language, and keep necessary instructions adjacent to the step where they apply.",
         "Externalize memory through visible current state, prior choices, completed and remaining steps, examples, defaults, saved work, and review surfaces; never require recall when the interface can provide recognition or continuity."
@@ -1578,12 +2795,31 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["behavioral prompts and nudges", "conversion and retention", "consent and privacy", "financial and health decisions", "personalization", "children and vulnerable users", "defaults and recommendations", "experimentation and optimization"],
+      "applicability": [
+        "behavioral prompts and nudges",
+        "conversion and retention",
+        "consent and privacy",
+        "financial and health decisions",
+        "personalization",
+        "children and vulnerable users",
+        "defaults and recommendations",
+        "experimentation and optimization"
+      ],
       "axis": "lens",
-      "categories": ["behavioral-ethics"],
+      "categories": [
+        "behavioral-ethics"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 15, "publisher_count": 6, "evidence_family_count": 15},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 15,
+        "publisher_count": 6,
+        "evidence_family_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Before designing a behavioral intervention, state the user outcome, behavioral mechanism, organizational incentive, expected benefit, plausible harm, affected groups, counter-hypothesis, and stop condition; an uplift target alone is not an ethical rationale.",
         "Measure user welfare alongside business outcomes through comprehension, voluntary refusal, correction, delayed regret, complaint, trust, task value, distributional effects, and durable control; conversion, engagement, completion, or consent rate cannot establish benefit by themselves."
@@ -1594,11 +2830,29 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["inline validation and failure", "transaction and payment recovery", "integration troubleshooting", "operational diagnosis", "in-product help centers", "support escalation", "feedback and diagnostics"],
+      "applicability": [
+        "inline validation and failure",
+        "transaction and payment recovery",
+        "integration troubleshooting",
+        "operational diagnosis",
+        "in-product help centers",
+        "support escalation",
+        "feedback and diagnostics"
+      ],
       "axis": "section-flow",
-      "categories": ["contextual-help-recovery"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 15, "sample_count": 16},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "contextual-help-recovery"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 15,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Keep the affected object, user input, workflow position, prior successful state, and surrounding task visible or restorable while explaining what failed and what remains safe, pending, changed, or unknown.",
         "Route help from the current object and task into relevant guidance first, then searchable documentation, examples, peer support, feedback, and human support without replacing the workspace or losing the return path."
@@ -1609,11 +2863,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["initial consent", "privacy settings", "tracking and personalization", "sensitive-data access", "partner sharing", "support access", "data export and deletion", "consent withdrawal"],
+      "applicability": [
+        "initial consent",
+        "privacy settings",
+        "tracking and personalization",
+        "sensitive-data access",
+        "partner sharing",
+        "support access",
+        "data export and deletion",
+        "consent withdrawal"
+      ],
       "axis": "section-flow",
-      "categories": ["consent-privacy-controls"],
-      "evidence_sufficiency": {"industry_count": 12, "product_count": 15, "sample_count": 16},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "consent-privacy-controls"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 15,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Separate consent by specific purpose, data category, recipient, duration, and consequence; distinguish required processing from optional personalization, advertising, improvement, sharing, and support access.",
         "Make consent durable and revisitable through visible current state, later settings, withdrawal, export, deletion, saved confirmation, and any processing or data that necessarily remains after a request."
@@ -1624,11 +2897,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["saved progress and return", "paused work and resumption", "subscription and membership management", "trial conversion and renewal", "plan change and downgrade", "cancellation and access end", "reactivation and win-back", "usage and ongoing value"],
+      "applicability": [
+        "saved progress and return",
+        "paused work and resumption",
+        "subscription and membership management",
+        "trial conversion and renewal",
+        "plan change and downgrade",
+        "cancellation and access end",
+        "reactivation and win-back",
+        "usage and ongoing value"
+      ],
       "axis": "section-flow",
-      "categories": ["retention"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "retention"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Make ongoing value inspectable through the user's own durable state: current plan or program, saved work, progress, usage, benefits already received, next meaningful action, and the future state that continuation enables; do not substitute generic promotion for earned continuity.",
         "Treat return and resumption as restoration rather than restart: preserve object identity, prior choices, completion state, next step, remaining effort, paused or expired status, and a low-friction route back into meaningful work."
@@ -1639,11 +2931,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["sign-in and identity-provider choice", "passwordless and passkey setup", "multi-factor enrollment", "forgotten credential recovery", "recovery method fallback", "trusted device and session review", "recovery codes", "post-recovery confirmation"],
+      "applicability": [
+        "sign-in and identity-provider choice",
+        "passwordless and passkey setup",
+        "multi-factor enrollment",
+        "forgotten credential recovery",
+        "recovery method fallback",
+        "trusted device and session review",
+        "recovery codes",
+        "post-recovery confirmation"
+      ],
       "axis": "section-flow",
-      "categories": ["authentication-recovery"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 11, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "authentication-recovery"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Separate account identity, sign-in method, verification factor, recovery channel, trusted device, active session, and connected provider as distinct states; show which are configured, verified, current, weaker, unavailable, or incomplete.",
         "Design recovery as a visible assurance sequence: identify the account without oversharing, show the masked verification destination, allow alternate or support routes, disclose material side effects, confirm credential change, and state what the person should do next."
@@ -1654,11 +2965,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["file and structured-data import", "field and schema mapping", "validation and overwrite review", "service migration", "connected-source synchronization", "account and personal-data export", "background processing", "partial success and recovery"],
+      "applicability": [
+        "file and structured-data import",
+        "field and schema mapping",
+        "validation and overwrite review",
+        "service migration",
+        "connected-source synchronization",
+        "account and personal-data export",
+        "background processing",
+        "partial success and recovery"
+      ],
       "axis": "section-flow",
-      "categories": ["data-portability"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 10, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "data-portability"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Before transfer, identify the source, destination, data objects, selected scope, format, account, access permission, transformation, overwrite or duplication behavior, limits, and whether the operation copies, moves, continuously synchronizes, or deletes anything.",
         "Close the loop with a verifiable result that separates created, updated, skipped, duplicated, associated, missing, and failed items; provide error evidence, correction or rollback options, retained-source state, and a direct route to inspect the destination."
@@ -1669,11 +2999,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["multi-item selection", "select-all and filtered scope", "bulk field editing", "role and permission changes", "batch archival and movement", "bulk deletion", "queued processing", "partial results and recovery"],
+      "applicability": [
+        "multi-item selection",
+        "select-all and filtered scope",
+        "bulk field editing",
+        "role and permission changes",
+        "batch archival and movement",
+        "bulk deletion",
+        "queued processing",
+        "partial results and recovery"
+      ],
       "axis": "section-flow",
-      "categories": ["bulk-operations"],
-      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "bulk-operations"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Keep selection scope continuously visible through exact count, selected-versus-all distinction, active filters, excluded or ineligible items, destination or cohort, and a clear way to inspect, adjust, or clear the selection before action.",
         "Close every bulk action with result accounting that separates requested, changed, unchanged, skipped, ineligible, failed, moved, archived, or deleted items and preserves actor, time, destination, undo or recovery, and an inspectable history."
@@ -1684,11 +3033,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["workspace activity feeds", "project and object activity", "administrative audit logs", "security and compliance event logs", "document version history", "record change history", "revision comparison", "restore and recovery"],
+      "applicability": [
+        "workspace activity feeds",
+        "project and object activity",
+        "administrative audit logs",
+        "security and compliance event logs",
+        "document version history",
+        "record change history",
+        "revision comparison",
+        "restore and recovery"
+      ],
       "axis": "section-flow",
-      "categories": ["activity-audit-history"],
-      "evidence_sufficiency": {"industry_count": 10, "product_count": 11, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "activity-audit-history"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Choose the history model before choosing the layout: collaborative activity should optimize orientation and follow-up, administrative audit logs should optimize exact evidence and filtering, and object version history should optimize comparison and recovery.",
         "Keep history connected to present context through stable object identity, deep links, previews, current-state labels, and explicit before-and-after or selected-revision comparison; never imply that an event log is itself the current state."
@@ -1699,11 +3067,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["in-product notification centers", "work inboxes", "mentions and assignments", "status and system updates", "unread and read state", "notification preferences", "channel and frequency controls", "digests and quiet periods"],
+      "applicability": [
+        "in-product notification centers",
+        "work inboxes",
+        "mentions and assignments",
+        "status and system updates",
+        "unread and read state",
+        "notification preferences",
+        "channel and frequency controls",
+        "digests and quiet periods"
+      ],
       "axis": "section-flow",
-      "categories": ["notification-inbox"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 11, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "notification-inbox"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Model notification state separately from work state: unread, read, seen, dismissed, archived, snoozed, assigned, resolved, and completed must not collapse into one badge or clearing action.",
         "Make every notification answer why the person received it, who or what caused it, what object and workspace it concerns, what changed, when it happened, whether action is required, and where to inspect or act."
@@ -1714,12 +3101,31 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["notifications and alerts", "status and completion feedback", "in-product banners and toasts", "notification centers", "attention-sensitive workflows", "assistive technology announcements", "notification preferences", "high-urgency and emergency communication"],
+      "applicability": [
+        "notifications and alerts",
+        "status and completion feedback",
+        "in-product banners and toasts",
+        "notification centers",
+        "attention-sensitive workflows",
+        "assistive technology announcements",
+        "notification preferences",
+        "high-urgency and emergency communication"
+      ],
       "axis": "lens",
-      "categories": ["attention-interruption"],
+      "categories": [
+        "attention-interruption"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 6, "evidence_family_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "publisher_count": 6,
+        "evidence_family_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Treat attention as a user cost: choose interruption level from consequence, required response window, current task, reversibility, and the cost of missing the event, never from the sender's desire for engagement.",
         "Use the least disruptive channel that still makes the state perceivable: prefer contextual status near the affected work, then persistent banners or inboxes, reserving focus-taking alerts and modal interruption for rare events requiring immediate action."
@@ -1730,11 +3136,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["global and scoped search", "known-item lookup", "exploratory discovery", "autocomplete and suggestions", "faceted filtering", "sorting and result views", "zero-result recovery", "enterprise and commerce search"],
+      "applicability": [
+        "global and scoped search",
+        "known-item lookup",
+        "exploratory discovery",
+        "autocomplete and suggestions",
+        "faceted filtering",
+        "sorting and result views",
+        "zero-result recovery",
+        "enterprise and commerce search"
+      ],
       "axis": "section-flow",
-      "categories": ["search-discovery"],
-      "evidence_sufficiency": {"industry_count": 6, "product_count": 9, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "search-discovery"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 6,
+        "product_count": 9,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Keep the search contract visible: identify scope, searchable object types, query, active filters, sort, result count, freshness or source limits, and whether matching is exact, semantic, personalized, or permission-bounded.",
         "Make each result provide enough information scent to predict the destination through title, type, source, hierarchy, matched context, relevant attributes, state, date, provenance, and available action without opening every item."
@@ -1745,12 +3170,31 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["search and navigation", "autocomplete and suggestions", "result lists", "faceted filtering", "large catalogs and datasets", "enterprise retrieval", "zero-result recovery", "AI-mediated search"],
+      "applicability": [
+        "search and navigation",
+        "autocomplete and suggestions",
+        "result lists",
+        "faceted filtering",
+        "large catalogs and datasets",
+        "enterprise retrieval",
+        "zero-result recovery",
+        "AI-mediated search"
+      ],
       "axis": "lens",
-      "categories": ["information-foraging"],
+      "categories": [
+        "information-foraging"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 4, "evidence_family_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "publisher_count": 4,
+        "evidence_family_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Support both known-item lookup and exploratory foraging: preserve a simple direct query path while offering visible scopes, categories, facets, related concepts, and alternate routes for people who cannot name the destination precisely.",
         "Externalize the evolving query model through retained terms, result counts, applied-filter overviews, facet values, sort, scope, and individual or global removal; do not require people to remember why the set changed."
@@ -1761,11 +3205,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["long and multi-step forms", "conditional questionnaires", "applications and onboarding", "compliance and identity evidence", "document uploads", "review-before-submit", "validation and correction", "save and resume"],
+      "applicability": [
+        "long and multi-step forms",
+        "conditional questionnaires",
+        "applications and onboarding",
+        "compliance and identity evidence",
+        "document uploads",
+        "review-before-submit",
+        "validation and correction",
+        "save and resume"
+      ],
       "axis": "section-flow",
-      "categories": ["complex-forms"],
-      "evidence_sufficiency": {"industry_count": 10, "product_count": 10, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "complex-forms"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 10,
+        "product_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Keep progress truthful and recoverable through stable section names, current and completed state, save status, safe back navigation, resumable drafts, retained answers, and an honest distinction between section completion, validation, review, submission, and downstream acceptance.",
         "Before consequential submission, provide a complete, scannable review grouped by the original sections, mark missing or skipped answers, offer precise edit routes that return to review, and label the final action by its actual commitment."
@@ -1776,12 +3239,31 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["forms and data entry", "multi-step applications", "validation and error summaries", "conditional questions", "review and confirmation", "legal and financial submissions", "save and resume", "submission receipts"],
+      "applicability": [
+        "forms and data entry",
+        "multi-step applications",
+        "validation and error summaries",
+        "conditional questions",
+        "review and confirmation",
+        "legal and financial submissions",
+        "save and resume",
+        "submission receipts"
+      ],
       "axis": "lens",
-      "categories": ["error-prevention-recovery"],
+      "categories": [
+        "error-prevention-recovery"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 5, "evidence_family_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "publisher_count": 5,
+        "evidence_family_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Prevent errors before messaging them: ask only necessary questions, use familiar and semantically appropriate controls, state constraints before entry, accept reasonable formats, preserve prior answers, and avoid requiring redundant recall.",
         "For consequential submission, make the commitment checked, confirmed, or reversible: present a complete review, targeted change routes, retained answers, an action-specific submit label, and proportional confirmation or undo."
@@ -1792,11 +3274,30 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["product and web analytics", "business intelligence", "support and operations analysis", "campaign and audience analysis", "cohort, funnel, and path analysis", "financial and usage exploration", "saved reports and views", "shared analysis and export"],
+      "applicability": [
+        "product and web analytics",
+        "business intelligence",
+        "support and operations analysis",
+        "campaign and audience analysis",
+        "cohort, funnel, and path analysis",
+        "financial and usage exploration",
+        "saved reports and views",
+        "shared analysis and export"
+      ],
       "axis": "section-flow",
-      "categories": ["analytical-exploration"],
-      "evidence_sufficiency": {"industry_count": 8, "product_count": 9, "sample_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "categories": [
+        "analytical-exploration"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 9,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Begin with an explicit analytical contract: state the question, decision or hypothesis, population or object scope, measure definition, dimensions, time and timezone basis, comparison or baseline, denominator, source, freshness, exclusions, and whether the work is exploratory, monitoring, or confirmatory.",
         "Keep interpretation proportional to evidence by exposing numerator and denominator, absolute and relative values, baseline, sample or coverage, missing and suppressed data, uncertainty or estimation, source changes, freshness, and noncomparable periods; distinguish observed pattern, generated summary, hypothesis, and validated conclusion."
@@ -1807,12 +3308,31 @@
       "version": "1.0.0"
     },
     {
-      "applicability": ["charts and analytical interfaces", "reports and dashboards", "metric and KPI exploration", "experiments and forecasts", "segment and cohort comparisons", "public and scientific statistics", "generated analytical summaries", "saved analysis and exported evidence"],
+      "applicability": [
+        "charts and analytical interfaces",
+        "reports and dashboards",
+        "metric and KPI exploration",
+        "experiments and forecasts",
+        "segment and cohort comparisons",
+        "public and scientific statistics",
+        "generated analytical summaries",
+        "saved analysis and exported evidence"
+      ],
       "axis": "lens",
-      "categories": ["quantitative-evidence-uncertainty"],
+      "categories": [
+        "quantitative-evidence-uncertainty"
+      ],
       "evidence_kind": "literature",
-      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 6, "evidence_family_count": 12},
-      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "evidence_sufficiency": {
+        "sample_count": 12,
+        "publisher_count": 6,
+        "evidence_family_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
       "modality_independent_principles": [
         "Make every quantitative claim self-describing through the question or intended decision, population or object scope, measure definition, numerator and denominator, unit, time and timezone basis, comparison or baseline, source, freshness, exclusions, and whether the result is observed, estimated, modeled, or forecast.",
         "Expose uncertainty and data quality when they can change interpretation through sample or coverage, missing and suppressed values, estimation method, range and coverage basis, rounding, revision, source change, and limitations; explain uncertainty in plain language and withhold or qualify comparisons that the evidence cannot support."
@@ -2041,7 +3561,9 @@
         "multi-stage review and publication"
       ],
       "axis": "section-flow",
-      "categories": ["review-approval-lifecycle"],
+      "categories": [
+        "review-approval-lifecycle"
+      ],
       "evidence_sufficiency": {
         "industry_count": 8,
         "product_count": 9,
@@ -2073,7 +3595,9 @@
         "audit, reconciliation, and control testing"
       ],
       "axis": "lens",
-      "categories": ["accountability-separation-of-duties-independent-review"],
+      "categories": [
+        "accountability-separation-of-duties-independent-review"
+      ],
       "evidence_kind": "literature",
       "evidence_sufficiency": {
         "evidence_family_count": 12,
@@ -2919,6 +4443,213 @@
       ],
       "pack_id": "lens-remedy-parity-value-restoration-burden-allocation",
       "reference": "lens-remedy-parity-value-restoration-burden-allocation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "points, miles, stamps, cashback and promotional credit",
+        "retail, travel, dining, payments and marketplace loyalty",
+        "membership levels and status qualification",
+        "earning offers and partner activity",
+        "reward catalogs and points-plus-cash redemption",
+        "pending, available, reversed, redeemed and expired value",
+        "missing-value claims and unauthorized activity",
+        "program changes, downgrade, closure and exit"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "loyalty-rewards-membership-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Represent the program as three linked but distinct systems: an earned-value ledger, a time-bound status qualification contract, and a redemption marketplace; name which balance or progress measure each surface shows; do not imply that nominal points equal cash, that status progress is spendable, or that an available reward is already entitled.",
+        "Give expiry, devaluation and program change durable notice: identify the exact affected balance or benefit, old and new rule or value, effective date, reason, preservation or redemption options, and support path; do not use resetting urgency, hide material changes in generic terms, or retroactively alter a completed earning contract without explicit authority and remedy."
+      ],
+      "pack_id": "section-flow-loyalty-rewards-membership-lifecycle",
+      "reference": "section-flow-loyalty-rewards-membership-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "loyalty points, miles, stamps, cashback and credits",
+        "membership levels and status progress",
+        "promotional earning offers",
+        "reward marketplaces and points-plus-cash",
+        "partner transfers and linked accounts",
+        "expiry, devaluation, revocation and reversals",
+        "member pricing and device-gated access",
+        "missing or stolen value, correction and closure"
+      ],
+      "axis": "lens",
+      "categories": [
+        "earned-value-legibility-breakage-loyalty-fairness"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 8,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate value as a user-understandable exchange contract, not a nominal score: distinguish units from money, status, eligibility and inventory; show the range or basis of usable value, material restrictions, fees and conversion variance; preserve the earning terms with the resulting value; and test whether a reasonable person can predict what effort produces and what the balance can actually obtain.",
+        "Treat breakage as a design outcome to govern, not invisible margin: measure earned value that expires, is revoked, cannot be redeemed, is abandoned through friction, or is lost at account closure; segment by value, disability, language, age, device access, geography and program tenure; identify whether reminders and redemption paths genuinely restore agency; and set safeguards when business value depends on people misunderstanding or failing to use what they earned."
+      ],
+      "pack_id": "lens-earned-value-legibility-breakage-loyalty-fairness",
+      "reference": "lens-earned-value-legibility-breakage-loyalty-fairness.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "bank, wallet, peer-to-peer and account-to-account transfers",
+        "domestic, instant and cross-border payments",
+        "personal, business and delegated payment initiation",
+        "contact, handle, account and saved-recipient addressing",
+        "single, scheduled and recurring transfers",
+        "fees, exchange rates, taxes and recipient amounts",
+        "pending, settled, returned, reversed and disputed payments",
+        "limits, compliance review, outages and recipient-side failure"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "financial-transfer-payment-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make the transfer route and value reconstructable before commitment: show funding source, available balance or credit implication, amount sent, currency, exchange rate and its validity window, provider and third-party fees, taxes, amount expected by the recipient, rail, speed, availability date, limits and material protections; distinguish estimates from guaranteed values and never describe an instant initiation as guaranteed recipient access.",
+        "Represent transfer status as a state machine: drafted, authorized, scheduled, submitted, accepted by provider, processing, compliance review, sent to network, settled, available to recipient, collected, rejected, canceled, expired, returned, reversed or disputed; identify which party owns the next action, what money is reserved or debited, the expected next event and time, and whether the sender can still edit, cancel, recall or only request return."
+      ],
+      "pack_id": "section-flow-financial-transfer-payment-lifecycle",
+      "reference": "section-flow-financial-transfer-payment-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "bank, wallet and peer-to-peer transfers",
+        "instant and real-time payment rails",
+        "cross-border remittance and currency conversion",
+        "new, saved and changed recipients",
+        "business, delegated and high-value payments",
+        "scheduled, recurring and request-for-payment flows",
+        "failed, returned, duplicated and delayed transfers",
+        "scam, unauthorized and misdirected payment recovery"
+      ],
+      "axis": "lens",
+      "categories": [
+        "transaction-finality-recipient-certainty-recoverable-payment-control"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 9,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make the financial proposition complete before authorization: present amount paid, amount and currency received, exchange rate and validity, provider and third-party fees, taxes, funding source, rail, availability date, limits, protection and cancellation boundary in a readily understandable form; separate guaranteed values from estimates; preserve a durable receipt; and test comprehension rather than mere disclosure presence.",
+        "Keep recovery routes semantically distinct: cancellation stops an instruction before the relevant boundary; recall requests cooperation after sending; return moves settled value back through a new or exception process; unauthorized-transfer claims dispute actor authority; scam claims address manipulated authorization; error claims address amount, recipient, timing or duplication; show the applicable route, deadline, evidence, provider roles and likely interim state without promising success."
+      ],
+      "pack_id": "lens-transaction-finality-recipient-certainty-recoverable-payment-control",
+      "reference": "lens-transaction-finality-recipient-certainty-recoverable-payment-control.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "parcel and multi-package shipping",
+        "on-demand food, grocery and local delivery",
+        "store, curbside, counter and locker pickup",
+        "marketplace, authenticated and cross-merchant fulfillment",
+        "split, partial, substituted and backordered items",
+        "scheduled, attended and unattended handoff",
+        "age, identity, signature and access-code delivery",
+        "delay, failed attempt, loss, damage and disputed completion"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "order-fulfillment-delivery-handoff-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Treat time as a revisable promise with provenance: show the original date or window, current estimate, confidence or range where material, last update, reason for change, dependency and next reassessment; distinguish ship-by, carrier acceptance, arrival, out-for-delivery, pickup readiness and hold deadline; notify meaningful slippage before the promise expires; and offer reschedule, consent-to-delay, cancellation or remedy according to the actual contract.",
+        "Bind completion claims to proportionate evidence: identify whether delivered means carrier scan, geofence, photo, signature, access-code exchange, locker deposit, merchant handoff or recipient confirmation; show time and sufficiently precise location without exposing unnecessary private data; allow the recipient to report not received, wrong place, missing item, damage or unsafe condition; and never treat weak automated evidence as conclusive against a timely challenge."
+      ],
+      "pack_id": "section-flow-order-fulfillment-delivery-handoff-lifecycle",
+      "reference": "section-flow-order-fulfillment-delivery-handoff-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "commerce fulfillment and parcel tracking",
+        "on-demand courier and prepared-food delivery",
+        "pickup, collection and locker handoff",
+        "marketplace and multi-party logistics",
+        "delivery estimates and live progress",
+        "sensitive, regulated, perishable and high-value goods",
+        "partial, delayed, failed and disputed fulfillment",
+        "location, proof, notifications and worker-recipient coordination"
+      ],
+      "axis": "lens",
+      "categories": [
+        "promise-accuracy-custody-transparency-exception-agency"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 9,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate every fulfillment promise against its evidence and decision consequence: preserve the original promise, basis, scope and responsible party; distinguish contractual date, operational target, probabilistic estimate and aspirational speed; show a range or confidence when precision is not supportable; update promptly when evidence changes; and never erase prior commitments or reset the baseline to make performance look on time.",
+        "Separate event, inference and prediction: a label is an intent record, a scan is an observed event, carrier possession is custody evidence, a map position may be delayed or modeled, an ETA is a forecast, and delivered is a claim whose proof varies; label source and time, preserve contradictory evidence, state uncertainty, and prevent one weak signal from being promoted into conclusive completion."
+      ],
+      "pack_id": "lens-promise-accuracy-custody-transparency-exception-agency",
+      "reference": "lens-promise-accuracy-custody-transparency-exception-agency.md",
       "role": "category",
       "version": "1.0.0"
     }

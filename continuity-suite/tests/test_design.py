@@ -655,6 +655,36 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("lens-behavioral-ethics", packs)
         self.assertEqual(packs[packs.index("lens-behavioral-ethics") - 1], "design-ux-lenses")
 
+    def test_reviewed_consumer_value_payment_and_fulfillment_overlays_are_bound(self):
+        value = input_value(
+            sections=[
+                "loyalty-rewards-membership-lifecycle",
+                "financial-transfer-payment-lifecycle",
+                "order-fulfillment-delivery-handoff-lifecycle",
+            ],
+            lenses=[
+                "earned-value-legibility-breakage-loyalty-fairness",
+                "transaction-finality-recipient-certainty-recoverable-payment-control",
+                "promise-accuracy-custody-transparency-exception-agency",
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        section_foundation = packs.index("design-sections-flows")
+        lens_foundation = packs.index("design-ux-lenses")
+        for pack_id in [
+            "section-flow-loyalty-rewards-membership-lifecycle",
+            "section-flow-financial-transfer-payment-lifecycle",
+            "section-flow-order-fulfillment-delivery-handoff-lifecycle",
+        ]:
+            self.assertGreater(packs.index(pack_id), section_foundation)
+        for pack_id in [
+            "lens-earned-value-legibility-breakage-loyalty-fairness",
+            "lens-transaction-finality-recipient-certainty-recoverable-payment-control",
+            "lens-promise-accuracy-custody-transparency-exception-agency",
+        ]:
+            self.assertGreater(packs.index(pack_id), lens_foundation)
+
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
