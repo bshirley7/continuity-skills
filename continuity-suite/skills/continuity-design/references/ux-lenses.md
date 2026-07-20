@@ -27,3 +27,4 @@
 - **Decision architecture:** Are material facts visible before commitment, alternatives comparably understandable, and review, refusal, correction, withdrawal, and recovery available without manufactured friction?
 - **Cognitive load and progressive learning:** Is avoidable burden removed without hiding material information, memory externalized, guidance tied to real outcomes, and later independent use evaluated?
 - **Behavioral ethics:** Does the complete intervention preserve autonomy, welfare, fairness, transparency, and durable control across repeated exposure, affected groups, safeguards, and enforceable stop conditions?
+- **Attention and interruption:** Is attention treated as a user cost, with urgency and channel matched to consequence, response window, reversibility, context, accessibility, privacy, and user-controlled suppression?

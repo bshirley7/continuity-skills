@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.76.0",
+  "catalog_version": "1.78.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1695,6 +1695,37 @@
       ],
       "pack_id": "section-flow-activity-audit-history",
       "reference": "section-flow-activity-audit-history.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["in-product notification centers", "work inboxes", "mentions and assignments", "status and system updates", "unread and read state", "notification preferences", "channel and frequency controls", "digests and quiet periods"],
+      "axis": "section-flow",
+      "categories": ["notification-inbox"],
+      "evidence_sufficiency": {"industry_count": 8, "product_count": 11, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Model notification state separately from work state: unread, read, seen, dismissed, archived, snoozed, assigned, resolved, and completed must not collapse into one badge or clearing action.",
+        "Make every notification answer why the person received it, who or what caused it, what object and workspace it concerns, what changed, when it happened, whether action is required, and where to inspect or act."
+      ],
+      "pack_id": "section-flow-notification-inbox",
+      "reference": "section-flow-notification-inbox.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["notifications and alerts", "status and completion feedback", "in-product banners and toasts", "notification centers", "attention-sensitive workflows", "assistive technology announcements", "notification preferences", "high-urgency and emergency communication"],
+      "axis": "lens",
+      "categories": ["attention-interruption"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 6, "evidence_family_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Treat attention as a user cost: choose interruption level from consequence, required response window, current task, reversibility, and the cost of missing the event, never from the sender's desire for engagement.",
+        "Use the least disruptive channel that still makes the state perceivable: prefer contextual status near the affected work, then persistent banners or inboxes, reserving focus-taking alerts and modal interruption for rare events requiring immediate action."
+      ],
+      "pack_id": "lens-attention-interruption",
+      "reference": "lens-attention-interruption.md",
       "role": "category",
       "version": "1.0.0"
     }
