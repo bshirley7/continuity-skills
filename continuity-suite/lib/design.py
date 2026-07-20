@@ -18,6 +18,22 @@ AXES = {
     "lenses": "lens",
 }
 TARGETS = {"ui", "document", "image"}
+CATALOG_MODALITIES = TARGETS | {"campaign", "platform"}
+EVIDENCE_STATUSES = {"validated", "inferred", "not-applicable"}
+DESIGN_GRAMMAR_DIMENSIONS = (
+    "composition",
+    "spacing_density",
+    "typography",
+    "color",
+    "shape_form",
+    "surface_depth",
+    "imagery",
+    "iconography",
+    "motion",
+    "voice",
+    "state_language",
+    "responsive_behavior",
+)
 
 
 class DesignError(RuntimeError):
@@ -85,7 +101,11 @@ def load_catalog(catalog_path: Path) -> dict[str, Any]:
         if not isinstance(applicability, list) or not applicability or any(not isinstance(item, str) or not item.strip() for item in applicability):
             raise DesignError("Installed design catalog must identify pack applicability")
         modalities = pack.get("modalities", {})
-        if set(modalities) != TARGETS or any(value not in {"validated", "inferred", "not-applicable"} for value in modalities.values()):
+        if (
+            not TARGETS.issubset(modalities)
+            or not set(modalities).issubset(CATALOG_MODALITIES)
+            or any(value not in EVIDENCE_STATUSES for value in modalities.values())
+        ):
             raise DesignError("Installed design catalog has invalid modality applicability")
         transferable = pack.get("modality_independent_principles")
         if not isinstance(transferable, list) or any(not isinstance(item, str) or not item.strip() for item in transferable):
@@ -146,6 +166,95 @@ def catalog_summary(config: dict[str, Any], catalog_path: Path, axis: str | None
     return {"catalog_version": catalog["catalog_version"], "packs": packs, "offline": True}
 
 
+def load_lens_routing(catalog_path: Path, catalog: dict[str, Any]) -> dict[str, Any]:
+    routing_path = catalog_path.parent / "lens-routing.json"
+    routing = _read_json(routing_path)
+    if routing.get("schema_version") != 1 or not isinstance(routing.get("baseline"), list) or not isinstance(routing.get("rules"), list):
+        raise DesignError("Installed UX lens routing is invalid")
+    lens_foundation = next(pack for pack in catalog["packs"] if pack["axis"] == "lens" and pack["role"] == "foundation")
+    available = set(lens_foundation["categories"])
+    baseline = routing["baseline"]
+    if not baseline or len(set(baseline)) != len(baseline) or any(not isinstance(item, str) or item not in available for item in baseline):
+        raise DesignError("Installed UX lens routing has an invalid baseline")
+    seen_rules: set[str] = set()
+    for rule in routing["rules"]:
+        if not isinstance(rule, dict):
+            raise DesignError("Installed UX lens routing has an invalid rule")
+        rule_id = rule.get("rule_id")
+        reason = rule.get("reason")
+        terms = rule.get("terms")
+        lenses = rule.get("lenses")
+        if (
+            not isinstance(rule_id, str)
+            or not re.fullmatch(r"[a-z0-9][a-z0-9-]+", rule_id)
+            or rule_id in seen_rules
+            or not isinstance(reason, str)
+            or not reason.strip()
+            or not isinstance(terms, list)
+            or not terms
+            or any(not isinstance(item, str) or not item.strip() for item in terms)
+            or not isinstance(lenses, list)
+            or not lenses
+            or any(not isinstance(item, str) or item not in available for item in lenses)
+        ):
+            raise DesignError("Installed UX lens routing has an incomplete or unknown rule")
+        seen_rules.add(rule_id)
+    return routing
+
+
+def _inference_text(payload: dict[str, Any]) -> str:
+    values: list[str] = []
+    for key in (
+        "title",
+        "intent",
+        "audiences",
+        "targets",
+        "industry",
+        "sections",
+        "themes",
+        "message_structures",
+        "constraints",
+        "preserve",
+        "open_questions",
+    ):
+        value = payload.get(key)
+        values.extend(value if isinstance(value, list) else [value] if isinstance(value, str) else [])
+    return " ".join(values).casefold().replace("-", " ")
+
+
+def _term_matches(text: str, term: str) -> bool:
+    normalized = term.casefold().replace("-", " ").strip()
+    return re.search(rf"(?<![a-z0-9]){re.escape(normalized)}(?![a-z0-9])", text) is not None
+
+
+def _infer_lenses(payload: dict[str, Any], routing: dict[str, Any]) -> tuple[list[str], list[dict[str, Any]]]:
+    selected = list(routing["baseline"])
+    rationale: list[dict[str, Any]] = [
+        {
+            "rule_id": "universal-baseline",
+            "reason": "Applied to every automatically routed design.",
+            "lenses": list(routing["baseline"]),
+            "matched_terms": [],
+        }
+    ]
+    text = _inference_text(payload)
+    for rule in routing["rules"]:
+        matched_terms = [term for term in rule["terms"] if _term_matches(text, term)]
+        if not matched_terms:
+            continue
+        lenses = [lens for lens in rule["lenses"] if lens not in selected]
+        selected.extend(lenses)
+        rationale.append(
+            {
+                "rule_id": rule["rule_id"],
+                "reason": rule["reason"],
+                "lenses": lenses,
+                "matched_terms": matched_terms,
+            }
+        )
+    return selected, rationale
+
+
 def _validate_strings(payload: dict[str, Any], key: str, required: bool = False) -> list[str]:
     value = payload.get(key, [])
     if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
@@ -194,6 +303,20 @@ def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
         "name": f"{labels[index]} {theme}",
         "summary": f"Apply a {theme} theme with a {message} message structure across {', '.join(payload['sections'])}.",
         "principles": [f"Use the {lens} lens at each material decision point." for lens in lenses[:4]],
+        "design_grammar": {
+            "composition": [f"Use a {theme} composition with explicit reading order and section hierarchy across {', '.join(payload['sections'])}."],
+            "spacing_density": ["Set density by task frequency and consequence; keep related information close and independent regions visibly separated."],
+            "typography": [f"Use type hierarchy to carry the {message} message structure without relying on size alone."],
+            "color": [f"Use color semantically first and apply the {theme} theme through a bounded expressive palette."],
+            "shape_form": ["Distinguish controls, content, status, and decoration through a coherent but semantically differentiated form language."],
+            "surface_depth": ["Use the smallest sufficient set of boundaries and depth cues to explain hierarchy, focus, and modality."],
+            "imagery": ["Give every image an explicit role, bounded claim, responsive behavior, alternative, and failure state."],
+            "iconography": ["Use familiar, labeled, accessible symbols with redundant state communication for consequential meaning."],
+            "motion": ["Use motion to explain state and continuity; preserve equivalent meaning and control with reduced motion."],
+            "voice": [f"Use a {message} verbal structure with direct operational language and tone adjusted to consequence."],
+            "state_language": ["Name default, active, selected, pending, complete, stale, unavailable, warning, and error states consistently across modalities."],
+            "responsive_behavior": ["Preserve semantic priority, grouping, current context, actions, and recovery as the composition transforms."],
+        },
         "variation_levers": ["Adjust information density without changing task priority.", "Adjust expressive emphasis without weakening accessibility."],
         "tradeoffs": payload["open_questions"] or ["Greater focus reduces simultaneous exposure of secondary capabilities."],
     }
@@ -210,6 +333,13 @@ def _validate_direction(value: Any, index: int) -> dict[str, Any]:
     for key in ("principles", "variation_levers", "tradeoffs"):
         if not isinstance(result.get(key), list) or not result[key] or any(not isinstance(item, str) or not item.strip() for item in result[key]):
             raise DesignError(f"Direction {result['direction_id']} requires non-empty {key}")
+    grammar = result.get("design_grammar")
+    if not isinstance(grammar, dict) or set(grammar) != set(DESIGN_GRAMMAR_DIMENSIONS):
+        raise DesignError(f"Direction {result['direction_id']} requires the complete design grammar")
+    for dimension in DESIGN_GRAMMAR_DIMENSIONS:
+        rules = grammar[dimension]
+        if not isinstance(rules, list) or not rules or any(not isinstance(item, str) or not item.strip() for item in rules):
+            raise DesignError(f"Direction {result['direction_id']} requires non-empty design grammar dimension {dimension}")
     return result
 
 
@@ -219,14 +349,32 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     for key in ("title", "intent", "industry"):
         if not isinstance(payload.get(key), str) or not payload[key].strip():
             raise DesignError(f"Design input requires {key}")
-    for key in ("audiences", "targets", "sections", "themes", "message_structures", "lenses"):
+    manual_lenses = "lenses" in payload
+    for key in ("audiences", "targets", "sections", "themes", "message_structures"):
         payload[key] = _validate_strings(payload, key, required=True)
+    if manual_lenses:
+        payload["lenses"] = _validate_strings(payload, "lenses", required=True)
     for key in ("constraints", "preserve", "open_questions", "source_note_ids", "memory_ids"):
         payload[key] = _validate_strings(payload, key)
     if not set(payload["targets"]).issubset(TARGETS):
         raise DesignError(f"Unknown targets: {sorted(set(payload['targets']) - TARGETS)}")
     catalog = load_catalog(catalog_path)
+    lens_routing: list[dict[str, Any]] = []
+    if not manual_lenses:
+        payload["lenses"], lens_routing = _infer_lenses(payload, load_lens_routing(catalog_path, catalog))
     catalog_packs = _selected_packs(payload, catalog)
+    selected_pack_ids = {pack["pack_id"] for pack in catalog_packs}
+    selected_catalog_packs = [pack for pack in catalog["packs"] if pack["pack_id"] in selected_pack_ids]
+    evidence_application: dict[str, dict[str, Any]] = {}
+    for target in payload["targets"]:
+        groups = {
+            "validated_packs": [pack["pack_id"] for pack in selected_catalog_packs if pack["modalities"][target] == "validated"],
+            "inferred_packs": [pack["pack_id"] for pack in selected_catalog_packs if pack["modalities"][target] == "inferred"],
+            "not_applicable_packs": [pack["pack_id"] for pack in selected_catalog_packs if pack["modalities"][target] == "not-applicable"],
+        }
+        active = {status for status, key in (("validated", "validated_packs"), ("inferred", "inferred_packs")) if groups[key]}
+        status = "mixed" if len(active) > 1 else next(iter(active), "not-applicable")
+        evidence_application[target] = {"status": status, **groups}
     count = _direction_count(payload)
     supplied = payload.get("directions")
     if supplied is not None:
@@ -268,6 +416,8 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "themes": payload["themes"],
         "message_structures": payload["message_structures"],
         "lenses": payload["lenses"],
+        "lens_selection_mode": "manual" if manual_lenses else "inferred",
+        "lens_routing": lens_routing,
         "constraints": payload["constraints"],
         "preserve": payload["preserve"],
         "open_questions": payload["open_questions"],
@@ -275,6 +425,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "memory_ids": payload["memory_ids"],
         "directions": directions,
         "catalog_packs": catalog_packs,
+        "evidence_application": evidence_application,
         "catalog_version": catalog["catalog_version"],
         "created_at": _now(),
         "execution_authorized": False,
@@ -285,7 +436,9 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
 
 def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, Any]]) -> str:
     targets = ", ".join(draft_record["targets"])
-    modality = "validated" if draft_record["targets"] == ["ui"] else "inferred"
+    evidence = draft_record["evidence_application"]
+    statuses = {evidence[target]["status"] for target in draft_record["targets"]}
+    modality = next(iter(statuses)) if len(statuses) == 1 else "mixed"
     lines = [
         f"# {draft_record['title']}", "",
         f"Design ID: `{draft_record['design_id']}`  ",
@@ -293,11 +446,28 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         f"Targets: `{targets}`  ",
         f"Evidence application: `{modality}`", "",
         "## Intent", "", draft_record["intent"], "",
-        "## Selected direction", "",
+        "## Evidence applicability", "",
     ]
+    for target in draft_record["targets"]:
+        application = evidence[target]
+        lines.extend([f"### {target.title()} — {application['status']}", ""])
+        for label, key in (
+            ("Validated packs", "validated_packs"),
+            ("Inferred packs", "inferred_packs"),
+            ("Not applicable packs", "not_applicable_packs"),
+        ):
+            values = application[key]
+            lines.append(f"- {label}: {', '.join(f'`{value}`' for value in values) if values else 'None.'}")
+        lines.append("")
+    lines.extend([
+        "## Selected direction", "",
+    ])
     for direction in selected:
         lines.extend([f"### {direction['name']}", "", direction["summary"], "", "Principles:", ""])
         lines.extend(f"- {item}" for item in direction["principles"])
+        lines.extend(["", "#### Design grammar", ""])
+        for dimension in DESIGN_GRAMMAR_DIMENSIONS:
+            lines.extend([f"##### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in direction["design_grammar"][dimension]], ""])
         lines.extend(["", "Variation levers:", "", *[f"- {item}" for item in direction["variation_levers"]], "", "Tradeoffs:", "", *[f"- {item}" for item in direction["tradeoffs"]], ""])
     for heading, key in (("Constraints", "constraints"), ("Behavior to preserve", "preserve"), ("Open questions", "open_questions")):
         values = draft_record[key]

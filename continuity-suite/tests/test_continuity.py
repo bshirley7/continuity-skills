@@ -2545,8 +2545,15 @@ class ReferenceTest(unittest.TestCase):
                 continue
             local_references = sorted(path for path in (skill_dir / "references").iterdir() if path.is_file())
             self.assertTrue(local_references, f"{skill_dir.name} requires an applied reference")
+            catalog_references: set[str] = set()
+            if skill_dir.name == "continuity-design":
+                catalog = json.loads((skill_dir / "references" / "catalog.json").read_text(encoding="utf-8"))
+                catalog_references = {str(pack["reference"]) for pack in catalog["packs"]}
             for reference in local_references:
-                self.assertIn(f"references/{reference.name}", skill_text, f"{reference} is not linked from SKILL.md")
+                self.assertTrue(
+                    f"references/{reference.name}" in skill_text or reference.name in catalog_references,
+                    f"{reference} is not linked from SKILL.md or the design catalog",
+                )
 
 
 class InstallerTest(unittest.TestCase):

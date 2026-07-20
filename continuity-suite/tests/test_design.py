@@ -64,10 +64,70 @@ class DesignLifecycleTests(unittest.TestCase):
     def test_adaptive_direction_counts(self):
         one = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="one")))
         self.assertEqual(len(one["directions"]), 1)
+        self.assertEqual(set(one["directions"][0]["design_grammar"]), set(design.DESIGN_GRAMMAR_DIMENSIONS))
+        self.assertTrue(all(one["directions"][0]["design_grammar"][key] for key in design.DESIGN_GRAMMAR_DIMENSIONS))
         two = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="two", open_questions=["Density or scanability?"])))
         self.assertEqual(len(two["directions"]), 2)
         three = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="three", themes=["calm", "technical"], message_structures=["value-first", "proof-first"])))
         self.assertEqual(len(three["directions"]), 3)
+
+    def test_omitted_lenses_apply_explainable_baseline_and_contextual_routing(self):
+        value = input_value(
+            design_id="auto-lenses",
+            title="AI-assisted identity review",
+            intent="Help an operator review an automated recommendation and verify identity.",
+        )
+        value.pop("lenses")
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["lens_selection_mode"], "inferred")
+        self.assertEqual(
+            draft["lenses"][:6],
+            ["comprehension", "usability", "accessibility", "trust", "behavioral-ethics", "error-prevention-recovery"],
+        )
+        self.assertIn("human-agency-calibrated-reliance-automation-boundaries", draft["lenses"])
+        self.assertIn("explanation-contestability-decision-support", draft["lenses"])
+        self.assertIn("identity-assurance-proportional-verification-exclusion-recovery", draft["lenses"])
+        rules = {item["rule_id"]: item for item in draft["lens_routing"]}
+        self.assertIn("automation-and-ai", rules)
+        self.assertIn("identity-and-delegated-access", rules)
+        self.assertIn("automated", rules["automation-and-ai"]["matched_terms"])
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("lens-human-agency-calibrated-reliance-automation-boundaries", packs)
+        self.assertIn("lens-identity-assurance-proportional-verification-exclusion-recovery", packs)
+
+    def test_explicit_lenses_preserve_manual_compatibility_mode(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(lenses=["hierarchy", "trust"])))
+        self.assertEqual(draft["lens_selection_mode"], "manual")
+        self.assertEqual(draft["lens_routing"], [])
+        self.assertEqual(draft["lenses"], ["hierarchy", "trust"])
+
+    def test_lens_routing_rejects_unknown_categories(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(CATALOG.parent, root / "references")
+            routing_path = root / "references" / "lens-routing.json"
+            routing = json.loads(routing_path.read_text(encoding="utf-8"))
+            routing["baseline"].append("not-a-reviewed-lens")
+            routing_path.write_text(json.dumps(routing), encoding="utf-8")
+            catalog = design.load_catalog(root / "references" / "catalog.json")
+            with self.assertRaisesRegex(design.DesignError, "invalid baseline"):
+                design.load_lens_routing(root / "references" / "catalog.json", catalog)
+
+    def test_supplied_direction_requires_complete_design_grammar(self):
+        value = input_value(
+            directions=[
+                {
+                    "direction_id": "incomplete",
+                    "name": "Incomplete",
+                    "summary": "Missing the implementation-facing grammar.",
+                    "principles": ["Keep the task clear."],
+                    "variation_levers": ["Adjust density."],
+                    "tradeoffs": ["Less visible context."],
+                }
+            ]
+        )
+        with self.assertRaisesRegex(design.DesignError, "complete design grammar"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
 
     def test_foundation_and_matching_category_packs_are_bound(self):
         value = input_value(industry="finance", sections=["onboarding"], themes=["calm"])
@@ -703,6 +763,9 @@ class DesignLifecycleTests(unittest.TestCase):
     def test_exact_approval_promotion_and_goal_binding(self):
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value()))
         selected = design.select(self.root, self.config, draft["design_id"], [draft["directions"][0]["direction_id"]], "human")
+        private_design = (self.root / ".continuity" / "private" / "design" / draft["design_id"] / "design.md").read_text(encoding="utf-8")
+        self.assertIn("#### Design grammar", private_design)
+        self.assertIn("##### Responsive Behavior", private_design)
         with self.assertRaises(design.DesignError):
             design.approve(self.root, self.config, draft["design_id"], 1, "human", "approve")
         approved = design.approve(self.root, self.config, draft["design_id"], 1, "human", selected["required_authorization_text"])
@@ -726,7 +789,47 @@ class DesignLifecycleTests(unittest.TestCase):
         selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "human")
         text = (self.root / ".continuity/private/design/design-test/design.md").read_text()
         self.assertIn("Evidence application: `inferred`", text)
+        self.assertIn("### Document — inferred", text)
         self.assertFalse(selected["execution_authorized"])
+
+    def test_direct_document_evidence_is_reported_as_mixed_with_inferred_foundations(self):
+        value = input_value(targets=["document"], lenses=["document-design-system"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        application = draft["evidence_application"]["document"]
+        self.assertEqual(application["status"], "mixed")
+        self.assertIn("lens-document-design-system", application["validated_packs"])
+        self.assertIn("design-ux-lenses", application["inferred_packs"])
+        design.select(self.root, self.config, draft["design_id"], ["direction-1"], "human")
+        text = (self.root / ".continuity/private/design/design-test/design.md").read_text()
+        self.assertIn("### Document — mixed", text)
+        self.assertIn("`lens-document-design-system`", text)
+
+    def test_direct_image_evidence_is_reported_as_mixed_with_inferred_foundations(self):
+        value = input_value(targets=["image"], lenses=["image-art-direction"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        application = draft["evidence_application"]["image"]
+        self.assertEqual(application["status"], "mixed")
+        self.assertIn("lens-image-art-direction", application["validated_packs"])
+        self.assertIn("design-ux-lenses", application["inferred_packs"])
+
+    def test_catalog_accepts_bounded_campaign_and_platform_evidence_contexts(self):
+        catalog = design.load_catalog(CATALOG)
+        campaign = next(pack for pack in catalog["packs"] if pack["pack_id"] == "lens-campaign-design-system")
+        platform = next(pack for pack in catalog["packs"] if pack["pack_id"] == "lens-platform-native-adaptation")
+        self.assertEqual(campaign["modalities"]["campaign"], "validated")
+        self.assertEqual(platform["modalities"]["platform"], "validated")
+
+    def test_catalog_rejects_unknown_evidence_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value = json.loads(CATALOG.read_text(encoding="utf-8"))
+            value["packs"][0]["modalities"]["unknown-context"] = "validated"
+            for reference in {pack["reference"] for pack in value["packs"]}:
+                shutil.copy2(CATALOG.parent / reference, root / reference)
+            path = root / "catalog.json"
+            path.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaises(design.DesignError):
+                design.load_catalog(path)
 
     def test_goal_hash_changes_with_bound_design_hash(self):
         functions = runpy.run_path(str(SUITE / "bin" / "continuity"))

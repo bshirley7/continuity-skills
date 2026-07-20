@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "baseline": [
+    "comprehension",
+    "usability",
+    "accessibility",
+    "trust",
+    "behavioral-ethics",
+    "error-prevention-recovery"
+  ],
+  "rules": [
+    {
+      "rule_id": "automation-and-ai",
+      "reason": "The design includes automation, AI assistance, recommendations, or generated outcomes.",
+      "terms": [
+        "ai",
+        "agent",
+        "algorithm",
+        "automated",
+        "automation",
+        "generate",
+        "generated",
+        "model",
+        "recommendation"
+      ],
+      "lenses": [
+        "human-agency-calibrated-reliance-automation-boundaries",
+        "explanation-contestability-decision-support",
+        "record-provenance-correction-contestability"
+      ]
+    },
+    {
+      "rule_id": "identity-and-delegated-access",
+      "reason": "The design includes identity verification, roles, permissions, delegation, or access control.",
+      "terms": [
+        "access control",
+        "authentication",
+        "authorization",
+        "credential",
+        "delegate",
+        "delegation",
+        "identity",
+        "permission",
+        "role",
+        "verification"
+      ],
+      "lenses": [
+        "identity-assurance-proportional-verification-exclusion-recovery",
+        "delegated-authorization-scope-revocation"
+      ]
+    },
+    {
+      "rule_id": "symbols-and-iconography",
+      "reason": "The design depends on icons, symbols, compact controls, or visual status language.",
+      "terms": [
+        "compact control",
+        "glyph",
+        "icon",
+        "iconography",
+        "symbol",
+        "toolbar",
+        "visual language",
+        "visual status"
+      ],
+      "lenses": [
+        "iconography-visual-language",
+        "symbol-comprehension-redundant-coding"
+      ]
+    },
+    {
+      "rule_id": "spatial-and-location-context",
+      "reason": "The design includes maps, routes, geography, tracking, or location-sensitive decisions.",
+      "terms": [
+        "geographic",
+        "geospatial",
+        "location",
+        "map",
+        "mobility",
+        "route",
+        "routing",
+        "spatial",
+        "tracking"
+      ],
+      "lenses": [
+        "spatial-context-location-agency"
+      ]
+    },
+    {
+      "rule_id": "attention-and-sustainable-engagement",
+      "reason": "The design includes recurring engagement, feeds, reminders, notifications, or retention mechanisms.",
+      "terms": [
+        "alert",
+        "engagement",
+        "feed",
+        "habit",
+        "notification",
+        "reminder",
+        "retention",
+        "streak",
+        "wellbeing"
+      ],
+      "lenses": [
+        "attention-interruption",
+        "sustainable-engagement-wellbeing-autonomy"
+      ]
+    },
+    {
+      "rule_id": "orientation-and-context-boundaries",
+      "reason": "The design includes navigation, nested workspaces, changing object state, or multi-context work.",
+      "terms": [
+        "context",
+        "hierarchy",
+        "navigation",
+        "object state",
+        "organization",
+        "orientation",
+        "project",
+        "state change",
+        "workspace"
+      ],
+      "lenses": [
+        "context-boundary-identity-orientation"
+      ]
+    },
+    {
+      "rule_id": "authorship-and-publication-integrity",
+      "reason": "The design creates, transforms, attributes, approves, or publishes content.",
+      "terms": [
+        "author",
+        "authorship",
+        "content creation",
+        "editorial",
+        "generate content",
+        "publish",
+        "publication",
+        "source attribution"
+      ],
+      "lenses": [
+        "authorship-provenance-content-integrity"
+      ]
+    }
+  ]
+}

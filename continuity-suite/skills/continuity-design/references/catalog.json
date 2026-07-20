@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.128.0",
+  "catalog_version": "1.151.0",
   "packs": [
     {
       "applicability": [
@@ -1064,7 +1064,7 @@
         "ui": "validated"
       },
       "modality_independent_principles": [
-        "Assign expressive elements a job\u2014explain a mental model, motivate progress, identify a content category, or create a focal action\u2014and remove ornament that competes with task comprehension.",
+        "Assign expressive elements a job—explain a mental model, motivate progress, identify a content category, or create a focal action—and remove ornament that competes with task comprehension.",
         "Use consistent image treatment, typography, tags, and navigation to turn varied expressive content into a coherent system."
       ],
       "pack_id": "theme-expressive",
@@ -1403,7 +1403,30 @@
         "outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning",
         "asset-identity-custody-availability-maintenance-safety-circularity-accountability",
         "expense-policy-legibility-evidence-proportionality-worker-agency-reimbursement-accountability",
-        "customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff"
+        "customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff",
+        "human-agency-calibrated-reliance-automation-boundaries",
+        "explanation-contestability-decision-support",
+        "record-provenance-correction-contestability",
+        "identity-assurance-proportional-verification-exclusion-recovery",
+        "delegated-authorization-scope-revocation",
+        "iconography-visual-language",
+        "symbol-comprehension-redundant-coding",
+        "spatial-context-location-agency",
+        "sustainable-engagement-wellbeing-autonomy",
+        "context-boundary-identity-orientation",
+        "authorship-provenance-content-integrity",
+        "composition-grid-spatial-rhythm",
+        "brand-expression-visual-identity",
+        "shape-form-language",
+        "surface-depth-material",
+        "data-visualization-integrity",
+        "visual-state-language",
+        "motion-art-direction",
+        "verbal-design-voice-tone",
+        "document-design-system",
+        "image-art-direction",
+        "campaign-design-system",
+        "platform-native-adaptation"
       ],
       "modalities": {
         "document": "inferred",
@@ -1623,7 +1646,7 @@
       "modality_independent_principles": [
         "Adapt by semantic priority rather than proportional shrinking: preserve current scope, selected object, essential state, primary action, and safe return first, then collapse, move, or defer secondary navigation, inspectors, metadata, and utilities.",
         "Maintain continuity when a multi-pane workspace becomes a compact sequence by preserving selection, title, project or collection, filters, scroll position, unsaved state, and a predictable back path between list and detail.",
-        "Test responsive behavior as content and state combinations, including long labels, many panes, wide tables, keyboard visible, empty and error states, selected rows, open menus, active inspectors, and unsaved work\u2014not only at nominal viewport widths."
+        "Test responsive behavior as content and state combinations, including long labels, many panes, wide tables, keyboard visible, empty and error states, selected rows, open menus, active inspectors, and unsaved work—not only at nominal viewport widths."
       ],
       "pack_id": "lens-responsiveness",
       "reference": "lens-responsiveness.md",
@@ -1693,7 +1716,7 @@
         "ui": "validated"
       },
       "modality_independent_principles": [
-        "Define visual choices by semantic role\u2014surface, text, action, status, focus, border, chart series, heading, body, spacing, and density\u2014then map modes and brands onto those roles instead of exposing unrelated raw values.",
+        "Define visual choices by semantic role—surface, text, action, status, focus, border, chart series, heading, body, spacing, and density—then map modes and brands onto those roles instead of exposing unrelated raw values.",
         "Evolve visual systems through explicit save state, legacy mapping, migration notices, and bounded overrides so existing artifacts and behaviors do not silently change."
       ],
       "pack_id": "lens-design-tokens",
@@ -2032,7 +2055,7 @@
         "ui": "validated"
       },
       "modality_independent_principles": [
-        "Explain why the problem persists through a credible cause\u2014fragmented ownership, manual handoffs, missing visibility, repeated work, uncontrolled risk, or incompatible tools\u2014rather than blaming the user.",
+        "Explain why the problem persists through a credible cause—fragmented ownership, manual handoffs, missing visibility, repeated work, uncontrolled risk, or incompatible tools—rather than blaming the user.",
         "Present the solution as a mechanism that changes specific inputs, handoffs, decisions, controls, or outputs; avoid jumping from pain directly to feature inventory or an unearned outcome."
       ],
       "pack_id": "message-structure-problem-solution",
@@ -2066,7 +2089,7 @@
         "ui": "validated"
       },
       "modality_independent_principles": [
-        "Choose type categories from the job each role must perform\u2014reading, scanning, comparison, action, expression, code, evidence, or annotation\u2014then test whether the resulting voice is true to the brand and credible in its industry context.",
+        "Choose type categories from the job each role must perform—reading, scanning, comparison, action, expression, code, evidence, or annotation—then test whether the resulting voice is true to the brand and credible in its industry context.",
         "Evaluate every proposed family and pairing against role coverage, small-size legibility, similar-character distinction, numerals, punctuation, italics, variable axes, loading, licensing, script support, localization, accessibility, and fallback behavior before treating aesthetic fit as sufficient."
       ],
       "pack_id": "lens-typography",
@@ -2134,7 +2157,7 @@
         "ui": "validated"
       },
       "modality_independent_principles": [
-        "Begin with the decision context\u2014who is choosing, the job or outcome, the options in scope, and the few criteria that materially change fit\u2014before presenting a detailed comparison.",
+        "Begin with the decision context—who is choosing, the job or outcome, the options in scope, and the few criteria that materially change fit—before presenting a detailed comparison.",
         "Explain recommendations and defaults through explicit audience, assumptions, evidence, and tradeoffs; preserve a neutral path to inspect and select every viable option."
       ],
       "pack_id": "message-structure-comparison",
@@ -2203,7 +2226,7 @@
       },
       "modality_independent_principles": [
         "Explain what each personalization input changes, where it applies, how long it persists, and whether it was explicitly supplied, inferred from behavior, inherited from policy, or derived from current context.",
-        "Give users correction at the level of the signal and outcome\u2014item, topic, source, goal, role, default, inferred fact, or remembered detail\u2014and state what future behavior the correction will affect."
+        "Give users correction at the level of the signal and outcome—item, topic, source, goal, role, default, inferred fact, or remembered detail—and state what future behavior the correction will affect."
       ],
       "pack_id": "message-structure-personalization",
       "reference": "message-structure-personalization.md",
@@ -2271,7 +2294,7 @@
       },
       "modality_independent_principles": [
         "Tie expressive choices to the product mechanism, audience, or artifacts users create; pair metaphor and category cues with concrete examples, evidence, constraints, and a clear action.",
-        "Evaluate differentiation against comprehension, task success, accessibility, performance, localization, trust, maintenance, and recognizable value\u2014not aesthetic novelty or competitor distance alone."
+        "Evaluate differentiation against comprehension, task success, accessibility, performance, localization, trust, maintenance, and recognizable value—not aesthetic novelty or competitor distance alone."
       ],
       "pack_id": "lens-differentiation",
       "reference": "lens-differentiation.md",
@@ -2304,7 +2327,7 @@
         "ui": "validated"
       },
       "modality_independent_principles": [
-        "Choose palette character\u2014warm or cool, muted or saturated, monochrome or multicolor, light or dark\u2014from brand voice, content, environment, task duration, and industry credibility; do not reduce industries to fixed color stereotypes.",
+        "Choose palette character—warm or cool, muted or saturated, monochrome or multicolor, light or dark—from brand voice, content, environment, task duration, and industry credibility; do not reduce industries to fixed color stereotypes.",
         "Use semantic color proportionally to consequence and always pair status, severity, gain, loss, risk, success, warning, and error with text, iconography, shape, position, or pattern that preserves meaning without color."
       ],
       "pack_id": "lens-color",
@@ -2406,7 +2429,7 @@
         "ui": "validated"
       },
       "modality_independent_principles": [
-        "Name accessibility settings by the interface behavior they change\u2014text size, contrast, motion, sound, captions, timing, focus, input, or navigation\u2014without diagnosing, stigmatizing, or requiring users to justify the preference.",
+        "Name accessibility settings by the interface behavior they change—text size, contrast, motion, sound, captions, timing, focus, input, or navigation—without diagnosing, stigmatizing, or requiring users to justify the preference.",
         "Offer accommodations and human assistance through ordinary, respectful language that describes the available path, expected effort, timing, privacy, and outcome without requiring disclosure of disability or presenting support as an exception."
       ],
       "pack_id": "lens-accessibility-language",
@@ -5643,6 +5666,824 @@
       ],
       "pack_id": "lens-customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff",
       "reference": "lens-customer-agency-consent-fit-evidence-forecast-integrity-accountable-handoff.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "AI-assisted decisions",
+        "generative content and analysis",
+        "autonomous and semi-autonomous agents",
+        "recommendation and ranking systems",
+        "workplace automation",
+        "high-consequence services",
+        "multi-tool assistants",
+        "human-AI collaboration and handoff"
+      ],
+      "axis": "lens",
+      "categories": [
+        "human-agency-calibrated-reliance-automation-boundaries"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 7,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve meaningful human agency by distinguishing system proposal, recommendation, decision and action; make purpose, affected people, accountable actor, automation mode, authority, material consequence and refusal path explicit; retain genuine choice, manual alternatives where consequence warrants them, correction, withdrawal, intervention and remedy without using friction, anthropomorphism or urgency to manufacture acceptance.",
+        "Calibrate reliance to capability and current evidence rather than fluency or generalized trust: communicate intended use, known limits, relevant performance and failure conditions, uncertainty, source and data coverage, freshness, distribution shift and verification needs at the decision point; evaluate whether people accept correct outputs and reject incorrect ones instead of treating use, satisfaction or confidence as proof of appropriate reliance."
+      ],
+      "pack_id": "lens-human-agency-calibrated-reliance-automation-boundaries",
+      "reference": "lens-human-agency-calibrated-reliance-automation-boundaries.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "AI-generated answers and summaries",
+        "scores classifications and rankings",
+        "recommendations and decision support",
+        "automated or assisted eligibility decisions",
+        "risk fraud and safety findings",
+        "candidate and content matching",
+        "explainable model interfaces",
+        "affected-person notice challenge and appeal"
+      ],
+      "axis": "lens",
+      "categories": [
+        "explanation-contestability-decision-support"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 7,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define the explanation contract before choosing a visualization or rationale: identify recipient and affected person, decision or output, intended use, consequence, timing, prior knowledge, language and accessibility needs, likely questions, decision authority, privacy and security constraints, explanation purpose, evidence needed for challenge, and route to correction, human review, appeal and remedy; provide different views for operators, decision owners, affected people, auditors and developers without changing the underlying facts.",
+        "Require every explanation to satisfy evidence, meaningfulness, fidelity and knowledge-limit tests: attach reasons or evidence to the exact output; make them understandable and actionable for the recipient; verify that they reflect the process or evidence actually used rather than a plausible generated story; disclose conditions, uncertainty and limits under which the system should abstain, defer or require verification."
+      ],
+      "pack_id": "lens-explanation-contestability-decision-support",
+      "reference": "lens-explanation-contestability-decision-support.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "customer and identity records",
+        "health and financial records",
+        "employment and education records",
+        "risk and eligibility decisions",
+        "data enrichment and aggregation",
+        "automated profiling",
+        "cross-system synchronization",
+        "audits and investigations"
+      ],
+      "axis": "lens",
+      "categories": [
+        "record-provenance-correction-contestability"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Represent consequential data as attributable assertions: preserve the entity described, value and meaning, source or primary record, responsible actor or system, collection or generation activity, observed and effective time, method, derivation and transformation, version, verification scope, and invalidation state so users can judge fitness, reliability, and current authority.",
+        "Treat correction as a distributed lifecycle rather than a local edit: preserve the original assertion and linked amendment, identify recipients and derived systems, propagate correction or restriction within a reasonable time, disclose partial or failed updates, notify the person of outcome and affected recipients where appropriate, re-evaluate downstream decisions, and verify that stale copies no longer act as current truth."
+      ],
+      "pack_id": "lens-record-provenance-correction-contestability",
+      "reference": "lens-record-provenance-correction-contestability.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "identity proofing for regulated, financial and public services",
+        "worker, seller, provider, host and organizational authority checks",
+        "age, residency, license, address and legal-name verification",
+        "physical and digital identity credentials",
+        "remote document capture and authoritative-source validation",
+        "selfie, liveness and biometric one-to-one verification",
+        "verification badges, capability gating and periodic re-proofing",
+        "failure, correction, alternative evidence, human review and grievance"
+      ],
+      "axis": "lens",
+      "categories": [
+        "identity-assurance-proportional-verification-exclusion-recovery"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 14,
+        "publisher_count": 7,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate necessity at the claim level before evaluating interface friction: define the relying party, capability, threat, consequence and exact attribute or binding that must be established; choose an assurance level proportional to harm; justify why self-assertion, an existing account, a signed attribute, selective disclosure or a lower-intrusion control is insufficient; separate identity proofing from suitability and entitlement; and reject data collection whose only rationale is future convenience, profiling or generalized trust.",
+        "Trace assurance as an evidence argument: identify each self-asserted attribute, credential and issuing source; record evidence strength, authenticity validation, attribute-source comparison, consistency resolution, person-binding method, liveness or presence evidence, reviewer and date; state what the resulting confidence does and does not support; and prevent a platform badge, model score or successful capture from being promoted into universal identity, character or safety assurance."
+      ],
+      "pack_id": "lens-identity-assurance-proportional-verification-exclusion-recovery",
+      "reference": "lens-identity-assurance-proportional-verification-exclusion-recovery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "third-party integrations",
+        "federated sign-in and identity",
+        "connected accounts",
+        "delegated data access",
+        "automation acting for a person or organization",
+        "enterprise app installation",
+        "high-value financial or administrative APIs",
+        "AI tools using external services"
+      ],
+      "axis": "lens",
+      "categories": [
+        "delegated-authorization-scope-revocation"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make the delegation model explicit before asking for agreement: identify the resource owner or authorizing administrator, requesting client, authorization service, protected resource and tenant, acting identity, intended audience, beneficiary, purpose, requested duration, and whether the client will read data, change data, trigger actions, act unattended, or delegate further; never collapse authentication, authorization, installation, data processing, and automation into one consent.",
+        "Design revocation as verifiable containment: offer an accessible route to withdraw or administratively terminate authority, distinguish local disconnect, token revocation, session logout, application uninstall, credential rotation, data deletion, and workflow shutdown, explain cascading and non-cascading effects, stop new use promptly, surface failures or residual access, preserve necessary accountability evidence, and tell the person what retained data or independent provider action remains."
+      ],
+      "pack_id": "lens-delegated-authorization-scope-revocation",
+      "reference": "lens-delegated-authorization-scope-revocation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "application navigation and destination rails",
+        "editor, builder and analytical toolbars",
+        "object, file and content-type representation",
+        "status, progress, warning and error communication",
+        "settings, permissions and account controls",
+        "mobile, touch, keyboard and compact layouts",
+        "branded and cross-platform design systems",
+        "localized, accessible and consequential actions"
+      ],
+      "axis": "lens",
+      "categories": [
+        "iconography-visual-language"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define an icon semantic inventory before drawing forms: classify each symbol as destination, object, action, mode, status, relationship or decoration; assign one canonical concept and plain-language name; distinguish visually similar concepts such as add, create, upload, attach, share, send, move and export; and never reuse one glyph for different meanings merely because space is scarce.",
+        "Pair consequential and operational symbols with exact language and evidence: name the affected object, state, severity, scope and next action; distinguish acknowledgement from completion and warning from prohibition; show time or freshness where state can age; and never let a shield, checkmark, lock, cloud, warning triangle or trash glyph substitute for security, validation, synchronization, approval or deletion facts."
+      ],
+      "pack_id": "lens-iconography-visual-language",
+      "reference": "lens-iconography-visual-language.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "navigation, tabs and destination controls",
+        "toolbars, editors and expert workspaces",
+        "buttons, menus and compact actions",
+        "objects, content types and relationships",
+        "status, feedback, warning and error indicators",
+        "settings, permissions and consequential controls",
+        "cross-platform and branded design systems",
+        "localized, assistive and multimodal interfaces"
+      ],
+      "axis": "lens",
+      "categories": [
+        "symbol-comprehension-redundant-coding"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Treat every symbol as a semantic contract, not a picture: define its concept, role, action or destination, object and state, plain-language name, accessible exposure, allowable variants and prohibited synonyms; reuse it consistently only where those semantics remain true; and separate interface icons, pictograms, illustrations, logos, emoji and data marks because they carry different interaction and interpretation obligations.",
+        "Represent states and consequence as claims that can be checked: distinguish current destination, active mode, pressed control, disabled action, pending operation, acknowledged request, verified completion, warning, prohibition, stale data and failure with exact language and evidence; do not let a check, lock, shield, cloud, trash, warning or animation overstate security, approval, synchronization or deletion; and scale confirmation and recovery to the harm of misinterpretation."
+      ],
+      "pack_id": "lens-symbol-comprehension-redundant-coding",
+      "reference": "lens-symbol-comprehension-redundant-coding.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "location permission and device-sensor access",
+        "maps, routes, pickup and delivery",
+        "live sharing and safety coordination",
+        "geofences, background automation and connected mobility",
+        "nearby discovery and location personalization",
+        "location history, analytics and inferred places",
+        "emergency, health, family and vulnerable-person contexts",
+        "shared devices, delegated access and coercion-sensitive use"
+      ],
+      "axis": "lens",
+      "categories": [
+        "spatial-context-location-agency"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Model location as contextual evidence rather than a coordinate: preserve subject or device, purpose, source, place meaning, precision, accuracy, timestamp, route or boundary, recipient, inference, retention and uncertainty; distinguish observed position from address, saved place, predicted destination, visited place and claimed identity; and never let a precise-looking map erase the limits of the underlying evidence.",
+        "Protect contextual integrity and secondary inference: treat home, work, health, worship, political activity, relationships and routines inferred from movement as sensitive even when individual points appear ordinary; bind collection and use to the stated context; minimize access, linkage, analytics, advertising, brokerage and retransmission; disclose recipients and retention; and provide access, correction, objection, export and deletion with propagation limits explained."
+      ],
+      "pack_id": "lens-spatial-context-location-agency",
+      "reference": "lens-spatial-context-location-agency.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "social, media, gaming and recommendation products",
+        "work, education and communication tools",
+        "finance, commerce and other high-arousal services",
+        "youth and developmentally vulnerable users",
+        "notification, retention and personalization systems",
+        "focus and digital-wellbeing products",
+        "organizational workload and availability design",
+        "health-adjacent engagement features"
+      ],
+      "axis": "lens",
+      "categories": [
+        "sustainable-engagement-wellbeing-autonomy"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate engagement by the quality and distribution of outcomes, not time or retention alone: identify meaningful benefit, active versus passive use, content and interaction type, continuous duration, time of day, sleep, movement, distress, social connection, work and learning demands, accessibility, vulnerability and opportunity displaced; preserve uncertainty and individual variation; and never infer addiction, health or moral worth from one usage total.",
+        "Address structural causes before transferring responsibility to the individual: assess recommender objectives, notification generation, business incentives, workload, staffing, response norms, ranking, monetization and default availability; use organizational and product-level controls before relying on reminders or willpower; give workers and users meaningful voice; and do not market a wellbeing control while the surrounding system is optimized to defeat it."
+      ],
+      "pack_id": "lens-sustainable-engagement-wellbeing-autonomy",
+      "reference": "lens-sustainable-engagement-wellbeing-autonomy.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "multi-account and shared-device applications",
+        "household, child, creator and delegated profiles",
+        "multi-workspace and multitenant software",
+        "organization, project and environment switching",
+        "guest, partner and cross-organization collaboration",
+        "role-varying administration and billing",
+        "cross-context search, notifications and background work",
+        "publishing, purchasing, credential and destructive actions"
+      ],
+      "axis": "lens",
+      "categories": [
+        "context-boundary-identity-orientation"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 7,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Represent identity and context as an explicit tuple: authenticated person or workload, credential or session, represented profile, organization or tenant, resource hierarchy, effective role and policy, intended audience and requested action; use immutable identifiers underneath human-readable labels; and never infer resource authority solely from successful authentication, a client-supplied tenant value or a familiar visual identity.",
+        "Make authority contextual and consequence-sensitive: show that the same person may be owner, administrator, member, guest, child, delegate or viewer in different contexts; apply least privilege and deny by default; distinguish selection from invitation, authentication, consent, delegation and elevation; restate actor, tenant, resource and effect before consequential action; and require fresh verification or independent approval when policy and harm justify it."
+      ],
+      "pack_id": "lens-context-boundary-identity-orientation",
+      "reference": "lens-context-boundary-identity-orientation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "AI-assisted writing and media",
+        "news journalism and public-interest information",
+        "marketing and branded content",
+        "creative and educational works",
+        "identity likeness and voice",
+        "enterprise knowledge and documentation",
+        "content credentials and authenticity interfaces",
+        "publication correction and retraction"
+      ],
+      "axis": "lens",
+      "categories": [
+        "authorship-provenance-content-integrity"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 7,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Model provenance through versioned artifacts, activities and accountable contributors: record what was used, generated, transformed, selected, edited, approved and published; identify source and output versions, relevant roles, times and relationships; preserve interoperable lineage across export and recomposition; and distinguish evidence that a process or assertion is intact from judgments about truth, quality, legality, consent or ownership.",
+        "Separate contribution, authorship, ownership, accountability and disclosure: describe human creative contribution and organizational responsibility without crediting an automated tool as a moral or legal actor; avoid inferring rights from possession, prompting or metadata alone; record material assistance and source use; and make disclosure proportional to audience, context, deception risk, consequence and applicable obligation."
+      ],
+      "pack_id": "lens-authorship-provenance-content-integrity",
+      "reference": "lens-authorship-provenance-content-integrity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "application dashboards",
+        "operational workspaces",
+        "marketing and product pages",
+        "editorial and content experiences",
+        "mobile home and discovery surfaces",
+        "responsive modular systems",
+        "mixed text, media, evidence, and action layouts"
+      ],
+      "axis": "lens",
+      "categories": [
+        "composition-grid-spatial-rhythm"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 11,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define a compositional contract before arranging components: establish content bounds, columns, gutters, outer margins, primary reading axes, alignment lines, module spans, vertical intervals, and the rules by which regions may nest, overlap, alternate, or break the grid.",
+        "Use span, position, scale, whitespace, and grouping to express semantic priority and dependency; modules that support comparison should share relevant alignment and dimensions, while modules with different roles should not be forced into visual equality.",
+        "Treat spacing as relational syntax: use repeatable intervals to bind labels to values, controls to affected content, items to groups, groups to sections, and sections to changes in task or argument; do not use generous whitespace without a structural or narrative purpose."
+      ],
+      "pack_id": "lens-composition-grid-spatial-rhythm",
+      "reference": "lens-composition-grid-spatial-rhythm.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "digital product identity",
+        "marketing and product communication",
+        "application shells and home surfaces",
+        "design-system direction",
+        "consumer and enterprise products",
+        "high-consequence services",
+        "cross-surface brand consistency",
+        "brand refresh and differentiation"
+      ],
+      "axis": "lens",
+      "categories": [
+        "brand-expression-visual-identity"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Begin with product truth and behavioral attributes: name the capability, audience, relationship, material, environment, or outcome the identity should make recognizable; translate each desired brand quality into observable choices and its opposite so adjectives such as premium, friendly, technical, calm, or bold cannot justify arbitrary styling.",
+        "Define one coherent brand grammar across typography, color, composition, shape, surface, imagery, iconography, motion, and voice; specify the recurring relationships, combinations, signature moments, and prohibited combinations that create recognition beyond a logo or isolated token.",
+        "Set expression levels by context and consequence: allow stronger identity in marketing, onboarding, discovery, empty states, and meaningful completion; reduce decorative intensity in frequent, dense, assistive, financial, security, health, error, permission, and irreversible work while preserving recognizable underlying grammar."
+      ],
+      "pack_id": "lens-brand-expression-visual-identity",
+      "reference": "lens-brand-expression-visual-identity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "design systems",
+        "application controls and containers",
+        "marketing and product communication",
+        "creative and spatial tools",
+        "mobile applications",
+        "brand expression",
+        "dense operational interfaces",
+        "responsive component families"
+      ],
+      "axis": "lens",
+      "categories": [
+        "shape-form-language"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define a form taxonomy before selecting radii or decoration: distinguish content, container, control, input, navigation, object, status, selection, overlay, evidence, and decorative shapes; assign each family a semantic purpose, interaction behavior, and relationship to the broader visual identity.",
+        "Specify a coherent geometric character through corner profile, curvature, angle, stroke, silhouette, proportion, cutout, and repetition while allowing semantic families to differ enough that controls, content, state, and decoration do not become interchangeable."
+      ],
+      "pack_id": "lens-shape-form-language",
+      "reference": "lens-shape-form-language.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "application shells and dashboards",
+        "dark and light themes",
+        "cards, panels, sheets, menus, and dialogs",
+        "marketing and product presentation",
+        "maps and canvas tools",
+        "media-rich experiences",
+        "design systems",
+        "responsive and touch interfaces"
+      ],
+      "axis": "lens",
+      "categories": [
+        "surface-depth-material"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define a semantic surface model before styling components: name the base canvas, inset region, persistent panel, content container, interactive control, selected region, floating utility, transient overlay, blocking dialog, evidence frame, and atmospheric layer; specify which may occlude, receive focus, scroll, dismiss, persist, or contain another surface.",
+        "Use the smallest sufficient set of depth cues—tonal contrast, boundary, spacing, position, scale, shadow, blur, translucency, texture, and motion—and bind each cue to hierarchy, interaction, state, or atmosphere; do not let visual elevation imply semantic priority, certainty, security, or completion without supporting evidence."
+      ],
+      "pack_id": "lens-surface-depth-material",
+      "reference": "lens-surface-depth-material.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "analytics and reporting",
+        "financial dashboards",
+        "operational monitoring",
+        "AI and model evaluation",
+        "health and activity insights",
+        "executive and management dashboards",
+        "embedded product analytics",
+        "responsive charts and tables"
+      ],
+      "axis": "lens",
+      "categories": [
+        "data-visualization-integrity"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 11,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define the analytical contract before choosing a chart: name the question, decision, population, measure, unit, denominator, time window, comparison, aggregation, exclusions, freshness, source, uncertainty, and route to underlying records; do not let a visually compelling chart create a question or conclusion after the fact.",
+        "Choose visual form and encoding by task and data relationship: use position and aligned length for precise comparison, preserve time order and interval, distinguish part-to-whole from change and distribution, limit simultaneous encodings, and prefer a labeled value, table, or small multiple when a chart adds interpretation cost without analytical benefit.",
+        "Keep scope and comparison visible with the result: show active filters, segmentation, period, baseline, target or threshold, series identity, units, missing data, and material definition changes; bind summary values to the visualization and detail that explain them."
+      ],
+      "pack_id": "lens-data-visualization-integrity",
+      "reference": "lens-data-visualization-integrity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "forms and settings",
+        "transactional and health flows",
+        "operational records",
+        "automation and generative work",
+        "learning and progress",
+        "selection and editing",
+        "synchronization and deployment",
+        "cross-platform design systems"
+      ],
+      "axis": "lens",
+      "categories": [
+        "visual-state-language"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define a state model before styling: identify the object, actor, lifecycle, interaction, availability, validation, severity, freshness, synchronization, permission, and completion dimensions; name mutually exclusive states and valid transitions so one color, badge, or adjective is not forced to represent several different facts.",
+        "Give every material state a canonical name, plain-language meaning, entry condition, permitted actions, next states, persistence, timestamp or freshness where relevant, and recovery path; use the same semantics across component, list, detail, notification, activity, and audit views.",
+        "Encode state redundantly through an appropriate combination of text, icon, shape, contrast, position, boundary, surface, motion, and programmatic semantics; preserve visible focus and never rely on color, opacity, hover, animation, or disabled appearance alone."
+      ],
+      "pack_id": "lens-visual-state-language",
+      "reference": "lens-visual-state-language.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "component and state transitions",
+        "navigation and spatial continuity",
+        "direct manipulation",
+        "content updates and live status",
+        "onboarding and teaching",
+        "brand and milestone moments",
+        "data and object transitions",
+        "responsive and cross-platform systems"
+      ],
+      "axis": "lens",
+      "categories": [
+        "motion-art-direction"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 14,
+        "publisher_count": 6,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "not-applicable",
+        "image": "not-applicable",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define the purpose of every motion event before choosing timing or effect: classify it as feedback, state change, spatial continuity, hierarchy, attention guidance, progress, direct manipulation, teaching, or bounded expression; identify the affected object, initiating action, information conveyed, next task, frequency, consequence, cancellation, and non-motion equivalent.",
+        "Reserve expressive motion for low-frequency and meaningful moments whose emotional or brand role is explicit; keep routine, dense, assistive, financial, health, security, permission, error, and irreversible workflows efficient and restrained, and never let celebration overstate completion, safety, value, or user consent."
+      ],
+      "pack_id": "lens-motion-art-direction",
+      "reference": "lens-motion-art-direction.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "navigation, labels, controls, and calls to action",
+        "onboarding and guidance",
+        "forms, validation, and recovery",
+        "empty, loading, success, warning, and error states",
+        "permissions, privacy, security, and irreversible actions",
+        "recommendations, automation, and generated content",
+        "marketing-to-product continuity",
+        "localization and cross-platform product systems"
+      ],
+      "axis": "lens",
+      "categories": [
+        "verbal-design-voice-tone"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 14,
+        "publisher_count": 5,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define a canonical vocabulary before polishing tone: name each important object, action, role, state, scope, and consequence once; use the same term wherever the same concept appears, distinguish terms when concepts differ, and document prohibited aliases, ambiguous verbs, and domain terms that require explanation.",
+        "Keep voice stable and adapt tone to context: express a consistent product character while changing warmth, urgency, brevity, and formality according to the person's likely state, task frequency, consequence, uncertainty, and need for reassurance; reduce personality as risk, distress, or irreversibility increases.",
+        "Structure language around the person's task: lead with the information or decision needed now, use familiar and concrete words, keep sentences and paragraphs scannable, reveal detail progressively, and place explanation where it supports rather than interrupts action.",
+        "Calibrate claims and recommendations to evidence: distinguish observed facts, estimates, predictions, suggestions, and decisions; identify uncertainty, important assumptions, source or freshness when material, and who remains responsible; never use confident language, celebration, or authority cues to overstate safety, completion, consent, or likely outcomes.",
+        "Write for accessibility and translation from the start: provide visible labels and instructions, avoid meaning carried only by position, color, idiom, humor, or cultural shorthand, keep grammatical structures direct, leave room for expansion, and test assistive announcements and localized variants in their actual interface context.",
+        "Govern verbal design as a product system: maintain the vocabulary, voice attributes, tone matrix, message patterns, examples, ownership, review triggers, localization notes, and measurement plan; review language with design, research, accessibility, legal, support, and domain experts according to consequence rather than treating copy as final-stage polish."
+      ],
+      "pack_id": "lens-verbal-design-voice-tone",
+      "reference": "lens-verbal-design-voice-tone.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "reports, proposals, briefs, and white papers",
+        "policies, standards, and operating procedures",
+        "research and analytical publications",
+        "manuals, guides, and long-form documentation",
+        "forms and decision records",
+        "print, PDF, EPUB, HTML, and editable source formats",
+        "single documents and template-driven publication families",
+        "localized, archived, and revised editions"
+      ],
+      "axis": "lens",
+      "categories": [
+        "document-design-system"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 16,
+        "publisher_count": 9,
+        "sample_count": 16
+      },
+      "modalities": {
+        "document": "validated",
+        "image": "inferred",
+        "ui": "inferred"
+      },
+      "modality_independent_principles": [
+        "Begin with reader tasks and a semantic document model rather than pages: define the title, purpose, audience, status, summary, section hierarchy, navigation, figures, tables, notes, references, appendices, and metadata as structured content whose meaning survives restyling, reflow, export, assistive technology, and print.",
+        "Treat figures and tables as evidence-bearing document components: state the question or takeaway, identify what is measured and its scope, use captions and headers, keep data structures simple enough to navigate, provide equivalent text or accessible data, cite the specific source and freshness, and separate interpretation from the underlying values.",
+        "Make document authority and revision state visible: identify owner, status, version or date, applicable scope, source references, approval state, superseded editions, change history, and canonical location; keep these signals in machine-readable metadata and perceivable content where consequential, and verify that exports do not detach them from the work.",
+        "Validate the delivered artifact, not only the source or visual proof: combine automated checks with manual inspection of structure, sequence, headings, tables, figures, links, metadata, language, reflow, keyboard and assistive navigation, print output, and representative reader tasks after every conversion or assembly step."
+      ],
+      "pack_id": "lens-document-design-system",
+      "reference": "lens-document-design-system.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "editorial, documentary, and campaign photography",
+        "product, service, place, and environmental imagery",
+        "portraiture and people-centered storytelling",
+        "illustration, collage, diagrammatic, and mixed-media imagery",
+        "hero, card, thumbnail, social, print, and presentation formats",
+        "commissioned, licensed, archival, and generated assets",
+        "single images and coordinated image families",
+        "informational, persuasive, and identity-bearing contexts"
+      ],
+      "axis": "lens",
+      "categories": [
+        "image-art-direction"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 12,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "validated",
+        "ui": "inferred"
+      },
+      "modality_independent_principles": [
+        "Give every image a declared job before choosing a style: identify the audience, context, message, emotional register, evidence role, expected takeaway, relationship to adjacent words, required authenticity, and whether photography, illustration, diagram, or no image communicates it most truthfully and efficiently.",
+        "Translate brand and message into an art-direction grammar rather than a mood label: specify subject behavior, environment, viewpoint, distance, focal hierarchy, geometry, negative space, light, color, contrast, depth, texture, finish, realism, imperfection, and prohibited treatments with reference examples and reasons.",
+        "Choose subjects and moments for contextual truth: prefer real, specific, plausible activity and environments over generic symbolism; represent people with agency, dignity, diversity, and relevant context; obtain informed permission when required, avoid tokenism and stereotypes, and disclose staged, composite, generated, or materially altered imagery when that distinction matters.",
+        "Preserve rights, consent, origin, and edit history as part of the asset: record creator, owner, license, permitted uses, releases, subjects, location sensitivity, source, capture or generation method, material edits, accessibility descriptions, expiration, and required credit in durable metadata and the asset system; treat provenance signals as evidence about history, not proof that a depicted claim is true."
+      ],
+      "pack_id": "lens-image-art-direction",
+      "reference": "lens-image-art-direction.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "brand, product, service, and behavior-change campaigns",
+        "launch, acquisition, adoption, education, retention, and re-engagement",
+        "paid, owned, earned, partner, community, and direct channels",
+        "web, email, social, search, print, outdoor, presentation, and event assets",
+        "single-market and localized campaign systems",
+        "short activation bursts and sequenced long-running programs",
+        "commercial, public-interest, institutional, and internal communications",
+        "campaigns using endorsements, comparisons, evidence, or generated media"
+      ],
+      "axis": "lens",
+      "categories": [
+        "campaign-design-system"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 5,
+        "sample_count": 15
+      },
+      "modalities": {
+        "campaign": "validated",
+        "document": "inferred",
+        "image": "inferred",
+        "platform": "inferred",
+        "ui": "inferred"
+      },
+      "modality_independent_principles": [
+        "Start with a measurable outcome and a bounded role for communication: distinguish the organizational or social goal, audience behavior or decision, barriers, communication objective, time horizon, baseline, intended contribution, unacceptable harms, and evidence that would support continuation, change, or stop; do not substitute impressions or asset volume for impact.",
+        "Build the campaign from audience evidence rather than a demographic label: identify needs, motivations, barriers, knowledge, trust, language, ability, culture, channel behavior, decision context, gatekeepers, and journey stage; include underserved groups in research and creative development, and preserve meaningful differences instead of forcing one universal execution.",
+        "Define one evidence-backed proposition and a message architecture: state the primary audience promise or useful truth, the single main message, supporting reasons and proof, material conditions, desired action, objections, and consequence-sensitive tone; separate invariant meaning from optional emphasis so every asset remains recognizable without becoming identical.",
+        "Make persuasion inspectable and proportionate: substantiate objective and comparative claims before release, present material qualifications where they affect interpretation, identify endorsements and relationships, show representative rather than exceptional outcomes, distinguish paid or generated content, and avoid urgency, scarcity, obstruction, disguised controls, or visual hierarchy that subverts informed choice.",
+        "Evaluate comprehension, response, outcome, equity, and harm across the sequence: pretest message and action prediction, compare creative and channel contributions, separate outputs from audience outtakes and outcomes, inspect subgroup and accessibility performance, monitor complaints and unintended behavior, and record what changed and why rather than optimizing only the easiest conversion metric."
+      ],
+      "pack_id": "lens-campaign-design-system",
+      "reference": "lens-campaign-design-system.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "web, progressive web, mobile, tablet, and desktop products",
+        "resizable, split-screen, multi-window, foldable, external-display, and large-screen contexts",
+        "touch, pointer, keyboard, stylus, voice, switch, remote, and assistive input",
+        "native, hybrid, and shared-code products",
+        "consumer, enterprise, creative, operational, and accessibility-critical applications",
+        "cross-device journeys and companion experiences",
+        "system notifications, sharing, files, search, settings, permissions, and shortcuts",
+        "platform migrations and design-system implementations"
+      ],
+      "axis": "lens",
+      "categories": [
+        "platform-native-adaptation"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 5,
+        "sample_count": 15
+      },
+      "modalities": {
+        "campaign": "inferred",
+        "document": "not-applicable",
+        "image": "not-applicable",
+        "platform": "validated",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Separate product invariants from platform expression: preserve the same domain objects, task meaning, state model, permissions, evidence, vocabulary, and brand character while allowing navigation containers, controls, density, materials, motion, shortcuts, menus, dialogs, and system integrations to follow the conventions people already understand on each platform.",
+        "Design from a platform-context matrix rather than device names: enumerate available window size, aspect, orientation, posture, viewing distance, density, text scale, locale, input set, precision, hover, hardware keyboard, system chrome, safe areas, multitasking, performance, connectivity, and assistive settings; derive layout and interaction changes from capabilities and constraints.",
+        "Preserve state across platform lifecycle and configuration change: retain in-progress work, selection, scroll or spatial context, navigation, undo history, pending operations, and synchronization status across resize, rotation, folding, backgrounding, sleep, interruption, process recreation, multi-window, and device handoff; distinguish restored, stale, conflicting, and unavailable state visibly.",
+        "Test complete tasks across a representative platform matrix: include minimum and maximum windows, intermediate resize, orientation and posture changes, split screen, large text, localization, high contrast, reduced motion, screen reader, keyboard-only, pointer, touch, stylus where supported, interruption, offline, denied capability, restore, multi-window, performance, and upgrade; verify functional parity and intentional differences."
+      ],
+      "pack_id": "lens-platform-native-adaptation",
+      "reference": "lens-platform-native-adaptation.md",
       "role": "category",
       "version": "1.0.0"
     }

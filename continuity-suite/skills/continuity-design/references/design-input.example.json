@@ -7,7 +7,6 @@
   "sections": ["onboarding", "dashboards"],
   "themes": ["calm"],
   "message_structures": ["value-first"],
-  "lenses": ["hierarchy", "comprehension", "accessibility", "trust"],
   "constraints": ["Preserve existing keyboard workflows"],
   "preserve": ["Current fast path for experienced users"],
   "open_questions": [],
