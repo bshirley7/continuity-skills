@@ -282,7 +282,10 @@ def _validate_strings(payload: dict[str, Any], key: str, required: bool = False)
 def _selected_packs(payload: dict[str, Any], catalog: dict[str, Any]) -> list[dict[str, str]]:
     selected: list[dict[str, str]] = []
     for input_key, axis in AXES.items():
-        values = [payload[input_key]] if input_key == "industry" else payload[input_key]
+        if input_key == "industry":
+            values = [payload[input_key]] if payload[input_key] else []
+        else:
+            values = payload[input_key]
         axis_packs = [pack for pack in catalog["packs"] if pack["axis"] == axis]
         foundation = next(pack for pack in axis_packs if pack["role"] == "foundation")
         unknown = sorted(set(values) - set(foundation["categories"]))
@@ -328,7 +331,7 @@ def _bind_lens_routing(
 def _direction_count(payload: dict[str, Any]) -> int:
     ambiguities = len(payload["open_questions"])
     varied_axes = sum(len(payload[key]) > 1 for key in ("themes", "message_structures", "sections"))
-    if ambiguities == 0 and varied_axes == 0 and len(payload["themes"]) == 1 and len(payload["message_structures"]) == 1:
+    if ambiguities == 0 and varied_axes == 0:
         return 1
     if ambiguities + varied_axes <= 1:
         return 2
@@ -337,25 +340,36 @@ def _direction_count(payload: dict[str, Any]) -> int:
 
 def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
     labels = ("Focused", "Balanced", "Distinctive")
-    theme = payload["themes"][index % len(payload["themes"])]
-    message = payload["message_structures"][index % len(payload["message_structures"])]
-    lenses = payload["lenses"]
+    theme = payload["themes"][index % len(payload["themes"])] if payload["themes"] else ""
+    message = payload["message_structures"][index % len(payload["message_structures"])] if payload["message_structures"] else ""
+    scope = ", ".join(payload["sections"]) if payload["sections"] else "the experience"
+    name = f"{labels[index]} {theme}".strip()
+    summary = f"Shape {scope} around the project intent and audience."
+    if theme:
+        summary += f" Honor the explicitly requested {theme} character."
+    if message:
+        summary += f" Use the explicitly requested {message} narrative structure."
+    principles = [
+        payload["intent"],
+        "Make consequential choices understandable, reversible where possible, and accessible.",
+    ]
+    principles.extend(payload["constraints"][:2])
     return {
         "direction_id": f"direction-{index + 1}",
-        "name": f"{labels[index]} {theme}",
-        "summary": f"Apply a {theme} theme with a {message} message structure across {', '.join(payload['sections'])}.",
-        "principles": [f"Use the {lens} lens at each material decision point." for lens in lenses[:4]],
+        "name": name,
+        "summary": summary,
+        "principles": principles,
         "design_grammar": {
-            "composition": [f"Use a {theme} composition with explicit reading order and section hierarchy across {', '.join(payload['sections'])}."],
+            "composition": [f"Establish an intentional reading order and hierarchy across {scope}."],
             "spacing_density": ["Set density by task frequency and consequence; keep related information close and independent regions visibly separated."],
-            "typography": [f"Use type hierarchy to carry the {message} message structure without relying on size alone."],
-            "color": [f"Use color semantically first and apply the {theme} theme through a bounded expressive palette."],
+            "typography": ["Choose a typographic voice that supports the project intent, content, and audience; preserve hierarchy without relying on size alone."],
+            "color": ["Use color semantically first, then derive an expressive palette appropriate to the project context."],
             "shape_form": ["Distinguish controls, content, status, and decoration through a coherent but semantically differentiated form language."],
             "surface_depth": ["Use the smallest sufficient set of boundaries and depth cues to explain hierarchy, focus, and modality."],
             "imagery": ["Give every image an explicit role, bounded claim, responsive behavior, alternative, and failure state."],
             "iconography": ["Use familiar, labeled, accessible symbols with redundant state communication for consequential meaning."],
             "motion": ["Use motion to explain state and continuity; preserve equivalent meaning and control with reduced motion."],
-            "voice": [f"Use a {message} verbal structure with direct operational language and tone adjusted to consequence."],
+            "voice": ["Derive voice and message progression from the project intent, audience, and consequence; keep operational language direct."],
             "state_language": ["Name default, active, selected, pending, complete, stale, unavailable, warning, and error states consistently across modalities."],
             "responsive_behavior": ["Preserve semantic priority, grouping, current context, actions, and recovery as the composition transforms."],
         },
@@ -388,18 +402,25 @@ def _validate_direction(value: Any, index: int) -> dict[str, Any]:
 def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Path) -> dict[str, Any]:
     _enabled(config)
     payload = _read_json(input_path)
-    for key in ("title", "intent", "industry"):
+    for key in ("title", "intent"):
         if not isinstance(payload.get(key), str) or not payload[key].strip():
             raise DesignError(f"Design input requires {key}")
+    industry = payload.get("industry", "")
+    if not isinstance(industry, str):
+        raise DesignError("industry must be a string when supplied")
+    payload["industry"] = industry.strip()
     manual_lenses = "lenses" in payload
-    for key in ("audiences", "targets", "sections", "themes", "message_structures"):
+    for key in ("audiences", "targets"):
         payload[key] = _validate_strings(payload, key, required=True)
+    for key in ("sections", "themes", "message_structures"):
+        payload[key] = _validate_strings(payload, key)
     if manual_lenses:
         payload["lenses"] = _validate_strings(payload, "lenses", required=True)
     for key in (
         "constraints",
         "preserve",
         "open_questions",
+        "working_assumptions",
         "consequences",
         "workflow_signals",
         "interaction_signals",
@@ -432,8 +453,8 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     count = _direction_count(payload)
     supplied = payload.get("directions")
     if supplied is not None:
-        if not isinstance(supplied, list) or len(supplied) != count:
-            raise DesignError(f"Adaptive context requires exactly {count} directions")
+        if not isinstance(supplied, list) or not 1 <= len(supplied) <= 3:
+            raise DesignError("Supplied creative work requires one to three directions")
         directions = [_validate_direction(item, index) for index, item in enumerate(supplied)]
     else:
         directions = [_validate_direction(_generated_direction(payload, index), index) for index in range(count)]
@@ -475,6 +496,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "constraints": payload["constraints"],
         "preserve": payload["preserve"],
         "open_questions": payload["open_questions"],
+        "working_assumptions": payload["working_assumptions"],
         "consequences": payload["consequences"],
         "workflow_signals": payload["workflow_signals"],
         "interaction_signals": payload["interaction_signals"],
@@ -504,46 +526,16 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         f"Targets: `{targets}`  ",
         f"Evidence application: `{modality}`", "",
         "## Intent", "", draft_record["intent"], "",
-        "## Evidence applicability", "",
     ]
-    for target in draft_record["targets"]:
-        application = evidence[target]
-        lines.extend([f"### {target.title()} — {application['status']}", ""])
-        for label, key in (
-            ("Validated packs", "validated_packs"),
-            ("Inferred packs", "inferred_packs"),
-            ("Not applicable packs", "not_applicable_packs"),
-        ):
-            values = application[key]
-            lines.append(f"- {label}: {', '.join(f'`{value}`' for value in values) if values else 'None.'}")
-        lines.append("")
-    lines.extend(["## UX lens selection", ""])
     if draft_record["lens_selection_mode"] == "manual":
         lines.extend([
-            "The UX lenses were selected manually for this bounded review.",
+            "## Explicit design concepts",
+            "",
+            "The following concepts were explicitly supplied for this bounded design.",
             "",
             f"- Lenses: {', '.join(f'`{value}`' for value in draft_record['lenses'])}",
             "",
         ])
-    else:
-        for route in draft_record["lens_routing"]:
-            lines.extend([
-                f"### {route['rule_id']}",
-                "",
-                route["reason"],
-                "",
-                f"- Lenses: {', '.join(f'`{value}`' for value in route['lenses'])}",
-                f"- Evidence packs: {', '.join(f'`{pack['pack_id']}@{pack['version']}`' for pack in route['catalog_packs'])}",
-            ])
-            if route["matched_context"]:
-                for context in route["matched_context"]:
-                    lines.append(
-                        f"- Matched {context['field']}: "
-                        + ", ".join(f"`{term}`" for term in context["matched_terms"])
-                    )
-            else:
-                lines.append("- Matched context: universal baseline.")
-            lines.append("")
     lines.extend([
         "## Selected direction", "",
     ])
@@ -554,7 +546,12 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         for dimension in DESIGN_GRAMMAR_DIMENSIONS:
             lines.extend([f"##### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in direction["design_grammar"][dimension]], ""])
         lines.extend(["", "Variation levers:", "", *[f"- {item}" for item in direction["variation_levers"]], "", "Tradeoffs:", "", *[f"- {item}" for item in direction["tradeoffs"]], ""])
-    for heading, key in (("Constraints", "constraints"), ("Behavior to preserve", "preserve"), ("Open questions", "open_questions")):
+    for heading, key in (
+        ("Working assumptions", "working_assumptions"),
+        ("Constraints", "constraints"),
+        ("Behavior to preserve", "preserve"),
+        ("Open questions", "open_questions"),
+    ):
         values = draft_record[key]
         lines.extend([f"## {heading}", "", *([f"- {item}" for item in values] or ["- None recorded."]), ""])
     lines.extend(["## Implementation boundary", "", "Approval of this document authorizes publication of this exact design document only. It does not authorize implementation or modify an existing goal.", ""])

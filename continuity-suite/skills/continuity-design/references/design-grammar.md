@@ -1,6 +1,6 @@
 # Design grammar
 
-Every direction must translate intent, evidence, selected catalog packs, and preservation requirements into one coherent design grammar. The grammar is an implementation-facing decision contract, not a mood board, token dump, or authorization to change code.
+Every direction must translate intent, evidence, relevant guidance, and preservation requirements into one coherent design grammar. The grammar is an implementation-facing decision contract, not a mood board, token dump, or authorization to change code.
 
 ## Required dimensions
 

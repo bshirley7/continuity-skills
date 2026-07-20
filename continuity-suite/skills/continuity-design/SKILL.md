@@ -12,28 +12,29 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 ## Preconditions
 
 1. Run `continuity project doctor` and confirm the `design` collection is enabled and healthy.
-2. Retrieve relevant captures, trusted memory, PRDs, feature requests, and any existing `docs/design/design.md`.
-3. Read [catalog.json](references/catalog.json). For each selected axis, read its foundation reference and any category references matching the design input. Category packs refine their foundation; they do not replace it. When the design input omits `lenses`, also read [lens-routing.json](references/lens-routing.json), apply its universal baseline, and add every contextual lens inferred from project intent, audience, consequences, workflow, interaction model, and risk signals. Record each matched context, rationale, lens, evidence-pack ID, and evidence-pack version in the private draft.
+2. Retrieve relevant captures, trusted memory, PRDs, feature requests, product documentation, application structure, existing interface or artifact context, and any existing `docs/design/design.md`. Use that evidence to reconstruct the working title, intent, audiences, and target modalities; do not require the user to know or supply those fields.
+3. Read [catalog.json](references/catalog.json). Treat industry, section, theme, message-structure, and lens labels as optional internal retrieval aids, not questions the user must answer or concepts the design must name. Read category references when the user explicitly supplies a matching concept or the project context makes a reference materially useful. Category packs refine their foundation; they do not replace it. Apply [lens-routing.json](references/lens-routing.json) privately as a review aid when lenses are not explicit. Record inferred checks and pack provenance in private machine state without requiring the design document to name them.
 4. Treat existing favorable behavior and explicit non-regression requirements as constraints, not as disposable context.
 
 ## Direction workflow
 
-1. Prepare a private design input from [design-input.example.json](references/design-input.example.json). Use `consequences`, `workflow_signals`, `interaction_signals`, and `risk_signals` when those conditions are known; do not depend on the user naming a UX principle.
-2. Choose the adaptive direction count:
-   - one when theme, message structure, and constraints are settled;
+1. Prepare a private design input from [design-input.example.json](references/design-input.example.json). Derive its working title, intent, audiences, and targets from the request and retrieved project evidence. Treat them as agent-authored working fields, not user intake requirements. Record uncertain but useful conclusions in `working_assumptions` and unresolved material questions in `open_questions`. Preserve the user's natural language. Do not ask the user to classify the work by industry, section, theme, message structure, lens, style taxonomy, or other design terminology. Include any such field only when the user explicitly supplies it. Use `consequences`, `workflow_signals`, `interaction_signals`, and `risk_signals` internally when those conditions are evident.
+2. Proceed with the strongest evidence available. Do not stop merely because the title, intent, audience, target, style, or desired approach is incomplete. Choose a provisional scope, make uncertainty visible, and produce useful directions. Ask concise questions alongside the result when an answer would materially improve the next revision; incorporate later answers through normal design revision.
+3. Choose the adaptive direction count:
+   - one when the intended approach and constraints are settled;
    - two when one material tradeoff remains;
-   - three when multiple axes or material ambiguities remain.
-3. Draft each direction through the selected industry, section/flow, theme, message structure, and UX lenses. Omit `lenses` to use explainable automatic routing. Supply a non-empty `lenses` array only when deliberately overriding automatic routing for backward compatibility or a bounded specialist review. Translate the result into every required dimension in [design-grammar.md](references/design-grammar.md), making the lenses, matched context, reasons, pack versions, rules, and tradeoffs legible. Treat psychology lenses as decision and integrity checks, never as behavioral-optimization recipes; autonomy, comprehension, accessibility, refusal, correction, exit, and recovery outrank engagement or conversion.
-4. Apply category-pack acceptance questions as review gates. When foundation and category guidance differ in specificity, use the category guidance without weakening foundation safety or accessibility constraints.
-5. Apply every pack according to its `modalities` entry for the requested target:
+   - three when multiple materially different approaches remain plausible.
+4. Derive each direction creatively from the project intent, audience, content, constraints, existing experience, and consequential context. Do not turn the catalog taxonomy into the concept, outline, headings, or vocabulary of the result unless the user explicitly requested those concepts. Use inferred packs as silent creative context and review checks, not as a recipe or a checklist the design must recite. Translate the resulting direction into every required dimension in [design-grammar.md](references/design-grammar.md) using concrete design decisions. Autonomy, comprehension, accessibility, refusal, correction, exit, and recovery remain non-negotiable safeguards rather than required stylistic callouts.
+5. Apply category-pack acceptance questions as review gates. When foundation and category guidance differ in specificity, use the category guidance without weakening foundation safety or accessibility constraints.
+6. Apply every pack according to its `modalities` entry for the requested target:
    - `validated` means the pack contains direct evidence for that modality;
    - `inferred` means apply only its `modality_independent_principles` and label the application inferred;
    - `not-applicable` means do not apply that pack to the target.
    Report `mixed` when a target combines validated and inferred packs. An empty modality-independent list supplies no inferred guidance. `campaign` and `platform` are evidence contexts used by applicable packs, not additional publication targets or implementation authority.
-6. Run `continuity design draft --input <design-input.json>`.
-7. Require the user to select a direction or explicitly combine directions with `continuity design select`.
-8. Present the exact private draft and its SHA-256 hash. Do not promote it without exact approval.
-9. After the user approves the exact ID, revision, and hash, run `continuity design approve`. This writes `docs/design/design.md` and `.continuity/design.json`.
+7. Run `continuity design draft --input <design-input.json>`.
+8. Require the user to select a direction or explicitly combine directions with `continuity design select`.
+9. Present the exact private draft and its SHA-256 hash. Do not promote it without exact approval.
+10. After the user approves the exact ID, revision, and hash, run `continuity design approve`. This writes `docs/design/design.md` and `.continuity/design.json`.
 
 ## Approval boundary
 

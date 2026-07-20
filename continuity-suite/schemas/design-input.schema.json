@@ -6,11 +6,7 @@
     "title",
     "intent",
     "audiences",
-    "targets",
-    "industry",
-    "sections",
-    "themes",
-    "message_structures"
+    "targets"
   ],
   "properties": {
     "design_id": {"type": "string"},
@@ -31,6 +27,7 @@
     "constraints": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "preserve": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "open_questions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "working_assumptions": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "consequences": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "workflow_signals": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "interaction_signals": {"type": "array", "items": {"type": "string", "minLength": 1}},

@@ -169,11 +169,73 @@ class DesignLifecycleTests(unittest.TestCase):
             / draft["design_id"]
             / "design.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("## UX lens selection", markdown)
-        self.assertIn("### social-influence-and-persuasion", markdown)
-        self.assertIn("Matched risk_signals", markdown)
-        self.assertIn("`lens-social-influence-persuasion-integrity@1.0.0`", markdown)
+        self.assertNotIn("## UX lens selection", markdown)
+        self.assertNotIn("social-influence-and-persuasion", markdown)
+        self.assertNotIn("lens-social-influence-persuasion-integrity", markdown)
         self.assertEqual(selected["execution_authorized"], False)
+
+    def test_natural_language_input_does_not_require_or_expose_design_taxonomy(self):
+        value = {
+            "design_id": "natural-brief",
+            "title": "A clearer first experience",
+            "intent": "Help people reach a useful result quickly and resume unfinished work.",
+            "audiences": ["People using the product for the first time"],
+            "targets": ["ui"],
+            "constraints": ["Keep the existing expert shortcut"],
+            "working_assumptions": ["The first useful result matters more than complete feature exposure"],
+            "open_questions": ["Which existing shortcut do experienced users rely on most?"],
+        }
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["industry"], "")
+        self.assertEqual(draft["sections"], [])
+        self.assertEqual(draft["themes"], [])
+        self.assertEqual(draft["message_structures"], [])
+        self.assertEqual(draft["lens_selection_mode"], "inferred")
+        self.assertEqual(len(draft["directions"]), 2)
+        self.assertEqual(draft["working_assumptions"], value["working_assumptions"])
+        packs = {pack["pack_id"] for pack in draft["catalog_packs"]}
+        self.assertNotIn("design-industries", packs)
+        self.assertNotIn("design-sections-flows", packs)
+        self.assertNotIn("design-themes", packs)
+        self.assertNotIn("design-message-structures", packs)
+        self.assertIn("design-ux-lenses", packs)
+        self.assertNotIn("lens", draft["directions"][0]["summary"].casefold())
+        self.assertNotIn("theme", draft["directions"][0]["summary"].casefold())
+        design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        markdown = (
+            self.root
+            / ".continuity"
+            / "private"
+            / "design"
+            / draft["design_id"]
+            / "design.md"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("## UX lens selection", markdown)
+        self.assertNotIn("## Explicit design concepts", markdown)
+        self.assertIn("## Working assumptions", markdown)
+        self.assertIn(value["working_assumptions"][0], markdown)
+        self.assertIn("## Open questions", markdown)
+        self.assertIn(value["open_questions"][0], markdown)
+
+    def test_supplied_creative_direction_count_is_not_derived_from_taxonomy(self):
+        seed = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="creative-seed")),
+        )
+        value = {
+            "design_id": "creative-supplied",
+            "title": "Independent creative direction",
+            "intent": "Create a memorable and useful experience.",
+            "audiences": ["Customers"],
+            "targets": ["ui"],
+            "open_questions": ["How bold?", "How dense?"],
+            "directions": [seed["directions"][0]],
+        }
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(len(draft["directions"]), 1)
+        self.assertEqual(draft["directions"][0], seed["directions"][0])
 
     def test_approved_psychology_catalog_entries_are_offline_and_reviewable(self):
         catalog = design.load_catalog(CATALOG)
@@ -898,7 +960,7 @@ class DesignLifecycleTests(unittest.TestCase):
         selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "human")
         text = (self.root / ".continuity/private/design/design-test/design.md").read_text()
         self.assertIn("Evidence application: `inferred`", text)
-        self.assertIn("### Document — inferred", text)
+        self.assertNotIn("## Evidence applicability", text)
         self.assertFalse(selected["execution_authorized"])
 
     def test_direct_document_evidence_is_reported_as_mixed_with_inferred_foundations(self):
@@ -910,8 +972,9 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("design-ux-lenses", application["inferred_packs"])
         design.select(self.root, self.config, draft["design_id"], ["direction-1"], "human")
         text = (self.root / ".continuity/private/design/design-test/design.md").read_text()
-        self.assertIn("### Document — mixed", text)
-        self.assertIn("`lens-document-design-system`", text)
+        self.assertIn("Evidence application: `mixed`", text)
+        self.assertIn("`document-design-system`", text)
+        self.assertNotIn("`lens-document-design-system`", text)
 
     def test_direct_image_evidence_is_reported_as_mixed_with_inferred_foundations(self):
         value = input_value(targets=["image"], lenses=["image-art-direction"])
