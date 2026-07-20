@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.118.0",
+  "catalog_version": "1.120.0",
   "packs": [
     {
       "applicability": [
@@ -444,7 +444,9 @@
         "learning-enrollment-assessment-completion-credential-lifecycle",
         "dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle",
         "tax-record-classification-calculation-filing-payment-notice-correction-lifecycle",
-        "deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle"
+        "deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle",
+        "essential-utility-service-lifecycle",
+        "organizational-procurement-supplier-purchase-order-invoice-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1389,7 +1391,9 @@
         "learner-agency-assessment-validity-credential-integrity",
         "ingredient-integrity-dietary-agency-allergen-safety-nutrition-context",
         "taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity",
-        "financial-inclusion-account-transparency-funds-access-fair-restriction-resolution"
+        "financial-inclusion-account-transparency-funds-access-fair-restriction-resolution",
+        "essential-service-access-billing-affordability-continuity-remedy",
+        "procurement-integrity-spend-authority-supplier-access-value-accountability"
       ],
       "modalities": {
         "document": "inferred",
@@ -5146,6 +5150,144 @@
       ],
       "pack_id": "lens-financial-inclusion-account-transparency-funds-access-fair-restriction-resolution",
       "reference": "lens-financial-inclusion-account-transparency-funds-access-fair-restriction-resolution.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "electricity, gas and water accounts",
+        "fixed broadband, landline and mobile service",
+        "prepaid, postpaid and intermediary bill payment",
+        "service comparison, enrollment, installation and activation",
+        "meter readings, usage analytics and bills",
+        "outages, degradation, support and restoration",
+        "affordability, payment plans and service restrictions",
+        "moving, switching, final billing and closure"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "essential-utility-service-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 14,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one service identity across the lifecycle: identify premises or service address, account holder and authorized people, retailer, network or carrier and intermediaries, service and meter, line, SIM or device, plan or tariff version, contract and jurisdiction; bind availability, order, installation, activation, usage, bills, payments, outages, cases, restrictions, restoration, switching and closure to it; and never let a provider tile or account number obscure who supplies, operates and supports the service.",
+        "Represent outages and degradation as evolving evidence: distinguish customer report, device finding, operator detection and third-party report; show affected service and scope, start, known or unknown cause, safety implications, work owner, restoration estimate with confidence, update time, performance indicators and support case; verify restored service and compensation eligibility; and never use a static offline label or optimistic estimate as finality."
+      ],
+      "pack_id": "section-flow-essential-utility-service-lifecycle",
+      "reference": "section-flow-essential-utility-service-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "electricity, gas, water and district utility service",
+        "fixed broadband, landline, mobile and connectivity service",
+        "service comparison, enrollment, migration and switching",
+        "metering, usage, bills, payments and adjustments",
+        "affordability support, prepayment and debt arrangements",
+        "outages, degradation, critical needs and restoration",
+        "restrictions, disconnection, complaints and compensation",
+        "moving, final bills, refunds and durable records"
+      ],
+      "axis": "lens",
+      "categories": [
+        "essential-service-access-billing-affordability-continuity-remedy"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 7,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate an essential service as a basic-capability contract rather than an ordinary subscription: identify premises, account holder and authority, provider, operator or carrier and intermediaries, service and equipment, coverage or capacity, plan or tariff, total price, term, changes, accessibility, support, interruption commitments and exit effects; test realistic household and small-business scenarios; and never let convenience branding or a headline rate conceal who provides the service and what continued access requires.",
+        "Audit billing accuracy as reconstruction, not visual simplicity: connect each charge to the correct service period, meter or usage source, actual or estimated provenance, rate, tier or time band, standing and equipment charge, tax, fee, credit, adjustment, payment and prior balance; preserve correction and back-billing logic; show issue and due dates; and never let an account balance, installment amount or autopay status substitute for the bill."
+      ],
+      "pack_id": "lens-essential-service-access-billing-affordability-continuity-remedy",
+      "reference": "lens-essential-service-access-billing-affordability-continuity-remedy.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "employee and department purchase requests",
+        "supplier discovery, onboarding and master data",
+        "software, equipment, inventory and service procurement",
+        "budgets, spend programs and approval routing",
+        "purchase orders, changes and transmission",
+        "delivery, receipt, inspection and acceptance",
+        "invoice capture, matching, exceptions and approval",
+        "payment, accounting, performance and closure"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "organizational-procurement-supplier-purchase-order-invoice-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 9,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one versioned procurement identity across the lifecycle: identify requesting organization and entity, business need, requester and beneficiary, budget and cost owner, category, supplier and contracting party, goods or services, currency, jurisdiction, procurement route and governing policy; bind sourcing, approvals, order, receipt, invoice, exceptions, payment, accounting, performance, changes and closure to it; and never let a card transaction, bill or supplier name become the procurement record by itself.",
+        "Treat invoice capture and matching as an evidence process: retain the source document and extraction confidence; verify supplier, buyer entity, invoice identity, dates, currency, tax, line items and payment details; detect duplicates; compare order, accepted receipt and invoice at line level; explain tolerances and discrepancies; preserve correction and dispute; and never turn successful parsing or a total-level match into approval."
+      ],
+      "pack_id": "section-flow-organizational-procurement-supplier-purchase-order-invoice-lifecycle",
+      "reference": "section-flow-organizational-procurement-supplier-purchase-order-invoice-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "private, nonprofit and public organizational purchasing",
+        "supplier discovery, onboarding and qualification",
+        "requisitions, sourcing and purchase approvals",
+        "purchase orders, contracts and changes",
+        "goods, services, software and contingent labor",
+        "receiving, inspection, invoice matching and payment",
+        "supplier performance, risk and accessibility",
+        "exceptions, disputes, audit and closure"
+      ],
+      "axis": "lens",
+      "categories": [
+        "procurement-integrity-spend-authority-supplier-access-value-accountability"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 8,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate procurement as a complete value-and-accountability lifecycle: can people identify the need, beneficiary, entity, budget, category, route, supplier, decision criteria, authority, order or contract, receipt, invoice, payment, performance, change and closure; can each state be inspected and challenged; and does the system avoid reducing procurement to approval speed, price or payment completion?",
+        "Test authority, separation of duties and conflicts across every consequential transition: make requester, evaluator, budget owner, approver, receiver, invoice approver and payment releaser roles and limits explicit; identify actual, potential and perceived conflicts; preserve disclosure, abstention, mitigation, delegation and independent review; re-authorize material changes; and never infer impartial authority from job title, system access or prior participation."
+      ],
+      "pack_id": "lens-procurement-integrity-spend-authority-supplier-access-value-accountability",
+      "reference": "lens-procurement-integrity-spend-authority-supplier-access-value-accountability.md",
       "role": "category",
       "version": "1.0.0"
     }

@@ -871,6 +871,54 @@ class DesignLifecycleTests(unittest.TestCase):
         )
 
 
+    def test_reviewed_essential_utility_lifecycle_and_access_overlay_are_bound(self):
+        value = input_value(
+            sections=["essential-utility-service-lifecycle"],
+            lenses=["essential-service-access-billing-affordability-continuity-remedy"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[packs.index("section-flow-essential-utility-service-lifecycle") - 1],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-essential-service-access-billing-affordability-continuity-remedy"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
+    def test_reviewed_procurement_lifecycle_and_integrity_overlay_are_bound(self):
+        value = input_value(
+            sections=["organizational-procurement-supplier-purchase-order-invoice-lifecycle"],
+            lenses=["procurement-integrity-spend-authority-supplier-access-value-accountability"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-organizational-procurement-supplier-purchase-order-invoice-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-procurement-integrity-spend-authority-supplier-access-value-accountability"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
+
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):
         self.assertEqual(BOUNDARY.validate([SUITE]), [])
