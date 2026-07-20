@@ -796,6 +796,27 @@ class DesignLifecycleTests(unittest.TestCase):
             "design-ux-lenses",
         )
 
+    def test_reviewed_dietary_food_lifecycle_and_ingredient_integrity_overlays_are_bound(self):
+        value = input_value(
+            sections=["dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle"],
+            lenses=["ingredient-integrity-dietary-agency-allergen-safety-nutrition-context"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[packs.index("lens-ingredient-integrity-dietary-agency-allergen-safety-nutrition-context") - 1],
+            "design-ux-lenses",
+        )
+
 
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):

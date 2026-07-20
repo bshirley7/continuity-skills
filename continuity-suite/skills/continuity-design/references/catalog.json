@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.113.0",
+  "catalog_version": "1.115.0",
   "packs": [
     {
       "applicability": [
@@ -441,7 +441,8 @@
         "pregnancy-prenatal-birth-postpartum-lifecycle",
         "employment-discovery-application-selection-offer-lifecycle",
         "housing-discovery-rental-application-lease-residency-lifecycle",
-        "learning-enrollment-assessment-completion-credential-lifecycle"
+        "learning-enrollment-assessment-completion-credential-lifecycle",
+        "dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1383,7 +1384,8 @@
         "reproductive-autonomy-maternal-safety-loss-sensitive-care",
         "opportunity-fairness-applicant-agency-accountable-selection",
         "housing-opportunity-tenant-agency-accountable-screening",
-        "learner-agency-assessment-validity-credential-integrity"
+        "learner-agency-assessment-validity-credential-integrity",
+        "ingredient-integrity-dietary-agency-allergen-safety-nutrition-context"
       ],
       "modalities": {
         "document": "inferred",
@@ -4933,6 +4935,75 @@
       ],
       "pack_id": "lens-learner-agency-assessment-validity-credential-integrity",
       "reference": "lens-learner-agency-assessment-validity-credential-integrity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "restaurant, takeaway and food-delivery discovery",
+        "prepared-food menus and item customization",
+        "grocery product detail and personal shopping",
+        "replacement and substitution during fulfillment",
+        "meal planning, recipes and nutrition recommendations",
+        "allergy, intolerance, celiac and clinical dietary needs",
+        "religious, ethical, cultural and personal food restrictions",
+        "multi-person orders, handoff, incident and correction"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 14,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Separate preference, dislike, ethical or religious restriction, intolerance, allergy, celiac requirement, clinical diet and nutritional goal: let people state scope, recipient, severity or consequence where useful without diagnosing them; explain which choices drive discovery only, which require ingredient exclusion, which depend on certification and which need human confirmation or cannot be accommodated; keep absence, unknown and not assessed distinct; and never collapse every constraint into a lifestyle tag or imply medical safety from a taste preference.",
+        "Treat substitution as a new food decision under inherited constraints: preserve original item and reason unavailable, exact proposed replacement, package identity, quantity, price, ingredients, allergens, precautionary statements, claims and nutrition differences; automatically reject known constraint conflicts, keep unknowns visible, require explicit approval for safety-relevant changes and make refund easy; verify the physical item at selection or handoff; and never infer dietary equivalence from category, brand, appearance, popularity or price."
+      ],
+      "pack_id": "section-flow-dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle",
+      "reference": "section-flow-dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "food, grocery, restaurant and delivery marketplaces",
+        "prepared, prepacked and non-prepacked food",
+        "meal, recipe and nutrition personalization",
+        "allergy, intolerance, celiac and clinical food restrictions",
+        "religious, ethical, cultural and personal dietary choices",
+        "customization, substitutions and multi-person orders",
+        "ingredient, allergen, cross-contact and nutrition communication",
+        "handoff, correction, incident and recall experiences"
+      ],
+      "axis": "lens",
+      "categories": [
+        "ingredient-integrity-dietary-agency-allergen-safety-nutrition-context"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 8,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Test dietary semantics before interface convenience: for every preference, icon, filter, claim and profile field, identify whether it means taste, avoidance, ethical or religious practice, intolerance, immune-mediated allergy, celiac requirement, clinician-directed diet or nutritional goal; define scope and responsible authority; preserve recipient and consequence without diagnosing; distinguish contains, may contain, free-from, unknown and not assessed; and never use lifestyle language, color or a broad vegetarian or healthy label as a proxy for ingredient-level safety.",
+        "Represent cross-contact as a managed risk, not an ingredient toggle: identify shared equipment, surfaces, utensils, oil, storage, transport and last-mile substitution where material; separate intentional ingredients from unintended possible presence; show the basis and limits of precautionary statements and free-from controls; let the responsible business state when it cannot safely accommodate; avoid blanket warnings that replace risk management; and never claim that removing an ingredient, adding a note or selecting a filter guarantees elimination of allergen exposure."
+      ],
+      "pack_id": "lens-ingredient-integrity-dietary-agency-allergen-safety-nutrition-context",
+      "reference": "lens-ingredient-integrity-dietary-agency-allergen-safety-nutrition-context.md",
       "role": "category",
       "version": "1.0.0"
     }
