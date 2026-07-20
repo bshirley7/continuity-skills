@@ -22,7 +22,15 @@ INSTALL_SPEC = importlib.util.spec_from_file_location("continuity_installer", SU
 INSTALLER = importlib.util.module_from_spec(INSTALL_SPEC)
 assert INSTALL_SPEC.loader
 INSTALL_SPEC.loader.exec_module(INSTALLER)
+EVALUATION_SPEC = importlib.util.spec_from_file_location(
+    "evaluate_design_scenarios",
+    SUITE / "scripts" / "evaluate_design_scenarios.py",
+)
+EVALUATION = importlib.util.module_from_spec(EVALUATION_SPEC)
+assert EVALUATION_SPEC.loader
+EVALUATION_SPEC.loader.exec_module(EVALUATION)
 CATALOG = SUITE / "skills" / "continuity-design" / "references" / "catalog.json"
+SCENARIOS = SUITE / "skills" / "continuity-design" / "references" / "evaluation-scenarios.json"
 
 
 def input_value(**overrides):
@@ -237,6 +245,93 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(len(draft["directions"]), 1)
         self.assertEqual(draft["directions"][0], seed["directions"][0])
 
+    def test_cross_industry_cross_modality_evaluation_is_healthy(self):
+        report = EVALUATION.evaluate(CATALOG, SCENARIOS)
+        self.assertTrue(report["healthy"], report)
+        self.assertEqual(report["metrics"]["scenario_count"], 20)
+        self.assertEqual(report["metrics"]["passed_scenario_count"], 20)
+        self.assertEqual(report["metrics"]["routing_precision"], 1.0)
+        self.assertEqual(report["metrics"]["routing_recall"], 1.0)
+        self.assertEqual(report["metrics"]["safeguard_coverage"], 1.0)
+        self.assertEqual(report["metrics"]["conflict_resolution_coverage"], 1.0)
+        self.assertLessEqual(report["metrics"]["maximum_direction_similarity"], 0.78)
+        self.assertGreaterEqual(report["metrics"]["minimum_implementation_usefulness"], 0.9)
+        self.assertEqual({item["modality"] for item in report["scenarios"]}, {"ui", "document", "image"})
+        self.assertGreaterEqual(len({item["industry_group"] for item in report["scenarios"]}), 10)
+
+    def test_evaluation_fails_closed_on_metric_regressions(self):
+        suite = json.loads(SCENARIOS.read_text(encoding="utf-8"))
+        by_id = {item["scenario_id"]: item for item in suite["scenarios"]}
+        by_id["consumer-onboarding-resumption"]["expected_lenses"].append(
+            "authorship-provenance-content-integrity"
+        )
+        by_id["neutral-contact-page"]["input"]["risk_signals"] = ["Scarcity"]
+        by_id["neutral-contact-page"]["required_safeguards"].append(
+            "identity-assurance-proportional-verification-exclusion-recovery"
+        )
+        by_id["creative-ambiguity"]["expected_conflicts"] = [
+            "automation-versus-human-authority"
+        ]
+        path = self.root / "regressed-scenarios.json"
+        path.write_text(json.dumps(suite), encoding="utf-8")
+        report = EVALUATION.evaluate(CATALOG, path)
+        self.assertFalse(report["healthy"])
+        self.assertFalse(report["threshold_results"]["routing_precision"])
+        self.assertFalse(report["threshold_results"]["routing_recall"])
+        self.assertFalse(report["threshold_results"]["safeguard_coverage"])
+        self.assertFalse(report["threshold_results"]["conflict_resolution_coverage"])
+
+    def test_direction_metrics_detect_duplicates_and_vague_rules(self):
+        draft = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="metric-sensitivity")),
+        )
+        direction = draft["directions"][0]
+        self.assertEqual(EVALUATION._maximum_similarity([direction, direction]), 1.0)
+        vague = json.loads(json.dumps(direction))
+        for dimension in design.DESIGN_GRAMMAR_DIMENSIONS:
+            vague["design_grammar"][dimension] = ["Decorative."]
+        self.assertLess(EVALUATION._implementation_usefulness([vague]), 0.9)
+
+    def test_composition_precedence_resolves_active_conflicts_privately(self):
+        value = input_value(
+            design_id="composition-conflicts",
+            intent="Help people scan dense information and use social proof without coercion.",
+            interaction_signals=["Visual hierarchy and grouping"],
+            risk_signals=["Customer reviews and ratings"],
+        )
+        value.pop("lenses")
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        precedence = draft["composition_resolution"]["precedence"]
+        self.assertEqual(
+            [item["priority"] for item in precedence],
+            sorted((item["priority"] for item in precedence), reverse=True),
+        )
+        conflicts = {
+            item["conflict_id"]: item
+            for item in draft["composition_resolution"]["active_conflicts"]
+        }
+        self.assertIn("density-versus-comprehension", conflicts)
+        self.assertIn("persuasion-versus-agency", conflicts)
+        self.assertEqual(
+            conflicts["persuasion-versus-agency"]["dominant_precedence_id"],
+            "safety-accessibility-agency",
+        )
+        self.assertTrue(all(item["resolution"] for item in conflicts.values()))
+        design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        markdown = (
+            self.root
+            / ".continuity"
+            / "private"
+            / "design"
+            / draft["design_id"]
+            / "design.md"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("persuasion-versus-agency", markdown)
+        self.assertNotIn("safety-accessibility-agency", markdown)
+
     def test_approved_psychology_catalog_entries_are_offline_and_reviewable(self):
         catalog = design.load_catalog(CATALOG)
         expected = {
@@ -283,6 +378,30 @@ class DesignLifecycleTests(unittest.TestCase):
             catalog = design.load_catalog(root / "references" / "catalog.json")
             with self.assertRaisesRegex(design.DesignError, "invalid baseline"):
                 design.load_lens_routing(root / "references" / "catalog.json", catalog)
+
+    def test_lens_routing_rejects_invalid_match_threshold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(CATALOG.parent, root / "references")
+            routing_path = root / "references" / "lens-routing.json"
+            routing = json.loads(routing_path.read_text(encoding="utf-8"))
+            routing["rules"][0]["minimum_matches"] = 0
+            routing_path.write_text(json.dumps(routing), encoding="utf-8")
+            catalog = design.load_catalog(root / "references" / "catalog.json")
+            with self.assertRaisesRegex(design.DesignError, "incomplete or unknown rule"):
+                design.load_lens_routing(root / "references" / "catalog.json", catalog)
+
+    def test_composition_precedence_rejects_unknown_lens(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(CATALOG.parent, root / "references")
+            rules_path = root / "references" / "composition-precedence.json"
+            rules = json.loads(rules_path.read_text(encoding="utf-8"))
+            rules["conflicts"][0]["all_lenses"].append("not-a-reviewed-lens")
+            rules_path.write_text(json.dumps(rules), encoding="utf-8")
+            catalog = design.load_catalog(root / "references" / "catalog.json")
+            with self.assertRaisesRegex(design.DesignError, "invalid conflict"):
+                design.load_composition_precedence(root / "references" / "catalog.json", catalog)
 
     def test_supplied_direction_requires_complete_design_grammar(self):
         value = input_value(
@@ -1400,6 +1519,25 @@ class BoundaryTests(unittest.TestCase):
                     / ".agents/skills/continuity-design/references/lens-social-influence-persuasion-integrity.md"
                 ).is_file()
             )
+            self.assertTrue(
+                (
+                    root
+                    / ".agents/skills/continuity-design/references/composition-precedence.json"
+                ).is_file()
+            )
+            installed_evaluation = json.loads(
+                subprocess.run(
+                    [
+                        sys.executable,
+                        str(root / ".agents/continuity/scripts/evaluate_design_scenarios.py"),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout
+            )
+            self.assertTrue(installed_evaluation["healthy"], installed_evaluation)
+            self.assertTrue(installed_evaluation["offline"])
             self.assertTrue((root / ".claude/commands/continuity-design.md").is_file())
             config = json.loads((root / ".continuity/config.json").read_text())
             self.assertEqual(config["collections"], ["core", "design", "projects"])

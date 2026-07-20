@@ -51,6 +51,65 @@ INFERENCE_CONTEXT_FIELDS = (
     "interaction_signals",
     "risk_signals",
 )
+DIRECTION_STRATEGIES = (
+    {
+        "name": "Direct path",
+        "summary": "Concentrate the experience on the shortest credible path to the primary outcome, revealing secondary capability only when it becomes relevant.",
+        "principle": "Prioritize one obvious next action and preserve a direct route back to the current task.",
+        "grammar": {
+            "composition": "Use a strong primary region, one supporting context region, and a stable recovery route; suppress unrelated destinations at the decision point.",
+            "spacing_density": "Use generous separation around the primary task and compact spacing only within tightly related supporting details.",
+            "typography": "Use a restrained hierarchy with one dominant task heading, concise operational labels, and readable supporting explanation.",
+            "color": "Reserve the strongest color for current action and consequential state; keep surrounding surfaces quiet and semantically neutral.",
+            "shape_form": "Use a small set of familiar control and container forms so the primary path is recognized without interpretation.",
+            "surface_depth": "Keep most content on one plane and introduce elevation only for temporary focus, confirmation, or recovery.",
+            "imagery": "Use imagery only when it clarifies the outcome or object; remove decorative media that competes with the primary task.",
+            "iconography": "Pair a limited set of familiar symbols with direct labels, especially for state, exit, and recovery.",
+            "motion": "Use brief transitions to preserve continuity along the primary path and avoid ambient or attention-seeking motion.",
+            "voice": "Use concise, direct language that names the next action, consequence, and available recovery without promotional framing.",
+            "state_language": "Keep current, pending, complete, blocked, and recoverable states adjacent to the primary object and action.",
+            "responsive_behavior": "Preserve the primary action, current state, and recovery route before secondary context as space becomes constrained."
+        }
+    },
+    {
+        "name": "Guided confidence",
+        "summary": "Organize the experience as a supported sequence that explains unfamiliar choices at the moment they become relevant.",
+        "principle": "Build confidence through progressive context, visible progress, examples, and reversible checkpoints.",
+        "grammar": {
+            "composition": "Use a staged sequence with visible orientation, current-step focus, contextual help, and a persistent summary of prior commitments.",
+            "spacing_density": "Use moderate density within each step and larger breaks between stages so progress and responsibility remain legible.",
+            "typography": "Combine instructional headings, plain-language explanations, examples, and compact summaries of completed decisions.",
+            "color": "Use a calm semantic progression for current, complete, attention, and blocked states without turning progress into pressure.",
+            "shape_form": "Differentiate instruction, user input, evidence, checkpoint, and support through consistent but clearly distinct forms.",
+            "surface_depth": "Use bounded panels to separate the current step from prior decisions and optional help while keeping the sequence connected.",
+            "imagery": "Use annotated examples or diagrams where they reduce unfamiliarity, with equivalent text and no decorative claim inflation.",
+            "iconography": "Use labeled status and orientation symbols consistently across steps, with redundant text for consequential meaning.",
+            "motion": "Use transitions to explain advancement, return, validation, and changed state while respecting reduced-motion preferences.",
+            "voice": "Use reassuring but precise guidance that explains why information is needed and never treats questions as user failure.",
+            "state_language": "Distinguish not started, in progress, needs attention, ready for review, submitted, and safely resumable states.",
+            "responsive_behavior": "Collapse the sequence without hiding orientation, prior commitments, help, or the ability to move backward safely."
+        }
+    },
+    {
+        "name": "Explorable system",
+        "summary": "Expose a coherent overview with several meaningful entry paths so people can inspect relationships and choose where to begin.",
+        "principle": "Support comparison and self-directed exploration while keeping scope, state, and commitment boundaries explicit.",
+        "grammar": {
+            "composition": "Use an overview, stable navigation, comparable object regions, and a focused detail surface that preserves broader context.",
+            "spacing_density": "Use structured density for scanning and comparison, with alignment and grouping doing more work than empty space.",
+            "typography": "Use a broad but disciplined hierarchy for overview metrics, object identity, comparison labels, detail, and evidence.",
+            "color": "Use a differentiated palette for categories and state with redundant labels, stable mappings, and accessible contrast.",
+            "shape_form": "Create recognizable forms for collections, comparable objects, filters, evidence, actions, and focused detail.",
+            "surface_depth": "Use layering to distinguish overview, selected detail, transient controls, and modal commitment without excessive nesting.",
+            "imagery": "Use imagery as navigable evidence, category signal, or object identity with inspectable source and graceful absence states.",
+            "iconography": "Use a systematic symbol language for navigation, filtering, comparison, state, and view changes with labels where ambiguity remains.",
+            "motion": "Use spatial transitions to preserve object identity between overview and detail without making animation carry state alone.",
+            "voice": "Use descriptive labels and concise comparative language that supports inspection before asking for commitment.",
+            "state_language": "Expose selection, filtering, freshness, comparison scope, pending changes, and commitment as distinct states.",
+            "responsive_behavior": "Transform overview and detail into a reversible sequence while preserving filters, selection, comparison context, and return position."
+        }
+    }
+)
 
 
 class DesignError(RuntimeError):
@@ -201,6 +260,7 @@ def load_lens_routing(catalog_path: Path, catalog: dict[str, Any]) -> dict[str, 
         reason = rule.get("reason")
         terms = rule.get("terms")
         lenses = rule.get("lenses")
+        minimum_matches = rule.get("minimum_matches", 1)
         if (
             not isinstance(rule_id, str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]+", rule_id)
@@ -210,6 +270,9 @@ def load_lens_routing(catalog_path: Path, catalog: dict[str, Any]) -> dict[str, 
             or not isinstance(terms, list)
             or not terms
             or any(not isinstance(item, str) or not item.strip() for item in terms)
+            or not isinstance(minimum_matches, int)
+            or minimum_matches < 1
+            or minimum_matches > len(terms)
             or not isinstance(lenses, list)
             or not lenses
             or any(not isinstance(item, str) or item not in available for item in lenses)
@@ -217,6 +280,91 @@ def load_lens_routing(catalog_path: Path, catalog: dict[str, Any]) -> dict[str, 
             raise DesignError("Installed UX lens routing has an incomplete or unknown rule")
         seen_rules.add(rule_id)
     return routing
+
+
+def load_composition_precedence(catalog_path: Path, catalog: dict[str, Any]) -> dict[str, Any]:
+    path = catalog_path.parent / "composition-precedence.json"
+    value = _read_json(path)
+    precedence = value.get("precedence")
+    conflicts = value.get("conflicts")
+    if value.get("schema_version") != 1 or not isinstance(precedence, list) or not precedence or not isinstance(conflicts, list):
+        raise DesignError("Installed design composition precedence is invalid")
+    precedence_ids: set[str] = set()
+    priorities: set[int] = set()
+    for item in precedence:
+        precedence_id = item.get("precedence_id")
+        priority = item.get("priority")
+        rule = item.get("rule")
+        if (
+            not isinstance(precedence_id, str)
+            or not re.fullmatch(r"[a-z0-9][a-z0-9-]+", precedence_id)
+            or precedence_id in precedence_ids
+            or not isinstance(priority, int)
+            or priority in priorities
+            or not isinstance(rule, str)
+            or not rule.strip()
+        ):
+            raise DesignError("Installed design composition precedence has an invalid rule")
+        precedence_ids.add(precedence_id)
+        priorities.add(priority)
+    available_lenses = set(
+        next(pack for pack in catalog["packs"] if pack["axis"] == "lens" and pack["role"] == "foundation")["categories"]
+    )
+    seen_conflicts: set[str] = set()
+    for conflict in conflicts:
+        conflict_id = conflict.get("conflict_id")
+        all_lenses = conflict.get("all_lenses", [])
+        any_lenses = conflict.get("any_lenses", [])
+        any_input_fields = conflict.get("any_input_fields", [])
+        if (
+            not isinstance(conflict_id, str)
+            or not re.fullmatch(r"[a-z0-9][a-z0-9-]+", conflict_id)
+            or conflict_id in seen_conflicts
+            or not all(isinstance(values, list) for values in (all_lenses, any_lenses, any_input_fields))
+            or not all_lenses + any_lenses + any_input_fields
+            or any(lens not in available_lenses for lens in all_lenses + any_lenses)
+            or any(field not in INFERENCE_CONTEXT_FIELDS for field in any_input_fields)
+            or conflict.get("dominant_precedence_id") not in precedence_ids
+            or not isinstance(conflict.get("resolution"), str)
+            or not conflict["resolution"].strip()
+        ):
+            raise DesignError("Installed design composition precedence has an invalid conflict")
+        seen_conflicts.add(conflict_id)
+    return value
+
+
+def _resolve_composition(payload: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
+    selected_lenses = set(payload["lenses"])
+    active_conflicts: list[dict[str, Any]] = []
+    for conflict in rules["conflicts"]:
+        all_lenses = set(conflict.get("all_lenses", []))
+        any_lenses = set(conflict.get("any_lenses", []))
+        input_fields = conflict.get("any_input_fields", [])
+        if not all_lenses.issubset(selected_lenses):
+            continue
+        if any_lenses and not any_lenses.intersection(selected_lenses):
+            continue
+        if input_fields and not any(payload.get(field) for field in input_fields):
+            continue
+        active_conflicts.append(
+            {
+                "conflict_id": conflict["conflict_id"],
+                "dominant_precedence_id": conflict["dominant_precedence_id"],
+                "resolution": conflict["resolution"],
+            }
+        )
+    precedence = sorted(rules["precedence"], key=lambda item: item["priority"], reverse=True)
+    return {
+        "precedence": [
+            {
+                "precedence_id": item["precedence_id"],
+                "priority": item["priority"],
+                "rule": item["rule"],
+            }
+            for item in precedence
+        ],
+        "active_conflicts": active_conflicts,
+    }
 
 
 def _inference_context(payload: dict[str, Any]) -> dict[str, str]:
@@ -254,7 +402,7 @@ def _infer_lenses(payload: dict[str, Any], routing: dict[str, Any]) -> tuple[lis
             if field_terms:
                 matched_context.append({"field": field, "matched_terms": field_terms})
                 matched_terms.extend(term for term in field_terms if term not in matched_terms)
-        if not matched_terms:
+        if len(matched_terms) < rule.get("minimum_matches", 1):
             continue
         lenses = list(rule["lenses"])
         selected.extend(lens for lens in lenses if lens not in selected)
@@ -339,18 +487,19 @@ def _direction_count(payload: dict[str, Any]) -> int:
 
 
 def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
-    labels = ("Focused", "Balanced", "Distinctive")
+    strategy = DIRECTION_STRATEGIES[index]
     theme = payload["themes"][index % len(payload["themes"])] if payload["themes"] else ""
     message = payload["message_structures"][index % len(payload["message_structures"])] if payload["message_structures"] else ""
     scope = ", ".join(payload["sections"]) if payload["sections"] else "the experience"
-    name = f"{labels[index]} {theme}".strip()
-    summary = f"Shape {scope} around the project intent and audience."
+    name = strategy["name"]
+    summary = strategy["summary"].replace("the experience", scope)
     if theme:
         summary += f" Honor the explicitly requested {theme} character."
     if message:
         summary += f" Use the explicitly requested {message} narrative structure."
     principles = [
         payload["intent"],
+        strategy["principle"],
         "Make consequential choices understandable, reversible where possible, and accessible.",
     ]
     principles.extend(payload["constraints"][:2])
@@ -359,21 +508,11 @@ def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
         "name": name,
         "summary": summary,
         "principles": principles,
-        "design_grammar": {
-            "composition": [f"Establish an intentional reading order and hierarchy across {scope}."],
-            "spacing_density": ["Set density by task frequency and consequence; keep related information close and independent regions visibly separated."],
-            "typography": ["Choose a typographic voice that supports the project intent, content, and audience; preserve hierarchy without relying on size alone."],
-            "color": ["Use color semantically first, then derive an expressive palette appropriate to the project context."],
-            "shape_form": ["Distinguish controls, content, status, and decoration through a coherent but semantically differentiated form language."],
-            "surface_depth": ["Use the smallest sufficient set of boundaries and depth cues to explain hierarchy, focus, and modality."],
-            "imagery": ["Give every image an explicit role, bounded claim, responsive behavior, alternative, and failure state."],
-            "iconography": ["Use familiar, labeled, accessible symbols with redundant state communication for consequential meaning."],
-            "motion": ["Use motion to explain state and continuity; preserve equivalent meaning and control with reduced motion."],
-            "voice": ["Derive voice and message progression from the project intent, audience, and consequence; keep operational language direct."],
-            "state_language": ["Name default, active, selected, pending, complete, stale, unavailable, warning, and error states consistently across modalities."],
-            "responsive_behavior": ["Preserve semantic priority, grouping, current context, actions, and recovery as the composition transforms."],
-        },
-        "variation_levers": ["Adjust information density without changing task priority.", "Adjust expressive emphasis without weakening accessibility."],
+        "design_grammar": {dimension: [strategy["grammar"][dimension]] for dimension in DESIGN_GRAMMAR_DIMENSIONS},
+        "variation_levers": [
+            "Adjust information density without changing task priority.",
+            f"Increase or reduce the {strategy['name'].casefold()} emphasis without weakening accessibility or recovery.",
+        ],
         "tradeoffs": payload["open_questions"] or ["Greater focus reduces simultaneous exposure of secondary capabilities."],
     }
 
@@ -438,6 +577,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     catalog_packs = _selected_packs(payload, catalog)
     if lens_routing:
         lens_routing = _bind_lens_routing(lens_routing, catalog, catalog_packs)
+    composition_resolution = _resolve_composition(payload, load_composition_precedence(catalog_path, catalog))
     selected_pack_ids = {pack["pack_id"] for pack in catalog_packs}
     selected_catalog_packs = [pack for pack in catalog["packs"] if pack["pack_id"] in selected_pack_ids]
     evidence_application: dict[str, dict[str, Any]] = {}
@@ -493,6 +633,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "lenses": payload["lenses"],
         "lens_selection_mode": "manual" if manual_lenses else "inferred",
         "lens_routing": lens_routing,
+        "composition_resolution": composition_resolution,
         "constraints": payload["constraints"],
         "preserve": payload["preserve"],
         "open_questions": payload["open_questions"],

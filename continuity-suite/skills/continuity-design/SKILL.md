@@ -24,7 +24,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
    - one when the intended approach and constraints are settled;
    - two when one material tradeoff remains;
    - three when multiple materially different approaches remain plausible.
-4. Derive each direction creatively from the project intent, audience, content, constraints, existing experience, and consequential context. Do not turn the catalog taxonomy into the concept, outline, headings, or vocabulary of the result unless the user explicitly requested those concepts. Use inferred packs as silent creative context and review checks, not as a recipe or a checklist the design must recite. Translate the resulting direction into every required dimension in [design-grammar.md](references/design-grammar.md) using concrete design decisions. Autonomy, comprehension, accessibility, refusal, correction, exit, and recovery remain non-negotiable safeguards rather than required stylistic callouts.
+4. Derive each direction creatively from the project intent, audience, content, constraints, existing experience, and consequential context. Do not turn the catalog taxonomy into the concept, outline, headings, or vocabulary of the result unless the user explicitly requested those concepts. Use inferred packs as silent creative context and review checks, not as a recipe or a checklist the design must recite. Resolve tensions through [composition precedence](references/composition-precedence.json); never resolve them by prompt order or by averaging incompatible guidance. Translate the resulting direction into every required dimension in [design-grammar.md](references/design-grammar.md) using concrete design decisions. Autonomy, comprehension, accessibility, refusal, correction, exit, and recovery remain non-negotiable safeguards rather than required stylistic callouts.
 5. Apply category-pack acceptance questions as review gates. When foundation and category guidance differ in specificity, use the category guidance without weakening foundation safety or accessibility constraints.
 6. Apply every pack according to its `modalities` entry for the requested target:
    - `validated` means the pack contains direct evidence for that modality;
@@ -50,6 +50,8 @@ A later design revision creates new evidence. It never changes an existing goal 
 - [message-structures.md](references/message-structures.md)
 - [ux-lenses.md](references/ux-lenses.md)
 - [lens-routing.json](references/lens-routing.json)
+- [composition-precedence.json](references/composition-precedence.json)
+- [evaluation-scenarios.json](references/evaluation-scenarios.json) (offline validation only)
 - [design-grammar.md](references/design-grammar.md)
 
 Reviewed psychology overlays include [Perception, salience, and affordance](references/lens-perception-salience-affordance.md), [Choice, comparison, and decision integrity](references/lens-choice-comparison-decision-integrity.md), [Mental models, comprehension, and transfer](references/lens-mental-model-comprehension-transfer.md), [Research bias and evidence validity](references/lens-research-bias-evidence-validity.md), [Motivation, progress, and temporal agency](references/lens-motivation-progress-temporal-agency.md), [Memory, learning, and experience continuity](references/lens-memory-learning-experience-continuity.md), [Feedback, feedforward, and temporal state](references/lens-feedback-feedforward-temporal-state.md), and [Social influence and persuasion integrity](references/lens-social-influence-persuasion-integrity.md).
