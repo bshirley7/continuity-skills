@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -2091,6 +2091,75 @@
       ],
       "pack_id": "lens-accountability-separation-of-duties-independent-review",
       "reference": "lens-accountability-separation-of-duties-independent-review.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "access and security policy",
+        "travel and spend policy",
+        "workplace and compliance policy",
+        "approval and eligibility rules",
+        "retention and data-governance rules",
+        "developer and deployment policy",
+        "identity and tenant policy",
+        "organization-wide standards and acknowledgements"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "policy-rule-administration"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 9,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make rule logic readable at both policy and case level: use explicit all, any, none, threshold, sequence, fallback, default, and missing or indeterminate semantics; expose grouping and precedence without relying on indentation alone; provide plain-language and structured views that remain equivalent; and for a selected subject and resource, show which facts were used, which rules matched or failed, how conflicts combined, and why the final outcome and obligations resulted.",
+        "Treat exceptions as governed subordinate records rather than hidden edits or permanent bypasses: identify governing rule, affected subject, resource, action and environment, requestor, need and evidence, risk and impacted parties, reviewer authority and conflict, compensating controls, narrower scope, effective and expiry time, review and revocation triggers, usage and incidents, outcome and reasons, and whether recurring exceptions require the base policy to be corrected."
+      ],
+      "pack_id": "section-flow-policy-rule-administration",
+      "reference": "section-flow-policy-rule-administration.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "access and authorization policy",
+        "eligibility and approval rules",
+        "spend and travel controls",
+        "retention and information governance",
+        "safety and operational constraints",
+        "compliance and workplace policy",
+        "automated decision support",
+        "policy-as-code and distributed enforcement"
+      ],
+      "axis": "lens",
+      "categories": [
+        "rule-legibility-consistency-exception-governance"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 5,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make precedence and conflict deterministically legible: expose hierarchy, specificity, inheritance, order, overrides, deny or permit priority, one-applicable requirements, incompatible obligations, circularity and unreachable rules; show the same representative case through each applicable rule and the combination path; treat no match, missing attributes, error, indeterminate, deny, permit, conditional outcome, and not applicable as distinct states.",
+        "Govern exceptions and corrective action as evidence-bearing feedback: require a narrow case, reason, risk, reviewer authority and independence, compensating controls, effective and expiry time, monitoring, revocation, affected parties, decision and appeal; distinguish exception from rule change and enforcement failure; aggregate exception use, inconsistent outcomes, overrides, incidents and complaints to find root causes, repair deficient policy, verify remediation, and preserve prior decisions without normalizing permanent bypass."
+      ],
+      "pack_id": "lens-rule-legibility-consistency-exception-governance",
+      "reference": "lens-rule-legibility-consistency-exception-governance.md",
       "role": "category",
       "version": "1.0.0"
     }

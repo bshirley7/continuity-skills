@@ -26,3 +26,4 @@
 - **Conversation lifecycle:** keep audience, topic, reply scope, provenance, correction, and handoff legible; promote consequential decisions and commitments into durable linked objects rather than inferring them from conversational signals.
 - **Operational exception and incident handling:** distinguish signals, anomalies, exceptions, and incidents; maintain a challengeable situation view, bounded mitigation controls, evidence-backed recovery, and verified learning.
 - **Review and approval lifecycle:** bind requests to exact versions, make authority and routing inspectable, support evidence-based decisions, and keep approval distinct from execution, publication, payment, or completion.
+- **Policy and rule administration:** express rules as versioned contracts, make case evaluation and precedence legible, govern exceptions, and separate testing, publication, distribution, and enforcement.

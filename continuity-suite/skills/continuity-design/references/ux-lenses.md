@@ -35,3 +35,4 @@
 - **Conversation grounding, turn-taking, and repair:** Are topic, referent, actor, audience, understanding, response obligation, repair, commitment, correction, and handoff explicit enough for the consequence?
 - **Situation awareness and resilient control:** Can operators perceive, comprehend, and project relevant state while challenging evidence, controlling automation safely, coordinating roles, verifying recovery, and completing learning?
 - **Accountability, separation of duties, and independent review:** Are incompatible duties separated, authority bounded, review substantively independent, authorization exact-object bound, and decision evidence sufficient without becoming surveillance?
+- **Rule legibility, consistency, and exception governance:** Are policy semantics, evidence inputs, precedence, conflicts, tests, exceptions, decision paths, appeals, and corrective action explicit, bounded, and historically linked?
