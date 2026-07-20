@@ -738,6 +738,24 @@ class DesignLifecycleTests(unittest.TestCase):
         goal["design_refs"][0]["design_hash"] = "b" * 64
         self.assertNotEqual(first, functions["goal_material_hash"](directory, goal))
 
+    def test_reviewed_pregnancy_lifecycle_and_reproductive_autonomy_overlays_are_bound(self):
+        value = input_value(
+            sections=["pregnancy-prenatal-birth-postpartum-lifecycle"],
+            lenses=["reproductive-autonomy-maternal-safety-loss-sensitive-care"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-pregnancy-prenatal-birth-postpartum-lifecycle", packs)
+        self.assertIn("lens-reproductive-autonomy-maternal-safety-loss-sensitive-care", packs)
+        self.assertEqual(
+            packs[packs.index("section-flow-pregnancy-prenatal-birth-postpartum-lifecycle") - 1],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[packs.index("lens-reproductive-autonomy-maternal-safety-loss-sensitive-care") - 1],
+            "design-ux-lenses",
+        )
+
 
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):
