@@ -307,6 +307,15 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("lens-attention-interruption", packs)
         self.assertEqual(packs[packs.index("lens-attention-interruption") - 1], "design-ux-lenses")
 
+    def test_reviewed_search_and_information_foraging_overlays_are_bound(self):
+        value = input_value(sections=["search-discovery"], lenses=["information-foraging"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-search-discovery", packs)
+        self.assertIn("lens-information-foraging", packs)
+        self.assertEqual(packs[packs.index("section-flow-search-discovery") - 1], "design-sections-flows")
+        self.assertEqual(packs[packs.index("lens-information-foraging") - 1], "design-ux-lenses")
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))

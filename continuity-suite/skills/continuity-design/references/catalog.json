@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.78.0",
+  "catalog_version": "1.80.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1726,6 +1726,37 @@
       ],
       "pack_id": "lens-attention-interruption",
       "reference": "lens-attention-interruption.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["global and scoped search", "known-item lookup", "exploratory discovery", "autocomplete and suggestions", "faceted filtering", "sorting and result views", "zero-result recovery", "enterprise and commerce search"],
+      "axis": "section-flow",
+      "categories": ["search-discovery"],
+      "evidence_sufficiency": {"industry_count": 6, "product_count": 9, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Keep the search contract visible: identify scope, searchable object types, query, active filters, sort, result count, freshness or source limits, and whether matching is exact, semantic, personalized, or permission-bounded.",
+        "Make each result provide enough information scent to predict the destination through title, type, source, hierarchy, matched context, relevant attributes, state, date, provenance, and available action without opening every item."
+      ],
+      "pack_id": "section-flow-search-discovery",
+      "reference": "section-flow-search-discovery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["search and navigation", "autocomplete and suggestions", "result lists", "faceted filtering", "large catalogs and datasets", "enterprise retrieval", "zero-result recovery", "AI-mediated search"],
+      "axis": "lens",
+      "categories": ["information-foraging"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 4, "evidence_family_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Support both known-item lookup and exploratory foraging: preserve a simple direct query path while offering visible scopes, categories, facets, related concepts, and alternate routes for people who cannot name the destination precisely.",
+        "Externalize the evolving query model through retained terms, result counts, applied-filter overviews, facet values, sort, scope, and individual or global removal; do not require people to remember why the set changed."
+      ],
+      "pack_id": "lens-information-foraging",
+      "reference": "lens-information-foraging.md",
       "role": "category",
       "version": "1.0.0"
     }

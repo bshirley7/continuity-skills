@@ -19,3 +19,4 @@
 - **Bulk operations:** keep exact selection scope, change semantics, dependencies, permanence, durable execution state, partial results, recovery, actor, time, and history inspectable.
 - **Activity, audit, and version history:** choose explicitly between collaborative orientation, administrative evidence, and object comparison; preserve actor, action, object, scope, outcome, exact time, present-state context, investigation filters, and safe recovery.
 - **Notification centers and inbox triage:** separate notification state from work state; preserve receipt rationale, actor, event, object, scope, urgency, return context, grouping evidence, delivery controls, quiet periods, and preview privacy.
+- **Search, filtering, and discovery:** expose scope, matching model, query, facets, sorting, result evidence, provenance, uncertainty, preserved return state, and honest zero-result recovery.
