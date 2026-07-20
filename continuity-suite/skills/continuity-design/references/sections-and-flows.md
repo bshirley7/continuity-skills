@@ -28,3 +28,4 @@
 - **Review and approval lifecycle:** bind requests to exact versions, make authority and routing inspectable, support evidence-based decisions, and keep approval distinct from execution, publication, payment, or completion.
 - **Policy and rule administration:** express rules as versioned contracts, make case evaluation and precedence legible, govern exceptions, and separate testing, publication, distribution, and enforcement.
 - **AI memory and context management:** separate session context, saved memory, instructions, inferences, connected sources, shared knowledge, analytics, and model-improvement data; make active scope, provenance, correction, forgetting, and downstream effects inspectable.
+- **Experimentation and staged rollout:** bind hypotheses, variants, assignment, exposure, measures, guardrails, validity diagnostics, decisions, rollout controls, rollback, and post-release learning to exact versions and evidence.

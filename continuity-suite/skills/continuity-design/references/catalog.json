@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.84.0",
+  "catalog_version": "1.85.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management", "experimentation-staged-rollout"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance", "contextual-integrity-meaningful-data-agency"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance", "contextual-integrity-meaningful-data-agency", "experimental-validity-exposure-ethics"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -2229,6 +2229,75 @@
       ],
       "pack_id": "lens-contextual-integrity-meaningful-data-agency",
       "reference": "lens-contextual-integrity-meaningful-data-agency.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "product A/B and multivariate testing",
+        "feature flags and progressive delivery",
+        "messaging and conversion experiments",
+        "pricing and checkout experiments",
+        "recommendation and ranking changes",
+        "AI prompt model and agent experiments",
+        "operational releases and migrations",
+        "policy and workflow trials"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "experimentation-staged-rollout"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Make the experiment a versioned decision contract: preserve the decision question, falsifiable hypothesis, rationale and prior evidence, accountable owner and reviewers, exact control and treatment artifacts, unit and method of assignment, eligibility and exclusions, traffic allocation, exposure event, primary outcome, guardrails, segments, minimum meaningful effect, analysis model, power or precision target, planned duration, stopping rules, risk controls, rollback path and decision policy; material changes create a linked revision rather than rewriting the running test.",
+        "Present evidence as a decision input rather than a winner badge: show metric definition, direction, numerator and denominator, absolute and relative effects, uncertainty, sample and exposure counts, time window, data freshness, guardrail outcomes, planned and exploratory analyses, subgroup coverage, novelty and carryover risk, quality diagnostics and practical significance; distinguish no evidence, insufficient evidence, evidence of no material effect and evidence of harm."
+      ],
+      "pack_id": "section-flow-experimentation-staged-rollout",
+      "reference": "section-flow-experimentation-staged-rollout.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "online controlled experiments",
+        "feature and interface tests",
+        "pricing conversion and retention tests",
+        "ranking recommendation and personalization experiments",
+        "AI model prompt and agent evaluations",
+        "progressive delivery and operational trials",
+        "behavioral interventions",
+        "high-consequence and vulnerable populations"
+      ],
+      "axis": "lens",
+      "categories": [
+        "experimental-validity-exposure-ethics"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Test whether the design can answer the stated decision question before exposing anyone: require a falsifiable hypothesis, appropriate control, unit and method of assignment, representative eligibility, stable measurement, exact treatment versions, primary outcome and guardrails, minimum meaningful effect, power or precision rationale, planned duration and analysis, interference and carryover assessment, and a decision policy that permits no-change or inconclusive outcomes.",
+        "Communicate evidence without binary significance theater: show estimand, population, metric formula, numerator and denominator, base rates, absolute and relative effects, interval estimates, sample and exposure counts, practical importance, uncertainty and assumptions; distinguish planned from exploratory analyses and no evidence from evidence of no meaningful effect; correct for multiplicity and avoid selecting only favorable metrics, windows or segments."
+      ],
+      "pack_id": "lens-experimental-validity-exposure-ethics",
+      "reference": "lens-experimental-validity-exposure-ethics.md",
       "role": "category",
       "version": "1.0.0"
     }
