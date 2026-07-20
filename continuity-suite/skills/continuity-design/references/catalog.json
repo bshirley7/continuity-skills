@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.80.0",
+  "catalog_version": "1.82.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1757,6 +1757,37 @@
       ],
       "pack_id": "lens-information-foraging",
       "reference": "lens-information-foraging.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["long and multi-step forms", "conditional questionnaires", "applications and onboarding", "compliance and identity evidence", "document uploads", "review-before-submit", "validation and correction", "save and resume"],
+      "axis": "section-flow",
+      "categories": ["complex-forms"],
+      "evidence_sufficiency": {"industry_count": 10, "product_count": 10, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Keep progress truthful and recoverable through stable section names, current and completed state, save status, safe back navigation, resumable drafts, retained answers, and an honest distinction between section completion, validation, review, submission, and downstream acceptance.",
+        "Before consequential submission, provide a complete, scannable review grouped by the original sections, mark missing or skipped answers, offer precise edit routes that return to review, and label the final action by its actual commitment."
+      ],
+      "pack_id": "section-flow-complex-forms",
+      "reference": "section-flow-complex-forms.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["forms and data entry", "multi-step applications", "validation and error summaries", "conditional questions", "review and confirmation", "legal and financial submissions", "save and resume", "submission receipts"],
+      "axis": "lens",
+      "categories": ["error-prevention-recovery"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 5, "evidence_family_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Prevent errors before messaging them: ask only necessary questions, use familiar and semantically appropriate controls, state constraints before entry, accept reasonable formats, preserve prior answers, and avoid requiring redundant recall.",
+        "For consequential submission, make the commitment checked, confirmed, or reversible: present a complete review, targeted change routes, retained answers, an action-specific submit label, and proportional confirmation or undo."
+      ],
+      "pack_id": "lens-error-prevention-recovery",
+      "reference": "lens-error-prevention-recovery.md",
       "role": "category",
       "version": "1.0.0"
     }

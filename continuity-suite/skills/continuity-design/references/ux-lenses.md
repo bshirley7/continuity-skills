@@ -29,3 +29,4 @@
 - **Behavioral ethics:** Does the complete intervention preserve autonomy, welfare, fairness, transparency, and durable control across repeated exposure, affected groups, safeguards, and enforceable stop conditions?
 - **Attention and interruption:** Is attention treated as a user cost, with urgency and channel matched to consequence, response window, reversibility, context, accessibility, privacy, and user-controlled suppression?
 - **Information foraging and findability:** Can people form and refine intent, predict destinations from information scent, inspect the query model, control suggestions, and recover from weak results without opaque steering?
+- **Error prevention and recovery:** Does the design prevent avoidable mistakes, preserve valid work, explain correction accessibly, distinguish lifecycle states, and make consequential submission reviewable or reversible?
