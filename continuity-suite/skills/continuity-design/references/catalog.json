@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.111.0",
+  "catalog_version": "1.113.0",
   "packs": [
     {
       "applicability": [
@@ -440,7 +440,8 @@
         "order-fulfillment-delivery-handoff-lifecycle",
         "pregnancy-prenatal-birth-postpartum-lifecycle",
         "employment-discovery-application-selection-offer-lifecycle",
-        "housing-discovery-rental-application-lease-residency-lifecycle"
+        "housing-discovery-rental-application-lease-residency-lifecycle",
+        "learning-enrollment-assessment-completion-credential-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1381,7 +1382,8 @@
         "promise-accuracy-custody-transparency-exception-agency",
         "reproductive-autonomy-maternal-safety-loss-sensitive-care",
         "opportunity-fairness-applicant-agency-accountable-selection",
-        "housing-opportunity-tenant-agency-accountable-screening"
+        "housing-opportunity-tenant-agency-accountable-screening",
+        "learner-agency-assessment-validity-credential-integrity"
       ],
       "modalities": {
         "document": "inferred",
@@ -4862,6 +4864,75 @@
       ],
       "pack_id": "lens-housing-opportunity-tenant-agency-accountable-screening",
       "reference": "lens-housing-opportunity-tenant-agency-accountable-screening.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "course, program and learning-path discovery",
+        "self, assigned, cohort and required enrollment",
+        "lesson, activity, resource and resume state",
+        "practice, hints, feedback and retry",
+        "quiz, assignment, exam and performance assessment",
+        "grades, mastery estimates, correction and appeal",
+        "completion, certificate, badge and learner record",
+        "progress visibility, privacy, portability and withdrawal"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "learning-enrollment-assessment-completion-credential-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one versioned learning offer from discovery through credential: identify provider and instructor or authority, intended outcomes, audience, prerequisites, level, format, curriculum, workload, schedule, language, accessibility, price and funding, cancellation, assessment, completion and credential terms; bind enrollment and later evidence to that offer; and never silently change what achievement requires.",
+        "Issue completion and credentials as exact, portable claims: identify learner, issuer, achievement, criteria, evidence, assessment, issue and expiry or renewal where relevant, verification and revocation; preserve a durable learner-controlled record and sharing scope; distinguish certificate of attendance from assessed competence; and never imply recognition beyond the issuer and stated claim."
+      ],
+      "pack_id": "section-flow-learning-enrollment-assessment-completion-credential-lifecycle",
+      "reference": "section-flow-learning-enrollment-assessment-completion-credential-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "digital courses, programs and learning paths",
+        "assigned, cohort, professional and self-directed learning",
+        "practice, tutoring, feedback and adaptive systems",
+        "quizzes, assignments, examinations and automated scoring",
+        "learning analytics, recommendations and mastery estimates",
+        "student records, visibility and third-party services",
+        "certificates, badges, transcripts and learner records",
+        "AI-assisted learning, assessment and integrity controls"
+      ],
+      "axis": "lens",
+      "categories": [
+        "learner-agency-assessment-validity-credential-integrity"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 9,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Require a validity argument before consequential assessment: name the intended construct and use, learning standard, population, tasks, scoring, reliability, evidence, limitations and consequences; test whether interface, language, speed, disability, surveillance or technology skill introduces irrelevant variance; use accommodations that preserve the construct; and never infer broad ability from evidence too narrow for the claim.",
+        "Evaluate credentials as bounded evidence claims: identify issuer, learner, achievement and learning outcomes, criteria, assessment, evidence, issue date, expiry or renewal, verification and revocation; distinguish attendance, completion and demonstrated competence; make recognition limits understandable; support learner-controlled portability and selective sharing; and never let visual prestige substitute for quality or validity."
+      ],
+      "pack_id": "lens-learner-agency-assessment-validity-credential-integrity",
+      "reference": "lens-learner-agency-assessment-validity-credential-integrity.md",
       "role": "category",
       "version": "1.0.0"
     }

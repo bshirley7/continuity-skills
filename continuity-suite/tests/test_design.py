@@ -780,6 +780,22 @@ class DesignLifecycleTests(unittest.TestCase):
             self.assertEqual(packs[packs.index(section_pack) - 1], "design-sections-flows")
             self.assertEqual(packs[packs.index(lens_pack) - 1], "design-ux-lenses")
 
+    def test_reviewed_learning_lifecycle_and_learner_agency_overlays_are_bound(self):
+        value = input_value(
+            sections=["learning-enrollment-assessment-completion-credential-lifecycle"],
+            lenses=["learner-agency-assessment-validity-credential-integrity"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[packs.index("section-flow-learning-enrollment-assessment-completion-credential-lifecycle") - 1],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[packs.index("lens-learner-agency-assessment-validity-credential-integrity") - 1],
+            "design-ux-lenses",
+        )
+
 
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):
