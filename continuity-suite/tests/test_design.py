@@ -334,6 +334,33 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(packs[packs.index("section-flow-analytical-exploration") - 1], "design-sections-flows")
         self.assertEqual(packs[packs.index("lens-quantitative-evidence-uncertainty") - 1], "design-ux-lenses")
 
+    def test_reviewed_support_case_lifecycle_and_procedural_fairness_service_recovery_overlays_are_bound(self):
+        value = input_value(sections=["support-case-lifecycle"], lenses=["procedural-fairness-service-recovery"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-support-case-lifecycle", packs)
+        self.assertIn("lens-procedural-fairness-service-recovery", packs)
+        self.assertEqual(packs[packs.index("section-flow-support-case-lifecycle") - 1], "design-sections-flows")
+        self.assertEqual(packs[packs.index("lens-procedural-fairness-service-recovery") - 1], "design-ux-lenses")
+
+    def test_reviewed_conversation_lifecycle_and_conversation_grounding_turn_taking_repair_overlays_are_bound(self):
+        value = input_value(sections=["conversation-lifecycle"], lenses=["conversation-grounding-turn-taking-repair"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-conversation-lifecycle", packs)
+        self.assertIn("lens-conversation-grounding-turn-taking-repair", packs)
+        self.assertEqual(packs[packs.index("section-flow-conversation-lifecycle") - 1], "design-sections-flows")
+        self.assertEqual(packs[packs.index("lens-conversation-grounding-turn-taking-repair") - 1], "design-ux-lenses")
+
+    def test_reviewed_operational_exception_incident_and_situation_awareness_resilient_control_overlays_are_bound(self):
+        value = input_value(sections=["operational-exception-incident"], lenses=["situation-awareness-resilient-control"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-operational-exception-incident", packs)
+        self.assertIn("lens-situation-awareness-resilient-control", packs)
+        self.assertEqual(packs[packs.index("section-flow-operational-exception-incident") - 1], "design-sections-flows")
+        self.assertEqual(packs[packs.index("lens-situation-awareness-resilient-control") - 1], "design-ux-lenses")
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))

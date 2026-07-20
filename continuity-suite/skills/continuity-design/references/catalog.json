@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1819,6 +1819,213 @@
       ],
       "pack_id": "lens-quantitative-evidence-uncertainty",
       "reference": "lens-quantitative-evidence-uncertainty.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "customer and user support",
+        "technical incident assistance",
+        "order and account problems",
+        "financial and regulated complaints",
+        "internal service desks",
+        "multichannel contact",
+        "case escalation and appeal",
+        "resolution, remedy, and reopening"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "support-case-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 9,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Create a durable case from the person's actual task context: preserve the affected account, order, resource, transaction, or workflow; capture what happened, impact and urgency, timing, attempted fixes, desired outcome, attachments, safe diagnostics, language or accessibility needs, and contact preference without demanding information the service already holds.",
+        "Treat resolution as a verifiable outcome rather than an agent declaration: state the finding and reasons, action or remedy, affected scope, owner, timing, dependencies, evidence of completion, remaining limitations, and how the person can confirm, correct, reject, reopen, appeal, or escalate with the full history retained; request feedback only after the outcome is clear and never as a condition of remedy."
+      ],
+      "pack_id": "section-flow-support-case-lifecycle",
+      "reference": "section-flow-support-case-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "customer and user support",
+        "complaints and disputes",
+        "service failure and incident recovery",
+        "regulated and high-consequence decisions",
+        "appeals and independent review",
+        "financial and nonfinancial remedies",
+        "accessible multichannel support",
+        "case communication and status"
+      ],
+      "axis": "lens",
+      "categories": [
+        "procedural-fairness-service-recovery"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Give the affected person meaningful voice before deciding: make the route easy to find and use, support suitable channels and representation, let them describe what happened, impact, evidence, access needs, and sought outcome in their own terms, acknowledge every material issue, and provide a fair opportunity to correct the record or respond to adverse information.",
+        "Make recovery proportional to the actual harm and verify it: stop continuing harm, restore the person as nearly as practical, correct records or access, refund or compensate where appropriate, acknowledge and apologize without deflection, explain prevention work, confirm completion with evidence, preserve reopening, and measure both fair process and durable outcome rather than deflection or closure alone."
+      ],
+      "pack_id": "lens-procedural-fairness-service-recovery",
+      "reference": "lens-procedural-fairness-service-recovery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "direct and group messaging",
+        "team channels and project discussions",
+        "comments and threaded replies",
+        "customer and community conversations",
+        "human and automated participants",
+        "asynchronous collaboration",
+        "conversation search and catch-up",
+        "message correction, forwarding, retention, and export"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "conversation-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 8,
+        "product_count": 8,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Establish a visible conversation envelope before sending: identify destination, topic or object, purpose, participants and roles, direct addressees versus observers, workspace or tenant, privacy and external-participant status, retention boundary, and notification reach; keep that envelope visible beside the draft and require fresh review when audience or destination changes.",
+        "Promote consequential outcomes out of conversational implication into durable objects: record decisions, approvals, requests, promises, action items, owners, due dates, affected scope, status, evidence, and supersession with a backlink to the exact message context; do not treat a reaction, read receipt, silence, generated summary, or informal acknowledgment as agreement or completion."
+      ],
+      "pack_id": "section-flow-conversation-lifecycle",
+      "reference": "section-flow-conversation-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "human-to-human messaging",
+        "group and threaded conversation",
+        "comments and collaborative review",
+        "voice and multimodal interaction",
+        "chatbots and agentic interfaces",
+        "support and expert handoff",
+        "conversation summaries and extracted decisions",
+        "high-consequence conversational commitments"
+      ],
+      "axis": "lens",
+      "categories": [
+        "conversation-grounding-turn-taking-repair"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 7,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Design for a purpose-relative grounding criterion: before participants act, make the current topic, referenced objects, relevant prior turns, known facts, assumptions, unresolved ambiguity, participant and system capabilities, and evidence of understanding visible enough for the consequence; increase explicit restatement and verification as ambiguity, delay, audience size, automation, or harm rises.",
+        "Distinguish receipt, attention, comprehension, acknowledgment, agreement, authorization, commitment, and completion: use lightweight acknowledgment for low-risk continuity, targeted confirmation for material parameters, and explicit scope, actor, action, consequence, and durable evidence for consequential decisions; never infer commitment from presence, read state, reaction, silence, or conversational fluency."
+      ],
+      "pack_id": "lens-conversation-grounding-turn-taking-repair",
+      "reference": "lens-conversation-grounding-turn-taking-repair.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "service and infrastructure incidents",
+        "failed jobs and automations",
+        "order, payment, delivery, and synchronization exceptions",
+        "data-quality and import failures",
+        "workforce and physical-safety incidents",
+        "customer-operations queues",
+        "multi-team mitigation and communication",
+        "recovery verification and post-incident learning"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "operational-exception-incident"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 7,
+        "product_count": 7,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Create a shared situation view organized around what is known, inferred, unknown, changing, and next: show severity and priority rationale, affected and potentially affected scope, user or business impact, dependencies, current operating state, timeline, hypotheses with evidence, recent actions and outcomes, ownership, command roles, open questions, next checkpoint, and data freshness.",
+        "Treat recovery and learning as evidence-bearing phases: distinguish contained, mitigated, restored, monitored, resolved, closed, and recurrent; require service or process health, affected-record reconciliation, user-impact review, residual risk, and observation-window evidence before closure, then preserve a blameless chronology, contributing conditions, detection and response gaps, decisions, communication, follow-up owners and due dates, and verification that improvements took effect."
+      ],
+      "pack_id": "section-flow-operational-exception-incident",
+      "reference": "section-flow-operational-exception-incident.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "operational dashboards and control rooms",
+        "incident and exception response",
+        "safety and mission-critical systems",
+        "service, logistics, finance, and workforce operations",
+        "automation supervision",
+        "multi-team command and coordination",
+        "recovery and degraded operation",
+        "post-incident learning and resilience"
+      ],
+      "axis": "lens",
+      "categories": [
+        "situation-awareness-resilient-control"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Support all three situation-awareness horizons: help operators perceive relevant state and change through source, time, freshness, threshold and missingness; comprehend meaning through scope, dependency, consequence, confidence and operating mode; and project plausible evolution through trend, rate, capacity, propagation, deadlines, forecast assumptions, and explicit uncertainty.",
+        "Design response as a learning control loop: coordinate explicit command, operations, communication, planning and specialist roles; verify containment, restoration and residual risk against objectives and affected users; preserve a blameless evidence timeline; and convert detection, mitigation, coordination and communication lessons into owned changes whose effectiveness is later measured."
+      ],
+      "pack_id": "lens-situation-awareness-resilient-control",
+      "reference": "lens-situation-awareness-resilient-control.md",
       "role": "category",
       "version": "1.0.0"
     }

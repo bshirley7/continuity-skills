@@ -22,3 +22,6 @@
 - **Search, filtering, and discovery:** expose scope, matching model, query, facets, sorting, result evidence, provenance, uncertainty, preserved return state, and honest zero-result recovery.
 - **Complex forms and review:** structure questions around user reasoning, preserve drafts and valid work, distinguish progress from submission, support targeted review edits, and provide durable completion evidence.
 - **Analytical exploration:** make question, scope, measures, filters, comparisons, uncertainty, underlying evidence, saved-query identity, provenance, and correction continuously inspectable.
+- **Support case lifecycle:** preserve one durable case across intake, routing, channels, transfers, investigation, remedy, verification, reopening, escalation, and appeal without making the person reconstruct their history.
+- **Conversation lifecycle:** keep audience, topic, reply scope, provenance, correction, and handoff legible; promote consequential decisions and commitments into durable linked objects rather than inferring them from conversational signals.
+- **Operational exception and incident handling:** distinguish signals, anomalies, exceptions, and incidents; maintain a challengeable situation view, bounded mitigation controls, evidence-backed recovery, and verified learning.

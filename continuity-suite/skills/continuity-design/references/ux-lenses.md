@@ -31,3 +31,6 @@
 - **Information foraging and findability:** Can people form and refine intent, predict destinations from information scent, inspect the query model, control suggestions, and recover from weak results without opaque steering?
 - **Error prevention and recovery:** Does the design prevent avoidable mistakes, preserve valid work, explain correction accessibly, distinguish lifecycle states, and make consequential submission reviewable or reversible?
 - **Quantitative evidence and uncertainty:** Are scope, definition, denominator, comparison, provenance, uncertainty, exploration limits, reproducibility, and correction visible enough to support an accurate conclusion?
+- **Procedural fairness and service recovery:** Can affected people be heard, inspect status and evidence, receive specific reasons and proportional remedies, obtain independent review, and verify durable correction without retaliation or repeated burden?
+- **Conversation grounding, turn-taking, and repair:** Are topic, referent, actor, audience, understanding, response obligation, repair, commitment, correction, and handoff explicit enough for the consequence?
+- **Situation awareness and resilient control:** Can operators perceive, comprehend, and project relevant state while challenging evidence, controlling automation safely, coordinating roles, verifying recovery, and completing learning?
