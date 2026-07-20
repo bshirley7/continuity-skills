@@ -918,6 +918,66 @@ class DesignLifecycleTests(unittest.TestCase):
             "design-ux-lenses",
         )
 
+    def test_reviewed_contract_lifecycle_and_agreement_overlay_are_bound(self):
+        value = input_value(
+            sections=[
+                "contract-authoring-negotiation-approval-signature-obligation-renewal-termination-lifecycle"
+            ],
+            lenses=[
+                "agreement-comprehension-consent-authority-version-integrity-obligation-remedy"
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-contract-authoring-negotiation-approval-signature-obligation-renewal-termination-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-agreement-comprehension-consent-authority-version-integrity-obligation-remedy"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
+    def test_reviewed_project_delivery_lifecycle_and_outcome_overlay_are_bound(self):
+        value = input_value(
+            sections=[
+                "project-planning-task-execution-dependency-delivery-learning-lifecycle"
+            ],
+            lenses=[
+                "outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning"
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-project-planning-task-execution-dependency-delivery-learning-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
 
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):

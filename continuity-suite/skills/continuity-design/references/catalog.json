@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.120.0",
+  "catalog_version": "1.122.0",
   "packs": [
     {
       "applicability": [
@@ -446,7 +446,9 @@
         "tax-record-classification-calculation-filing-payment-notice-correction-lifecycle",
         "deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle",
         "essential-utility-service-lifecycle",
-        "organizational-procurement-supplier-purchase-order-invoice-lifecycle"
+        "organizational-procurement-supplier-purchase-order-invoice-lifecycle",
+        "contract-authoring-negotiation-approval-signature-obligation-renewal-termination-lifecycle",
+        "project-planning-task-execution-dependency-delivery-learning-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1393,7 +1395,9 @@
         "taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity",
         "financial-inclusion-account-transparency-funds-access-fair-restriction-resolution",
         "essential-service-access-billing-affordability-continuity-remedy",
-        "procurement-integrity-spend-authority-supplier-access-value-accountability"
+        "procurement-integrity-spend-authority-supplier-access-value-accountability",
+        "agreement-comprehension-consent-authority-version-integrity-obligation-remedy",
+        "outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning"
       ],
       "modalities": {
         "document": "inferred",
@@ -5288,6 +5292,144 @@
       ],
       "pack_id": "lens-procurement-integrity-spend-authority-supplier-access-value-accountability",
       "reference": "lens-procurement-integrity-spend-authority-supplier-access-value-accountability.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "commercial, service, supplier and partnership agreements",
+        "employment, contractor and workforce agreements",
+        "templates, clause libraries and contract intake",
+        "authoring, internal review and counterparty negotiation",
+        "approvals, signer authority and electronic execution",
+        "effective conditions, obligations and performance dates",
+        "amendments, renewals, extensions and notices",
+        "termination, remedy, closeout and durable records"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "contract-authoring-negotiation-approval-signature-obligation-renewal-termination-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 8,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one versioned agreement identity across the lifecycle: identify parties and legal entities, agreement type and purpose, jurisdiction and language, owner, governing template and clauses, related transaction, effective and expiry conditions, current version and status; bind intake, authoring, negotiation, approval, signature, obligations, amendments, renewal, termination and records to it; and never let a filename, envelope, signer tile or visual signature become the agreement identity by itself.",
+        "Represent negotiation as a source-linked change process: preserve proposed and accepted text, author and party, timestamp, reason, comment thread, affected clauses and obligations, unresolved issues, counterproposal, version comparison and explicit resolution; protect confidential internal notes; and never flatten redlines into an untraceable latest document or treat silence as acceptance."
+      ],
+      "pack_id": "section-flow-contract-authoring-negotiation-approval-signature-obligation-renewal-termination-lifecycle",
+      "reference": "section-flow-contract-authoring-negotiation-approval-signature-obligation-renewal-termination-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "commercial, employment, service and supplier agreements",
+        "consumer and subscription terms",
+        "templates, clauses, summaries and attachments",
+        "negotiation, internal review and approvals",
+        "electronic identity, signatures, witnesses and validation",
+        "effective dates, obligations, notices and performance",
+        "amendments, automatic renewal and contract variations",
+        "termination, cancellation, disputes, remedy and records"
+      ],
+      "axis": "lens",
+      "categories": [
+        "agreement-comprehension-consent-authority-version-integrity-obligation-remedy"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 10,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate agreement comprehension at the moment and level of consequence: identify parties, purpose, subject, price and value exchange, duration, renewal, key obligations, limits, data use, remedies, termination, governing terms and material attachments in plain and accessible language; let people inspect the exact text and ask for help before commitment; test understanding rather than disclosure presence; and never let a summary replace or contradict the governing agreement.",
+        "Treat version integrity as a precondition of approval and execution: preserve the source document, attachments, clause and variable provenance, redlines, accepted changes, unresolved issues, approval scope, exact bytes or equivalent identifier, signatures, timestamps and later validation; invalidate affected approvals after material change; retain prior versions and certificates; and never let latest, saved or signed-looking stand in for the approved and executed agreement."
+      ],
+      "pack_id": "lens-agreement-comprehension-consent-authority-version-integrity-obligation-remedy",
+      "reference": "lens-agreement-comprehension-consent-authority-version-integrity-obligation-remedy.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "product, software, service and operational projects",
+        "campaign, creative and client delivery",
+        "project intake, goals, scope and planning",
+        "milestones, tasks, dependencies and schedules",
+        "ownership, assignment, estimates and workload",
+        "status, blockers, risks, decisions and changes",
+        "delivery, review, acceptance and closure",
+        "retrospectives, lessons and follow-up actions"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "project-planning-task-execution-dependency-delivery-learning-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 9,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one versioned project identity across the lifecycle: identify intended outcome and beneficiaries, sponsor and accountable lead, team and stakeholders, scope and exclusions, assumptions, constraints, success measures, delivery approach, baseline dates, budget or capacity and current revision; bind milestones, tasks, dependencies, risks, decisions, changes, evidence, delivery, closure and learning to it; and never let a board, folder, status color or task total become the project definition.",
+        "Report progress as changed evidence against outcome and baseline: show delivered and accepted results, work added or removed, milestone and schedule movement, active risk, decisions, capacity and quality signals, forecast and confidence, help needed and next meaningful action; preserve prior reports and corrections; and never substitute task completion percentage, activity volume or a green label for credible outcome progress."
+      ],
+      "pack_id": "section-flow-project-planning-task-execution-dependency-delivery-learning-lifecycle",
+      "reference": "section-flow-project-planning-task-execution-dependency-delivery-learning-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "project, programme and portfolio applications",
+        "software, product, service and operational delivery",
+        "creative, campaign and client work",
+        "goals, scope, milestones and roadmaps",
+        "tasks, dependencies, estimates and schedules",
+        "capacity, workload and work-in-progress decisions",
+        "status, risk, delivery, acceptance and closure",
+        "retrospectives, learning and continuous improvement"
+      ],
+      "axis": "lens",
+      "categories": [
+        "outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 10,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate project clarity from value to work: can people identify the beneficiary, current problem or opportunity, baseline, intended outcome, success and stop conditions, accountable owner, scope and exclusions, assumptions, constraints, delivery approach, uncertainty and current revision; does every milestone and material work item explain its contribution; and does the system prevent a backlog, plan or executive request from substituting for justified purpose?",
+        "Evaluate workload for sustainable demand, control and support: combine available time, skill and role fit, estimated effort and uncertainty, work in progress, meetings, interruption and coordination load, leave and accommodations, emotional or safety burden and recovery capacity; let workers influence pace, sequence and patterns and request help without stigma; rebalance system demand before judging individuals; and never equate maximum utilization with healthy capacity."
+      ],
+      "pack_id": "lens-outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning",
+      "reference": "lens-outcome-clarity-prioritization-dependency-capacity-accountable-delivery-learning.md",
       "role": "category",
       "version": "1.0.0"
     }
