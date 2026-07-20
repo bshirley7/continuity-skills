@@ -16,3 +16,4 @@
 - **Consent and privacy controls:** separate purpose, data, recipient, duration, required processing, optional use, withdrawal, export, deletion, and delegated access into durable, revisitable choices.
 - **Authentication and account recovery:** distinguish identity, sign-in method, verification factor, recovery channel, trusted device, session, and provider while preserving secure fallbacks and explicit post-recovery state.
 - **Data portability:** expose source, destination, scope, format, access, transformation, mapping, overwrite behavior, durable progress, partial results, correction, rollback, and retained-data state.
+- **Bulk operations:** keep exact selection scope, change semantics, dependencies, permanence, durable execution state, partial results, recovery, actor, time, and history inspectable.

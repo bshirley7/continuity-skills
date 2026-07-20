@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.74.0",
+  "catalog_version": "1.75.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -1665,6 +1665,21 @@
       ],
       "pack_id": "section-flow-data-portability",
       "reference": "section-flow-data-portability.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["multi-item selection", "select-all and filtered scope", "bulk field editing", "role and permission changes", "batch archival and movement", "bulk deletion", "queued processing", "partial results and recovery"],
+      "axis": "section-flow",
+      "categories": ["bulk-operations"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Keep selection scope continuously visible through exact count, selected-versus-all distinction, active filters, excluded or ineligible items, destination or cohort, and a clear way to inspect, adjust, or clear the selection before action.",
+        "Close every bulk action with result accounting that separates requested, changed, unchanged, skipped, ineligible, failed, moved, archived, or deleted items and preserves actor, time, destination, undo or recovery, and an inspectable history."
+      ],
+      "pack_id": "section-flow-bulk-operations",
+      "reference": "section-flow-bulk-operations.md",
       "role": "category",
       "version": "1.0.0"
     }
