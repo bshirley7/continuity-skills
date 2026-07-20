@@ -756,6 +756,30 @@ class DesignLifecycleTests(unittest.TestCase):
             "design-ux-lenses",
         )
 
+    def test_reviewed_employment_and_housing_lifecycle_and_fairness_overlays_are_bound(self):
+        pairs = (
+            (
+                "employment-discovery-application-selection-offer-lifecycle",
+                "opportunity-fairness-applicant-agency-accountable-selection",
+            ),
+            (
+                "housing-discovery-rental-application-lease-residency-lifecycle",
+                "housing-opportunity-tenant-agency-accountable-screening",
+            ),
+        )
+        for section, lens in pairs:
+            draft = design.draft(
+                self.root,
+                self.config,
+                CATALOG,
+                self.write_input(input_value(sections=[section], lenses=[lens])),
+            )
+            packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+            section_pack = f"section-flow-{section}"
+            lens_pack = f"lens-{lens}"
+            self.assertEqual(packs[packs.index(section_pack) - 1], "design-sections-flows")
+            self.assertEqual(packs[packs.index(lens_pack) - 1], "design-ux-lenses")
+
 
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):

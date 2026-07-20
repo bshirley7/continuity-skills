@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.109.0",
+  "catalog_version": "1.111.0",
   "packs": [
     {
       "applicability": [
@@ -438,7 +438,9 @@
         "loyalty-rewards-membership-lifecycle",
         "financial-transfer-payment-lifecycle",
         "order-fulfillment-delivery-handoff-lifecycle",
-        "pregnancy-prenatal-birth-postpartum-lifecycle"
+        "pregnancy-prenatal-birth-postpartum-lifecycle",
+        "employment-discovery-application-selection-offer-lifecycle",
+        "housing-discovery-rental-application-lease-residency-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1377,7 +1379,9 @@
         "earned-value-legibility-breakage-loyalty-fairness",
         "transaction-finality-recipient-certainty-recoverable-payment-control",
         "promise-accuracy-custody-transparency-exception-agency",
-        "reproductive-autonomy-maternal-safety-loss-sensitive-care"
+        "reproductive-autonomy-maternal-safety-loss-sensitive-care",
+        "opportunity-fairness-applicant-agency-accountable-selection",
+        "housing-opportunity-tenant-agency-accountable-screening"
       ],
       "modalities": {
         "document": "inferred",
@@ -4720,6 +4724,144 @@
       ],
       "pack_id": "lens-reproductive-autonomy-maternal-safety-loss-sensitive-care",
       "reference": "lens-reproductive-autonomy-maternal-safety-loss-sensitive-care.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "job and employer discovery",
+        "role details, qualifications, pay, location and work arrangement",
+        "profile, resume, portfolio and work-history reuse",
+        "screening questions and supporting documents",
+        "assessment and interview scheduling",
+        "application status, communication and withdrawal",
+        "selection, rejection, background checks and correction",
+        "offer, negotiation, acceptance and record retention"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "employment-discovery-application-selection-offer-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 11,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one versioned opportunity identity from discovery through closure: keep employer, requisition or role ID, title, location, work arrangement, employment type, compensation basis, schedule, start expectations, essential qualifications, sponsorship or authorization constraints, posted and closing dates, and material changes inspectable; bind every application, assessment, message, decision and offer to that identity; notify consequential changes; and never silently evaluate a person against terms they did not see.",
+        "Represent an offer as an exact, reviewable and revisable employment proposition: show employer and worker entities, role, manager or team where relevant, location, remote expectations, employment or contractor classification, compensation and currency, pay period, hours, benefits, leave, equity or variable-pay conditions, start date, contingencies, governing jurisdiction, documents, expiry and contacts; preserve negotiation and corrected versions; separate acceptance from onboarding; and issue a durable receipt of the exact accepted terms."
+      ],
+      "pack_id": "section-flow-employment-discovery-application-selection-offer-lifecycle",
+      "reference": "section-flow-employment-discovery-application-selection-offer-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "job advertising, recommendation and sourcing",
+        "eligibility and screening questions",
+        "resume, profile, portfolio and work-history evaluation",
+        "tests, games, work samples and recorded responses",
+        "interviews, panels and interviewer scoring",
+        "automated ranking, shortlisting and rejection",
+        "background, identity, credential and authorization checks",
+        "offer, rejection, retention, appeal and outcome auditing"
+      ],
+      "axis": "lens",
+      "categories": [
+        "opportunity-fairness-applicant-agency-accountable-selection"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 8,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate every requirement and selection instrument for job relatedness before efficiency: identify the essential function or competency, evidence that the requirement predicts or represents successful performance, population and context of use, scoring rule, threshold, alternatives and likely exclusions; do not test traits that are taught after hire or merely correlate with historical incumbents without defensible necessity; and reassess when the role, labor market, instrument or observed impact changes.",
+        "Audit opportunity distribution and burden across every stage, not only final hires: measure who sees roles, starts, abandons, requests accommodation, completes, advances, is rejected, disputes, receives an offer and accepts; analyze selection rates, error, burden, time, accessibility, correction and human-review outcomes by relevant groups and intersections while protecting privacy; inspect components when the total process shows disparity; test lawful less-exclusionary alternatives; include people discouraged before application; and never treat an average funnel conversion or a single ratio as proof of fairness."
+      ],
+      "pack_id": "lens-opportunity-fairness-applicant-agency-accountable-selection",
+      "reference": "lens-opportunity-fairness-applicant-agency-accountable-selection.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "housing advertising, search, maps and recommendations",
+        "listing, building and exact-unit details",
+        "availability, tours, waitlists and inquiries",
+        "rental applications, households and supporting evidence",
+        "fees, deposits, screening and conditional approval",
+        "lease review, signing, payment and move-in condition",
+        "resident communications, maintenance and account history",
+        "renewal, rent change, transfer, termination and move-out"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "housing-discovery-rental-application-lease-residency-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 8,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one source-linked housing opportunity from discovery through tenancy: identify property, building and exact unit separately; show address or bounded location, owner or authorized manager, unit attributes, accessibility claims, occupancy, availability source and freshness, advertised rent, mandatory charges, deposit, utilities, term, move-in window, application deadline and material rules; bind inquiry, tour, application, screening, lease and payment to that record; and never silently substitute a different unit or set of terms.",
+        "Treat the lease as an exact, navigable and revisable contract: show parties, unit, term, possession date, base rent, every mandatory recurring and one-time charge, deposit and return conditions, utilities, payment timing, late consequences, occupancy, accessibility accommodation or modification terms, maintenance duties, entry, insurance, pets, renewal, rent change, notice, termination and attachments; expose changes across versions; allow review, questions and correction before signature; and provide every signer a durable copy and receipt."
+      ],
+      "pack_id": "section-flow-housing-discovery-rental-application-lease-residency-lifecycle",
+      "reference": "section-flow-housing-discovery-rental-application-lease-residency-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "housing advertising, recommendation, maps and search",
+        "listing authenticity, unit facts and availability",
+        "application criteria, fees and supporting evidence",
+        "credit, eviction, criminal, rental and income screening",
+        "automated scores, recommendations and conditional terms",
+        "disability accommodation, modification and accessible participation",
+        "lease, deposits, rent, mandatory charges and resident records",
+        "denial, nonrenewal, dispute, remedy and outcome monitoring"
+      ],
+      "axis": "lens",
+      "categories": [
+        "housing-opportunity-tenant-agency-accountable-screening"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 6,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate screening criteria for housing relevance, necessity and less-exclusionary alternatives: document the legitimate tenancy interest, exact criterion, lookback, threshold, context, population, evidence of relationship to tenancy obligations and disparate effects; distinguish records, allegations, outcomes and predictions; avoid blanket exclusions and overbroad proxies; support individualized context where required or appropriate; and reassess when data quality, housing conditions, policy or observed impact changes.",
+        "Audit access, burden, conditional terms and displacement across the complete housing funnel: measure who receives ads, views, inquires, tours, starts, pays, abandons, requests accommodation, completes, is screened, receives conditional terms, is denied, disputes, signs, renews or exits; compare timing, error, total fees, deposit, rent, guarantor and remedy outcomes across relevant groups and intersections while protecting privacy; include discouraged and unserved people; test less-discriminatory alternatives; and never use approval rate or occupancy alone as proof of fairness."
+      ],
+      "pack_id": "lens-housing-opportunity-tenant-agency-accountable-screening",
+      "reference": "lens-housing-opportunity-tenant-agency-accountable-screening.md",
       "role": "category",
       "version": "1.0.0"
     }
