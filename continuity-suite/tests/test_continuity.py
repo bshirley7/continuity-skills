@@ -59,6 +59,7 @@ class ContinuityTest(unittest.TestCase):
             "roadmap_docs": "docs/project-roadmap",
             "private_dir": ".continuity/private",
             "memory_stale_after_days": 90,
+            "product_audit_stale_after_days": 30,
             "require_remote": False,
             "require_pr": False,
             "require_pr_auth": False,
@@ -168,6 +169,18 @@ unresolved_gaps: []
         )
         self.assertEqual(result.returncode, expected, result.stderr or result.stdout)
         return result
+
+    def mark_product_audit_not_applicable(self, goal_id: str) -> None:
+        self.cli(
+            "goal",
+            "gate",
+            goal_id,
+            "product-conformance",
+            "--status",
+            "not-applicable",
+            "--evidence",
+            "Fixture goal has no independently auditable product surface.",
+        )
 
     def create_capture(self) -> dict:
         payload = {
@@ -823,6 +836,7 @@ unresolved_gaps: []
             "--worktree", str(self.root), "--branch", "continuity/test",
             "--code-review-evidence", "diff reviewed", "--security-evidence", "trust boundaries reviewed", "--update-gates",
         )
+        self.mark_product_audit_not_applicable(goal["goal_id"])
         self.cli(
             "merge", "assess", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/test",
             "--evidence", "clean branch reviewed", "--update-gate",
@@ -944,6 +958,7 @@ unresolved_gaps: []
             os.environ["PATH"] = original_path
             pr_config["require_pr"] = False
             self.write_json(self.root / ".continuity" / "config.json", pr_config)
+        self.mark_product_audit_not_applicable(goal["goal_id"])
         merge = json.loads(
             self.cli(
                 "merge",
@@ -1000,6 +1015,284 @@ unresolved_gaps: []
         project_report = self.cli("report", "project").stdout
         self.assertIn("Latest test report", project_report)
         self.assertIn("Latest merge assessment", project_report)
+
+    def test_candidate_product_audit_is_source_bound_and_routes_findings(self) -> None:
+        goal = self.create_goal("Audit candidate")
+        (self.root / "goal-Audit-candidate.json").unlink()
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        self.git("checkout", "-b", "continuity/audit-candidate")
+        self.cli(
+            "run",
+            "update",
+            goal["goal_id"],
+            "--state",
+            "running",
+            "--branch",
+            "continuity/audit-candidate",
+        )
+        artifact = self.root / "product-conformance.md"
+        artifact.write_text(
+            "# Product conformance\n\nThe approved candidate journey is aligned.\n",
+            encoding="utf-8",
+        )
+        self.git("add", "product-conformance.md")
+        self.git("commit", "-m", "add product conformance evidence")
+        self.cli(
+            "test",
+            "run",
+            goal["goal_id"],
+            "--worktree",
+            str(self.root),
+            "--branch",
+            "continuity/audit-candidate",
+        )
+        self.cli(
+            "test",
+            "record",
+            goal["goal_id"],
+            "--status",
+            "passed",
+            "--summary",
+            "Candidate tests passed",
+            "--worktree",
+            str(self.root),
+            "--branch",
+            "continuity/audit-candidate",
+            "--code-review-evidence",
+            "diff reviewed",
+            "--security-evidence",
+            "trust boundaries reviewed",
+            "--update-gates",
+        )
+        audit_input = self.root.parent / "candidate-audit-input.json"
+        self.write_json(
+            audit_input,
+            {
+                "title": "Candidate product conformance",
+                "profile": "candidate",
+                "purpose": "Verify the current approved goal.",
+                "target": {"environment": "local", "reference": "execution worktree"},
+                "sources": [],
+                "journeys": [
+                    {
+                        "journey_id": "approved-outcome",
+                        "title": "Approved outcome",
+                        "requirements": ["The approved candidate outcome is observable."],
+                        "viewports": ["default"],
+                    }
+                ],
+            },
+        )
+        plan = json.loads(
+            self.cli(
+                "audit",
+                "plan",
+                "--input",
+                str(audit_input),
+                "--goal-id",
+                goal["goal_id"],
+            ).stdout
+        )
+        self.assertFalse(plan["execution_authorized"])
+        self.cli(
+            "audit",
+            "start",
+            plan["audit_id"],
+            "--worktree",
+            str(self.root),
+            "--branch",
+            "continuity/audit-candidate",
+        )
+        source_id = plan["sources"][0]["source_id"]
+        audit_result = self.root.parent / "candidate-audit-result.json"
+        self.write_json(
+            audit_result,
+            {
+                "audit_id": plan["audit_id"],
+                "summary": "The approved candidate outcome is aligned.",
+                "coverage": {"planned": 1, "observed": 1, "blocked": 0},
+                "evidence": [
+                    {
+                        "evidence_id": "candidate-artifact",
+                        "kind": "document",
+                        "description": "Sanitized conformance artifact.",
+                        "captured_at": "2026-07-18T12:00:00+00:00",
+                        "path": "product-conformance.md",
+                    }
+                ],
+                "findings": [
+                    {
+                        "finding_id": "approved-outcome",
+                        "requirement_ref": "approved-outcome",
+                        "title": "Approved outcome is present",
+                        "status": "aligned",
+                        "severity": "info",
+                        "confidence": "high",
+                        "scope": "current-goal",
+                        "gate_impact": "none",
+                        "source_refs": [source_id],
+                        "evidence_refs": ["candidate-artifact"],
+                        "summary": "The audited artifact records the approved result.",
+                        "recommendation": "Retain the current behavior.",
+                    }
+                ],
+            },
+        )
+        record = json.loads(
+            self.cli(
+                "audit",
+                "record",
+                plan["audit_id"],
+                "--result-file",
+                str(audit_result),
+                "--worktree",
+                str(self.root),
+                "--branch",
+                "continuity/audit-candidate",
+                "--artifact",
+                str(artifact),
+                "--update-gate",
+            ).stdout
+        )
+        self.assertEqual(record["status"], "passed")
+        self.assertFalse(record["execution_authorized"])
+        compliance = json.loads(
+            (
+                self.root
+                / ".continuity"
+                / "private"
+                / "goals"
+                / goal["goal_id"]
+                / "compliance.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(compliance["stages"]["product-conformance"]["status"], "passed")
+        self.cli("run", "update", goal["goal_id"], "--state", "validating")
+        workflow = json.loads(
+            self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout
+        )["goal"]
+        self.assertEqual(workflow["current_stage"], "merge-safety")
+        audit_workflow = json.loads(
+            self.cli("workflow", "status", "--audit-id", plan["audit_id"]).stdout
+        )["audit"]
+        self.assertEqual(audit_workflow["next_skill"], "continuity-report")
+
+    def test_product_audit_mismatch_cannot_force_pass_and_capture_is_non_authorizing(self) -> None:
+        audit_input = self.root.parent / "baseline-audit-input.json"
+        self.write_json(
+            audit_input,
+            {
+                "title": "Baseline product audit",
+                "profile": "baseline",
+                "purpose": "Establish current conformance.",
+                "target": {"environment": "code", "reference": "fixture repository"},
+                "sources": [
+                    {
+                        "source_id": "fixture-intent",
+                        "source_type": "project-intent",
+                        "authority": "canonical",
+                        "applicability": "Current fixture behavior.",
+                        "time_horizon": "current",
+                        "reference": "AGENTS.md",
+                    }
+                ],
+                "journeys": [
+                    {
+                        "journey_id": "fixture-surface",
+                        "title": "Fixture surface",
+                        "requirements": ["The expected product behavior is observable."],
+                    }
+                ],
+            },
+        )
+        plan = json.loads(
+            self.cli("audit", "plan", "--input", str(audit_input)).stdout
+        )
+        self.cli(
+            "audit",
+            "start",
+            plan["audit_id"],
+            "--worktree",
+            str(self.root),
+            "--branch",
+            "main",
+        )
+        result_path = self.root.parent / "baseline-audit-result.json"
+        result = {
+            "audit_id": plan["audit_id"],
+            "status": "passed",
+            "summary": "The expected product behavior is missing.",
+            "coverage": {"planned": 1, "observed": 1, "blocked": 0},
+            "evidence": [
+                {
+                    "evidence_id": "fixture-source",
+                    "kind": "document",
+                    "description": "The current fixture contract.",
+                    "captured_at": "2026-07-18T12:00:00+00:00",
+                    "path": "AGENTS.md",
+                }
+            ],
+            "findings": [
+                {
+                    "finding_id": "missing-behavior",
+                    "requirement_ref": "fixture-surface",
+                    "title": "Expected behavior is missing",
+                    "status": "missing",
+                    "severity": "high",
+                    "confidence": "high",
+                    "scope": "current-goal",
+                    "gate_impact": "blocking",
+                    "source_refs": ["fixture-intent"],
+                    "evidence_refs": ["fixture-source"],
+                    "summary": "The current surface does not expose the expected behavior.",
+                    "recommendation": "Route the mismatch through planning before implementation.",
+                }
+            ],
+        }
+        self.write_json(result_path, result)
+        self.cli(
+            "audit",
+            "record",
+            plan["audit_id"],
+            "--result-file",
+            str(result_path),
+            "--worktree",
+            str(self.root),
+            "--branch",
+            "main",
+            expected=2,
+        )
+        result.pop("status")
+        self.write_json(result_path, result)
+        recorded = json.loads(
+            self.cli(
+                "audit",
+                "record",
+                plan["audit_id"],
+                "--result-file",
+                str(result_path),
+                "--worktree",
+                str(self.root),
+                "--branch",
+                "main",
+            ).stdout
+        )
+        self.assertEqual(recorded["status"], "failed")
+        capture = json.loads(
+            self.cli("audit", "capture-findings", plan["audit_id"]).stdout
+        )
+        self.assertTrue(capture["captured"])
+        self.assertFalse(capture["execution_authorized"])
+        note = json.loads(self.cli("note", "list").stdout)[0]
+        self.assertFalse(note["execution_authorized"])
+        capture_record = next(
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in (self.root / ".continuity" / "private" / "captures").rglob("*.json")
+            if json.loads(path.read_text(encoding="utf-8")).get("capture_id")
+            == capture["findings_capture"]["capture_id"]
+        )
+        self.assertEqual(capture_record["source_type"], "product-audit")
 
     def test_human_authorized_github_cli_merge_is_sha_bound_and_opt_in(self) -> None:
         config_path = self.root / ".continuity" / "config.json"
@@ -1075,6 +1368,7 @@ unresolved_gaps: []
         original_path = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
         try:
+            self.mark_product_audit_not_applicable(goal["goal_id"])
             assessment = json.loads(
                 self.cli(
                     "merge", "assess", goal["goal_id"], "--worktree", str(self.root),
@@ -1143,6 +1437,7 @@ unresolved_gaps: []
             "--worktree", str(self.root), "--branch", "continuity/review-rework",
             "--code-review-evidence", "diff reviewed", "--security-evidence", "trust boundaries reviewed", "--update-gates",
         )
+        self.mark_product_audit_not_applicable(goal["goal_id"])
         self.cli(
             "merge", "assess", goal["goal_id"], "--worktree", str(self.root), "--branch", "continuity/review-rework",
             "--evidence", "clean branch reviewed", "--update-gate",
@@ -2512,6 +2807,9 @@ unresolved_gaps: []
         ).stdout
         payload = json.loads(portfolio)
         self.assertEqual(payload["sanitization_policy"], "continuity-portfolio-allowlist-v1")
+        self.assertIn("product_audit_status", payload["projects"][0], payload)
+        self.assertEqual(payload["projects"][0]["product_audit_status"], "attention")
+        self.assertTrue(payload["projects"][0]["product_audit_baseline_required"])
         self.assertNotIn("Private customer", portfolio)
         self.assertNotIn(str(self.root), portfolio)
 

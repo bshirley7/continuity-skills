@@ -13,7 +13,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 ## Required assurance
 
-- Require a passed Continuity test report before recording merge-safety as passed.
+- Require a passed Continuity test report and current passed or explicitly not-applicable product-conformance gate before recording merge-safety as passed.
 - Refresh or verify the integration base before PR handoff according to project policy.
 - Confirm the branch is goal-focused, not the integration branch, and free of unrelated or private-state changes.
 - Keep incomplete or blocked work in a draft PR with explicit blockers.
@@ -23,7 +23,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 ## Workflow
 
 1. Run `continuity project doctor`.
-2. Confirm the latest `$continuity-test` report passed for the current clean local commit, and that the same commit is pushed as the draft PR head.
+2. Confirm the latest `$continuity-test` report and `$continuity-product-audit` candidate record passed for the current clean local commit, or that product conformance is explicitly not applicable. Confirm that the same commit is pushed as the draft PR head.
 3. Assess merge safety after hosted checks finish. The assessment verifies the PR head/base, merge state, unresolved change requests, configured check names, and every observed check result:
 
 ```text

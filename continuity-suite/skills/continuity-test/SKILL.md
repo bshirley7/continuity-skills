@@ -52,10 +52,10 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 6. If failed, leave the goal running, validating, blocked, or partially completed as appropriate. Do not paper over failures to reach PR.
 7. Treat an early pass as candidate evidence only while source or evidence artifacts may still change. After documentation, memory, roadmap, and evidence artifacts are complete, commit them and run the machine runner plus `test record` again on the final clean source state.
-8. Push and create or update the draft PR only after that final test record. If passed and still current, continue to `$continuity-merge`.
+8. If passed and still current, continue to `$continuity-product-audit` for applicable product or documentation conformance, then push and create or update the draft PR before `$continuity-merge`.
 
 Morning reports should include the latest Continuity test report, failed findings, missing evidence, and whether any active goal lacks a current test report.
 
 ## Handoff
 
-Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Test and compliance evidence determine the linked note's exact derived quality or merge-safety stage; do not maintain a parallel note status. A failed or stale result returns to `$continuity-execute`; a final passed result on the committed source state permits the push/PR step and then `$continuity-merge`.
+Run `continuity workflow status --goal-id <goal-id>` on entry and exit. Test and compliance evidence determine the linked note's exact derived quality or product-conformance stage; do not maintain a parallel note status. A failed or stale result returns to `$continuity-execute`; a final passed result routes to `$continuity-product-audit` or an explicit not-applicable disposition before merge safety.

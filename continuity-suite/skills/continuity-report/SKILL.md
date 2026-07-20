@@ -22,11 +22,12 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 .agents/continuity/bin/continuity --project-root "$PWD" report project
 .agents/continuity/bin/continuity --project-root "$PWD" --json report morning
 .agents/continuity/bin/continuity --project-root "$PWD" memory audit
+.agents/continuity/bin/continuity --project-root "$PWD" audit due
 .agents/continuity/bin/continuity --project-root "$PWD" note patterns --min-count 2
 .agents/continuity/bin/continuity --json portfolio report --sanitized --root <workspace-root>
 ```
 
-The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal or note, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Include note counts by exact lifecycle stage, stage-entry dates, later-work anchors, blocked or remediation tracks, and confidence-qualified unconfirmed relationship suggestions alongside configuration, scheduler, memory, roadmap, test, security, merge, and compliance health. Cap relationship decisions at the suite limit; broader low-confidence results belong in explicit triage. Suggestions never authorize execution.
+The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal, note, or audit, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Include note counts by exact lifecycle stage, stage-entry dates, later-work anchors, blocked or remediation tracks, and confidence-qualified unconfirmed relationship suggestions alongside configuration, scheduler, memory, roadmap, product-audit freshness and findings, test, security, merge, and compliance health. Cap relationship decisions at the suite limit; broader low-confidence results belong in explicit triage. Suggestions never authorize execution.
 
 For a portfolio report, use `portfolio report --sanitized`. Its deterministic allowlist emits counts and health states only; it cannot emit raw captures, note text, local paths, private ledgers, approval text, task IDs, claims, evidence links, credentials, or locks. Do not replace that command with agent-authored aggregation.
 

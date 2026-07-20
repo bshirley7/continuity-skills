@@ -35,19 +35,20 @@ Verify the isolated worktree, integration branch and remote base, scope, current
 2. Add focused tests and keep types, interfaces, migrations, compatibility, accessibility, performance, and privacy correct as applicable.
 3. Record alignment checkpoints after major phases. Route discoveries into feedback or new candidates.
 4. Run candidate tests while implementation is still changing; fix findings and rerun focused checks.
-5. Update approved documentation, roadmap, project memory, and the six execution evidence artifacts. Audit for drift and contradictions.
+5. Update approved documentation, roadmap, project memory, and the seven execution evidence artifacts. Audit for drift and contradictions.
 6. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, exclusions, and any bound design document. Record which design rules were implemented, preserved, intentionally not applicable, or require an approved design revision. Scan product artifacts to prove the roadmap sidecar remains excluded.
 7. Commit every implementation and evidence artifact. The worktree must be clean before final evidence is enrolled.
 8. Apply `$continuity-test` for the final source-bound test run and evidence record. Any tracked or untracked change, commit, branch change, plan change, behavior change, or configured-command change makes it stale.
-9. Push the exact tested commit and create or update the draft PR.
-10. Apply `$continuity-merge` against the tested local head, remote branch, PR head, and configured base.
-11. Record evidence in every compliance stage and mark `review-ready`. A failed or pending gate prevents review handoff.
+9. Apply `$continuity-product-audit` to reconcile the final product against the approved goal, applicable PRD and documentation, memory, insights, and roadmap. Record a source-bound candidate audit or explicit not-applicable evidence.
+10. Push the exact tested and audited commit and create or update the draft PR.
+11. Apply `$continuity-merge` against the tested and audited local head, remote branch, PR head, and configured base.
+12. Record evidence in every compliance stage and mark `review-ready`. A failed or pending gate prevents review handoff.
 
 Use `goal gate`, `execution checkpoint`, and `run update` to record evidence. When recording `running`, provide the actual isolated `--worktree` and `--branch`. When completing, provide the PR URL, summary, and each report with `--artifact <absolute-path>`. Stop safely at the runtime limit.
 
 ## Delivery
 
-Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark `review-ready` only after `$continuity-test`, `$continuity-merge`, and all pre-human-review compliance stages pass. Stop there for next-business-day human disposition; only recorded human merge evidence may mark the goal `completed`. Never auto-merge or force-push.
+Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `product-conformance.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark `review-ready` only after `$continuity-test`, `$continuity-product-audit`, `$continuity-merge`, and all pre-human-review compliance stages pass. Stop there for next-business-day human disposition; only recorded human merge evidence may mark the goal `completed`. Never auto-merge or force-push.
 
 ## Handoff
 

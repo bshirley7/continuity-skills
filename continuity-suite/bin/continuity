@@ -32,11 +32,12 @@ import github_projects as github_projects_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
 import design as design_lib  # noqa: E402
+import product_audit as product_audit_lib  # noqa: E402
 
 SCHEMA_VERSION = 1
 ASSURANCE_STANDARD_VERSION = 2
-BEHAVIOR_SCHEMA_VERSION = 3
-BEHAVIOR_PROFILE = "responsible-defaults-v3"
+BEHAVIOR_SCHEMA_VERSION = 4
+BEHAVIOR_PROFILE = "responsible-defaults-v4"
 BEHAVIOR_CONFIG_PATH = ".continuity/project-behavior.json"
 BEHAVIOR_SKILL_PATH = ".agents/skills/continuity-local/SKILL.md"
 AGENT_SURFACES = {"codex", "claude-code", "cursor", "windsurf", "generic"}
@@ -87,6 +88,7 @@ FIXED_GUARDRAILS = {
     "external_tracker_publish": "explicit-human-approval-required",
     "raw_note_transport": "forbidden",
     "shared_notes_authorize_execution": False,
+    "product_audit_findings_authorize_execution": False,
     "roadmap_ui_write_methods": "forbidden",
     "hosted_roadmap_surface": "forbidden",
 }
@@ -189,6 +191,7 @@ DOWNSTREAM_COMPLIANCE_STAGES = [
     "code-review",
     "validation",
     "security-review",
+    "product-conformance",
     "merge-safety",
     "documentation",
     "memory-impact",
@@ -222,6 +225,7 @@ COMPLIANCE_STAGES = [
     "code-review",
     "validation",
     "security-review",
+    "product-conformance",
     "merge-safety",
     "documentation",
     "memory-impact",
@@ -1053,6 +1057,7 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "default_start_time": settings["schedules"]["dispatch"],
         "max_runtime_minutes": settings["max_runtime_minutes"],
         "memory_stale_after_days": settings["memory_stale_after_days"],
+        "product_audit_stale_after_days": settings["product_audit_stale_after_days"],
         "validation_commands": settings["validation_commands"],
         "security_commands": settings["security_commands"],
         "github_cli_merge_enabled": settings["github_cli_merge_enabled"],
@@ -1323,7 +1328,7 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         document_duplicate["path"] = str(duplicate_path.relative_to(root))
         return document_duplicate
     source_type = payload.get("source_type", args.source_type or "conversation")
-    if source_type not in {"conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"}:
+    if source_type not in {"conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet", "product-audit"}:
         raise ContinuityError(f"Unsupported source_type: {source_type}")
     raw_items = list(payload["items"])
     if document:
@@ -3487,6 +3492,7 @@ def archive_execution_attempt(directory: Path, goal: dict[str, Any], reason: str
         "preflight.json",
         "machine-test-run.json",
         "test-report.json",
+        "product-audit.json",
         "merge-assessment.json",
         "human-review.json",
         "human-review.sig",
@@ -3537,6 +3543,7 @@ def reset_execution_evidence(
         "preflight.json",
         "machine-test-run.json",
         "test-report.json",
+        "product-audit.json",
         "merge-assessment.json",
         "human-review.json",
         "human-review.sig",
@@ -4521,7 +4528,15 @@ def portfolio_sanitized_report(args: argparse.Namespace) -> dict[str, Any]:
             for goal in goals:
                 state = str(goal.get("state", "unknown"))
                 goal_counts[state] = goal_counts.get(state, 0) + 1
-            morning = morning_decision_report(root, config)
+            previous_project_root = os.environ.get("CONTINUITY_PROJECT_ROOT")
+            os.environ["CONTINUITY_PROJECT_ROOT"] = str(root)
+            try:
+                morning = morning_decision_report(root, config)
+            finally:
+                if previous_project_root is None:
+                    os.environ.pop("CONTINUITY_PROJECT_ROOT", None)
+                else:
+                    os.environ["CONTINUITY_PROJECT_ROOT"] = previous_project_root
             records.append(
                 {
                     "project_id": config["project_id"],
@@ -4532,6 +4547,11 @@ def portfolio_sanitized_report(args: argparse.Namespace) -> dict[str, Any]:
                     "decisions_required": len(morning.get("decisions_needed", [])),
                     "blocked_or_at_risk": len(morning.get("blocked_or_at_risk", [])),
                     "risk_types": sorted({str(item.get("type") or item.get("state") or "goal") for item in morning.get("blocked_or_at_risk", [])}),
+                    "product_audit_status": morning.get("product_audit_health", {}).get("status"),
+                    "product_audits_due": len(morning.get("product_audit_health", {}).get("due", [])),
+                    "product_audit_baseline_required": bool(
+                        morning.get("product_audit_health", {}).get("baseline_required")
+                    ),
                     "scheduler_state": morning.get("scheduler", {}).get("state"),
                     "no_action_required": bool(morning.get("no_action_required")),
                 }
@@ -4695,6 +4715,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
     existing = json_load(existing_path, {})
     if isinstance(existing, dict) and isinstance(existing.get("settings"), dict):
         settings = dict(existing["settings"])
+        settings.setdefault("product_audit_stale_after_days", config.get("product_audit_stale_after_days", 30))
         settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
         settings.setdefault("roadmap", dict(DEFAULT_ROADMAP_SETTINGS))
         settings.setdefault("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))
@@ -4720,6 +4741,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         },
         "max_runtime_minutes": config.get("max_runtime_minutes", 360),
         "memory_stale_after_days": config.get("memory_stale_after_days", 90),
+        "product_audit_stale_after_days": config.get("product_audit_stale_after_days", 30),
         "validation_commands": config.get("validation_commands", []),
         "security_commands": config.get("security_commands", []),
         "github_required_checks": config.get("github_required_checks", []),
@@ -4746,6 +4768,7 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
         "schedules": current["schedules"],
         "max_runtime_minutes": current["max_runtime_minutes"],
         "memory_stale_after_days": current["memory_stale_after_days"],
+        "product_audit_stale_after_days": current["product_audit_stale_after_days"],
         "validation_commands": detected or current.get("validation_commands", []),
         "security_commands": current.get("security_commands", []),
         "github_required_checks": current.get("github_required_checks", []),
@@ -4778,6 +4801,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "schedules.report",
             "max_runtime_minutes",
             "memory_stale_after_days",
+            "product_audit_stale_after_days",
             "validation_commands",
             "security_commands",
             "github_required_checks",
@@ -4812,6 +4836,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "validation_commands": "Use deterministic repository-prescribed checks; keep credentials out of committed commands.",
             "security_commands": "Add project-native scanners when available; the evidence-based security review remains mandatory either way.",
             "visual_evidence_mode": "Use when-applicable so UI work produces visuals and non-visual work records why they do not apply.",
+            "product_audit_stale_after_days": "Use a bounded review interval so baseline and drift audits return to the nightly decision queue.",
             "project_instructions": "Add only reviewed repository-specific refinements; fixed guardrails always take precedence.",
             "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless external publication is separately approved.",
             "roadmap": "Use the full hybrid roadmap by default. The sidecar stays read-only, local-clone-only, and excluded from every production distribution.",
@@ -4833,6 +4858,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         "schedules",
         "max_runtime_minutes",
         "memory_stale_after_days",
+        "product_audit_stale_after_days",
         "validation_commands",
         "security_commands",
         "github_required_checks",
@@ -4867,7 +4893,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
     for label, scheduled in schedules.items():
         if not isinstance(scheduled, str) or not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", scheduled):
             raise ContinuityError(f"Invalid {label} schedule; use HH:MM in 24-hour time")
-    for label, maximum in (("max_runtime_minutes", 360), ("memory_stale_after_days", 3650)):
+    for label, maximum in (("max_runtime_minutes", 360), ("memory_stale_after_days", 3650), ("product_audit_stale_after_days", 3650)):
         number = settings.get(label)
         if isinstance(number, bool) or not isinstance(number, int) or not 1 <= number <= maximum:
             raise ContinuityError(f"{label} must be between 1 and {maximum}")
@@ -5036,6 +5062,7 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         },
         "max_runtime_minutes": int_answer("Maximum unattended runtime in minutes", recommended["max_runtime_minutes"]),
         "memory_stale_after_days": int_answer("Memory verification age in days", recommended["memory_stale_after_days"]),
+        "product_audit_stale_after_days": int_answer("Product audit refresh age in days", recommended["product_audit_stale_after_days"]),
         "validation_commands": json_answer("Validation commands", recommended["validation_commands"]),
         "security_commands": json_answer("Security commands", recommended["security_commands"]),
         "github_required_checks": json_answer("Required GitHub check names", recommended["github_required_checks"]),
@@ -5107,6 +5134,7 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "default_start_time": settings["schedules"]["dispatch"],
             "max_runtime_minutes": settings["max_runtime_minutes"],
             "memory_stale_after_days": settings["memory_stale_after_days"],
+            "product_audit_stale_after_days": settings["product_audit_stale_after_days"],
             "validation_commands": settings["validation_commands"],
             "security_commands": settings["security_commands"],
             "github_required_checks": settings["github_required_checks"],
@@ -6821,6 +6849,11 @@ def goal_gate(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError(f"Invalid compliance status: {args.status}")
     if args.status in {"passed", "failed", "not-applicable"} and not args.evidence:
         raise ContinuityError("Non-pending compliance states require evidence")
+    if args.stage == "product-conformance" and args.status == "passed":
+        raise ContinuityError(
+            "Pass product-conformance only through `continuity audit record --update-gate`; "
+            "use not-applicable with evidence for a genuinely non-product goal"
+        )
     if goal.get("state") in TERMINAL_STATES and args.stage != "human-review":
         raise ContinuityError("Only human-review evidence may be added after a goal becomes terminal")
     stamp = iso_now(config)
@@ -7705,6 +7738,40 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
             next_skill = "continuity-test"
             blockers.extend(test_failures)
             actions.append(workflow_action("rerun-tests", "continuity-test", f"{prefix} test run {goal_id} --worktree <worktree> --branch <branch>"))
+        elif stages.get("product-conformance", {}).get("status") not in {"passed", "not-applicable"}:
+            current_stage = "product-conformance"
+            next_skill = "continuity-product-audit"
+            product_status = stages.get("product-conformance", {}).get("status", "missing")
+            if product_status == "failed":
+                blockers.append("product-conformance has current-goal mismatches")
+            actions.extend(
+                [
+                    workflow_action(
+                        "plan-product-audit",
+                        "continuity-product-audit",
+                        f"{prefix} audit plan --input <audit-input.json> --goal-id {goal_id}",
+                        requirements=["candidate profile", "current approved sources", "representative journeys"],
+                    ),
+                    workflow_action(
+                        "mark-not-applicable",
+                        "continuity-product-audit",
+                        f"{prefix} goal gate {goal_id} product-conformance --status not-applicable --evidence <reason>",
+                        requirements=["goal has no user-observable product or documentation conformance impact"],
+                    ),
+                ]
+            )
+        elif (audit_failures := current_product_audit_evidence_failures(root, config, directory, goal)):
+            current_stage = "product-conformance"
+            next_skill = "continuity-product-audit"
+            blockers.extend(audit_failures)
+            actions.append(
+                workflow_action(
+                    "rerun-product-audit",
+                    "continuity-product-audit",
+                    f"{prefix} audit plan --input <audit-input.json> --goal-id {goal_id}",
+                    requirements=["audit current source fingerprint"],
+                )
+            )
         elif merge_report.get("status") != "passed":
             current_stage = "merge-safety"
             next_skill = "continuity-merge"
@@ -7793,6 +7860,7 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         "source_capture_refs": goal.get("source_capture_refs", []),
         "test_status": test_report.get("status") if isinstance(test_report, dict) else None,
         "test_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
+        "product_audit": json_load(directory / "product-audit.json", {}),
         "merge_status": merge_report.get("status") if isinstance(merge_report, dict) else None,
         "pr_url": execution.get("pr_url") if isinstance(execution, dict) else None,
         "prior_attempts": prior_attempts,
@@ -7843,6 +7911,42 @@ def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
         except design_lib.DesignError as exc:
             raise ContinuityError(str(exc)) from exc
         return {"schema_version": 1, "project_id": config["project_id"], "generated_at": iso_now(config), "design": status}
+    if args.audit_id:
+        try:
+            audit = product_audit_lib.workflow(root, config, args.audit_id)
+        except product_audit_lib.ProductAuditError as exc:
+            raise ContinuityError(str(exc)) from exc
+        prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+        commands = {
+            "start-audit": f"{prefix} audit start {args.audit_id} --worktree <worktree> --branch <branch>",
+            "record-audit": f"{prefix} audit record {args.audit_id} --result-file <audit-result.json> --worktree <worktree> --branch <branch> --artifact <product-conformance.md> --update-gate",
+            "capture-findings": f"{prefix} audit capture-findings {args.audit_id}",
+            "triage-captured-findings": f"{prefix} workflow status",
+            "compare-audits": f"{prefix} audit compare {args.audit_id} --against <prior-audit-id>",
+            "report-audit": f"{prefix} audit show {args.audit_id}",
+        }
+        actions = [
+            workflow_action(name, audit["next_skill"], commands[name])
+            for name in audit["allowed_actions"]
+        ]
+        handoff = workflow_handoff_envelope(
+            stage=f"product-audit-{audit['status']}",
+            subject_ids={"audit_id": args.audit_id, "goal_id": audit.get("goal_id")},
+            inputs_used=[f"audit:{args.audit_id}"],
+            outputs_created=[f"result-hash:{audit['result_hash']}"] if audit.get("result_hash") else [],
+            decisions=[{"type": "product-audit-status", "value": audit["status"]}],
+            evidence={"finding_counts": audit["finding_counts"], "findings_capture": audit["findings_capture"]},
+            blockers=[],
+            next_skill=audit["next_skill"],
+            allowed_actions=actions,
+            execution_authorized=False,
+        )
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "audit": {**audit, "allowed_actions": actions, "handoff": handoff},
+        }
     if args.goal_id:
         matches = [goal for goal in goals if goal.get("goal_id") == args.goal_id]
         if len(matches) != 1:
@@ -8526,6 +8630,81 @@ def current_test_evidence_failures(
     return failures
 
 
+def current_product_audit_evidence_failures(
+    root: Path,
+    config: dict[str, Any],
+    directory: Path,
+    goal: dict[str, Any],
+) -> list[str]:
+    compliance = json_load(directory / "compliance.json", {})
+    stage = compliance.get("stages", {}).get("product-conformance", {})
+    if stage.get("status") == "not-applicable":
+        return []
+    if stage.get("status") != "passed":
+        return [f"compliance stage product-conformance is {stage.get('status') or 'missing'}"]
+    record = json_load(directory / "product-audit.json", {})
+    if not isinstance(record, dict) or record.get("status") != "passed":
+        return ["current passed candidate product audit is missing"]
+    failures: list[str] = []
+    if record.get("profile") != "candidate":
+        failures.append("product audit is not a candidate audit")
+    if record.get("goal_id") != goal.get("goal_id"):
+        failures.append("product audit goal binding is stale")
+    goal_binding = record.get("goal_binding", {})
+    if not isinstance(goal_binding, dict) or goal_binding.get("plan_hash") != goal.get("plan_hash"):
+        failures.append("product audit plan evidence is stale")
+    execution = json_load(directory / "execution.json", {})
+    if not isinstance(execution, dict):
+        execution = {}
+    worktree = Path(execution.get("worktree") or root).expanduser().resolve()
+    try:
+        snapshot = worktree_source_snapshot(worktree)
+    except ContinuityError as exc:
+        return [*failures, str(exc)]
+    binding = record.get("target_binding", {})
+    if not isinstance(binding, dict):
+        binding = {}
+    bindings = {
+        "product audit source fingerprint": (
+            binding.get("source_fingerprint"),
+            snapshot["source_fingerprint"],
+        ),
+        "product audit repository": (
+            binding.get("repository_fingerprint"),
+            snapshot["repository_fingerprint"],
+        ),
+        "product audit commit": (binding.get("commit_sha"), snapshot["commit_sha"]),
+        "product audit branch": (binding.get("branch"), snapshot["branch"]),
+        "product audit behavior": (
+            binding.get("behavior_configuration_hash"),
+            config.get("behavior_configuration_hash"),
+        ),
+    }
+    for label, (recorded, current) in bindings.items():
+        if recorded != current:
+            failures.append(f"{label} evidence is stale")
+    artifact = record.get("sanitized_artifact")
+    if config.get("require_execution_artifacts", False):
+        if not isinstance(artifact, dict) or artifact.get("path") != "product-conformance.md":
+            failures.append("product-conformance.md audit artifact is missing")
+        else:
+            artifact_path = (worktree / str(artifact["path"])).resolve()
+            if (
+                not artifact_path.is_file()
+                or not artifact_path.is_relative_to(worktree)
+                or hashlib.sha256(artifact_path.read_bytes()).hexdigest() != artifact.get("sha256")
+            ):
+                failures.append("product-conformance.md audit artifact is stale")
+    try:
+        latest = product_audit_lib.latest_for_goal(root, config, str(goal["goal_id"]))
+    except product_audit_lib.ProductAuditError as exc:
+        failures.append(str(exc))
+    else:
+        if not latest or latest.get("result_hash") != record.get("result_hash"):
+            failures.append("a newer candidate product audit exists")
+    return failures
+
+
 def current_review_evidence_failures(
     root: Path,
     config: dict[str, Any],
@@ -8533,6 +8712,7 @@ def current_review_evidence_failures(
     goal: dict[str, Any],
 ) -> list[str]:
     failures = current_test_evidence_failures(root, config, directory, goal)
+    failures.extend(current_product_audit_evidence_failures(root, config, directory, goal))
     merge_report = json_load(directory / "merge-assessment.json", {})
     if not isinstance(merge_report, dict) or merge_report.get("status") != "passed":
         failures.append("current passed merge assessment is missing")
@@ -8690,10 +8870,15 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
             if test_report.get("commit_sha") != current_snapshot["commit_sha"]:
                 failures.append("latest test report does not match the current commit")
     compliance = json_load(directory / "compliance.json", {})
-    for stage in ("code-review", "validation", "security-review"):
+    for stage in ("code-review", "validation", "security-review", "product-conformance"):
         status = compliance.get("stages", {}).get(stage, {}).get("status")
         if status not in {"passed", "not-applicable"}:
             failures.append(f"compliance stage {stage} is {status or 'missing'}")
+    if compliance.get("stages", {}).get("product-conformance", {}).get("status") in {
+        "passed",
+        "not-applicable",
+    }:
+        failures.extend(current_product_audit_evidence_failures(root, config, directory, goal))
     computed_status = "failed" if failures else "passed"
     if args.status and args.status != computed_status:
         if args.status == "passed":
@@ -9223,6 +9408,7 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
                 "request-alignment.md",
                 "implementation-report.md",
                 "validation-and-security.md",
+                "product-conformance.md",
                 "memory-impact.md",
                 "roadmap-impact.md",
                 "evidence.md",
@@ -9263,6 +9449,10 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
     queue_counts = {name: len(note_queue(argparse.Namespace(queue=name, status="eligible"))) for name in queue_names}
     memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
     roadmap_report = json_load(private_path(root, config) / "reports" / "roadmap-health.json", {})
+    product_audits = product_audit_lib.show(root, config)
+    product_audit_due = product_audit_lib.due(
+        root, config, int(config.get("product_audit_stale_after_days", 30))
+    )
     active_runs = [
         run for run in scheduler_run_snapshots(root, config).values()
         if run.get("status") in SCHEDULER_ACTIVE_STATES
@@ -9291,10 +9481,11 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         machine_run = json_load(directory / "machine-test-run.json", {})
         merge_report = json_load(directory / "merge-assessment.json", {})
         human_review = json_load(directory / "human-review.json", {})
+        product_audit = json_load(directory / "product-audit.json", {})
         evidence_files = [
             name for name in (
                 "goal.json", "plan.md", "approval.json", "dispatch.json", "execution.json", "preflight.json",
-                "machine-test-run.json", "test-report.json", "merge-assessment.json", "human-review.json", "compliance.json",
+                "machine-test-run.json", "test-report.json", "product-audit.json", "merge-assessment.json", "human-review.json", "compliance.json",
             )
             if (directory / name).exists()
         ]
@@ -9328,6 +9519,12 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                     "machine_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
                 },
                 "security": stages.get("security-review", {"status": "pending", "evidence": []}),
+                "product_conformance": {
+                    "gate": stages.get("product-conformance", {"status": "pending", "evidence": []}),
+                    "audit_id": product_audit.get("audit_id") if isinstance(product_audit, dict) else None,
+                    "status": product_audit.get("status") if isinstance(product_audit, dict) else None,
+                    "result_hash": product_audit.get("result_hash") if isinstance(product_audit, dict) else None,
+                },
                 "merge": {
                     "status": merge_report.get("status") if isinstance(merge_report, dict) else None,
                     "head_sha": merge_report.get("head_sha") if isinstance(merge_report, dict) else None,
@@ -9482,6 +9679,58 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                 ],
             }
         )
+    for audit in product_audits:
+        if audit.get("status") in {"failed", "partial", "blocked"}:
+            blocked_or_at_risk.append(
+                {
+                    "type": "product-audit",
+                    **audit,
+                    "recommendation": "Review current-goal mismatches and capture later-work findings without expanding scope.",
+                }
+            )
+        record = product_audit_lib.load_record(root, config, str(audit["audit_id"]))
+        mismatch = [
+            item
+            for item in (record or {}).get("findings", [])
+            if item.get("status") in product_audit_lib.MISMATCH_STATUSES
+        ]
+        if mismatch and not (record or {}).get("findings_capture"):
+            decisions_needed.append(
+                {
+                    "type": "product-audit-findings",
+                    "audit_id": audit["audit_id"],
+                    "title": audit["title"],
+                    "state": audit["status"],
+                    "decision": "Capture product-conformance mismatches for triage.",
+                    "recommendation": "Capture findings as non-authorizing project signals, then disposition them through planning.",
+                    "finding_count": len(mismatch),
+                    "allowed_dispositions": [
+                        workflow_action(
+                            "capture-findings",
+                            "continuity-product-audit",
+                            f'.agents/continuity/bin/continuity --project-root "$PWD" audit capture-findings {audit["audit_id"]}',
+                        )
+                    ],
+                }
+            )
+    if product_audit_due["baseline_required"]:
+        decisions_needed.append(
+            {
+                "type": "product-audit-baseline",
+                "title": "Product-conformance baseline is not established",
+                "state": "baseline-required",
+                "decision": "Choose whether to plan a baseline product audit for the current production surface.",
+                "recommendation": "Plan representative journeys when a safe target is available; record explicit constraints instead of inventing access.",
+                "allowed_dispositions": [
+                    workflow_action(
+                        "plan-baseline-audit",
+                        "continuity-product-audit",
+                        '.agents/continuity/bin/continuity --project-root "$PWD" audit plan --input <baseline-audit-input.json>',
+                        human_required=True,
+                    )
+                ],
+            }
+        )
     scheduler_health = scheduler_registration_status_for(root, config)
     if scheduler_health["state"] in {"requires-user-registration", "stale"} or scheduler_health["stale_runs"]:
         blocked_or_at_risk.append({"type": "scheduler", "state": scheduler_health["state"], "stale_runs": scheduler_health["stale_runs"], "problems": scheduler_health["problems"]})
@@ -9524,6 +9773,14 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
             "status": "healthy" if roadmap_report.get("healthy") else ("unhealthy" if roadmap_report else "not-audited"),
             "report": roadmap_report,
         },
+        "product_audit_health": {
+            "status": "attention" if product_audit_due["due"] or product_audit_due["baseline_required"] else "healthy",
+            "audit_count": len(product_audits),
+            "stale_after_days": product_audit_due["stale_after_days"],
+            "baseline_required": product_audit_due["baseline_required"],
+            "due": product_audit_due["due"],
+            "latest": max(product_audits, key=lambda value: value.get("updated_at", ""), default=None),
+        },
         "active_runs": active_runs,
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "no_action_required": not decisions_needed and not blocked_or_at_risk,
@@ -9556,6 +9813,7 @@ def report_project(args: argparse.Namespace) -> str:
         counts[goal["state"]] = counts.get(goal["state"], 0) + 1
     memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
     roadmap_report = json_load(private_path(root, config) / "reports" / "roadmap-health.json", {})
+    product_audits = product_audit_lib.show(root, config)
     shared_inbox = list(iter_jsonl(private_path(root, config) / "queues" / "shared-notes.jsonl"))
     test_reports = list(iter_jsonl(private_path(root, config) / "reports" / "test-reports.jsonl"))
     merge_reports = list(iter_jsonl(private_path(root, config) / "reports" / "merge-assessments.jsonl"))
@@ -9571,7 +9829,7 @@ def report_project(args: argparse.Namespace) -> str:
     if not decision_report["decisions_needed"]:
         lines.append("- No decisions are required.")
     for item in decision_report["decisions_needed"]:
-        identifier = item.get("goal_id") or item.get("note_id") or "project"
+        identifier = item.get("goal_id") or item.get("note_id") or item.get("audit_id") or item.get("type") or "project"
         lines.append(f"- **{identifier}** — {item.get('title', 'Operational decision')} — {item['decision']} Recommendation: {item['recommendation']}")
         for action in item.get("allowed_dispositions", []):
             lines.append(f"  - `{action.get('disposition')}`: `{action.get('command')}`")
@@ -9638,6 +9896,18 @@ def report_project(args: argparse.Namespace) -> str:
     else:
         lines.append("- Roadmap health has not been audited.")
     lines.append(f"- Imported shared-note packets awaiting triage: {len(shared_inbox)}")
+    lines.extend(["", "## Product conformance", ""])
+    if product_audits:
+        latest_audit = max(product_audits, key=lambda value: value.get("updated_at", ""))
+        lines.extend(
+            [
+                f"- Audits recorded or in progress: {len(product_audits)}",
+                f"- Latest audit: `{latest_audit['audit_id']}` — `{latest_audit['status']}` — {latest_audit['title']}",
+                f"- Refresh interval: {config.get('product_audit_stale_after_days', 30)} days",
+            ]
+        )
+    else:
+        lines.append("- No product-conformance audit has been planned.")
     lines.extend(["", "## Testing and merge readiness", ""])
     if test_reports:
         latest_test = test_reports[-1]
@@ -9651,6 +9921,295 @@ def report_project(args: argparse.Namespace) -> str:
         lines.append("- No merge-safety assessment has been recorded.")
     lines.append(f"- Human review records: {len(human_reviews)}")
     return "\n".join(lines) + "\n"
+
+
+def product_audit_goal_context(
+    root: Path,
+    config: dict[str, Any],
+    goal_id: str,
+) -> tuple[Path, dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    directory, goal = load_goal(root, config, goal_id)
+    binding = {
+        "goal_id": goal_id,
+        "plan_version": goal.get("plan_version"),
+        "plan_hash": goal.get("plan_hash"),
+        "source_capture_refs": goal.get("source_capture_refs", []),
+        "memory_ids": goal.get("memory_ids", []),
+        "roadmap_ids": goal.get("roadmap_ids", []),
+    }
+    sources: list[dict[str, Any]] = [
+        {
+            "source_id": f"goal-{goal_id}",
+            "source_type": "approved-goal",
+            "authority": "current-approved",
+            "applicability": "Current approved scope, exclusions, and acceptance criteria.",
+            "time_horizon": "current",
+            "reference": f".continuity/private/goals/{goal_id}/plan.md",
+            "content_hash": str(goal.get("plan_hash")),
+            "revision": str(goal.get("plan_version")),
+        }
+    ]
+    for capture in goal.get("source_capture_refs", []):
+        capture_id = str(capture.get("capture_id"))
+        sources.append(
+            {
+                "source_id": f"capture-{capture_id}",
+                "source_type": "project-intent",
+                "authority": "canonical" if capture.get("source_authority") == "project-intent" else "advisory",
+                "applicability": "Captured source document associated with the approved goal.",
+                "time_horizon": "current",
+                "reference": f"capture:{capture_id}",
+                "content_hash": capture.get("source_hash"),
+                "revision": str(capture.get("document_revision", "unknown")),
+            }
+        )
+    for memory_id in goal.get("memory_ids", []):
+        sources.append(
+            {
+                "source_id": f"memory-{memory_id}",
+                "source_type": "memory",
+                "authority": "canonical",
+                "applicability": "Current project-memory context named by the approved goal.",
+                "time_horizon": "current",
+                "reference": f"memory:{memory_id}",
+            }
+        )
+    for roadmap_id in goal.get("roadmap_ids", []):
+        sources.append(
+            {
+                "source_id": f"roadmap-{roadmap_id}",
+                "source_type": "roadmap",
+                "authority": "canonical",
+                "applicability": "Roadmap context; future intent is advisory unless included in current acceptance criteria.",
+                "time_horizon": "future",
+                "reference": f"roadmap:{roadmap_id}",
+            }
+        )
+    return directory, goal, binding, sources
+
+
+def product_audit_target_binding(
+    root: Path,
+    config: dict[str, Any],
+    goal: dict[str, Any] | None,
+    worktree_value: str | None,
+    branch_value: str | None,
+) -> tuple[Path, dict[str, Any]]:
+    execution: dict[str, Any] = {}
+    if goal is not None:
+        execution = json_load(goal_dir(root, config, str(goal["goal_id"])) / "execution.json", {})
+        if not isinstance(execution, dict):
+            execution = {}
+    worktree = Path(worktree_value or execution.get("worktree") or root).expanduser().resolve()
+    snapshot = worktree_source_snapshot(worktree)
+    enrolled = worktree_source_snapshot(root)
+    if snapshot["repository_fingerprint"] != enrolled["repository_fingerprint"]:
+        raise ContinuityError("Product audit worktree does not belong to the enrolled repository")
+    expected_branch = branch_value or execution.get("branch")
+    if expected_branch and snapshot["branch"] != expected_branch:
+        raise ContinuityError(
+            f"Product audit worktree is on {snapshot['branch']}, not {expected_branch}"
+        )
+    if goal is not None and execution.get("branch") and snapshot["branch"] != execution.get("branch"):
+        raise ContinuityError("Product audit does not match the goal execution branch")
+    snapshot["worktree"] = str(worktree)
+    snapshot["plan_hash"] = goal.get("plan_hash") if goal else None
+    snapshot["behavior_configuration_hash"] = config.get("behavior_configuration_hash")
+    return worktree, snapshot
+
+
+def product_audit_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    try:
+        if args.command == "plan":
+            payload = json_load(Path(args.input).expanduser().resolve(), {})
+            if not isinstance(payload, dict):
+                raise ContinuityError("Product audit input must be a JSON object")
+            goal_id = args.goal_id or payload.get("goal_id")
+            binding = None
+            sources: list[dict[str, Any]] = []
+            if goal_id:
+                _directory, _goal, binding, sources = product_audit_goal_context(
+                    root, config, str(goal_id)
+                )
+            return product_audit_lib.create_plan(
+                root,
+                config,
+                Path(args.input).expanduser().resolve(),
+                goal_binding=binding,
+                additional_sources=sources,
+            )
+        if args.command == "start":
+            plan = product_audit_lib.load_plan(root, config, args.audit_id)
+            goal = None
+            if plan.get("goal_id"):
+                _directory, goal = load_goal(root, config, str(plan["goal_id"]))
+            _worktree, binding = product_audit_target_binding(
+                root, config, goal, args.worktree, args.branch
+            )
+            return product_audit_lib.start(
+                root, config, args.audit_id, actor=args.actor, target_binding=binding
+            )
+        if args.command == "record":
+            plan = product_audit_lib.load_plan(root, config, args.audit_id)
+            directory = None
+            goal = None
+            if plan.get("goal_id"):
+                directory, goal = load_goal(root, config, str(plan["goal_id"]))
+            worktree, binding = product_audit_target_binding(
+                root, config, goal, args.worktree, args.branch
+            )
+            artifact = None
+            if args.artifact:
+                artifact_path = Path(args.artifact).expanduser()
+                if not artifact_path.is_absolute():
+                    artifact_path = worktree / artifact_path
+                artifact_path = artifact_path.resolve()
+                if (
+                    not artifact_path.is_file()
+                    or artifact_path.name != "product-conformance.md"
+                    or not artifact_path.is_relative_to(worktree)
+                ):
+                    raise ContinuityError(
+                        "Product conformance artifact must be product-conformance.md inside the audited worktree"
+                    )
+                artifact = {
+                    "path": str(artifact_path.relative_to(worktree)),
+                    "sha256": hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
+                }
+            if (
+                plan.get("profile") == "candidate"
+                and config.get("require_execution_artifacts", False)
+                and artifact is None
+            ):
+                raise ContinuityError("Candidate product audits require product-conformance.md")
+            if (
+                plan.get("profile") == "candidate"
+                and directory is not None
+                and goal is not None
+                and args.update_gate
+            ):
+                test_failures = current_test_evidence_failures(root, config, directory, goal)
+                if test_failures:
+                    raise ContinuityError(
+                        f"Candidate product audit requires current passed test evidence: {test_failures}"
+                    )
+            record = product_audit_lib.record(
+                root,
+                config,
+                args.audit_id,
+                Path(args.result_file).expanduser().resolve(),
+                actor=args.actor,
+                current_binding=binding,
+                sanitized_artifact=artifact,
+                evidence_root=worktree,
+            )
+            if directory is not None and goal is not None:
+                json_dump(directory / "product-audit.json", record)
+                if args.update_gate:
+                    gate_status = "passed" if record["status"] == "passed" else "failed"
+                    record_compliance_stage(
+                        root,
+                        config,
+                        directory,
+                        goal,
+                        "product-conformance",
+                        gate_status,
+                        [
+                            f"audit:{record['audit_id']}",
+                            f"result-hash:{record['result_hash']}",
+                            f"source-set-hash:{record['source_set_hash']}",
+                            f"source-fingerprint:{binding['source_fingerprint']}",
+                        ],
+                        args.actor,
+                    )
+            return record
+        if args.command == "capture-findings":
+            record = product_audit_lib.load_record(root, config, args.audit_id)
+            if record is None:
+                raise ContinuityError("Product audit has no recorded findings")
+            if record.get("findings_capture"):
+                return {
+                    "audit_id": args.audit_id,
+                    "deduplicated": True,
+                    "findings_capture": record["findings_capture"],
+                    "execution_authorized": False,
+                }
+            mismatch = [
+                item
+                for item in record.get("findings", [])
+                if item.get("status") in product_audit_lib.MISMATCH_STATUSES
+            ]
+            if not mismatch:
+                return {
+                    "audit_id": args.audit_id,
+                    "captured": False,
+                    "reason": "No mismatch findings require capture",
+                    "execution_authorized": False,
+                }
+            items = []
+            for item in mismatch:
+                severity = str(item.get("severity", "medium"))
+                items.append(
+                    {
+                        "kind": "execution-candidate" if severity in {"high", "critical"} else "backlog-candidate",
+                        "text": f"{item['title']}: {item['summary']} Recommendation: {item['recommendation']}",
+                        "perspective": "internal",
+                        "sentiment": "negative",
+                        "occurrence_type": "failure" if item.get("status") in {"missing", "contradicted", "regressed"} else "observation",
+                        "impact": severity if severity in NOTE_IMPACTS else "unknown",
+                        "confidence": item.get("confidence", "unknown"),
+                        "actionability": "urgent-review" if severity == "critical" else ("plan" if severity in {"high", "medium"} else "monitor"),
+                        "themes": ["product-conformance", str(item.get("status"))],
+                    }
+                )
+            capture_input = private_path(root, config) / "audits" / args.audit_id / "findings-capture-input.json"
+            json_dump(
+                capture_input,
+                {
+                    "source_type": "product-audit",
+                    "source_ref": f"product-audit:{args.audit_id}",
+                    "dedupe_key": record["result_hash"],
+                    "items": items,
+                },
+            )
+            capture = note_capture(
+                argparse.Namespace(
+                    items_file=str(capture_input),
+                    text=None,
+                    file=None,
+                    source_type="product-audit",
+                    source_ref=f"product-audit:{args.audit_id}",
+                    document_type=None,
+                    document_id=None,
+                    document_version=None,
+                    source_authority=None,
+                )
+            )
+            binding = product_audit_lib.attach_capture(
+                root,
+                config,
+                args.audit_id,
+                capture_id=str(capture["capture_id"]),
+                note_ids=[str(item["item_id"]) for item in capture.get("items", [])],
+            )
+            return {
+                "audit_id": args.audit_id,
+                "captured": True,
+                "findings_capture": binding,
+                "execution_authorized": False,
+            }
+        if args.command == "show":
+            return product_audit_lib.show(root, config, args.audit_id)
+        if args.command == "compare":
+            return product_audit_lib.compare(root, config, args.audit_id, args.against)
+        if args.command == "due":
+            return product_audit_lib.due(
+                root, config, int(config.get("product_audit_stale_after_days", 30))
+            )
+    except product_audit_lib.ProductAuditError as exc:
+        raise ContinuityError(str(exc)) from exc
+    raise ContinuityError(f"Unsupported product audit command: {args.command}")
 
 
 def roadmap_command(args: argparse.Namespace) -> Any:
@@ -10051,6 +10610,41 @@ def build_parser() -> argparse.ArgumentParser:
     supersede.add_argument("--goal-id", required=True)
     supersede.set_defaults(handler=memory_supersede)
 
+    audit = top.add_parser("audit")
+    audit_sub = audit.add_subparsers(dest="command", required=True)
+    audit_plan = audit_sub.add_parser("plan")
+    audit_plan.add_argument("--input", required=True)
+    audit_plan.add_argument("--goal-id")
+    audit_plan.set_defaults(handler=product_audit_command)
+    audit_start = audit_sub.add_parser("start")
+    audit_start.add_argument("audit_id")
+    audit_start.add_argument("--actor", default="agent")
+    audit_start.add_argument("--worktree")
+    audit_start.add_argument("--branch")
+    audit_start.set_defaults(handler=product_audit_command)
+    audit_record = audit_sub.add_parser("record")
+    audit_record.add_argument("audit_id")
+    audit_record.add_argument("--result-file", required=True)
+    audit_record.add_argument("--actor", default="agent")
+    audit_record.add_argument("--worktree")
+    audit_record.add_argument("--branch")
+    audit_record.add_argument("--artifact")
+    audit_record.add_argument("--update-gate", action="store_true")
+    audit_record.set_defaults(handler=product_audit_command)
+    audit_capture = audit_sub.add_parser("capture-findings")
+    audit_capture.add_argument("audit_id")
+    audit_capture.add_argument("--actor", default="agent")
+    audit_capture.set_defaults(handler=product_audit_command)
+    audit_show = audit_sub.add_parser("show")
+    audit_show.add_argument("audit_id", nargs="?")
+    audit_show.set_defaults(handler=product_audit_command)
+    audit_compare = audit_sub.add_parser("compare")
+    audit_compare.add_argument("audit_id")
+    audit_compare.add_argument("--against", required=True)
+    audit_compare.set_defaults(handler=product_audit_command)
+    audit_due = audit_sub.add_parser("due")
+    audit_due.set_defaults(handler=product_audit_command)
+
     roadmap = top.add_parser("roadmap")
     roadmap_sub = roadmap.add_subparsers(dest="command", required=True)
     roadmap_index = roadmap_sub.add_parser("index")
@@ -10311,6 +10905,7 @@ def build_parser() -> argparse.ArgumentParser:
     workflow_status_command = workflow_sub.add_parser("status")
     workflow_subject = workflow_status_command.add_mutually_exclusive_group()
     workflow_subject.add_argument("--goal-id")
+    workflow_subject.add_argument("--audit-id")
     workflow_subject.add_argument("--capture-id")
     workflow_subject.add_argument("--note-id")
     workflow_subject.add_argument("--packet-id")
