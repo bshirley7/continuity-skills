@@ -34,6 +34,23 @@ DESIGN_GRAMMAR_DIMENSIONS = (
     "state_language",
     "responsive_behavior",
 )
+INFERENCE_CONTEXT_FIELDS = (
+    "title",
+    "intent",
+    "audiences",
+    "targets",
+    "industry",
+    "sections",
+    "themes",
+    "message_structures",
+    "constraints",
+    "preserve",
+    "open_questions",
+    "consequences",
+    "workflow_signals",
+    "interaction_signals",
+    "risk_signals",
+)
 
 
 class DesignError(RuntimeError):
@@ -202,24 +219,14 @@ def load_lens_routing(catalog_path: Path, catalog: dict[str, Any]) -> dict[str, 
     return routing
 
 
-def _inference_text(payload: dict[str, Any]) -> str:
-    values: list[str] = []
-    for key in (
-        "title",
-        "intent",
-        "audiences",
-        "targets",
-        "industry",
-        "sections",
-        "themes",
-        "message_structures",
-        "constraints",
-        "preserve",
-        "open_questions",
-    ):
+def _inference_context(payload: dict[str, Any]) -> dict[str, str]:
+    context: dict[str, str] = {}
+    for key in INFERENCE_CONTEXT_FIELDS:
         value = payload.get(key)
-        values.extend(value if isinstance(value, list) else [value] if isinstance(value, str) else [])
-    return " ".join(values).casefold().replace("-", " ")
+        values = value if isinstance(value, list) else [value] if isinstance(value, str) else []
+        if values:
+            context[key] = " ".join(values).casefold().replace("-", " ")
+    return context
 
 
 def _term_matches(text: str, term: str) -> bool:
@@ -235,21 +242,29 @@ def _infer_lenses(payload: dict[str, Any], routing: dict[str, Any]) -> tuple[lis
             "reason": "Applied to every automatically routed design.",
             "lenses": list(routing["baseline"]),
             "matched_terms": [],
+            "matched_context": [],
         }
     ]
-    text = _inference_text(payload)
+    context = _inference_context(payload)
     for rule in routing["rules"]:
-        matched_terms = [term for term in rule["terms"] if _term_matches(text, term)]
+        matched_context = []
+        matched_terms: list[str] = []
+        for field, text in context.items():
+            field_terms = [term for term in rule["terms"] if _term_matches(text, term)]
+            if field_terms:
+                matched_context.append({"field": field, "matched_terms": field_terms})
+                matched_terms.extend(term for term in field_terms if term not in matched_terms)
         if not matched_terms:
             continue
-        lenses = [lens for lens in rule["lenses"] if lens not in selected]
-        selected.extend(lenses)
+        lenses = list(rule["lenses"])
+        selected.extend(lens for lens in lenses if lens not in selected)
         rationale.append(
             {
                 "rule_id": rule["rule_id"],
                 "reason": rule["reason"],
                 "lenses": lenses,
                 "matched_terms": matched_terms,
+                "matched_context": matched_context,
             }
         )
     return selected, rationale
@@ -281,6 +296,33 @@ def _selected_packs(payload: dict[str, Any], catalog: dict[str, Any]) -> list[di
                     pack = overlays[value]
                     selected.append({"pack_id": pack["pack_id"], "version": pack["version"]})
     return selected
+
+
+def _bind_lens_routing(
+    rationale: list[dict[str, Any]],
+    catalog: dict[str, Any],
+    selected_packs: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    lens_packs = [pack for pack in catalog["packs"] if pack["axis"] == "lens"]
+    foundation = next(pack for pack in lens_packs if pack["role"] == "foundation")
+    overlays = {
+        pack["categories"][0]: pack
+        for pack in lens_packs
+        if pack["role"] == "category"
+    }
+    selected_ids = {pack["pack_id"] for pack in selected_packs}
+    for item in rationale:
+        bound: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for lens in item["lenses"]:
+            pack = overlays.get(lens, foundation)
+            if pack["pack_id"] not in selected_ids:
+                raise DesignError("Inferred UX lens is not bound to a selected catalog pack")
+            if pack["pack_id"] not in seen:
+                bound.append({"pack_id": pack["pack_id"], "version": pack["version"]})
+                seen.add(pack["pack_id"])
+        item["catalog_packs"] = bound
+    return rationale
 
 
 def _direction_count(payload: dict[str, Any]) -> int:
@@ -354,7 +396,17 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         payload[key] = _validate_strings(payload, key, required=True)
     if manual_lenses:
         payload["lenses"] = _validate_strings(payload, "lenses", required=True)
-    for key in ("constraints", "preserve", "open_questions", "source_note_ids", "memory_ids"):
+    for key in (
+        "constraints",
+        "preserve",
+        "open_questions",
+        "consequences",
+        "workflow_signals",
+        "interaction_signals",
+        "risk_signals",
+        "source_note_ids",
+        "memory_ids",
+    ):
         payload[key] = _validate_strings(payload, key)
     if not set(payload["targets"]).issubset(TARGETS):
         raise DesignError(f"Unknown targets: {sorted(set(payload['targets']) - TARGETS)}")
@@ -363,6 +415,8 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     if not manual_lenses:
         payload["lenses"], lens_routing = _infer_lenses(payload, load_lens_routing(catalog_path, catalog))
     catalog_packs = _selected_packs(payload, catalog)
+    if lens_routing:
+        lens_routing = _bind_lens_routing(lens_routing, catalog, catalog_packs)
     selected_pack_ids = {pack["pack_id"] for pack in catalog_packs}
     selected_catalog_packs = [pack for pack in catalog["packs"] if pack["pack_id"] in selected_pack_ids]
     evidence_application: dict[str, dict[str, Any]] = {}
@@ -421,6 +475,10 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "constraints": payload["constraints"],
         "preserve": payload["preserve"],
         "open_questions": payload["open_questions"],
+        "consequences": payload["consequences"],
+        "workflow_signals": payload["workflow_signals"],
+        "interaction_signals": payload["interaction_signals"],
+        "risk_signals": payload["risk_signals"],
         "source_note_ids": payload["source_note_ids"],
         "memory_ids": payload["memory_ids"],
         "directions": directions,
@@ -459,6 +517,33 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
             values = application[key]
             lines.append(f"- {label}: {', '.join(f'`{value}`' for value in values) if values else 'None.'}")
         lines.append("")
+    lines.extend(["## UX lens selection", ""])
+    if draft_record["lens_selection_mode"] == "manual":
+        lines.extend([
+            "The UX lenses were selected manually for this bounded review.",
+            "",
+            f"- Lenses: {', '.join(f'`{value}`' for value in draft_record['lenses'])}",
+            "",
+        ])
+    else:
+        for route in draft_record["lens_routing"]:
+            lines.extend([
+                f"### {route['rule_id']}",
+                "",
+                route["reason"],
+                "",
+                f"- Lenses: {', '.join(f'`{value}`' for value in route['lenses'])}",
+                f"- Evidence packs: {', '.join(f'`{pack['pack_id']}@{pack['version']}`' for pack in route['catalog_packs'])}",
+            ])
+            if route["matched_context"]:
+                for context in route["matched_context"]:
+                    lines.append(
+                        f"- Matched {context['field']}: "
+                        + ", ".join(f"`{term}`" for term in context["matched_terms"])
+                    )
+            else:
+                lines.append("- Matched context: universal baseline.")
+            lines.append("")
     lines.extend([
         "## Selected direction", "",
     ])

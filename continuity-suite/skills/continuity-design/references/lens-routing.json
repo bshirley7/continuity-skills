@@ -138,6 +138,202 @@
       "lenses": [
         "authorship-provenance-content-integrity"
       ]
+    },
+    {
+      "rule_id": "perception-salience-and-affordance",
+      "reason": "Visual organization, selective attention, action recognition, or state recognition materially affects task success.",
+      "terms": [
+        "affordance",
+        "banner",
+        "card",
+        "contrast",
+        "dense information",
+        "discoverability",
+        "grouping",
+        "scan",
+        "signifier",
+        "similarity",
+        "visual anchor",
+        "visual hierarchy"
+      ],
+      "lenses": [
+        "perception-salience-affordance"
+      ]
+    },
+    {
+      "rule_id": "choice-comparison-and-commitment",
+      "reason": "Options, framing, defaults, cost, timing, or commitment can materially steer a decision.",
+      "terms": [
+        "cancel",
+        "checkout",
+        "commitment",
+        "compare",
+        "consent",
+        "default",
+        "financial",
+        "irreversible",
+        "option",
+        "plan",
+        "pricing",
+        "renewal",
+        "tradeoff"
+      ],
+      "lenses": [
+        "choice-comparison-decision-integrity"
+      ]
+    },
+    {
+      "rule_id": "mental-model-and-transfer",
+      "reason": "Prior knowledge, system concepts, complexity, or independent transfer determine whether guidance becomes durable understanding.",
+      "terms": [
+        "complex system",
+        "configuration",
+        "expert",
+        "first-time",
+        "learn",
+        "migration",
+        "novice",
+        "terminology",
+        "training",
+        "transfer",
+        "unfamiliar"
+      ],
+      "lenses": [
+        "mental-model-comprehension-transfer"
+      ]
+    },
+    {
+      "rule_id": "research-and-evidence-validity",
+      "reason": "User research, measurement, or behavioral evidence will justify a design decision.",
+      "terms": [
+        "analytics",
+        "evaluation",
+        "evidence",
+        "experiment",
+        "interview",
+        "metric",
+        "observation",
+        "research",
+        "sample",
+        "study",
+        "survey",
+        "usability test"
+      ],
+      "lenses": [
+        "research-bias-evidence-validity"
+      ]
+    },
+    {
+      "rule_id": "motivation-progress-and-temporal-agency",
+      "reason": "Continuation, effort, time, rewards, reminders, disengagement, or stopping can affect user agency.",
+      "terms": [
+        "deadline",
+        "engagement",
+        "estimate",
+        "goal",
+        "habit",
+        "milestone",
+        "pause",
+        "progress",
+        "reminder",
+        "retention",
+        "reward",
+        "stop",
+        "streak",
+        "wait"
+      ],
+      "lenses": [
+        "motivation-progress-temporal-agency"
+      ]
+    },
+    {
+      "rule_id": "memory-learning-and-resumption",
+      "reason": "People must remember, learn, resume, or reconcile experience across time, sessions, devices, or collaborators.",
+      "terms": [
+        "assessment",
+        "cross-device",
+        "education",
+        "history",
+        "interruption",
+        "multi-step",
+        "onboarding",
+        "practice",
+        "remember",
+        "resume",
+        "return",
+        "saved state"
+      ],
+      "lenses": [
+        "memory-learning-experience-continuity"
+      ]
+    },
+    {
+      "rule_id": "feedback-feedforward-and-temporal-state",
+      "reason": "People must predict consequences or interpret acknowledgement, progress, errors, completion, freshness, and recovery.",
+      "terms": [
+        "async",
+        "background",
+        "error",
+        "export",
+        "generate",
+        "import",
+        "offline",
+        "partial",
+        "processing",
+        "queue",
+        "retry",
+        "stale",
+        "status",
+        "sync",
+        "undo",
+        "upload"
+      ],
+      "lenses": [
+        "feedback-feedforward-temporal-state"
+      ]
+    },
+    {
+      "rule_id": "social-influence-and-persuasion",
+      "reason": "Other people, groups, authorities, popularity, scarcity, reciprocity, or identity can influence a decision.",
+      "terms": [
+        "community",
+        "customer review",
+        "demand",
+        "endorsement",
+        "expert",
+        "influencer",
+        "popular",
+        "rating",
+        "referral",
+        "scarcity",
+        "social proof",
+        "testimonial",
+        "trending",
+        "urgency"
+      ],
+      "lenses": [
+        "social-influence-persuasion-integrity"
+      ]
+    },
+    {
+      "rule_id": "high-consequence-psychology-safeguards",
+      "reason": "Material legal, financial, health, safety, privacy, civic, developmental, or irreversible consequences require stronger decision, state, and persuasion safeguards.",
+      "terms": [
+        "child",
+        "civic consequence",
+        "financial consequence",
+        "health consequence",
+        "irreversible",
+        "legal consequence",
+        "privacy consequence",
+        "safety consequence",
+        "vulnerable"
+      ],
+      "lenses": [
+        "choice-comparison-decision-integrity",
+        "feedback-feedforward-temporal-state",
+        "social-influence-persuasion-integrity"
+      ]
     }
   ]
 }

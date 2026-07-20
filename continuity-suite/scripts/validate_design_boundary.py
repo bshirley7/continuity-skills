@@ -12,6 +12,7 @@ TEXT_SUFFIXES = {".md", ".json", ".yaml", ".yml", ".txt", ".py", ""}
 BLOCKED = (
     "mo" + "bbin",
     "docs." + "mo" + "bbin.com",
+    "growth." + "design",
     "continuity-design-" + "research",
     "research-" + "ledger",
     "data:" + "image",

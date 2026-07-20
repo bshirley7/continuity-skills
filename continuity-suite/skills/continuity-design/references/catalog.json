@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.151.0",
+  "catalog_version": "1.159.0",
   "packs": [
     {
       "applicability": [
@@ -1426,7 +1426,15 @@
         "document-design-system",
         "image-art-direction",
         "campaign-design-system",
-        "platform-native-adaptation"
+        "platform-native-adaptation",
+        "perception-salience-affordance",
+        "choice-comparison-decision-integrity",
+        "mental-model-comprehension-transfer",
+        "research-bias-evidence-validity",
+        "motivation-progress-temporal-agency",
+        "memory-learning-experience-continuity",
+        "feedback-feedforward-temporal-state",
+        "social-influence-persuasion-integrity"
       ],
       "modalities": {
         "document": "inferred",
@@ -6484,6 +6492,281 @@
       ],
       "pack_id": "lens-platform-native-adaptation",
       "reference": "lens-platform-native-adaptation.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "interface hierarchy and page composition",
+        "navigation, controls, links, and interactive state",
+        "dense dashboards, forms, lists, and comparison surfaces",
+        "responsive, localized, zoomed, and assistive presentations",
+        "brand expression and aesthetic evaluation",
+        "attention-critical warnings, status, and recovery"
+      ],
+      "axis": "lens",
+      "categories": [
+        "perception-salience-affordance"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 5,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define the perceptual structure from task meaning before styling: establish reading order, regions, groups, alignment, containment, proximity, similarity, separation, and responsive transformation; make the same relationships available through semantic structure and do not assume visual adjacency alone survives reflow, zoom, localization, or assistive presentation.",
+        "Use a bounded salience hierarchy tied to user consequence: rank what must be noticed, understood, acted on, monitored, or safely ignored; coordinate position, size, contrast, spacing, typography, color, depth, imagery, and motion without letting many simultaneous accents compete or letting decoration outrank state, evidence, warnings, or recovery.",
+        "Treat aesthetics as a contributor to expectation, confidence, recognition, and attention rather than proof of usability or truth: evaluate perceived quality separately from observed task success, comprehension, error, accessibility, and recovery; test complete representative screens and content because attractive composition can support or compete with visual search.",
+        "Evaluate selective attention under realistic sequence and repetition: test whether critical content remains discoverable amid dense information, repeated banners, familiar chrome, strong imagery, scrolling, interruption, fatigue, and prior expectations; preserve durable contextual status and alternate discovery paths instead of assuming visual prominence guarantees notice."
+      ],
+      "pack_id": "lens-perception-salience-affordance",
+      "reference": "lens-perception-salience-affordance.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "option selection, comparison, ranking, and recommendation",
+        "pricing, subscriptions, checkout, upgrades, and cancellation",
+        "privacy, consent, permissions, and account settings",
+        "defaults, personalization, reminders, and saved preferences",
+        "financial, health, legal, safety, and other consequential commitments",
+        "scarcity, popularity, urgency, endorsement, and promotional claims"
+      ],
+      "axis": "lens",
+      "categories": [
+        "choice-comparison-decision-integrity"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 10,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define the decision contract before arranging options: identify the person’s goal, available alternatives, material attributes, total cost, risk, timing, scope, uncertainty, default, recommendation, consequence, reversibility, and valid no-action or defer path; present decision-changing information before commitment and retain it through review and confirmation.",
+        "Make option sets comprehensible without manufacturing preference: group and order by a declared user-relevant logic, support comparison on consistent definitions and units, expose exclusions and uncertainty, preserve meaningful alternatives, and reduce avoidable complexity through filters, explanation, or staged comparison rather than arbitrary removal or a strategically inferior decoy.",
+        "Audit framing across words, reference points, order, visual prominence, gains, losses, bundles, partitions, center position, and omitted context: compare equivalent presentations, require the same material facts and consequence under each frame, and never let a favorable description, reference price, installment, percentage, or risk format prevent reconstruction of the underlying outcome.",
+        "Preserve temporal agency around commitment: distinguish real deadlines, expiring inventory, holds, delayed benefits, recurring costs, future risk, cooling-off, renewal, and cancellation; show the exact basis and affected scope of time or scarcity claims, support pause and later return, and do not use fatigue, impatience, sunk effort, or immediate reward to suppress long-term consequences."
+      ],
+      "pack_id": "lens-choice-comparison-decision-integrity",
+      "reference": "lens-choice-comparison-decision-integrity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "onboarding, contextual help, and first-use learning",
+        "novel objects, workflows, automation, and system behavior",
+        "cross-product, cross-platform, and redesigned interactions",
+        "complex forms, configuration, creation, and troubleshooting",
+        "high-consequence decisions requiring accurate system understanding",
+        "expert progression, interruption recovery, and later independent use"
+      ],
+      "axis": "lens",
+      "categories": [
+        "mental-model-comprehension-transfer"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 9,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define the minimum accurate system model a person needs to predict outcomes, detect errors, and recover: identify objects, relationships, states, rules, scope, cause and effect, limits, uncertainty, and available control; reveal that model through the work itself and test prediction rather than assuming successful completion proves understanding.",
+        "Bridge prior knowledge deliberately: inventory familiar language, conventions, analogies, platform expectations, and likely misconceptions; preserve useful consistency, make material differences visible, and do not use familiarity or metaphor when it creates a false model of data, authority, permanence, automation, privacy, or recovery.",
+        "Separate intrinsic task complexity from avoidable presentation burden: retain material rules and consequences while reducing split attention, unexplained terminology, memory demands, unnecessary configuration, inconsistent structure, and premature detail; externalize current state, prior choices, examples, dependencies, and remaining work.",
+        "Design for transfer, not imitation: vary representative conditions, explain which principle remains invariant and which detail changes, ask people to predict and apply the model in a new case, and measure later independent use, correction, and troubleshooting rather than recall of interface steps or tutorial completion."
+      ],
+      "pack_id": "lens-mental-model-comprehension-transfer",
+      "reference": "lens-mental-model-comprehension-transfer.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "interviews, observation, diary, contextual inquiry, and usability testing",
+        "surveys, feedback, ratings, support data, and public reviews",
+        "experiments, prototypes, comparative tests, and staged rollout",
+        "analytics, funnels, cohorts, behavioral telemetry, and retention evidence",
+        "expert reviews, accessibility audits, and stakeholder synthesis",
+        "competitive research, literature synthesis, and design recommendations"
+      ],
+      "axis": "lens",
+      "categories": [
+        "research-bias-evidence-validity"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 12,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Define the research decision before collecting evidence: bind the question, population, context, artifact and revision, task, constructs, hypotheses and counter-hypotheses, measures, exclusions, analysis, uncertainty, stopping rule, and possible no-change conclusion; record later deviations and exploratory findings separately.",
+        "Make coverage and selection visible: identify the target population, sampling frame, recruitment channel, eligibility, opt-in pressure, compensation, inclusion and exclusion, nonresponse, attrition, missingness, and who never reached the study; never generalize from responders, retained users, successful customers, or visible survivors without bounding the claim.",
+        "Separate observation, participant account, instrument output, interpretation, and decision: preserve exact artifact anchors and context, use structured criteria, independent coding or blinding where feasible, record disagreement and negative cases, and do not let researcher expectation or stakeholder preference silently determine what is noticed, prompted, coded, or omitted.",
+        "Preserve complete outcome and analysis provenance: report all planned measures, denominators, exclusions, transformations, segments, windows, failed tasks, null and contradictory findings, instrument changes, and uncertainty; prevent favorable metric, quote, participant, task, or time-window selection from becoming the apparent result.",
+        "Bind recommendations to strength and transfer limits of the evidence: distinguish exploratory, descriptive, comparative, causal, replicated, and externally validated claims; state population, context, artifact, date, confidence, contradictions, and unknowns; require replication or deliberate variation before treating a local pattern as a general design principle."
+      ],
+      "pack_id": "lens-research-bias-evidence-validity",
+      "reference": "lens-research-bias-evidence-validity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "goals, projects, checklists, learning, habits, and long-running work",
+        "onboarding, setup, migration, application, and approval progress",
+        "loyalty, rewards, streaks, levels, completion, and retention",
+        "reminders, notifications, deadlines, holds, and expiring state",
+        "estimates, queues, schedules, waiting, and asynchronous operations",
+        "pause, abandonment, disengagement, exit, and later resumption"
+      ],
+      "axis": "lens",
+      "categories": [
+        "motivation-progress-temporal-agency"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 12,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Anchor motivation to a user-chosen outcome: record what the person values, why the activity matters to them, what completion means, what alternatives exist, and how they can revise, pause, delegate, or stop; distinguish autonomous pursuit from compliance driven by guilt, pressure, reward loss, social judgment, or organizational metrics.",
+        "Represent progress as evidence, not persuasion: define the true denominator, qualifying work, current state, uncertainty, dependencies, resets, credited and remaining effort, and completion authority; distinguish started, accepted, queued, processing, verified, and complete, and never use endowed, decorative, or illusionary advancement to create obligation.",
+        "Make time legible and controllable: identify whose clock governs, start and update times, elapsed and expected duration, confidence or range, deadline basis, expiry effect, pause behavior, and recovery; let people extend, defer, save, stop, or choose an untimed alternative wherever timing is not intrinsic.",
+        "Design disengagement as a valid self-regulatory outcome: help people recognize changed value, unattainable conditions, excessive cost, conflict, harm, or uncertainty; preserve work and evidence, explain consequences, support pause or revised goals, and do not frame stopping as failure or make sunk effort a reason to continue."
+      ],
+      "pack_id": "lens-motivation-progress-temporal-agency",
+      "reference": "lens-motivation-progress-temporal-agency.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "multi-step forms, setup, checkout, applications, and approvals",
+        "dashboards, workspaces, editors, queues, and long-running tasks",
+        "onboarding, education, practice, assessment, and skill development",
+        "notifications, interruptions, handoffs, return visits, and cross-device work",
+        "history, saved state, drafts, undo, recovery, and repeated workflows",
+        "journeys whose remembered experience may influence later choices"
+      ],
+      "axis": "lens",
+      "categories": [
+        "memory-learning-experience-continuity"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 14,
+        "publisher_count": 12,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Separate lived quality from remembered evaluation: measure burden, time, errors, recovery, accessibility, and value throughout the journey as well as immediate and delayed recollection; improve painful or difficult moments themselves and never add burden, manipulate an ending, or conceal total cost merely to produce a more favorable memory.",
+        "Treat sequence and prominence as allocation decisions rather than mnemonic guarantees: repeat or otherwise reinforce essential middle content, keep critical actions available at the moment of use, and test delayed comprehension because primacy, recency, distinctiveness, task type, delay, age, and interference can produce different recall patterns."
+      ],
+      "pack_id": "lens-memory-learning-experience-continuity",
+      "reference": "lens-memory-learning-experience-continuity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "controls, forms, editors, transactions, destructive actions, and permissions",
+        "uploads, imports, exports, generation, synchronization, and background work",
+        "queues, approvals, orders, jobs, collaboration, and cross-system workflows",
+        "validation, errors, warnings, confirmations, undo, retry, and recovery",
+        "learning, calibration, recommendations, and corrective guidance",
+        "live data, cached data, stale state, partial results, and disconnected operation"
+      ],
+      "axis": "lens",
+      "categories": [
+        "feedback-feedforward-temporal-state"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 7,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Provide feedforward before commitment: state the action, target, scope, material consequence, reversibility, required inputs, expected duration or uncertainty, and what will count as success; make unavailable actions and prerequisites legible, and scale review or confirmation to consequence rather than asking for ritual confirmation everywhere.",
+        "Represent temporal state as evidence: expose when a state began, when it was last observed or updated, whose system owns it, whether it is live, cached, estimated, partial, stale, paused, retried, or terminal, and what can change next; never use motion, optimistic display, or elapsed time as proof of completion."
+      ],
+      "pack_id": "lens-feedback-feedforward-temporal-state",
+      "reference": "lens-feedback-feedforward-temporal-state.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "reviews, ratings, testimonials, endorsements, case studies, and expert recommendations",
+        "popularity, activity, demand, adoption, ranking, trending, and community norms",
+        "social feeds, collaboration, invitations, referrals, sharing, and contribution",
+        "commerce, subscriptions, fundraising, consent, privacy, and conversion",
+        "advice, recommendations, defaults, comparisons, and consequential decisions",
+        "children, vulnerable groups, health, finance, civic information, and other high-consequence contexts"
+      ],
+      "axis": "lens",
+      "categories": [
+        "social-influence-persuasion-integrity"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 14,
+        "publisher_count": 12,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Treat social information as fallible decision evidence, not a command: state what is being counted or claimed, population and time window, source, verification, sampling and ranking method, material incentives or relationships, typicality, uncertainty, and important exclusions; provide access to independent details and do not imply that popularity establishes quality, safety, truth, or suitability.",
+        "Match authority cues to relevant and bounded competence: identify the advisor, role, jurisdiction, evidence basis, conflicts, uncertainty, review date, and limits; separate expertise from celebrity, rank, institutional branding, confidence, and enforcement power, and keep the user able to question, compare, seek another opinion, or decline."
+      ],
+      "pack_id": "lens-social-influence-persuasion-integrity",
+      "reference": "lens-social-influence-persuasion-integrity.md",
       "role": "category",
       "version": "1.0.0"
     }

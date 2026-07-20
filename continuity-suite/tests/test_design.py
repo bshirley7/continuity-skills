@@ -95,6 +95,115 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("lens-human-agency-calibrated-reliance-automation-boundaries", packs)
         self.assertIn("lens-identity-assurance-proportional-verification-exclusion-recovery", packs)
 
+    def test_context_signals_infer_all_psychology_packs_with_versioned_rationale(self):
+        value = input_value(
+            design_id="psychology-context",
+            title="Decision workspace",
+            intent="Help a novice understand a complex system and make an independent choice.",
+            consequences=["Financial consequence and irreversible commitment."],
+            workflow_signals=[
+                "Multi-step research workflow with survey evidence, saved state, interruption, and resume."
+            ],
+            interaction_signals=[
+                "Dense information requires visual hierarchy, grouping, comparison, async processing, status, and retry."
+            ],
+            risk_signals=[
+                "Progress, deadline, customer review, rating, social proof, scarcity, and vulnerable users."
+            ],
+        )
+        value.pop("lenses")
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        expected = {
+            "perception-salience-affordance",
+            "choice-comparison-decision-integrity",
+            "mental-model-comprehension-transfer",
+            "research-bias-evidence-validity",
+            "motivation-progress-temporal-agency",
+            "memory-learning-experience-continuity",
+            "feedback-feedforward-temporal-state",
+            "social-influence-persuasion-integrity",
+        }
+        self.assertTrue(expected.issubset(draft["lenses"]))
+        self.assertIn("accessibility", draft["lenses"])
+        self.assertEqual(draft["consequences"], value["consequences"])
+        self.assertEqual(draft["workflow_signals"], value["workflow_signals"])
+        self.assertEqual(draft["interaction_signals"], value["interaction_signals"])
+        self.assertEqual(draft["risk_signals"], value["risk_signals"])
+        rules = {item["rule_id"]: item for item in draft["lens_routing"]}
+        for rule_id in (
+            "perception-salience-and-affordance",
+            "choice-comparison-and-commitment",
+            "mental-model-and-transfer",
+            "research-and-evidence-validity",
+            "motivation-progress-and-temporal-agency",
+            "memory-learning-and-resumption",
+            "feedback-feedforward-and-temporal-state",
+            "social-influence-and-persuasion",
+            "high-consequence-psychology-safeguards",
+        ):
+            with self.subTest(rule_id=rule_id):
+                rule = rules[rule_id]
+                self.assertTrue(rule["matched_terms"])
+                self.assertTrue(rule["matched_context"])
+                self.assertTrue(rule["catalog_packs"])
+                self.assertTrue(all(pack["version"] == "1.0.0" for pack in rule["catalog_packs"]))
+        self.assertIn(
+            "risk_signals",
+            {context["field"] for context in rules["social-influence-and-persuasion"]["matched_context"]},
+        )
+        self.assertEqual(
+            {pack["pack_id"] for pack in rules["high-consequence-psychology-safeguards"]["catalog_packs"]},
+            {
+                "lens-choice-comparison-decision-integrity",
+                "lens-feedback-feedforward-temporal-state",
+                "lens-social-influence-persuasion-integrity",
+            },
+        )
+        self.assertEqual(len(draft["lenses"]), len(set(draft["lenses"])))
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        markdown = (
+            self.root
+            / ".continuity"
+            / "private"
+            / "design"
+            / draft["design_id"]
+            / "design.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("## UX lens selection", markdown)
+        self.assertIn("### social-influence-and-persuasion", markdown)
+        self.assertIn("Matched risk_signals", markdown)
+        self.assertIn("`lens-social-influence-persuasion-integrity@1.0.0`", markdown)
+        self.assertEqual(selected["execution_authorized"], False)
+
+    def test_approved_psychology_catalog_entries_are_offline_and_reviewable(self):
+        catalog = design.load_catalog(CATALOG)
+        expected = {
+            "lens-perception-salience-affordance",
+            "lens-choice-comparison-decision-integrity",
+            "lens-mental-model-comprehension-transfer",
+            "lens-research-bias-evidence-validity",
+            "lens-motivation-progress-temporal-agency",
+            "lens-memory-learning-experience-continuity",
+            "lens-feedback-feedforward-temporal-state",
+            "lens-social-influence-persuasion-integrity",
+        }
+        packs = {pack["pack_id"]: pack for pack in catalog["packs"]}
+        self.assertTrue(expected.issubset(packs))
+        for pack_id in expected:
+            with self.subTest(pack_id=pack_id):
+                pack = packs[pack_id]
+                self.assertEqual(pack["version"], "1.0.0")
+                self.assertEqual(pack["evidence_kind"], "literature")
+                self.assertGreaterEqual(pack["evidence_sufficiency"]["sample_count"], 12)
+                reference = CATALOG.parent / pack["reference"]
+                self.assertTrue(reference.is_file())
+                text = reference.read_text(encoding="utf-8")
+                self.assertNotIn("http://", text)
+                self.assertNotIn("https://", text)
+                self.assertIn("## Ethical safeguards", text)
+                self.assertIn("## Anti-patterns", text)
+                self.assertIn("## Acceptance and review questions", text)
+
     def test_explicit_lenses_preserve_manual_compatibility_mode(self):
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(lenses=["hierarchy", "trust"])))
         self.assertEqual(draft["lens_selection_mode"], "manual")
@@ -1182,6 +1291,12 @@ class BoundaryTests(unittest.TestCase):
             path.write_text("source " + "mo" + "bbin" + " https://example.invalid/screen.png", encoding="utf-8")
             self.assertTrue(BOUNDARY.validate([path]))
 
+    def test_maintainer_index_leak_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "guidance.md"
+            path.write_text("source https://" + "growth." + "design/psychology", encoding="utf-8")
+            self.assertTrue(BOUNDARY.validate([path]))
+
     def test_optional_collection_filters_skill_install(self):
         manifest = {"files": {"skills/continuity/SKILL.md": "x", "skills/continuity-plan/SKILL.md": "x", "skills/continuity-design/SKILL.md": "x", "bin/continuity": "x"}}
         defaults, default_skills = INSTALLER.resolve_collections(SUITE, [], None)
@@ -1216,6 +1331,12 @@ class BoundaryTests(unittest.TestCase):
             ], check=True, capture_output=True, text=True).stdout)
             self.assertEqual(installed["suite_version"], "0.1.0-rc.3")
             self.assertTrue((root / ".agents/skills/continuity-design/SKILL.md").is_file())
+            self.assertTrue(
+                (
+                    root
+                    / ".agents/skills/continuity-design/references/lens-social-influence-persuasion-integrity.md"
+                ).is_file()
+            )
             self.assertTrue((root / ".claude/commands/continuity-design.md").is_file())
             config = json.loads((root / ".continuity/config.json").read_text())
             self.assertEqual(config["collections"], ["core", "design", "projects"])

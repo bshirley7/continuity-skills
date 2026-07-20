@@ -26,20 +26,37 @@
             "properties": {
               "ui": {"enum": ["validated", "inferred", "not-applicable"]},
               "document": {"enum": ["validated", "inferred", "not-applicable"]},
-              "image": {"enum": ["validated", "inferred", "not-applicable"]}
+              "image": {"enum": ["validated", "inferred", "not-applicable"]},
+              "campaign": {"enum": ["validated", "inferred", "not-applicable"]},
+              "platform": {"enum": ["validated", "inferred", "not-applicable"]}
             },
             "additionalProperties": false
           },
           "modality_independent_principles": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "evidence_kind": {"enum": ["literature"]},
           "evidence_sufficiency": {
-            "type": "object",
-            "required": ["sample_count", "product_count", "industry_count"],
-            "properties": {
-              "sample_count": {"type": "integer", "minimum": 12},
-              "product_count": {"type": "integer", "minimum": 6},
-              "industry_count": {"type": "integer", "minimum": 1}
-            },
-            "additionalProperties": false
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["sample_count", "product_count", "industry_count"],
+                "properties": {
+                  "sample_count": {"type": "integer", "minimum": 12},
+                  "product_count": {"type": "integer", "minimum": 6},
+                  "industry_count": {"type": "integer", "minimum": 1}
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["sample_count", "publisher_count", "evidence_family_count"],
+                "properties": {
+                  "sample_count": {"type": "integer", "minimum": 12},
+                  "publisher_count": {"type": "integer", "minimum": 3},
+                  "evidence_family_count": {"type": "integer", "minimum": 3}
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "additionalProperties": false

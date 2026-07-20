@@ -10,6 +10,10 @@
   "constraints": ["Preserve existing keyboard workflows"],
   "preserve": ["Current fast path for experienced users"],
   "open_questions": [],
+  "consequences": [],
+  "workflow_signals": [],
+  "interaction_signals": [],
+  "risk_signals": [],
   "source_note_ids": [],
   "memory_ids": []
 }
