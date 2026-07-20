@@ -379,6 +379,15 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(packs[packs.index("section-flow-policy-rule-administration") - 1], "design-sections-flows")
         self.assertEqual(packs[packs.index("lens-rule-legibility-consistency-exception-governance") - 1], "design-ux-lenses")
 
+    def test_reviewed_ai_memory_and_contextual_integrity_overlays_are_bound(self):
+        value = input_value(sections=["ai-memory-context-management"], lenses=["contextual-integrity-meaningful-data-agency"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-ai-memory-context-management", packs)
+        self.assertIn("lens-contextual-integrity-meaningful-data-agency", packs)
+        self.assertEqual(packs[packs.index("section-flow-ai-memory-context-management") - 1], "design-sections-flows")
+        self.assertEqual(packs[packs.index("lens-contextual-integrity-meaningful-data-agency") - 1], "design-ux-lenses")
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))

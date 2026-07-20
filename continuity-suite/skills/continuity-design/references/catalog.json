@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance", "contextual-integrity-meaningful-data-agency"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -2160,6 +2160,75 @@
       ],
       "pack_id": "lens-rule-legibility-consistency-exception-governance",
       "reference": "lens-rule-legibility-consistency-exception-governance.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "consumer AI assistants",
+        "enterprise knowledge assistants",
+        "agent and automation platforms",
+        "connected workspace search",
+        "persistent custom instructions",
+        "cross-session personalization",
+        "chat and activity history",
+        "model-improvement and feedback controls"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "ai-memory-context-management"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Model context as an inspectable inventory of distinct state: current prompt and session, conversation history, saved facts, preferences and custom instructions, inferred attributes, project or task context, uploaded files, connected sources, workspace knowledge, organization policy, feedback, analytics, safety records, and model-improvement data; show which are temporary, retained, searchable, reusable, shared, exported, or used to adapt future behavior instead of collapsing them into one memory label.",
+        "Give every context item provenance and scope: identify exact content or concise representation, subject, author or inference origin, source object and version, collection time, freshness, confidence where inferred, purpose, permitted operations, active account, identity, project, task, agent, workspace and organization, eligible audiences, geographic or policy boundary, retention and expiry, and whether it influences retrieval, response generation, ranking, automation, personalization, analytics, safety review, or model improvement."
+      ],
+      "pack_id": "section-flow-ai-memory-context-management",
+      "reference": "section-flow-ai-memory-context-management.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "AI memory and personalization",
+        "connected knowledge and retrieval",
+        "conversation and activity history",
+        "inferred profiles and preferences",
+        "analytics feedback and model improvement",
+        "shared workspaces and multi-user data",
+        "sensitive and vulnerable contexts",
+        "data rights retention deletion and portability"
+      ],
+      "axis": "lens",
+      "categories": [
+        "contextual-integrity-meaningful-data-agency"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate every information flow in its actual context: identify the data subject, sender or source, recipient and downstream actors, information type and sensitivity, purpose, expected benefit, authority, collection or inference method, transmission and reuse rules, social or professional norms, power relationship, geography, retention and consequence; treat movement between personal, workplace, health, financial, educational, family and public contexts as a new decision even when one organization controls both.",
+        "Provide meaningful data agency without transferring all privacy labor to individuals: make actors, data, purpose, source, inference, scope, audience, persistence, consequences and defaults understandable at the relevant moment; support access, item-level correction, completion, restriction, objection, withdrawal, deletion, export and portability through usable controls; preserve a protected service path after optional refusal and use organizational safeguards when granular choice cannot make an inappropriate flow acceptable."
+      ],
+      "pack_id": "lens-contextual-integrity-meaningful-data-agency",
+      "reference": "lens-contextual-integrity-meaningful-data-agency.md",
       "role": "category",
       "version": "1.0.0"
     }
