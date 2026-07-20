@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.93.0",
+  "catalog_version": "1.103.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -8,7 +8,7 @@
       "axis": "industry",
       "role": "foundation",
       "reference": "industries.md",
-      "categories": ["consumer", "b2b-saas", "finance", "health", "commerce", "media-social", "travel", "education", "developer-ai", "professional-services", "geospatial-operations", "media-production", "enterprise-administration", "security-operations", "developer-tooling", "agentic-ai"],
+      "categories": ["consumer","b2b-saas","finance","health","commerce","media-social","travel","education","developer-ai","professional-services","geospatial-operations","media-production","enterprise-administration","security-operations","developer-tooling","agentic-ai"],
       "applicability": ["all supported product contexts"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Match information emphasis to user risk, consequence, and decision context."]
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management", "experimentation-staged-rollout", "accessible-media-multimodal-content", "offline-sync-conflict-recovery", "speech-input-voice-interaction", "camera-scan-visual-capture"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration", "support-case-lifecycle", "conversation-lifecycle", "operational-exception-incident", "review-approval-lifecycle", "policy-rule-administration", "ai-memory-context-management", "experimentation-staged-rollout", "accessible-media-multimodal-content", "offline-sync-conflict-recovery", "speech-input-voice-interaction", "camera-scan-visual-capture", "file-attachment-lifecycle", "ratings-reviews-reputation-lifecycle", "booking-reservation-availability-lifecycle", "returns-exchanges-refunds-lifecycle"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty", "procedural-fairness-service-recovery", "conversation-grounding-turn-taking-repair", "situation-awareness-resilient-control", "accountability-separation-of-duties-independent-review", "rule-legibility-consistency-exception-governance", "contextual-integrity-meaningful-data-agency", "experimental-validity-exposure-ethics", "multimodal-equivalence-sensory-agency", "data-continuity-convergence-confidence", "speech-agency-recognition-repair", "capture-integrity-evidentiary-review"],
+      "categories": ["hierarchy","comprehension","usability","accessibility","trust","interaction","responsiveness","content","differentiation","design-tokens","typography","color","component-architecture","theming","system-governance","adaptive-layout","motion-feedback","direct-manipulation","keyboard-expert-workflows","interface-language","accessibility-language","localization-content","design-evaluation","behavioral-psychology","decision-architecture","cognitive-load-learning","behavioral-ethics","attention-interruption","information-foraging","error-prevention-recovery","quantitative-evidence-uncertainty","procedural-fairness-service-recovery","conversation-grounding-turn-taking-repair","situation-awareness-resilient-control","accountability-separation-of-duties-independent-review","rule-legibility-consistency-exception-governance","contextual-integrity-meaningful-data-agency","experimental-validity-exposure-ethics","multimodal-equivalence-sensory-agency","data-continuity-convergence-confidence","speech-agency-recognition-repair","capture-integrity-evidentiary-review","imagery-illustration-art-direction","representational-integrity-inclusive-imagery","submission-agency-data-minimization-content-safety","feedback-validity-power-reputational-remedy","scarce-capacity-allocation-commitment-fairness","remedy-parity-value-restoration-burden-allocation"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -2574,6 +2574,351 @@
       ],
       "pack_id": "lens-capture-integrity-evidentiary-review",
       "reference": "lens-capture-integrity-evidentiary-review.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "empty, first-use and recovery states",
+        "onboarding and capability explanation",
+        "editorial feeds, discovery and media libraries",
+        "marketplaces, catalogs and product comparison",
+        "profiles, people, places and identity context",
+        "evidence, records and user-supplied media",
+        "responsive cards, overlays, loading and fallback states",
+        "brand illustration and cross-theme art direction"
+      ],
+      "axis": "lens",
+      "categories": [
+        "imagery-illustration-art-direction"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Assign every image one explicit interface role before selecting its style: identity, object preview, evidence, instruction, status, editorial content, atmosphere or decoration; define the claim it may support, the adjacent information that must carry meaning without it and whether it is interactive; and do not let one attractive asset ambiguously stand in for product state, proof, action and brand at once.",
+        "Treat functional and evidentiary imagery as inspectable information: show source, owner or subject, time or freshness, representative-versus-illustrative status, edits or transformations and confidence or verification only when supported; provide detail viewing when crop can hide material facts; never use idealized stock, generated, edited or example imagery as evidence of a real person, product, place, result or security state."
+      ],
+      "pack_id": "lens-imagery-illustration-art-direction",
+      "reference": "lens-imagery-illustration-art-direction.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "photography, illustration and generated imagery",
+        "empty states and capability explanation",
+        "people, profiles, avatars and identity context",
+        "products, places, records and evidence",
+        "editorial, social and user-supplied media",
+        "responsive cards, crops, overlays and themes",
+        "accessible alternatives and assistive output",
+        "provenance, consent, privacy and content governance"
+      ],
+      "axis": "lens",
+      "categories": [
+        "representational-integrity-inclusive-imagery"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 6,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Classify an image by purpose in its exact context before styling or describing it: decorative imagery contributes no required information and should be suppressible; informative imagery needs an equivalent for its relevant meaning; functional imagery needs an action or destination name; complex imagery needs an adequate extended representation; identity and evidence imagery need context, provenance and higher scrutiny; and the same asset may require a different classification when its use changes.",
+        "Separate what an image depicts from what its history can support: label representative, illustrative, edited, composite, generated and documentary uses where confusion is material; preserve available creator, source, time and modification provenance; make inspection proportionate to consequence; treat credentials and signatures as evidence about origin and change rather than proof that the depicted claim is true; and communicate absent or broken provenance without declaring the content false."
+      ],
+      "pack_id": "lens-representational-integrity-inclusive-imagery",
+      "reference": "lens-representational-integrity-inclusive-imagery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "documents, images, audio, video and structured data",
+        "forms, verification and evidence submission",
+        "messaging, comments and collaboration",
+        "imports, knowledge sources and configuration",
+        "single, multiple and large-file transfers",
+        "mobile capture, system pickers and drag-and-drop",
+        "processing, scanning, conversion and extraction",
+        "sharing, versioning, replacement, download and removal"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "file-attachment-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Frame the file request before presenting a picker: name the purpose, destination or affected record, whether submission is required, who can access the result, acceptable alternatives, supported types, count and size limits, expected processing and retention; ask for a file only when its information is necessary; and avoid a generic attachment icon when the person must infer what evidence, format or disclosure is expected.",
+        "Keep uploaded content anchored to ownership and access context: show the containing record, workspace, conversation, audience or recipient; distinguish private draft, shared, published and externally accessible states; preserve uploader, source, time, version and processing provenance when relevant; warn before a file crosses an access boundary; and do not infer that an attachment inherits safe visibility merely because the surrounding screen is familiar."
+      ],
+      "pack_id": "section-flow-file-attachment-lifecycle",
+      "reference": "section-flow-file-attachment-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "file, document and media selection",
+        "forms, evidence and identity verification",
+        "messages, collaboration and publication",
+        "imports, training sources and automated processing",
+        "personal, regulated and sensitive information",
+        "large, multiple and asynchronous submissions",
+        "validation, scanning, quarantine and conversion",
+        "sharing, retention, withdrawal and deletion"
+      ],
+      "axis": "lens",
+      "categories": [
+        "submission-agency-data-minimization-content-safety"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 8,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Justify the submission at the field and purpose level: ask only for information necessary to deliver the stated outcome, explain why a file is needed and whether another path can satisfy the requirement, avoid collecting whole documents when a smaller attestation or field is adequate, accept interoperable formats where feasible, and periodically review whether the content, metadata and retained copies remain relevant and necessary.",
+        "Communicate lifecycle state as verifiable facts: distinguish queued, transferred, server-received, validating, scanning, processing, accepted, ready, rejected, quarantined, failed, withdrawn and deleted; announce progress and results programmatically without stealing focus; identify partial success per item; never use a single success mark to imply that content is safe, processed, shared or durably retained; and attach retry, correction and support to the state that actually failed."
+      ],
+      "pack_id": "lens-submission-agency-data-minimization-content-safety",
+      "reference": "lens-submission-agency-data-minimization-content-safety.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "products, services, providers, places and digital content",
+        "one-sided and two-sided marketplaces",
+        "post-purchase, post-visit and post-interaction feedback",
+        "public reviews and private operational feedback",
+        "aggregate ratings, distributions and summaries",
+        "provider responses, complaints and service recovery",
+        "moderation, reporting, editing and appeals",
+        "reputation affecting ranking, access, work or income"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "ratings-reviews-reputation-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Present aggregates as bounded evidence rather than a trust badge: show the review count and relevant population, distribution, recency, version or transaction context and category breakdown; distinguish verified interaction, incentivized, imported, translated or summarized content; avoid excessive precision and unexplained weighting; and do not let a high average hide a tiny sample, polarized distribution, stale history or materially changed offering.",
+        "Govern downstream reputation effects as consequential decisions: document how ratings influence search, badges, prices, eligibility, visibility, deactivation, work or income; use sufficient and comparable evidence, freshness and confidence; detect manipulation and coordinated abuse; limit the effect of isolated or biased ratings; provide notice, explanation, correction and human appeal before serious penalties; and audit outcomes across reviewer and subject groups rather than optimizing only review volume or average score."
+      ],
+      "pack_id": "section-flow-ratings-reviews-reputation-lifecycle",
+      "reference": "section-flow-ratings-reviews-reputation-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "consumer reviews and testimonials",
+        "product, provider, place and content ratings",
+        "two-sided marketplace reputation",
+        "app-store and platform feedback",
+        "public reviews and private quality signals",
+        "review solicitation, incentives and verification",
+        "aggregation, summaries, sorting and ranking",
+        "moderation, response, correction, dispute and appeal"
+      ],
+      "axis": "lens",
+      "categories": [
+        "feedback-validity-power-reputational-remedy"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 8,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Treat solicitation as a source of measurement bias: document who is asked, when, how often, after which outcomes and through which channel; make decline and later response possible; avoid prompting only satisfied people, gating criticism, conditioning incentives on sentiment or interrupting people before meaningful use; compare respondents with the eligible population; and interpret increased review volume as changed sampling until evidence shows otherwise.",
+        "Apply procedural safeguards when reputation becomes an allocation mechanism: identify every use in ranking, badges, pricing, access, matching, deactivation or work distribution; evaluate comparability, bias, manipulation, sample sufficiency and temporal relevance; limit the effect of anomalous feedback; provide notice and an intelligible explanation; allow evidence correction and contextual response; require proportionate human review before serious loss; and audit error and outcome disparities for both reviewers and reviewed people."
+      ],
+      "pack_id": "lens-feedback-validity-power-reputational-remedy",
+      "reference": "lens-feedback-validity-power-reputational-remedy.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "appointments, visits and professional services",
+        "restaurants, classes and shared facilities",
+        "rooms, homes, vehicles and equipment",
+        "flights, tours, events and tickets",
+        "free, deposited and prepaid reservations",
+        "real-time availability, requests and temporary holds",
+        "sold-out states, standby and waitlists",
+        "confirmation, preparation, changes, cancellation and refunds"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "booking-reservation-availability-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Represent availability as a scoped and time-sensitive fact: show the search criteria and freshness, distinguish available, limited, unavailable, tentative, requestable, held and sold states, explain material eligibility or dependency checks, offer nearby dates, times, locations, providers or equivalent resources, and avoid implying that viewing or selecting a slot guarantees inventory until the system has actually reserved it.",
+        "Test the lifecycle as an allocation system: verify keyboard, screen-reader, voice and touch access to calendars and slots; time zones, daylight-saving changes and overnight spans; simultaneous demand, stale inventory, duplicate actions, hold expiry, partial payment and reconnect; accessible-resource guarantees; waitlist ordering, offer expiry and digital exclusion; provider changes, overbooking and no-shows; and audit who receives which inventory, price, priority and recovery rather than measuring conversion alone."
+      ],
+      "pack_id": "section-flow-booking-reservation-availability-lifecycle",
+      "reference": "section-flow-booking-reservation-availability-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "appointments and professional services",
+        "healthcare, public services and permits",
+        "lodging, travel and transport",
+        "events, tickets, classes and shared facilities",
+        "limited inventory, providers and time slots",
+        "temporary holds, requests, waitlists and standby",
+        "pricing, deposits, cancellation and no-show rules",
+        "provider disruption, overbooking, substitution and refunds"
+      ],
+      "axis": "lens",
+      "categories": [
+        "scarce-capacity-allocation-commitment-fairness"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 13,
+        "publisher_count": 11,
+        "sample_count": 13
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Select an allocation rule deliberately rather than defaulting to fastest-click wins: evaluate first-come, priority, lottery, batch, queue, invitation and provider-discretion models against demand, harm, urgency, gaming, bot access, connectivity, disability, work schedule and digital literacy; publish the rule and material exceptions; use identity or eligibility controls proportionately; and audit whether intermediaries, automation or privileged groups capture scarce capacity.",
+        "Allocate disruption risk explicitly and provide proportionate recovery: distinguish user cancellation, missed attendance, provider cancellation, overbooking and significant change; notify through chosen accessible channels; show original and changed commitments; offer suitable alternatives without preselecting away a refund or release option; preserve exact accessibility and dependency needs; restore capacity and waitlist opportunity consistently; and do not shift provider-caused failure into opaque credit, penalty or repeated user effort."
+      ],
+      "pack_id": "lens-scarce-capacity-allocation-commitment-fairness",
+      "reference": "lens-scarce-capacity-allocation-commitment-fairness.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "physical goods and mixed-item orders",
+        "marketplaces and peer transactions",
+        "services, travel, food and digital purchases",
+        "repair, replacement, exchange, refund and credit",
+        "mail, carrier, pickup and store-return logistics",
+        "card, wallet, installment, gift and mixed payments",
+        "inspection, partial approval and dispute",
+        "consumer, seller, carrier, lender and platform coordination"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "returns-exchanges-refunds-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 12,
+        "product_count": 12,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Calculate value restoration transparently: show item amount, quantity, discounts, promotions, tax, original and return shipping, service or restocking charges, used benefits, partial fulfillment, prior credits and remaining installment balance; identify the exact refund destination and expected amount and timing; distinguish estimated from final value pending inspection; explain rounding and allocation across mixed tenders; and never describe store credit as equivalent to cash without explicit choice.",
+        "Make rejection, partial outcomes and appeal specific and repairable: identify the item, evidence, policy version, condition finding, amount and responsible decision-maker; show what was accepted and what remains disputed; provide a bounded correction, additional-evidence, seller response, platform review or payment-dispute path as appropriate; pause avoidable collections on genuinely disputed value; preserve communications and custody evidence; and never close the only support route because an automated or first-line decision rejected the claim."
+      ],
+      "pack_id": "section-flow-returns-exchanges-refunds-lifecycle",
+      "reference": "section-flow-returns-exchanges-refunds-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "returns, withdrawal and order cancellation",
+        "repair, replacement and exchange",
+        "merchant, marketplace and service refunds",
+        "travel and provider-caused cancellation",
+        "card, wallet, installment and mixed payment",
+        "partial fulfillment and partial acceptance",
+        "billing disputes and payment collection",
+        "evidence, inspection, logistics, denial and appeal"
+      ],
+      "axis": "lens",
+      "categories": [
+        "remedy-parity-value-restoration-burden-allocation"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 12,
+        "publisher_count": 8,
+        "sample_count": 12
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Assign burden according to cause and control: distinguish changed mind, customer damage, defect, misdescription, non-delivery, provider cancellation, delay and platform or payment error; place shipping, evidence, fees, repeated contact and timing risk on the party best able to prevent or verify the failure; reduce proof when the business already holds tracking or operational evidence; do not charge people to correct business-caused failure; and explain any retained amount as a proportionate, itemized consequence rather than a generic penalty.",
+        "Restore the correct form and amount of value: begin from the original transaction allocation, include required item value, quantity, tax, delivery and mandatory charges, account for discounts, benefits, partial fulfillment and mixed tenders, return value through the original payment path unless the person knowingly chooses a lawful alternative, coordinate merchant and lender balances, pause avoidable collection of genuinely disputed amounts, and never substitute expiring or restricted credit for money without explicit informed choice."
+      ],
+      "pack_id": "lens-remedy-parity-value-restoration-burden-allocation",
+      "reference": "lens-remedy-parity-value-restoration-burden-allocation.md",
       "role": "category",
       "version": "1.0.0"
     }
