@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.82.0",
+  "catalog_version": "1.84.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history", "notification-inbox", "search-discovery", "complex-forms", "analytical-exploration"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics", "attention-interruption", "information-foraging", "error-prevention-recovery", "quantitative-evidence-uncertainty"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1788,6 +1788,37 @@
       ],
       "pack_id": "lens-error-prevention-recovery",
       "reference": "lens-error-prevention-recovery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["product and web analytics", "business intelligence", "support and operations analysis", "campaign and audience analysis", "cohort, funnel, and path analysis", "financial and usage exploration", "saved reports and views", "shared analysis and export"],
+      "axis": "section-flow",
+      "categories": ["analytical-exploration"],
+      "evidence_sufficiency": {"industry_count": 8, "product_count": 9, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Begin with an explicit analytical contract: state the question, decision or hypothesis, population or object scope, measure definition, dimensions, time and timezone basis, comparison or baseline, denominator, source, freshness, exclusions, and whether the work is exploratory, monitoring, or confirmatory.",
+        "Keep interpretation proportional to evidence by exposing numerator and denominator, absolute and relative values, baseline, sample or coverage, missing and suppressed data, uncertainty or estimation, source changes, freshness, and noncomparable periods; distinguish observed pattern, generated summary, hypothesis, and validated conclusion."
+      ],
+      "pack_id": "section-flow-analytical-exploration",
+      "reference": "section-flow-analytical-exploration.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["charts and analytical interfaces", "reports and dashboards", "metric and KPI exploration", "experiments and forecasts", "segment and cohort comparisons", "public and scientific statistics", "generated analytical summaries", "saved analysis and exported evidence"],
+      "axis": "lens",
+      "categories": ["quantitative-evidence-uncertainty"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {"sample_count": 12, "publisher_count": 6, "evidence_family_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Make every quantitative claim self-describing through the question or intended decision, population or object scope, measure definition, numerator and denominator, unit, time and timezone basis, comparison or baseline, source, freshness, exclusions, and whether the result is observed, estimated, modeled, or forecast.",
+        "Expose uncertainty and data quality when they can change interpretation through sample or coverage, missing and suppressed values, estimation method, range and coverage basis, rounding, revision, source change, and limitations; explain uncertainty in plain language and withhold or qualify comparisons that the evidence cannot support."
+      ],
+      "pack_id": "lens-quantitative-evidence-uncertainty",
+      "reference": "lens-quantitative-evidence-uncertainty.md",
       "role": "category",
       "version": "1.0.0"
     }

@@ -30,3 +30,4 @@
 - **Attention and interruption:** Is attention treated as a user cost, with urgency and channel matched to consequence, response window, reversibility, context, accessibility, privacy, and user-controlled suppression?
 - **Information foraging and findability:** Can people form and refine intent, predict destinations from information scent, inspect the query model, control suggestions, and recover from weak results without opaque steering?
 - **Error prevention and recovery:** Does the design prevent avoidable mistakes, preserve valid work, explain correction accessibly, distinguish lifecycle states, and make consequential submission reviewable or reversible?
+- **Quantitative evidence and uncertainty:** Are scope, definition, denominator, comparison, provenance, uncertainty, exploration limits, reproducibility, and correction visible enough to support an accurate conclusion?

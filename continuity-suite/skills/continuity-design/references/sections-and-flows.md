@@ -21,3 +21,4 @@
 - **Notification centers and inbox triage:** separate notification state from work state; preserve receipt rationale, actor, event, object, scope, urgency, return context, grouping evidence, delivery controls, quiet periods, and preview privacy.
 - **Search, filtering, and discovery:** expose scope, matching model, query, facets, sorting, result evidence, provenance, uncertainty, preserved return state, and honest zero-result recovery.
 - **Complex forms and review:** structure questions around user reasoning, preserve drafts and valid work, distinguish progress from submission, support targeted review edits, and provide durable completion evidence.
+- **Analytical exploration:** make question, scope, measures, filters, comparisons, uncertainty, underlying evidence, saved-query identity, provenance, and correction continuously inspectable.

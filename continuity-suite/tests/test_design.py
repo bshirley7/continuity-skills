@@ -325,6 +325,15 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(packs[packs.index("section-flow-complex-forms") - 1], "design-sections-flows")
         self.assertEqual(packs[packs.index("lens-error-prevention-recovery") - 1], "design-ux-lenses")
 
+    def test_reviewed_analytical_exploration_and_quantitative_evidence_overlays_are_bound(self):
+        value = input_value(sections=["analytical-exploration"], lenses=["quantitative-evidence-uncertainty"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-analytical-exploration", packs)
+        self.assertIn("lens-quantitative-evidence-uncertainty", packs)
+        self.assertEqual(packs[packs.index("section-flow-analytical-exploration") - 1], "design-sections-flows")
+        self.assertEqual(packs[packs.index("lens-quantitative-evidence-uncertainty") - 1], "design-ux-lenses")
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
