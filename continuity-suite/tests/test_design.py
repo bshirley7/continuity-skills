@@ -818,6 +818,33 @@ class DesignLifecycleTests(unittest.TestCase):
         )
 
 
+    def test_reviewed_tax_lifecycle_and_taxpayer_agency_overlays_are_bound(self):
+        value = input_value(
+            sections=["tax-record-classification-calculation-filing-payment-notice-correction-lifecycle"],
+            lenses=["taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-tax-record-classification-calculation-filing-payment-notice-correction-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
+
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):
         self.assertEqual(BOUNDARY.validate([SUITE]), [])

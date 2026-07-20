@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.115.0",
+  "catalog_version": "1.117.0",
   "packs": [
     {
       "applicability": [
@@ -442,7 +442,8 @@
         "employment-discovery-application-selection-offer-lifecycle",
         "housing-discovery-rental-application-lease-residency-lifecycle",
         "learning-enrollment-assessment-completion-credential-lifecycle",
-        "dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle"
+        "dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle",
+        "tax-record-classification-calculation-filing-payment-notice-correction-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1385,7 +1386,8 @@
         "opportunity-fairness-applicant-agency-accountable-selection",
         "housing-opportunity-tenant-agency-accountable-screening",
         "learner-agency-assessment-validity-credential-integrity",
-        "ingredient-integrity-dietary-agency-allergen-safety-nutrition-context"
+        "ingredient-integrity-dietary-agency-allergen-safety-nutrition-context",
+        "taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity"
       ],
       "modalities": {
         "document": "inferred",
@@ -5004,6 +5006,75 @@
       ],
       "pack_id": "lens-ingredient-integrity-dietary-agency-allergen-safety-nutrition-context",
       "reference": "lens-ingredient-integrity-dietary-agency-allergen-safety-nutrition-context.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "personal and household tax preparation",
+        "small-business, payroll and sales-tax administration",
+        "marketplace, contractor and employment reporting",
+        "cross-border residency and taxpayer identification",
+        "source-document collection and reconciliation",
+        "calculation, review, filing and payment or refund",
+        "notices, amendments, audits and appeals",
+        "taxpayer, preparer, agent and authority collaboration"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "tax-record-classification-calculation-filing-payment-notice-correction-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 14,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one versioned filing identity: identify taxpayer or liable entity, tax type, jurisdiction and authority, tax period, filing obligation, form and revision, registration or account identifiers, due dates, filing frequency, accounting basis, preparer and representative authority; bind source records, classifications, calculations, review, declaration, submission, payment, notices, amendments and finality to it; and never let a generic tax year, dashboard card or software workspace stand in for the exact obligation.",
+        "Explain every material calculation as a reconstructable chain: show taxable base, included and excluded records, rates, brackets, credits, deductions, withholding, payments, adjustments, rounding, currency conversion, prior balances, penalties or interest, jurisdiction allocation and date; distinguish projected, prepared, filed, assessed and paid amounts; show deltas when inputs change; and never use refund or amount-due prominence to hide assumptions or uncertainty."
+      ],
+      "pack_id": "section-flow-tax-record-classification-calculation-filing-payment-notice-correction-lifecycle",
+      "reference": "section-flow-tax-record-classification-calculation-filing-payment-notice-correction-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "personal, household and small-business tax",
+        "payroll, withholding and marketplace reporting",
+        "sales tax, VAT and cross-border obligations",
+        "taxpayer identity, residency and representation",
+        "record import, classification and reconciliation",
+        "calculation, declaration, filing and payment",
+        "notices, amendments, audit and appeal",
+        "digital-only and assisted compliance services"
+      ],
+      "axis": "lens",
+      "categories": [
+        "taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 7,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate taxpayer agency across the complete obligation: can the person identify the liable entity, jurisdiction, period, form, due dates, source evidence, preparer, representative, declaration, submission authority, payment, notice, correction, appeal and finality; can they inspect, question, correct, retain and obtain help; and does the system avoid turning convenience, delegation or embedded compliance into invisible loss of control?",
+        "Audit calculation transparency as a reproducible chain: reveal taxable base, inclusions and exclusions, rates, brackets, deductions, credits, withholding, prior payments, adjustments, currency conversion, rounding, penalties, interest and jurisdiction allocation; show how each changed input alters the result; distinguish estimate, return, assessment and account balance; and never optimize refund salience or apparent precision at the expense of assumptions and correct-amount review."
+      ],
+      "pack_id": "lens-taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity",
+      "reference": "lens-taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity.md",
       "role": "category",
       "version": "1.0.0"
     }
