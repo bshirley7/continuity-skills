@@ -844,6 +844,32 @@ class DesignLifecycleTests(unittest.TestCase):
             "design-ux-lenses",
         )
 
+    def test_reviewed_deposit_account_lifecycle_and_financial_inclusion_overlays_are_bound(self):
+        value = input_value(
+            sections=["deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle"],
+            lenses=["financial-inclusion-account-transparency-funds-access-fair-restriction-resolution"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "section-flow-deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle"
+                )
+                - 1
+            ],
+            "design-sections-flows",
+        )
+        self.assertEqual(
+            packs[
+                packs.index(
+                    "lens-financial-inclusion-account-transparency-funds-access-fair-restriction-resolution"
+                )
+                - 1
+            ],
+            "design-ux-lenses",
+        )
+
 
 class BoundaryTests(unittest.TestCase):
     def test_shared_suite_passes_boundary_scan(self):

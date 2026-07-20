@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.117.0",
+  "catalog_version": "1.118.0",
   "packs": [
     {
       "applicability": [
@@ -443,7 +443,8 @@
         "housing-discovery-rental-application-lease-residency-lifecycle",
         "learning-enrollment-assessment-completion-credential-lifecycle",
         "dietary-safe-food-discovery-customization-order-substitution-handoff-incident-lifecycle",
-        "tax-record-classification-calculation-filing-payment-notice-correction-lifecycle"
+        "tax-record-classification-calculation-filing-payment-notice-correction-lifecycle",
+        "deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle"
       ],
       "modalities": {
         "document": "inferred",
@@ -1387,7 +1388,8 @@
         "housing-opportunity-tenant-agency-accountable-screening",
         "learner-agency-assessment-validity-credential-integrity",
         "ingredient-integrity-dietary-agency-allergen-safety-nutrition-context",
-        "taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity"
+        "taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity",
+        "financial-inclusion-account-transparency-funds-access-fair-restriction-resolution"
       ],
       "modalities": {
         "document": "inferred",
@@ -5075,6 +5077,75 @@
       ],
       "pack_id": "lens-taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity",
       "reference": "lens-taxpayer-agency-calculation-transparency-procedural-rights-compliance-equity.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "checking, current, savings and basic accounts",
+        "embedded and partner-bank deposit products",
+        "cash-management and sweep arrangements",
+        "individual, joint, dependent and business ownership",
+        "initial funding and linked external accounts",
+        "balances, fees, interest, statements and changes",
+        "holds, restrictions, disputes and restored access",
+        "switching, dormancy, voluntary and provider closure"
+      ],
+      "axis": "section-flow",
+      "categories": [
+        "deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle"
+      ],
+      "evidence_sufficiency": {
+        "industry_count": 14,
+        "product_count": 14,
+        "sample_count": 14
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Preserve one account identity across the lifecycle: identify account type and purpose, legal owner or owners and authority, actual depository institution and visible service provider, currency, ownership category, insurance or protection scope and limits, account agreement version, opening date and current status; bind applications, funding, balances, transactions, fees, interest, restrictions, disputes, changes, switching and closure to it; and never let a brand tile, nickname or masked number obscure who holds the money and under what terms.",
+        "Represent money availability as an evidence-backed state: distinguish ledger, available, pending, held, restricted, reserved, overdrawn and interest-bearing balances; show each contributing transaction, hold reason category, amount, placed and expected release times, responsible institution and dispute path; update estimates when evidence changes; and never imply that a displayed total can be withdrawn, spent, transferred or insured in full."
+      ],
+      "pack_id": "section-flow-deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle",
+      "reference": "section-flow-deposit-account-comparison-opening-funding-use-restriction-switching-closure-lifecycle.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": [
+        "checking, current, savings and basic accounts",
+        "embedded and partner-bank deposit products",
+        "cash-management and linked-account experiences",
+        "account opening, identity and ownership",
+        "balances, holds, fees, rates and terms",
+        "security restrictions and funds access",
+        "unauthorized transactions and errors",
+        "switching, denial, dormancy and closure"
+      ],
+      "axis": "lens",
+      "categories": [
+        "financial-inclusion-account-transparency-funds-access-fair-restriction-resolution"
+      ],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {
+        "evidence_family_count": 15,
+        "publisher_count": 6,
+        "sample_count": 15
+      },
+      "modalities": {
+        "document": "inferred",
+        "image": "inferred",
+        "ui": "validated"
+      },
+      "modality_independent_principles": [
+        "Evaluate account value as an understandable access contract: identify the legal institution, service provider, ownership, product, insurance, currency, opening and ongoing requirements, all material fees, overdraft behavior, rate and yield assumptions, balance and activity conditions, limits, support channels, changes and exit effects; test realistic customer scenarios rather than headline claims; and never let branding, a bonus or nominal yield conceal total cost and usable access.",
+        "Audit funds access as a source-linked state rather than a balance label: distinguish ledger, available, pending, held, restricted, reserved, overdrawn and interest-bearing amounts; identify transactions, hold scope, reason category, timing, responsible party and release or challenge route; monitor estimate accuracy and essential-funds harm; and never present a total as spendable, withdrawable, transferable or insured without supporting evidence."
+      ],
+      "pack_id": "lens-financial-inclusion-account-transparency-funds-access-fair-restriction-resolution",
+      "reference": "lens-financial-inclusion-account-transparency-funds-access-fair-restriction-resolution.md",
       "role": "category",
       "version": "1.0.0"
     }
