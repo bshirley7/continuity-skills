@@ -79,6 +79,62 @@ class DesignLifecycleTests(unittest.TestCase):
         three = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="three", themes=["calm", "technical"], message_structures=["value-first", "proof-first"])))
         self.assertEqual(len(three["directions"]), 3)
 
+    def test_material_direction_count_overrides_question_count(self):
+        value = input_value(
+            design_id="material-count",
+            direction_count=1,
+            direction_count_basis="The organizing idea is settled; remaining questions are implementation detail.",
+            open_questions=["Which breakpoint needs the compact variant?", "Which empty-state copy is final?"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(len(draft["directions"]), 1)
+        self.assertEqual(draft["direction_count_basis"], value["direction_count_basis"])
+
+    def test_current_state_and_alignment_contract_are_durable(self):
+        value = input_value(
+            design_id="assessed-design",
+            evidence_inspected=["docs/product.md", "src/components"],
+            current_strengths=["Fast expert navigation"],
+            current_gaps=["Inconsistent hierarchy between detail views"],
+            design_debt=["Local spacing values bypass shared tokens"],
+            preserve=["Fast expert navigation"],
+            non_goals=["Do not redesign account administration"],
+            validation_criteria=["Expert navigation remains available without an additional step"],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        direction = draft["directions"][0]
+        self.assertTrue(any("fast expert navigation" in item.casefold() for item in direction["experience_principles"]))
+        self.assertEqual(direction["validation_criteria"], value["validation_criteria"])
+        design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        markdown = (self.root / ".continuity/private/design/assessed-design/design.md").read_text(encoding="utf-8")
+        for heading in (
+            "## Current-state assessment", "## Design thesis", "## Experience principles",
+            "## Experience architecture", "## Visual and interaction system",
+            "## Component and pattern direction", "## Implementation contract",
+            "### Acceptance and drift checks", "### Prohibited patterns",
+        ):
+            self.assertIn(heading, markdown)
+        self.assertIn("Fast expert navigation", markdown)
+        self.assertIn("Inconsistent hierarchy between detail views", markdown)
+
+    def test_non_ui_targets_require_only_meaningful_grammar_dimensions(self):
+        document = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="document-grammar", targets=["document"])),
+        )
+        image = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="image-grammar", targets=["image"])),
+        )
+        self.assertNotIn("motion", document["directions"][0]["design_grammar"])
+        self.assertNotIn("surface_depth", document["directions"][0]["design_grammar"])
+        self.assertNotIn("motion", image["directions"][0]["design_grammar"])
+        self.assertNotIn("state_language", image["directions"][0]["design_grammar"])
+
     def test_omitted_lenses_apply_explainable_baseline_and_contextual_routing(self):
         value = input_value(
             design_id="auto-lenses",
@@ -224,6 +280,18 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn(value["working_assumptions"][0], markdown)
         self.assertIn("## Open questions", markdown)
         self.assertIn(value["open_questions"][0], markdown)
+
+    def test_non_goals_do_not_trigger_contextual_lenses(self):
+        value = {
+            "design_id": "negative-routing",
+            "title": "A clearer account page",
+            "intent": "Help a customer understand current account details.",
+            "audiences": ["Customers"],
+            "targets": ["ui"],
+            "non_goals": ["Do not add AI recommendations or automated decisions"],
+        }
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertNotIn("human-agency-calibrated-reliance-automation-boundaries", draft["lenses"])
 
     def test_supplied_creative_direction_count_is_not_derived_from_taxonomy(self):
         seed = design.draft(

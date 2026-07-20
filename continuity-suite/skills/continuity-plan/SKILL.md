@@ -20,7 +20,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 ## Workflow
 
 1. Confirm every source item is eligible for planning.
-2. Run `memory brief` and `roadmap brief` for the goal and record every memory and roadmap ID used. When an approved design applies, retrieve `.continuity/design.json`, verify `docs/design/design.md`, and include its ID in `design_ids`; the CLI derives the exact revision, hash, and catalog pack versions.
+2. Run `memory brief` and `roadmap brief` for the goal and record every memory and roadmap ID used. When an approved design applies, retrieve `.continuity/design.json`, verify `docs/design/design.md`, and include its ID in `design_ids`; the CLI derives the exact revision, hash, and catalog pack versions. Map the applicable design thesis, preservation rules, prohibited patterns, implementation guidance, and drift checks into delivery slices and observable acceptance criteria. Do not turn stylistic guidance into unrelated scope.
 3. Apply the configured planning patterns. Use the evidence triage brief for verified action context. For complex or uncertain work, create a decision map with one destination, explicit decisions, dependency edges, unresolved territory, and out-of-scope boundaries. Do not plan execution across unresolved or human-required decisions.
 4. Group only work supporting one cohesive outcome. Split unrelated intents.
 5. For a multi-part outcome, create dependency-aware end-to-end delivery slices. Each slice must be independently verifiable, small enough for one focused run, and blocked only by genuine prerequisites. Use an expand-migrate-contract sequence for wide changes that cannot remain valid as vertical slices.

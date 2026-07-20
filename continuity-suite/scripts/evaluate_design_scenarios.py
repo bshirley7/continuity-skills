@@ -59,8 +59,8 @@ def _words(value: str) -> set[str]:
 
 def _direction_text(direction: dict[str, Any]) -> str:
     values = [direction["summary"], *direction["principles"], *direction["variation_levers"], *direction["tradeoffs"]]
-    for dimension in design.DESIGN_GRAMMAR_DIMENSIONS:
-        values.extend(direction["design_grammar"][dimension])
+    for rules in direction["design_grammar"].values():
+        values.extend(rules)
     return " ".join(values)
 
 
@@ -87,8 +87,7 @@ def _implementation_usefulness(directions: list[dict[str, Any]]) -> float:
                 bool(direction["tradeoffs"]),
             ]
         )
-        for dimension in design.DESIGN_GRAMMAR_DIMENSIONS:
-            rules = direction["design_grammar"][dimension]
+        for rules in direction["design_grammar"].values():
             checks.append(bool(rules))
             for rule in rules:
                 words = _words(rule)

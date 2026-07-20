@@ -2,7 +2,17 @@
 
 Every direction must translate intent, evidence, relevant guidance, and preservation requirements into one coherent design grammar. The grammar is an implementation-facing decision contract, not a mood board, token dump, or authorization to change code.
 
-## Required dimensions
+## Target profiles
+
+Use only dimensions that produce meaningful implementation decisions for the selected target. For mixed targets, use the union and distinguish target-specific rules.
+
+- **UI:** all dimensions below.
+- **Document:** composition, spacing and density, typography, color, shape and form, imagery, iconography, voice, state language, and responsive behavior across source, reflow, export, and print.
+- **Image:** composition, spacing and density, typography, color, shape and form, surface and depth, imagery, iconography, voice, and responsive behavior across crops, contexts, print, and delivery.
+
+Do not invent motion for a static artifact or application states for a standalone image merely to complete a template.
+
+## Dimensions
 
 - **Composition:** Content bounds, reading order, grid, alignment, module spans, section pacing, emphasis, and deliberate exceptions.
 - **Spacing and density:** Relational spacing, task density, grouping intervals, content measure, and differences between exploratory, routine, expert, and consequential work.
@@ -19,7 +29,7 @@ Every direction must translate intent, evidence, relevant guidance, and preserva
 
 ## Coherence rules
 
-- Every rule must trace to project intent, a selected direction, a preservation requirement, or a reviewed catalog pack.
+- Every rule must trace to inspected evidence, project intent, a selected direction, a preservation requirement, or a reviewed catalog pack.
 - Dimensions must reinforce one another. Do not choose typography, color, geometry, motion, imagery, and voice as independent style samples.
 - Name bounded variation and prohibited combinations where inconsistent interpretation would be likely.
 - Preserve familiar interaction semantics and accessibility even when expression changes.

@@ -34,6 +34,17 @@ DESIGN_GRAMMAR_DIMENSIONS = (
     "state_language",
     "responsive_behavior",
 )
+TARGET_GRAMMAR_DIMENSIONS = {
+    "ui": DESIGN_GRAMMAR_DIMENSIONS,
+    "document": (
+        "composition", "spacing_density", "typography", "color", "shape_form",
+        "imagery", "iconography", "voice", "state_language", "responsive_behavior",
+    ),
+    "image": (
+        "composition", "spacing_density", "typography", "color", "shape_form",
+        "surface_depth", "imagery", "iconography", "voice", "responsive_behavior",
+    ),
+}
 INFERENCE_CONTEXT_FIELDS = (
     "title",
     "intent",
@@ -45,6 +56,9 @@ INFERENCE_CONTEXT_FIELDS = (
     "message_structures",
     "constraints",
     "preserve",
+    "current_strengths",
+    "current_gaps",
+    "design_debt",
     "open_questions",
     "consequences",
     "workflow_signals",
@@ -477,6 +491,11 @@ def _bind_lens_routing(
 
 
 def _direction_count(payload: dict[str, Any]) -> int:
+    explicit = payload.get("direction_count")
+    if explicit is not None:
+        if not isinstance(explicit, int) or isinstance(explicit, bool) or explicit not in {1, 2, 3}:
+            raise DesignError("direction_count must be 1, 2, or 3 when supplied")
+        return explicit
     ambiguities = len(payload["open_questions"])
     varied_axes = sum(len(payload[key]) > 1 for key in ("themes", "message_structures", "sections"))
     if ambiguities == 0 and varied_axes == 0:
@@ -484,6 +503,14 @@ def _direction_count(payload: dict[str, Any]) -> int:
     if ambiguities + varied_axes <= 1:
         return 2
     return 3
+
+
+def _required_grammar_dimensions(targets: list[str]) -> tuple[str, ...]:
+    return tuple(
+        dimension
+        for dimension in DESIGN_GRAMMAR_DIMENSIONS
+        if any(dimension in TARGET_GRAMMAR_DIMENSIONS[target] for target in targets)
+    )
 
 
 def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
@@ -503,12 +530,34 @@ def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
         "Make consequential choices understandable, reversible where possible, and accessible.",
     ]
     principles.extend(payload["constraints"][:2])
+    required_dimensions = _required_grammar_dimensions(payload["targets"])
+    preservation = payload["preserve"] or payload["current_strengths"]
     return {
         "direction_id": f"direction-{index + 1}",
         "name": name,
         "summary": summary,
         "principles": principles,
-        "design_grammar": {dimension: [strategy["grammar"][dimension]] for dimension in DESIGN_GRAMMAR_DIMENSIONS},
+        "design_grammar": {dimension: [strategy["grammar"][dimension]] for dimension in required_dimensions},
+        "experience_principles": [
+            strategy["principle"],
+            *[f"Preserve {item.rstrip('.').casefold()}." for item in preservation],
+        ],
+        "experience_architecture": [
+            f"Organize {scope} around the primary outcome and make entry, continuation, completion, interruption, and recovery explicit.",
+        ],
+        "component_patterns": [
+            "Reuse established product patterns where they remain coherent; introduce a new pattern only for a distinct semantic need.",
+        ],
+        "implementation_guidance": [
+            "Translate these decisions into project tokens and reusable components before applying local exceptions.",
+        ],
+        "validation_criteria": payload["validation_criteria"] or [
+            "The primary audience can identify the next meaningful action and its current state.",
+            *[f"The implementation preserves: {item}" for item in preservation],
+        ],
+        "prohibited_patterns": payload["non_goals"] or [
+            "Do not add visual novelty that weakens established behavior, accessibility, or recovery.",
+        ],
         "variation_levers": [
             "Adjust information density without changing task priority.",
             f"Increase or reduce the {strategy['name'].casefold()} emphasis without weakening accessibility or recovery.",
@@ -517,7 +566,7 @@ def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
     }
 
 
-def _validate_direction(value: Any, index: int) -> dict[str, Any]:
+def _validate_direction(value: Any, index: int, targets: list[str]) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise DesignError("Each direction must be an object")
     result = dict(value)
@@ -525,16 +574,21 @@ def _validate_direction(value: Any, index: int) -> dict[str, Any]:
     for key in ("name", "summary"):
         if not isinstance(result.get(key), str) or not result[key].strip():
             raise DesignError(f"Direction {result['direction_id']} requires {key}")
-    for key in ("principles", "variation_levers", "tradeoffs"):
-        if not isinstance(result.get(key), list) or not result[key] or any(not isinstance(item, str) or not item.strip() for item in result[key]):
-            raise DesignError(f"Direction {result['direction_id']} requires non-empty {key}")
     grammar = result.get("design_grammar")
-    if not isinstance(grammar, dict) or set(grammar) != set(DESIGN_GRAMMAR_DIMENSIONS):
-        raise DesignError(f"Direction {result['direction_id']} requires the complete design grammar")
-    for dimension in DESIGN_GRAMMAR_DIMENSIONS:
+    required_dimensions = _required_grammar_dimensions(targets)
+    if not isinstance(grammar, dict) or set(grammar) != set(required_dimensions):
+        raise DesignError(f"Direction {result['direction_id']} requires the complete design grammar appropriate to its targets")
+    for dimension in required_dimensions:
         rules = grammar[dimension]
         if not isinstance(rules, list) or not rules or any(not isinstance(item, str) or not item.strip() for item in rules):
             raise DesignError(f"Direction {result['direction_id']} requires non-empty design grammar dimension {dimension}")
+    for key in (
+        "principles", "experience_principles", "experience_architecture",
+        "component_patterns", "implementation_guidance", "validation_criteria",
+        "prohibited_patterns", "variation_levers", "tradeoffs",
+    ):
+        if not isinstance(result.get(key), list) or not result[key] or any(not isinstance(item, str) or not item.strip() for item in result[key]):
+            raise DesignError(f"Direction {result['direction_id']} requires non-empty {key}")
     return result
 
 
@@ -544,6 +598,10 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     for key in ("title", "intent"):
         if not isinstance(payload.get(key), str) or not payload[key].strip():
             raise DesignError(f"Design input requires {key}")
+    if "direction_count_basis" in payload and (
+        not isinstance(payload["direction_count_basis"], str) or not payload["direction_count_basis"].strip()
+    ):
+        raise DesignError("direction_count_basis must be a non-empty string when supplied")
     industry = payload.get("industry", "")
     if not isinstance(industry, str):
         raise DesignError("industry must be a string when supplied")
@@ -560,6 +618,12 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "preserve",
         "open_questions",
         "working_assumptions",
+        "evidence_inspected",
+        "current_strengths",
+        "current_gaps",
+        "design_debt",
+        "non_goals",
+        "validation_criteria",
         "consequences",
         "workflow_signals",
         "interaction_signals",
@@ -595,9 +659,9 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     if supplied is not None:
         if not isinstance(supplied, list) or not 1 <= len(supplied) <= 3:
             raise DesignError("Supplied creative work requires one to three directions")
-        directions = [_validate_direction(item, index) for index, item in enumerate(supplied)]
+        directions = [_validate_direction(item, index, payload["targets"]) for index, item in enumerate(supplied)]
     else:
-        directions = [_validate_direction(_generated_direction(payload, index), index) for index in range(count)]
+        directions = [_validate_direction(_generated_direction(payload, index), index, payload["targets"]) for index in range(count)]
     if len({item["direction_id"] for item in directions}) != len(directions):
         raise DesignError("Direction IDs must be unique")
     design_id = _identifier(str(payload.get("design_id") or f"design-{hashlib.sha256((config['project_id'] + payload['title']).encode()).hexdigest()[:10]}"), "design ID")
@@ -638,6 +702,12 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "preserve": payload["preserve"],
         "open_questions": payload["open_questions"],
         "working_assumptions": payload["working_assumptions"],
+        "evidence_inspected": payload["evidence_inspected"],
+        "current_strengths": payload["current_strengths"],
+        "current_gaps": payload["current_gaps"],
+        "design_debt": payload["design_debt"],
+        "non_goals": payload["non_goals"],
+        "validation_criteria": payload["validation_criteria"],
         "consequences": payload["consequences"],
         "workflow_signals": payload["workflow_signals"],
         "interaction_signals": payload["interaction_signals"],
@@ -645,6 +715,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "source_note_ids": payload["source_note_ids"],
         "memory_ids": payload["memory_ids"],
         "directions": directions,
+        "direction_count_basis": payload.get("direction_count_basis", "legacy heuristic" if payload.get("direction_count") is None else "agent assessed material ambiguity"),
         "catalog_packs": catalog_packs,
         "evidence_application": evidence_application,
         "catalog_version": catalog["catalog_version"],
@@ -666,7 +737,10 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         f"Revision: `{draft_record['revision']}`  ",
         f"Targets: `{targets}`  ",
         f"Evidence application: `{modality}`", "",
-        "## Intent", "", draft_record["intent"], "",
+        f"Direction count basis: {draft_record['direction_count_basis']}", "",
+        "## Product and experience context", "", draft_record["intent"], "",
+        "Audiences:", "",
+        *[f"- {item}" for item in draft_record["audiences"]], "",
     ]
     if draft_record["lens_selection_mode"] == "manual":
         lines.extend([
@@ -677,20 +751,34 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
             f"- Lenses: {', '.join(f'`{value}`' for value in draft_record['lenses'])}",
             "",
         ])
-    lines.extend([
-        "## Selected direction", "",
-    ])
+    lines.extend(["## Current-state assessment", ""])
+    for heading, key in (
+        ("Evidence inspected", "evidence_inspected"),
+        ("Existing strengths", "current_strengths"),
+        ("Gaps and inconsistencies", "current_gaps"),
+        ("Design debt", "design_debt"),
+    ):
+        lines.extend([f"### {heading}", "", *([f"- {item}" for item in draft_record[key]] or ["- None recorded."]), ""])
+    lines.extend(["## Design thesis", ""])
     for direction in selected:
         lines.extend([f"### {direction['name']}", "", direction["summary"], "", "Principles:", ""])
         lines.extend(f"- {item}" for item in direction["principles"])
-        lines.extend(["", "#### Design grammar", ""])
-        for dimension in DESIGN_GRAMMAR_DIMENSIONS:
+        lines.extend(["", "## Experience principles", "", *[f"- {item}" for item in direction["experience_principles"]], ""])
+        lines.extend(["## Experience architecture", "", *[f"- {item}" for item in direction["experience_architecture"]], ""])
+        lines.extend(["## Visual and interaction system", "", "#### Design grammar", ""])
+        for dimension in _required_grammar_dimensions(draft_record["targets"]):
             lines.extend([f"##### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in direction["design_grammar"][dimension]], ""])
-        lines.extend(["", "Variation levers:", "", *[f"- {item}" for item in direction["variation_levers"]], "", "Tradeoffs:", "", *[f"- {item}" for item in direction["tradeoffs"]], ""])
+        lines.extend(["## Component and pattern direction", "", *[f"- {item}" for item in direction["component_patterns"]], ""])
+        lines.extend(["## Implementation contract", "", *[f"- {item}" for item in direction["implementation_guidance"]], ""])
+        lines.extend(["### Acceptance and drift checks", "", *[f"- {item}" for item in direction["validation_criteria"]], ""])
+        lines.extend(["### Prohibited patterns", "", *[f"- {item}" for item in direction["prohibited_patterns"]], ""])
+        lines.extend(["### Bounded variation", "", *[f"- {item}" for item in direction["variation_levers"]], ""])
+        lines.extend(["### Tradeoffs", "", *[f"- {item}" for item in direction["tradeoffs"]], ""])
     for heading, key in (
         ("Working assumptions", "working_assumptions"),
         ("Constraints", "constraints"),
         ("Behavior to preserve", "preserve"),
+        ("Non-goals", "non_goals"),
         ("Open questions", "open_questions"),
     ):
         values = draft_record[key]
@@ -741,7 +829,16 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
     approval = {"schema_version": 1, "design_id": design_id, "revision": revision, "design_hash": actual_hash, "approved_by": approved_by, "approved_at": _now(), "authorization_text": authorization_text, "execution_authorized": False}
     _write_json(design_dir / "approval.json", approval)
     shared = {key: approval[key] for key in ("schema_version", "design_id", "revision", "design_hash", "approved_by", "approved_at", "execution_authorized")}
-    shared.update({"status": "approved", "document_path": "docs/design/design.md", "catalog_packs": record["catalog_packs"]})
+    selected = [item for item in record["directions"] if item["direction_id"] in record["selected_direction_ids"]]
+    alignment_contract = {
+        "selected_direction_ids": record["selected_direction_ids"],
+        "preserve": record["preserve"],
+        "non_goals": record["non_goals"],
+        "implementation_guidance": [rule for direction in selected for rule in direction["implementation_guidance"]],
+        "validation_criteria": [rule for direction in selected for rule in direction["validation_criteria"]],
+        "prohibited_patterns": [rule for direction in selected for rule in direction["prohibited_patterns"]],
+    }
+    shared.update({"status": "approved", "document_path": "docs/design/design.md", "catalog_packs": record["catalog_packs"], "alignment_contract": alignment_contract})
     _write_json(root / ".continuity" / "design.json", shared)
     record["status"] = "approved"
     _write_json(design_dir / "draft.json", record)
@@ -781,4 +878,4 @@ def bind_approved(root: Path, config: dict[str, Any], design_ids: list[str]) -> 
     document = root / record["document_path"]
     if not document.is_file() or hashlib.sha256(document.read_bytes()).hexdigest() != record["design_hash"]:
         raise DesignError("Approved design document does not match its recorded hash")
-    return [{"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"]}]
+    return [{"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"], "alignment_contract": record.get("alignment_contract", {})}]

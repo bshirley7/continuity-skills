@@ -30,13 +30,13 @@ Verify the isolated worktree, integration branch and remote base, scope, current
 
 ## Responsible execution stages
 
-1. Implement only approved scope using project architecture and developer best practices.
+1. Implement only approved scope using project architecture and developer best practices. When the goal binds an approved design, verify its exact hash before editing and use its preservation rules, visual and interaction grammar, component direction, prohibited patterns, and drift checks as implementation constraints. Do not invent a new design direction inside execution.
    Follow the approved delivery frontier: start only slices whose blockers are complete, and never interpret an unresolved decision-map item as implementation discretion.
 2. Add focused tests and keep types, interfaces, migrations, compatibility, accessibility, performance, and privacy correct as applicable.
 3. Record alignment checkpoints after major phases. Route discoveries into feedback or new candidates.
 4. Run candidate tests while implementation is still changing; fix findings and rerun focused checks.
 5. Update approved documentation, roadmap, project memory, and the six execution evidence artifacts. Audit for drift and contradictions.
-6. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, and exclusions. Scan product artifacts to prove the roadmap sidecar remains excluded.
+6. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, exclusions, and any bound design document. Record which design rules were implemented, preserved, intentionally not applicable, or require an approved design revision. Scan product artifacts to prove the roadmap sidecar remains excluded.
 7. Commit every implementation and evidence artifact. The worktree must be clean before final evidence is enrolled.
 8. Apply `$continuity-test` for the final source-bound test run and evidence record. Any tracked or untracked change, commit, branch change, plan change, behavior change, or configured-command change makes it stale.
 9. Push the exact tested commit and create or update the draft PR.
