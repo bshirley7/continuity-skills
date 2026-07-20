@@ -286,6 +286,13 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("section-flow-bulk-operations", packs)
         self.assertEqual(packs[packs.index("section-flow-bulk-operations") - 1], "design-sections-flows")
 
+    def test_reviewed_activity_audit_history_overlay_is_bound(self):
+        value = input_value(sections=["activity-audit-history"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-activity-audit-history", packs)
+        self.assertEqual(packs[packs.index("section-flow-activity-audit-history") - 1], "design-sections-flows")
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))

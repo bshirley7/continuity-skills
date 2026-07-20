@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.75.0",
+  "catalog_version": "1.76.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls", "authentication-recovery", "data-portability", "bulk-operations", "activity-audit-history"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -1680,6 +1680,21 @@
       ],
       "pack_id": "section-flow-bulk-operations",
       "reference": "section-flow-bulk-operations.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["workspace activity feeds", "project and object activity", "administrative audit logs", "security and compliance event logs", "document version history", "record change history", "revision comparison", "restore and recovery"],
+      "axis": "section-flow",
+      "categories": ["activity-audit-history"],
+      "evidence_sufficiency": {"industry_count": 10, "product_count": 11, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Choose the history model before choosing the layout: collaborative activity should optimize orientation and follow-up, administrative audit logs should optimize exact evidence and filtering, and object version history should optimize comparison and recovery.",
+        "Keep history connected to present context through stable object identity, deep links, previews, current-state labels, and explicit before-and-after or selected-revision comparison; never imply that an event log is itself the current state."
+      ],
+      "pack_id": "section-flow-activity-audit-history",
+      "reference": "section-flow-activity-audit-history.md",
       "role": "category",
       "version": "1.0.0"
     }

@@ -17,3 +17,4 @@
 - **Authentication and account recovery:** distinguish identity, sign-in method, verification factor, recovery channel, trusted device, session, and provider while preserving secure fallbacks and explicit post-recovery state.
 - **Data portability:** expose source, destination, scope, format, access, transformation, mapping, overwrite behavior, durable progress, partial results, correction, rollback, and retained-data state.
 - **Bulk operations:** keep exact selection scope, change semantics, dependencies, permanence, durable execution state, partial results, recovery, actor, time, and history inspectable.
+- **Activity, audit, and version history:** choose explicitly between collaborative orientation, administrative evidence, and object comparison; preserve actor, action, object, scope, outcome, exact time, present-state context, investigation filters, and safe recovery.
