@@ -26,3 +26,4 @@
 - **Behavioral psychology:** Is the selected principle a falsifiable, context-bound hypothesis that preserves accurate understanding, autonomy, accessibility, refusal, correction, exit, recovery, and delayed-outcome evaluation?
 - **Decision architecture:** Are material facts visible before commitment, alternatives comparably understandable, and review, refusal, correction, withdrawal, and recovery available without manufactured friction?
 - **Cognitive load and progressive learning:** Is avoidable burden removed without hiding material information, memory externalized, guidance tied to real outcomes, and later independent use evaluated?
+- **Behavioral ethics:** Does the complete intervention preserve autonomy, welfare, fairness, transparency, and durable control across repeated exposure, affected groups, safeguards, and enforceable stop conditions?

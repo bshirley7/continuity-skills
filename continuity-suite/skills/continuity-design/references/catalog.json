@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.70.0",
+  "catalog_version": "1.71.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -851,7 +851,7 @@
       "axis": "lens",
       "role": "foundation",
       "reference": "ux-lenses.md",
-      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning"],
+      "categories": ["hierarchy", "comprehension", "usability", "accessibility", "trust", "interaction", "responsiveness", "content", "differentiation", "design-tokens", "typography", "color", "component-architecture", "theming", "system-governance", "adaptive-layout", "motion-feedback", "direct-manipulation", "keyboard-expert-workflows", "interface-language", "accessibility-language", "localization-content", "design-evaluation", "behavioral-psychology", "decision-architecture", "cognitive-load-learning", "behavioral-ethics"],
       "applicability": ["all supported design reviews and directions"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Review hierarchy, comprehension, accessibility, trust, content, and differentiation in the target modality."]
@@ -1574,6 +1574,22 @@
       ],
       "pack_id": "lens-cognitive-load-learning",
       "reference": "lens-cognitive-load-learning.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["behavioral prompts and nudges", "conversion and retention", "consent and privacy", "financial and health decisions", "personalization", "children and vulnerable users", "defaults and recommendations", "experimentation and optimization"],
+      "axis": "lens",
+      "categories": ["behavioral-ethics"],
+      "evidence_kind": "literature",
+      "evidence_sufficiency": {"sample_count": 15, "publisher_count": 6, "evidence_family_count": 15},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Before designing a behavioral intervention, state the user outcome, behavioral mechanism, organizational incentive, expected benefit, plausible harm, affected groups, counter-hypothesis, and stop condition; an uplift target alone is not an ethical rationale.",
+        "Measure user welfare alongside business outcomes through comprehension, voluntary refusal, correction, delayed regret, complaint, trust, task value, distributional effects, and durable control; conversion, engagement, completion, or consent rate cannot establish benefit by themselves."
+      ],
+      "pack_id": "lens-behavioral-ethics",
+      "reference": "lens-behavioral-ethics.md",
       "role": "category",
       "version": "1.0.0"
     },
