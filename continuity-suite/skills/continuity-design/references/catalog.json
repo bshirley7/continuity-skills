@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.69.0",
+  "catalog_version": "1.70.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -329,7 +329,7 @@
       "axis": "section-flow",
       "role": "foundation",
       "reference": "sections-and-flows.md",
-      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery"],
+      "categories": ["marketing", "conversion", "onboarding", "navigation", "dashboards", "discovery", "creation", "collaboration", "settings", "permissions", "checkout", "empty-error-states", "retention", "corporate-website", "high-consequence-decisions", "reminders-reengagement", "contextual-learning", "contextual-help-recovery", "consent-privacy-controls"],
       "applicability": ["all supported sections and multi-step flows"],
       "modalities": {"ui": "validated", "document": "inferred", "image": "inferred"},
       "modality_independent_principles": ["Sequence information around orientation, decision, consequence, and recovery."]
@@ -1589,6 +1589,21 @@
       ],
       "pack_id": "section-flow-contextual-help-recovery",
       "reference": "section-flow-contextual-help-recovery.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["initial consent", "privacy settings", "tracking and personalization", "sensitive-data access", "partner sharing", "support access", "data export and deletion", "consent withdrawal"],
+      "axis": "section-flow",
+      "categories": ["consent-privacy-controls"],
+      "evidence_sufficiency": {"industry_count": 12, "product_count": 15, "sample_count": 16},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Separate consent by specific purpose, data category, recipient, duration, and consequence; distinguish required processing from optional personalization, advertising, improvement, sharing, and support access.",
+        "Make consent durable and revisitable through visible current state, later settings, withdrawal, export, deletion, saved confirmation, and any processing or data that necessarily remains after a request."
+      ],
+      "pack_id": "section-flow-consent-privacy-controls",
+      "reference": "section-flow-consent-privacy-controls.md",
       "role": "category",
       "version": "1.0.0"
     }

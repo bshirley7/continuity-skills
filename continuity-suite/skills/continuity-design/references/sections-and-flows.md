@@ -13,3 +13,4 @@
 - **Reminders and re-engagement:** connect interruption to a recognizable goal or changed state; expose purpose, channel, timing, pause, reschedule, disable, and honest progress.
 - **Contextual learning:** teach meaningful outcomes in the working context; distinguish required, optional, blocked, skipped, and completed learning while preserving rediscovery.
 - **Contextual help and recovery:** keep affected work visible, explain verified state, match recovery to operation safety, and escalate with scoped diagnostic context.
+- **Consent and privacy controls:** separate purpose, data, recipient, duration, required processing, optional use, withdrawal, export, deletion, and delegated access into durable, revisitable choices.
