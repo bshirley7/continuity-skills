@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.71.0",
+  "catalog_version": "1.72.0",
   "packs": [
     {
       "pack_id": "design-industries",
@@ -1620,6 +1620,21 @@
       ],
       "pack_id": "section-flow-consent-privacy-controls",
       "reference": "section-flow-consent-privacy-controls.md",
+      "role": "category",
+      "version": "1.0.0"
+    },
+    {
+      "applicability": ["saved progress and return", "paused work and resumption", "subscription and membership management", "trial conversion and renewal", "plan change and downgrade", "cancellation and access end", "reactivation and win-back", "usage and ongoing value"],
+      "axis": "section-flow",
+      "categories": ["retention"],
+      "evidence_sufficiency": {"industry_count": 9, "product_count": 12, "sample_count": 12},
+      "modalities": {"document": "inferred", "image": "inferred", "ui": "validated"},
+      "modality_independent_principles": [
+        "Make ongoing value inspectable through the user's own durable state: current plan or program, saved work, progress, usage, benefits already received, next meaningful action, and the future state that continuation enables; do not substitute generic promotion for earned continuity.",
+        "Treat return and resumption as restoration rather than restart: preserve object identity, prior choices, completion state, next step, remaining effort, paused or expired status, and a low-friction route back into meaningful work."
+      ],
+      "pack_id": "section-flow-retention",
+      "reference": "section-flow-retention.md",
       "role": "category",
       "version": "1.0.0"
     }
