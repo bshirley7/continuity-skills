@@ -221,6 +221,16 @@ class DesignLifecycleTests(unittest.TestCase):
             "design-sections-flows",
         )
 
+    def test_reviewed_reminders_reengagement_overlay_is_bound(self):
+        value = input_value(sections=["reminders-reengagement"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("section-flow-reminders-reengagement", packs)
+        self.assertEqual(
+            packs[packs.index("section-flow-reminders-reengagement") - 1],
+            "design-sections-flows",
+        )
+
     def test_reviewed_empty_error_states_overlay_is_bound(self):
         value = input_value(sections=["empty-error-states"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
@@ -466,6 +476,13 @@ class DesignLifecycleTests(unittest.TestCase):
         packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
         self.assertIn("lens-behavioral-psychology", packs)
         self.assertEqual(packs[packs.index("lens-behavioral-psychology") - 1], "design-ux-lenses")
+
+    def test_reviewed_decision_architecture_overlay_is_bound(self):
+        value = input_value(lenses=["decision-architecture"])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
+        self.assertIn("lens-decision-architecture", packs)
+        self.assertEqual(packs[packs.index("lens-decision-architecture") - 1], "design-ux-lenses")
 
     def test_catalog_rejects_competing_category_overlays(self):
         with tempfile.TemporaryDirectory() as tmp:

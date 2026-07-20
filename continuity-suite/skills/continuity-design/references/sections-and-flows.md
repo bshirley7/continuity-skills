@@ -10,3 +10,4 @@
 - **Retention:** create return value through continuity and progress, never through concealed cancellation or artificial urgency.
 - **Corporate website:** establish a stable institutional hierarchy across primary business, stakeholder, regional, and governed disclosure routes.
 - **High-consequence decisions:** place current state, affected scope, material consequences, exact commitment, proportional confirmation, and recovery in one inspectable flow.
+- **Reminders and re-engagement:** connect interruption to a recognizable goal or changed state; expose purpose, channel, timing, pause, reschedule, disable, and honest progress.

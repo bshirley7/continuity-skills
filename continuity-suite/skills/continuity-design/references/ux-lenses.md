@@ -24,3 +24,4 @@
 - **Localization and content resilience:** Do language, region, formats, international identity, translation coverage, bidirectional flow, and culturally dependent meaning remain explicit and robust?
 - **Design evaluation:** Is review tied to an exact artifact, task, criterion, evidence type, severity rationale, controlled comparison, verification method, and revision-bound decision?
 - **Behavioral psychology:** Is the selected principle a falsifiable, context-bound hypothesis that preserves accurate understanding, autonomy, accessibility, refusal, correction, exit, recovery, and delayed-outcome evaluation?
+- **Decision architecture:** Are material facts visible before commitment, alternatives comparably understandable, and review, refusal, correction, withdrawal, and recovery available without manufactured friction?
