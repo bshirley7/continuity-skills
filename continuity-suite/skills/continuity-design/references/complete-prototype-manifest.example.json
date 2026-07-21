@@ -25,9 +25,20 @@
   "design_claims": [
     {"design_section": "Component capability map", "claim": "Installed primitives support behavior while project-specific composition carries the identity", "coverage": "demonstrated", "evidence_refs": [".continuity/private/designs/design-example/1/prototype/index.html#primary-surface"], "insight_ids": []}
   ],
+  "content_claims": [
+    {"claim": "Representative prototype content", "presentation": "illustrative", "provenance_ids": ["example-content"], "evidence_refs": [".continuity/private/designs/design-example/1/prototype/index.html#primary-surface"], "visible_qualification": "Illustrative fixture"}
+  ],
+  "asset_resolutions": [
+    {"asset_id": "primary-visual", "status": "resolved", "evidence_refs": [".continuity/private/designs/design-example/1/captures/desktop.png"]}
+  ],
   "validation_results": [
     {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Desktop, tablet, and mobile browser probes passed"},
-    {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "No required control is obscured at any required viewport"}
+    {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "No required control is obscured at any required viewport"},
+    {"scenario": "color-contrast", "status": "passed", "evidence": "Text, controls, states, and focus indicators meet the project contrast floor"},
+    {"scenario": "accessible-names", "status": "passed", "evidence": "Every interactive control has an inspected accessible name"},
+    {"scenario": "semantic-controls", "status": "passed", "evidence": "Controls, labels, landmarks, headings, and announcements use target-native semantics"},
+    {"scenario": "reduced-motion", "status": "passed", "evidence": "Reduced motion preserves meaning and completion"},
+    {"scenario": "intermediate-viewport", "status": "passed", "evidence": "An intermediate-width capture has no collision, clipping, or hierarchy failure"}
   ],
   "craft_findings": [
     {"rule_id": "body-measure", "severity": "warning", "status": "resolved", "artifact_ref": ".continuity/private/designs/design-example/1/captures/desktop.png", "location": "#primary-surface .summary", "evidence": "The first render exceeded the intended reading measure.", "response": "Applied the approved body-measure token and recaptured the viewport.", "override_rationale": ""}

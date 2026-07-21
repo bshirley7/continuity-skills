@@ -146,6 +146,12 @@
           "strategy": {"enum": ["reuse", "compose", "extend", "custom", "missing-capability"]},
           "components": {"type": "array", "items": {"type": "string", "minLength": 1}},
           "required_states": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "state_owner": {"type": "string"},
+          "composition_boundary": {"type": "string"},
+          "state_interface": {"type": "string"},
+          "variants": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "invalid_combinations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "extension_points": {"type": "array", "items": {"type": "string", "minLength": 1}},
           "responsive_behavior": {"type": "string", "minLength": 1},
           "accessibility_contract": {"type": "string", "minLength": 1},
           "custom_expression": {"type": "string", "minLength": 1}

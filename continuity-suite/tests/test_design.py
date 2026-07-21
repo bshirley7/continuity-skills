@@ -535,9 +535,21 @@ class DesignLifecycleTests(unittest.TestCase):
                 "surface": "Decision review", "existing_capability": "Radix Dialog and project Button",
                 "strategy": "compose", "components": ["Dialog", "Button"],
                 "required_states": ["default", "loading", "error", "recovery", "complete"],
+                "state_owner": "DecisionReviewProvider owns asynchronous review state and recovery.",
+                "composition_boundary": "DecisionReview composes Evidence, Status, and Actions through shared context.",
+                "state_interface": "Expose state, actions, and metadata without binding presentation to the data client.",
+                "variants": ["DecisionReview.Default", "DecisionReview.Loading", "DecisionReview.Error", "DecisionReview.Complete"],
+                "invalid_combinations": ["Complete and loading cannot be active together."],
+                "extension_points": ["Evidence panel", "Policy explanation"],
                 "responsive_behavior": "Two-column review becomes a linear evidence-first sequence.",
                 "accessibility_contract": "Focus, status, and consequence remain programmatically available.",
                 "custom_expression": "A project-specific evidence margin carries the identity.",
+            }],
+            content_provenance=[{
+                "content_id": "fixture-decision", "classification": "illustrative",
+                "statement": "The representative decision content is invented for design validation.",
+                "source_refs": [], "required_qualification": "Illustrative fixture",
+                "allowed_uses": ["Private prototype validation"],
             }],
             asset_strategy=[{
                 "asset_id": "evidence-material", "purpose": "Ground the review in recognizable project evidence.",
@@ -575,7 +587,7 @@ class DesignLifecycleTests(unittest.TestCase):
             f'<meta name="continuity-design-hash" content="{selected["design_hash"]}">'
             '<meta name="continuity-prototype-maturity" content="implementation-facing">'
             '<meta name="continuity-fixture-data" content="present-labeled">'
-            '</head><body><main id="primary-surface">Decision review</main></body></html>', encoding="utf-8",
+            '</head><body><main id="primary-surface">Illustrative fixture — Decision review</main></body></html>', encoding="utf-8",
         )
         files = [{"path": ".continuity/private/designs/complete-react/1/index.html", "media_type": "text/html", "role": "prototype", "sha256": design.hashlib.sha256(html.read_bytes()).hexdigest()}]
         for name, width in (("desktop", 1440), ("tablet", 768), ("mobile", 390)):
@@ -593,20 +605,72 @@ class DesignLifecycleTests(unittest.TestCase):
             "demonstrated_states": ["default", "loading", "error", "recovery", "complete"],
             "omitted_surfaces": [], "omitted_states": [],
             "design_claims": [{"design_section": "Component capability map", "claim": "Decision surface is demonstrated", "coverage": "demonstrated", "evidence_refs": [".continuity/private/designs/complete-react/1/index.html#primary-surface"], "insight_ids": []}],
+            "content_claims": [{"claim": "Representative decision content", "presentation": "illustrative", "provenance_ids": ["fixture-decision"], "evidence_refs": [".continuity/private/designs/complete-react/1/index.html#primary-surface"], "visible_qualification": "Illustrative fixture"}],
+            "asset_resolutions": [{"asset_id": "evidence-material", "status": "deliberately-omitted", "evidence_refs": []}],
             "validation_results": [
-                {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed."},
-                {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Viewport captures inspected."},
+                {"scenario": scenario, "status": "passed", "evidence": "Required artifact quality evidence passed."}
+                for scenario in sorted(design.WEB_ARTIFACT_QUALITY_SCENARIOS)
             ], "execution_authorized": False,
         }
         manifest_path = self.write_input(manifest)
         result = design.validate_candidate_artifact(self.root, self.config, manifest_path)
         self.assertTrue(result["candidate"])
         self.assertTrue(result["implementation_ready"])
+        baseline = json.loads(json.dumps(manifest))
+        manifest["validation_results"] = [
+            item for item in manifest["validation_results"] if item["scenario"] != "color-contrast"
+        ]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "lack quality results"):
+            design.validate_candidate_artifact(self.root, self.config, manifest_path)
+        manifest = json.loads(json.dumps(baseline))
+        for item in manifest["validation_results"]:
+            if item["scenario"] == "intermediate-viewport":
+                item.update({"status": "failed", "evidence": "Mobile action collides with the signature carrier."})
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "artifact validation has failures"):
+            design.validate_candidate_artifact(self.root, self.config, manifest_path)
+        manifest = json.loads(json.dumps(baseline))
+        manifest["content_claims"][0]["visible_qualification"] = "Qualification absent from the artifact"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "qualification is not visible"):
+            design.validate_candidate_artifact(self.root, self.config, manifest_path)
+        manifest = json.loads(json.dumps(baseline))
+        manifest["asset_resolutions"][0]["status"] = "blocked"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "cannot retain blocked assets"):
+            design.validate_candidate_artifact(self.root, self.config, manifest_path)
+        manifest_path.write_text(json.dumps(baseline), encoding="utf-8")
         markdown = (self.root / ".continuity/private/design/complete-react/design.md").read_text()
         self.assertIn("## React and implementation system", markdown)
         self.assertIn("### Component capability map", markdown)
         self.assertIn("## Asset strategy", markdown)
         self.assertIn("## Prototype completion contract", markdown)
+        self.assertIn("### React composition contracts", markdown)
+
+    def test_complete_react_contract_requires_composition_ownership(self):
+        value = input_value(
+            design_id="missing-composition-contract",
+            implementation_context={
+                "framework": "Next.js", "react_version": "19", "evidence_refs": ["package.json"],
+            },
+            component_map=[{
+                "component_id": "review", "experience_need": "Review", "surface": "Review",
+                "strategy": "custom", "components": [], "required_states": ["default"],
+                "responsive_behavior": "Reflows", "accessibility_contract": "Keyboard operable",
+                "custom_expression": "Evidence rail",
+            }],
+            asset_strategy=[{
+                "asset_id": "none", "purpose": "Record omission", "source": "deliberately-omitted",
+                "art_direction": "No asset", "provenance_status": "Deliberately omitted", "source_refs": [],
+                "required_crops": [], "responsive_treatment": "Not applicable",
+                "accessibility_alternative": "No visual content", "fallback": "No asset",
+                "claim_boundary": "No visual claim",
+            }],
+            completion_contract={"mode": "complete-prototype", "required_viewports": ["desktop", "tablet", "mobile"], "required_states": ["default"], "content_status": "representative", "artifact_critique_required": True},
+        )
+        with self.assertRaisesRegex(design.DesignError, "requires composition ownership"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
 
     def test_non_ui_targets_require_only_meaningful_grammar_dimensions(self):
         document = design.draft(

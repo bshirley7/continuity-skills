@@ -18,6 +18,10 @@ Treat responsiveness as recomposition rather than uniform shrinking. For every p
 
 Keep the target-native source editable and conventional for the project. Use semantic landmarks, headings, lists, labels, and controls. Avoid unnecessary wrappers, editor scaffolding, gratuitous runtime, accumulated CSS overrides, and library-default styling presented as finished identity. Screenshots are evidence; the target-native source and approved `design.md` remain authoritative.
 
+## Composition contract
+
+For each material React surface, name the state owner, composition boundary, state/actions/metadata interface, explicit variants, invalid combinations, and intended extension points. Prefer composition over accumulating boolean switches. Use compound composition when coordinated subparts share state and explicit variants when structure or behavior differs materially. Keep state ownership independent of presentation so the direction can survive a library or data-layer change. Apply version-specific APIs only after inspecting the installed React version.
+
 ## Change impact
 
 Before revising a shared token, component recipe, carrier rule, or responsive transformation, identify affected surfaces and states, favorable behavior at risk, required migration or fallback, and evidence that must be recaptured. A design revision creates new planning evidence; it does not silently change an approved implementation goal.

@@ -43,6 +43,11 @@ CONSEQUENCE_LEVELS = {"routine", "moderate", "high"}
 INSIGHT_DECISION_STATUSES = {"decided", "provisional", "omitted"}
 ARTIFACT_MATURITY = {"directional", "behavioral", "implementation-facing"}
 COMPONENT_STRATEGIES = {"reuse", "compose", "extend", "custom", "missing-capability"}
+WEB_ARTIFACT_QUALITY_SCENARIOS = {
+    "horizontal-overflow", "sticky-action-obstruction", "color-contrast",
+    "accessible-names", "semantic-controls", "reduced-motion", "intermediate-viewport",
+}
+ASSET_RESOLUTION_STATUSES = {"resolved", "deliberately-omitted", "blocked"}
 ASSET_SOURCES = {"existing", "supplied", "generated", "derived", "deliberately-omitted"}
 ARTIFACT_MEDIA_TYPES = {
     "text/html", "image/png", "text/css", "text/javascript", "application/javascript",
@@ -832,6 +837,14 @@ def _validate_component_map(value: Any) -> list[dict[str, Any]]:
         normalized["existing_capability"] = str(item.get("existing_capability", "")).strip()
         normalized["components"] = _string_list(item.get("components"), f"component {component_id} components")
         normalized["required_states"] = _string_list(item.get("required_states"), f"component {component_id} required_states", required=True)
+        normalized["variants"] = _string_list(item.get("variants"), f"component {component_id} variants")
+        normalized["invalid_combinations"] = _string_list(item.get("invalid_combinations"), f"component {component_id} invalid_combinations")
+        normalized["extension_points"] = _string_list(item.get("extension_points"), f"component {component_id} extension_points")
+        for key in ("state_owner", "composition_boundary", "state_interface"):
+            text = item.get(key, "")
+            if not isinstance(text, str):
+                raise DesignError(f"Component {component_id} has invalid {key}")
+            normalized[key] = text.strip()
         if normalized["strategy"] in {"reuse", "compose", "extend"} and not normalized["components"]:
             raise DesignError(f"Component {component_id} strategy {normalized['strategy']} requires existing components")
         result.append(normalized)
@@ -1553,6 +1566,11 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     if payload["completion_contract"] and payload["completion_contract"]["mode"] == "complete-prototype" and "ui" in payload["targets"]:
         if not payload["implementation_context"] or not payload["component_map"] or not payload["asset_strategy"]:
             raise DesignError("Complete UI prototypes require implementation_context, component_map, and asset_strategy")
+        if payload["implementation_context"].get("react_version"):
+            for component in payload["component_map"]:
+                missing = [key for key in ("state_owner", "composition_boundary", "state_interface") if not component[key]]
+                if missing or not component["variants"]:
+                    raise DesignError(f"Complete React component {component['component_id']} requires composition ownership, a state interface, and explicit variants")
     for key in ("sections", "themes", "message_structures"):
         payload[key] = _validate_strings(payload, key)
     if manual_lenses:
@@ -2001,6 +2019,18 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
                 capability = item["existing_capability"] or ", ".join(item["components"]) or "No existing capability"
                 lines.append(f"| {item['experience_need']} | {item['surface']} | `{item['strategy']}` | {capability} | {', '.join(item['required_states'])} | {item['custom_expression']} |")
             lines.append("")
+            if any(item.get("state_owner") for item in draft_record["component_map"]):
+                lines.extend(["### React composition contracts", ""])
+                for item in draft_record["component_map"]:
+                    lines.extend([
+                        f"#### {item['component_id']}", "",
+                        f"- **State owner:** {item['state_owner'] or 'Not recorded'}",
+                        f"- **Composition boundary:** {item['composition_boundary'] or 'Not recorded'}",
+                        f"- **State interface:** {item['state_interface'] or 'Not recorded'}",
+                        f"- **Explicit variants:** {', '.join(item['variants']) or 'None recorded'}",
+                        f"- **Invalid combinations:** {'; '.join(item['invalid_combinations']) or 'None recorded'}",
+                        f"- **Extension points:** {', '.join(item['extension_points']) or 'None recorded'}", "",
+                    ])
         if draft_record.get("asset_strategy"):
             lines.extend(["## Asset strategy", ""])
             for item in draft_record["asset_strategy"]:
@@ -2300,6 +2330,41 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
     }
     if demonstrated_insights - decided_insights:
         raise DesignError("Artifact claims reference unknown decided insight IDs")
+    content_claims = manifest.get("content_claims", [])
+    if not isinstance(content_claims, list):
+        raise DesignError("Artifact content_claims must be an array")
+    provenance = {
+        item.get("content_id"): item
+        for item in approved.get("alignment_contract", {}).get("content_provenance", [])
+        if isinstance(item, dict)
+    }
+    for claim in content_claims:
+        if not isinstance(claim, dict) or not isinstance(claim.get("claim"), str) or not claim["claim"].strip():
+            raise DesignError("Artifact content claim is invalid")
+        provenance_ids = _string_list(claim.get("provenance_ids"), "artifact content claim provenance_ids", required=True)
+        evidence_refs = _string_list(claim.get("evidence_refs"), "artifact content claim evidence_refs", required=True)
+        qualification = claim.get("visible_qualification", "")
+        if not isinstance(qualification, str):
+            raise DesignError("Artifact content claim visible_qualification must be text")
+        if set(provenance_ids) - set(provenance):
+            raise DesignError("Artifact content claim references unknown provenance IDs")
+        for reference in evidence_refs:
+            file_ref = reference.split("#", 1)[0]
+            if file_ref not in file_paths:
+                raise DesignError("Artifact content claim evidence must reference a bound artifact file")
+        classifications = {provenance[item]["classification"] for item in provenance_ids}
+        if classifications & {"illustrative", "inferred"} and not qualification.strip():
+            raise DesignError("Illustrative or inferred artifact claims require a visible qualification")
+        if qualification.strip():
+            html_evidence = [
+                html_texts[file_ref]
+                for file_ref in {ref.split("#", 1)[0] for ref in evidence_refs}
+                if file_ref in html_texts
+            ]
+            if html_evidence and not any(qualification.strip() in text for text in html_evidence):
+                raise DesignError("Artifact content claim qualification is not visible in its HTML evidence")
+        if claim.get("presentation") == "verified" and classifications != {"inspected"}:
+            raise DesignError("Verified artifact claims require inspected content provenance")
     missing_decided_insights = sorted(decided_insights - demonstrated_insights)
     demonstrated_audiences = manifest.get("demonstrated_audiences", [])
     if not isinstance(demonstrated_audiences, list) or any(not isinstance(item, str) or not item.strip() for item in demonstrated_audiences):
@@ -2344,6 +2409,53 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
             expected = hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
             if manifest.get(field) != expected:
                 raise DesignError(f"Artifact manifest {field} does not match the design contract")
+        if maturity == "implementation-facing" and html_texts:
+            missing_quality = WEB_ARTIFACT_QUALITY_SCENARIOS - set(validation_by_scenario)
+            failed_quality = sorted(
+                scenario for scenario in WEB_ARTIFACT_QUALITY_SCENARIOS
+                if validation_by_scenario.get(scenario, {}).get("status") != "passed"
+            )
+            if missing_quality:
+                raise DesignError(f"Implementation-facing web artifacts lack quality results: {sorted(missing_quality)}")
+            if failed_quality:
+                raise DesignError(f"Implementation-facing web artifact quality checks did not pass: {failed_quality}")
+        if maturity == "implementation-facing" and fixture_data != "none" and not content_claims:
+            raise DesignError("Implementation-facing fixture content requires artifact content claims bound to provenance")
+        required_states = {
+            state
+            for component in contract.get("component_map", [])
+            for state in component.get("required_states", [])
+        }
+        missing_component_states = sorted(required_states - set(manifest.get("demonstrated_states", [])))
+        if maturity == "implementation-facing" and missing_component_states:
+            raise DesignError(f"Artifact is missing required component states: {missing_component_states}")
+        asset_resolutions = manifest.get("asset_resolutions", [])
+        if not isinstance(asset_resolutions, list):
+            raise DesignError("Artifact asset_resolutions must be an array")
+        resolution_by_id: dict[str, dict[str, Any]] = {}
+        for item in asset_resolutions:
+            if not isinstance(item, dict) or item.get("status") not in ASSET_RESOLUTION_STATUSES:
+                raise DesignError("Artifact asset resolution is invalid")
+            asset_id = _identifier(str(item.get("asset_id", "")), "asset resolution ID")
+            evidence_refs = _string_list(item.get("evidence_refs"), f"asset resolution {asset_id} evidence_refs")
+            if asset_id in resolution_by_id:
+                raise DesignError("Artifact asset resolution IDs must be unique")
+            for reference in evidence_refs:
+                if reference.split("#", 1)[0] not in file_paths:
+                    raise DesignError("Asset resolution evidence must reference a bound artifact file")
+            if item["status"] == "resolved" and not evidence_refs:
+                raise DesignError(f"Resolved asset {asset_id} requires artifact evidence")
+            resolution_by_id[asset_id] = {"asset_id": asset_id, "status": item["status"], "evidence_refs": evidence_refs}
+        contract_assets = {item.get("asset_id"): item for item in contract.get("asset_strategy", [])}
+        if maturity == "implementation-facing":
+            if set(contract_assets) != set(resolution_by_id):
+                raise DesignError("Implementation-facing artifacts must resolve every design asset")
+            if any(item["status"] == "blocked" for item in resolution_by_id.values()):
+                raise DesignError("Implementation-facing artifacts cannot retain blocked assets")
+            for asset_id, asset in contract_assets.items():
+                expected_status = "deliberately-omitted" if asset.get("source") == "deliberately-omitted" else "resolved"
+                if resolution_by_id[asset_id]["status"] != expected_status:
+                    raise DesignError(f"Artifact asset resolution conflicts with the design strategy: {asset_id}")
         completion = contract.get("completion_contract")
         if maturity == "implementation-facing" and isinstance(completion, dict) and completion.get("artifact_critique_required"):
             if not isinstance(manifest.get("artifact_critique_revision"), int) or manifest["artifact_critique_revision"] < 1:
@@ -2391,6 +2503,7 @@ def validate_candidate_artifact(root: Path, config: dict[str, Any], manifest_pat
         "audience_architecture": draft.get("audience_architecture"),
         "validation_matrix": draft.get("validation_matrix", []),
         "insight_decisions": draft.get("insight_decisions", []),
+        "content_provenance": draft.get("content_provenance", []),
         "implementation_context": draft.get("implementation_context"),
         "component_map": draft.get("component_map", []),
         "asset_strategy": draft.get("asset_strategy", []),

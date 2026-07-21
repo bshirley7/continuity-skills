@@ -28,6 +28,34 @@
       "type": "array",
       "items": {"type": "object", "required": ["design_section", "claim", "coverage", "evidence_refs", "insight_ids"], "properties": {"design_section": {"type": "string", "minLength": 1}, "claim": {"type": "string", "minLength": 1}, "coverage": {"enum": ["demonstrated", "omitted"]}, "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}, "insight_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false}
     },
+    "content_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "presentation", "provenance_ids", "evidence_refs", "visible_qualification"],
+        "properties": {
+          "claim": {"type": "string", "minLength": 1},
+          "presentation": {"enum": ["verified", "qualified", "illustrative"]},
+          "provenance_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "evidence_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "visible_qualification": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "asset_resolutions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["asset_id", "status", "evidence_refs"],
+        "properties": {
+          "asset_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "status": {"enum": ["resolved", "deliberately-omitted", "blocked"]},
+          "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    },
     "validation_results": {
       "type": "array",
       "items": {"type": "object", "required": ["scenario", "status", "evidence"], "properties": {"scenario": {"type": "string", "minLength": 1}, "status": {"enum": ["passed", "failed", "not-applicable"]}, "evidence": {"type": "string", "minLength": 1}}, "additionalProperties": false}
