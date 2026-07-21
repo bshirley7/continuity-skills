@@ -52,6 +52,21 @@ No risk is a valid outcome only when restraint itself is a project-specific prop
 
 Allocate an explicit expression budget. Choose exactly one signature dimension from composition, typography, color, motion, imagery, surface and depth, or voice. Supporting dimensions may be present, but keep at least two dimensions quiet. State the field that stays calm, the boundary containing the expressive move, and the order in which treatments should be removed when the artifact becomes noisy.
 
+## 3a. Build a durable brand signature
+
+Translate the signature element into a system that can generate more than one composition. Record:
+
+- an identity premise describing the recognizable design behavior;
+- a primary carrier with its role, construction rule, and quiet variant;
+- recurring carriers for routine content and interaction;
+- utility, quiet, and campaign modes;
+- subject-derived semantic tokens whose rules encode meaning rather than decoration;
+- a transformation matrix mapping important contexts to local expression weights and carrier behavior;
+- prohibited substitutions that prevent library or category defaults from becoming the identity;
+- recognition tests that remove the logo, primary color, imagery, or motion and test a family of surfaces.
+
+Do not require identical styling across contexts. Preserve identity through relationships, roles, language, and behavior. A marketing page may expand the carrier while a financial confirmation, permission boundary, dense workspace, error, or recovery state uses its quiet variant. A signature that works only in one hero is art direction, not yet a brand system.
+
 Restraint is relational, not a universal preference for minimalism. A typographic concept may use a forceful display face, but its readable scale, weight, line height, measure, wrapping behavior, available-font fallback, and breakpoint transformation must be specified. A spatial concept must define repeatable spacing relationships and collision behavior rather than accumulating one-off offsets. Only the signature dimension owns the highest intensity.
 
 ## 4. Refine through multiple passes
@@ -64,7 +79,7 @@ Run these passes in order. Infer the relevant review perspectives from the proje
 4. **Contextual review:** inspect the concept through the perspectives that matter for this audience, modality, workflow, accessibility need, and consequence level. For every material perspective, record why it applies, a concrete finding, the design response, favorable behavior preserved, and an observable verification. A generic claim that hierarchy or usability was reviewed is not evidence of completion.
 5. **Restraint edit:** quiet competing dimensions, repair hierarchy and spacing rhythm, and remove treatments that do not reinforce the thesis.
 6. **Responsive transformation:** define how the idea changes across target sizes, states, and modalities instead of merely stacking or shrinking.
-7. **Artifact critique:** inspect representative rendered output and compare it with the contract.
+7. **Artifact critique:** inspect representative rendered output and compare it with the contract. Verify that the signature persists beyond the opening composition, survives a quiet mode, and can generate a family without repeating one layout.
 
 For every pass, record its status, purpose, changes, preserved strengths, and unresolved issues. Complete the first six before presenting a direction for selection. Leave artifact critique pending until target-native output exists. A completed pass must record an outcome, even when the correct outcome is to preserve a decision.
 

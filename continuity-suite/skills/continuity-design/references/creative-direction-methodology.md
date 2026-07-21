@@ -59,6 +59,7 @@ Define for each direction:
 - prohibited patterns and explicit tradeoffs.
 - content rules, audience strategy, and prototype boundaries when applicable.
 - an inferred or user-supplied expression target, a bounded exploration ceiling, and the project evidence that justifies them.
+- a brand-signature system that translates the identity premise into primary, recurring, utility, quiet, and campaign carriers with subject-derived tokens and recognition tests.
 
 For created or materially reshaped work, apply [distinctive expression methodology](distinctive-expression-methodology.md). Carry its creative provenance, subject world, aesthetic thesis, signature element, bounded aesthetic risk, anti-default decisions, concrete expression system, reference compositions, and uniqueness checks into the direction so they survive selection and render into `design.md`.
 

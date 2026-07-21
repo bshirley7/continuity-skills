@@ -897,6 +897,18 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
                 "containment_boundary": "Do not weaken comprehension, accessibility, recovery, or favorable behavior.",
                 "removal_order": ["ornamental effects", "secondary motion", "secondary color"],
             },
+            "brand_signature": {
+                "identity_premise": creative_signature,
+                "primary_carrier": {"role": "Make the direction recognizable.", "rule": creative_signature, "quiet_variant": "Preserve the same relationship with reduced scale and contrast."},
+                "recurring_carriers": [{"carrier_id": "project-language", "role": "Carry identity through routine content.", "rule": "Use subject-specific nouns and actions consistently."}],
+                "utility_expression": "Keep routine controls conventional while preserving the signature relationship in labels, hierarchy, or state treatment.",
+                "quiet_mode": "Reduce intensity on dense, consequential, error, permission, and recovery surfaces without removing identity.",
+                "campaign_mode": "Expand the primary carrier only when the target supports expressive orientation or storytelling.",
+                "subject_tokens": [{"token_id": "signature-rule", "role": "Encode the primary carrier as a reusable semantic rule.", "visual_rule": creative_signature}],
+                "transformation_matrix": [{"context": "routine utility", "target_weight": 0.25, "behavior": "Use the quiet variant and preserve familiar controls."}],
+                "prohibited_substitutions": ["Do not replace the project-specific carrier with a generic category treatment."],
+                "recognition_tests": ["Confirm the design remains recognizable without its logo or primary accent color."],
+            },
             "refinement_passes": [
                 {"pass_id": pass_id, "status": "pending", "purpose": "Legacy direction requires an explicit refinement pass.", "changes": [], "preserved": [], "unresolved": ["Refinement evidence not yet recorded."]}
                 for pass_id in REFINEMENT_PASS_IDS
@@ -992,6 +1004,70 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
     if not isinstance(removal, list) or not removal or any(not isinstance(item, str) or not item.strip() for item in removal):
         raise DesignError("distinctive_expression expression_budget requires removal_order")
     result["expression_budget"]["removal_order"] = list(dict.fromkeys(item.strip() for item in removal))
+    brand = value.get("brand_signature")
+    if brand is None:
+        brand = {
+            "identity_premise": result["aesthetic_thesis"],
+            "primary_carrier": {"role": "Carry the selected direction's identity.", "rule": result["signature_element"], "quiet_variant": "Preserve the same relationship with reduced expressive intensity."},
+            "recurring_carriers": [{"carrier_id": "signature-language", "role": "Repeat the identity in routine surfaces.", "rule": result["signature_element"]}],
+            "utility_expression": "Apply the signature through hierarchy and language without changing conventional control semantics.",
+            "quiet_mode": "Reduce scale, contrast, motion, imagery, and depth while preserving the primary relationship.",
+            "campaign_mode": "Expand the primary carrier within the expression ceiling without introducing a competing signature.",
+            "subject_tokens": [{"token_id": "primary-signature", "role": "Encode the selected signature.", "visual_rule": result["signature_element"]}],
+            "transformation_matrix": [{"context": "routine utility", "target_weight": min(result["expression_budget"]["target_weight"], 0.4), "behavior": "Use the quiet variant and preserve familiar controls."}],
+            "prohibited_substitutions": ["Do not replace the subject-derived signature with an interchangeable library or category default."],
+            "recognition_tests": ["Confirm the artifact remains recognizable without its logo, primary color, imagery, or motion."],
+        }
+    if not isinstance(brand, dict):
+        raise DesignError("distinctive_expression brand_signature must be an object")
+    normalized_brand: dict[str, Any] = {}
+    for key in ("identity_premise", "utility_expression", "quiet_mode", "campaign_mode"):
+        text = brand.get(key)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression brand_signature requires {key}")
+        normalized_brand[key] = text.strip()
+    primary_carrier = brand.get("primary_carrier")
+    if not isinstance(primary_carrier, dict):
+        raise DesignError("distinctive_expression brand_signature requires primary_carrier")
+    normalized_brand["primary_carrier"] = {}
+    for key in ("role", "rule", "quiet_variant"):
+        text = primary_carrier.get(key)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression brand_signature primary_carrier requires {key}")
+        normalized_brand["primary_carrier"][key] = text.strip()
+    for key in ("recurring_carriers", "subject_tokens"):
+        items = brand.get(key)
+        if not isinstance(items, list) or not items or any(not isinstance(item, dict) for item in items):
+            raise DesignError(f"distinctive_expression brand_signature requires {key}")
+        normalized_brand[key] = []
+        id_key = "carrier_id" if key == "recurring_carriers" else "token_id"
+        for item in items:
+            normalized = {id_key: _identifier(str(item.get(id_key, "")), f"brand {id_key}")}
+            for field in ("role", "rule" if key == "recurring_carriers" else "visual_rule"):
+                text = item.get(field)
+                if not isinstance(text, str) or not text.strip():
+                    raise DesignError(f"distinctive_expression brand_signature {key} requires {field}")
+                normalized[field] = text.strip()
+            normalized_brand[key].append(normalized)
+    matrix = brand.get("transformation_matrix")
+    if not isinstance(matrix, list) or not matrix or any(not isinstance(item, dict) for item in matrix):
+        raise DesignError("distinctive_expression brand_signature requires transformation_matrix")
+    normalized_brand["transformation_matrix"] = []
+    for item in matrix:
+        context = item.get("context")
+        behavior = item.get("behavior")
+        weight = item.get("target_weight")
+        if not isinstance(context, str) or not context.strip() or not isinstance(behavior, str) or not behavior.strip():
+            raise DesignError("distinctive_expression brand_signature transformation_matrix requires context and behavior")
+        if not isinstance(weight, (int, float)) or isinstance(weight, bool) or not 0 <= weight <= 1:
+            raise DesignError("distinctive_expression brand_signature transformation weight must be between 0 and 1")
+        normalized_brand["transformation_matrix"].append({"context": context.strip(), "target_weight": float(weight), "behavior": behavior.strip()})
+    for key in ("prohibited_substitutions", "recognition_tests"):
+        items = brand.get(key)
+        if not isinstance(items, list) or not items or any(not isinstance(item, str) or not item.strip() for item in items):
+            raise DesignError(f"distinctive_expression brand_signature requires {key}")
+        normalized_brand[key] = list(dict.fromkeys(item.strip() for item in items))
+    result["brand_signature"] = normalized_brand
     passes = value.get("refinement_passes")
     if not isinstance(passes, list) or [item.get("pass_id") for item in passes if isinstance(item, dict)] != list(REFINEMENT_PASS_IDS):
         raise DesignError("distinctive_expression requires the ordered multi-pass refinement record")
@@ -1523,6 +1599,27 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         ])
         for dimension, rules in expression["expression_system"].items():
             lines.extend([f"#### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in rules], ""])
+        brand = expression["brand_signature"]
+        lines.extend([
+            "### Brand signature system", "",
+            f"**Identity premise:** {brand['identity_premise']}", "",
+            "#### Primary carrier", "",
+            f"- **Role:** {brand['primary_carrier']['role']}",
+            f"- **Rule:** {brand['primary_carrier']['rule']}",
+            f"- **Quiet variant:** {brand['primary_carrier']['quiet_variant']}", "",
+            "#### Carrier modes", "",
+            f"- **Utility expression:** {brand['utility_expression']}",
+            f"- **Quiet mode:** {brand['quiet_mode']}",
+            f"- **Campaign mode:** {brand['campaign_mode']}", "",
+            "#### Recurring carriers", "",
+            *[f"- **{item['carrier_id']}:** {item['role']} Rule: {item['rule']}" for item in brand["recurring_carriers"]], "",
+            "#### Subject-derived tokens", "",
+            *[f"- **{item['token_id']}:** {item['role']} Visual rule: {item['visual_rule']}" for item in brand["subject_tokens"]], "",
+            "#### Expression transformation", "",
+            *[f"- **{item['context']} (`{item['target_weight']:.2f}`):** {item['behavior']}" for item in brand["transformation_matrix"]], "",
+            "#### Prohibited substitutions", "", *[f"- {item}" for item in brand["prohibited_substitutions"]], "",
+            "#### Recognition tests", "", *[f"- {item}" for item in brand["recognition_tests"]], "",
+        ])
         lines.extend(["### Multi-pass refinement", ""])
         for refinement in expression["refinement_passes"]:
             lines.extend([

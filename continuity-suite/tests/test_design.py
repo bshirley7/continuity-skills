@@ -198,6 +198,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "### Expression budget", "### Multi-pass refinement",
             "### Contextual review outcomes", "#### Evidence comprehension",
             "### Anti-default decisions", "### Expression system", "### Creative provenance",
+            "### Brand signature system", "#### Primary carrier", "#### Expression transformation",
             "**Aesthetic proposition:**", "**Bounded aesthetic risk:**",
             "**Target weight:** `0.62`", "**Exploration ceiling:** `0.88`",
             "`inspected`", "docs/research/workshops.md", "No direct source; inference is explicitly labeled.",
@@ -211,6 +212,7 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(contract["distinctive_expression"][0]["expression_budget"]["primary_dimension"], "composition")
         self.assertEqual(contract["distinctive_expression"][0]["expression_budget"]["target_weight"], 0.62)
         self.assertEqual(contract["distinctive_expression"][0]["expression_budget"]["exploration_ceiling"], 0.88)
+        self.assertEqual(contract["distinctive_expression"][0]["brand_signature"]["primary_carrier"]["rule"], recovery["distinctive_expression"]["signature_element"])
         self.assertEqual(len(contract["distinctive_expression"][0]["refinement_passes"]), 7)
         self.assertEqual(contract["distinctive_expression"][0]["contextual_reviews"][0]["review_id"], "evidence-comprehension")
         self.assertEqual({item["provenance_id"] for item in contract["creative_provenance"]}, {"working-papers", "bounded-risk"})
@@ -250,6 +252,18 @@ class DesignLifecycleTests(unittest.TestCase):
             design.draft(
                 self.root, self.config, CATALOG,
                 self.write_input(input_value(design_id="out-of-range-weight", directions=[recovery])),
+            )
+
+    def test_distinctive_expression_rejects_invalid_brand_transformation_weight(self):
+        recovery = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id="bad-brand-recovery")),
+        )["directions"][0]
+        recovery["distinctive_expression"]["brand_signature"]["transformation_matrix"][0]["target_weight"] = 1.2
+        with self.assertRaisesRegex(design.DesignError, "transformation weight must be between 0 and 1"):
+            design.draft(
+                self.root, self.config, CATALOG,
+                self.write_input(input_value(design_id="bad-brand", directions=[recovery])),
             )
 
     def test_distinctive_expression_rejects_out_of_order_refinement_passes(self):
