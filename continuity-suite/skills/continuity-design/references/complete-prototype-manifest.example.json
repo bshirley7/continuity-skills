@@ -29,5 +29,8 @@
     {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Desktop, tablet, and mobile browser probes passed"},
     {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "No required control is obscured at any required viewport"}
   ],
+  "craft_findings": [
+    {"rule_id": "body-measure", "severity": "warning", "status": "resolved", "artifact_ref": ".continuity/private/designs/design-example/1/captures/desktop.png", "location": "#primary-surface .summary", "evidence": "The first render exceeded the intended reading measure.", "response": "Applied the approved body-measure token and recaptured the viewport.", "override_rationale": ""}
+  ],
   "execution_authorized": false
 }

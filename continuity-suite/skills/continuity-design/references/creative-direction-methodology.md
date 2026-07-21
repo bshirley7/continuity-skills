@@ -60,6 +60,11 @@ Define for each direction:
 - content rules, audience strategy, and prototype boundaries when applicable.
 - an inferred or user-supplied expression target, a bounded exploration ceiling, and the project evidence that justifies them.
 - a brand-signature system that translates the identity premise into primary, recurring, utility, quiet, and campaign carriers with subject-derived tokens and recognition tests.
+- an inferred brand, product, or mixed register and the behavior of each applicable side;
+- a concrete usage scene covering people, setting, ambient conditions, and frequency or consequence;
+- a color-commitment level independent of total expression;
+- a two-level anti-reflex review covering the category default and its fashionable counter-default;
+- an executable implementation system when the target and inspected stack support one.
 
 For created or materially reshaped work, apply [distinctive expression methodology](distinctive-expression-methodology.md). Carry its creative provenance, subject world, aesthetic thesis, signature element, bounded aesthetic risk, anti-default decisions, concrete expression system, reference compositions, and uniqueness checks into the direction so they survive selection and render into `design.md`.
 
@@ -90,7 +95,7 @@ Then provide the full experience, visual, implementation, safeguard, and validat
 
 The selected or explicitly combined direction becomes `design.md`. Keep it useful to planning, implementation, review, documents, and visual production without turning it into a task plan.
 
-The document must make current-state evidence, content provenance, creative provenance, distinctive expression, expression target and exploration ceiling, audience architecture, demonstrated and omitted scope, insight-to-design decisions, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. Omit irrelevant modality dimensions rather than fabricating requirements. Apply [prototype integrity](prototype-integrity.md) when representative content, prototypes, or multiple audiences are in scope.
+The document must make current-state evidence, content provenance, creative provenance, distinctive expression, design register, usage scene, expression target and exploration ceiling, color commitment, anti-reflex review, audience architecture, demonstrated and omitted scope, insight-to-design decisions, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. For an inspected implementation target, include stack-grounded semantic token, type, layout, motion, component, and hardening rules precise enough to review code against. Omit irrelevant modality dimensions rather than fabricating requirements. Apply [prototype integrity](prototype-integrity.md) when representative content, prototypes, or multiple audiences are in scope.
 
 ## 5. Maintain alignment
 

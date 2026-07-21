@@ -199,6 +199,8 @@ class DesignLifecycleTests(unittest.TestCase):
             "### Contextual review outcomes", "#### Evidence comprehension",
             "### Anti-default decisions", "### Expression system", "### Creative provenance",
             "### Brand signature system", "#### Primary carrier", "#### Expression transformation",
+            "### Design register", "### Usage scene", "### Color commitment",
+            "### Anti-reflex review", "### Implementation system", "#### Hardening Checks",
             "**Aesthetic proposition:**", "**Bounded aesthetic risk:**",
             "**Target weight:** `0.62`", "**Exploration ceiling:** `0.88`",
             "`inspected`", "docs/research/workshops.md", "No direct source; inference is explicitly labeled.",
@@ -215,6 +217,9 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(contract["distinctive_expression"][0]["brand_signature"]["primary_carrier"]["rule"], recovery["distinctive_expression"]["signature_element"])
         self.assertEqual(len(contract["distinctive_expression"][0]["refinement_passes"]), 7)
         self.assertEqual(contract["distinctive_expression"][0]["contextual_reviews"][0]["review_id"], "evidence-comprehension")
+        self.assertEqual(contract["distinctive_expression"][0]["design_register"]["mode"], "mixed")
+        self.assertEqual(contract["distinctive_expression"][0]["color_commitment"]["level"], "restrained")
+        self.assertEqual(contract["distinctive_expression"][0]["implementation_system"]["status"], "provisional")
         self.assertEqual({item["provenance_id"] for item in contract["creative_provenance"]}, {"working-papers", "bounded-risk"})
 
     def test_distinctive_expression_rejects_multiple_signature_dimensions(self):
@@ -477,9 +482,19 @@ class DesignLifecycleTests(unittest.TestCase):
             {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed"},
             {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Desktop and mobile inspection recorded"},
         ]
+        manifest["craft_findings"] = [{
+            "rule_id": "content-collision", "severity": "error", "status": "open",
+            "artifact_ref": "docs/design/artifacts/mobile.png", "location": "#manager-route",
+            "evidence": "Browser probe found overlapping content.", "response": "", "override_rationale": "",
+        }]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "craft review"):
+            design.validate_artifact(self.root, self.config, manifest_path)
+        manifest["craft_findings"][0].update({"status": "resolved", "response": "Reflowed the route and recaptured the mobile viewport."})
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         ready = design.validate_artifact(self.root, self.config, manifest_path)
         self.assertTrue(ready["implementation_ready"])
+        self.assertEqual(ready["craft_findings"][0]["status"], "resolved")
 
     def test_artifact_manifest_rejects_hash_drift_and_unsafe_paths(self):
         value = input_value(design_id="artifact-drift")

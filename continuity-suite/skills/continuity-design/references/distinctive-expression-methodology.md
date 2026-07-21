@@ -52,6 +52,12 @@ No risk is a valid outcome only when restraint itself is a project-specific prop
 
 Allocate an explicit expression budget. Choose exactly one signature dimension from composition, typography, color, motion, imagery, surface and depth, or voice. Supporting dimensions may be present, but keep at least two dimensions quiet. State the field that stays calm, the boundary containing the expressive move, and the order in which treatments should be removed when the artifact becomes noisy.
 
+Infer a design register rather than asking the user for one. Use `brand` when the surface's job is recognition, persuasion, orientation, or narrative; `product` when repeated task completion, dense interpretation, consequence, or recovery dominates; and `mixed` when both behaviors must belong to one system. State how the signature expands for brand moments and quiets for product moments.
+
+Write one concrete usage scene: who is using the artifact, where, under what ambient conditions, and with what frequency or consequence. Label uncertainty. Let the scene influence contrast, density, scale, motion, durability, and the location of expressive risk without pretending it is verified research.
+
+Choose color commitment independently from total expression: `restrained`, `committed`, `full-palette`, or `drenched`. State the semantic and identity role distribution and how contrast will be verified. A high expression weight may spend boldness on composition, type, imagery, interaction, material, or voice while color remains restrained.
+
 ## 3a. Build a durable brand signature
 
 Translate the signature element into a system that can generate more than one composition. Record:
@@ -97,6 +103,35 @@ Before building, ask:
 - Does the narrow composition transform the idea rather than merely stack it?
 
 Revise any interchangeable decision before artifact generation.
+
+Run the challenge twice. First identify the obvious category reflex. Then identify the fashionable counter-default likely to appear when avoiding it. Reject both when neither follows from the subject. Avoiding a cream editorial SaaS page by reflexively producing a dark neon technical page is still replaceable design.
+
+## 5a. Compile implementation decisions
+
+When the actual implementation stack was inspected, compile the direction into an executable system rather than stopping at prose:
+
+- semantic color roles and project-native token mapping, using perceptual color notation where the stack supports it;
+- display, body, and utility roles with fallbacks, measures, wrapping, line-height, tracking, and responsive ceilings;
+- spacing rhythm, grid behavior, edge protection, collision rules, and narrow-screen transformation;
+- motion durations, easing, interruption behavior, reduced-motion behavior, and a content-without-motion guarantee;
+- component recipes identifying what is reused, composed, extended, or custom;
+- hardening checks for long and localized content, loading, empty, error, permission, offline, interruption, recovery, keyboard use, target size, contrast, overflow, and asset failure.
+
+Mark the system `provisional` when the target stack is uninspected and `stack-grounded` only when its libraries, tokens, components, and constraints were actually verified.
+
+## 5b. Apply bounded refinement intents
+
+Interpret ordinary requests as focused passes over the existing direction:
+
+- `bolder` raises the target or strengthens the primary carrier within the recorded ceiling;
+- `quieter` lowers local intensity while preserving recognition;
+- `distill` removes competing devices and simplifies the thesis;
+- `typeset`, `layout`, `colorize`, and `animate` revise only that system while rechecking its relationships;
+- `delight` adds one meaningful, reversible moment without displacing the signature;
+- `harden` tests real content, adverse states, accessibility, responsiveness, and failure conditions;
+- `polish` closes evidenced craft findings without introducing a new organizing idea.
+
+These are refinement intents, not standalone skills and not implementation authorization. Re-run every downstream pass affected by the change. If an approved contract changes, create a new exact revision and require approval again.
 
 ## 6. Preserve provenance in `design.md`
 

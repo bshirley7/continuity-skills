@@ -25,5 +25,8 @@
     {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed at desktop and mobile viewports"},
     {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Mobile screenshot and keyboard-open inspection show no covered controls"}
   ],
+  "craft_findings": [
+    {"rule_id": "text-clipping", "severity": "error", "status": "resolved", "artifact_ref": "docs/design/artifacts/onboarding-mobile.png", "location": "#guided-start h1", "evidence": "Initial capture clipped the final line at 320px; the revised capture shows the complete heading.", "response": "Reduced the narrow display ceiling and restored line height.", "override_rationale": ""}
+  ],
   "execution_authorized": false
 }

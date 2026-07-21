@@ -83,6 +83,41 @@
         "Simplify the boundary crossing while preserving claim-to-evidence attachment"
       ]
     },
+    "design_register": {
+      "mode": "mixed",
+      "source": "inferred",
+      "rationale": "The public narrative must establish a recognizable point of view while routine evidence review remains calm, dense, and trustworthy.",
+      "brand_behavior": "Expand the evidence margin into the dominant narrative device on orientation and campaign surfaces.",
+      "product_behavior": "Reduce the carrier to compact claim-source adjacency, literal state labels, and conventional controls during repeated review work."
+    },
+    "usage_scene": {
+      "people": "An executive sponsor and an analyst reviewing the same recommendation at different depths.",
+      "setting": "A bright office or shared presentation environment, followed by focused desktop review.",
+      "ambient_conditions": "Mixed displays and occasional grayscale printing make subtle contrast and color-only meaning unreliable.",
+      "frequency_and_consequence": "Orientation is occasional, but evidence review is repeated and decisions may carry material organizational consequences.",
+      "design_effect": "Use strong structural attachment for orientation, restrained reading fields for sustained review, and redundant evidence labels throughout."
+    },
+    "color_commitment": {
+      "level": "committed",
+      "source": "inferred",
+      "rationale": "A small named palette can make evidence states and identity memorable without competing with sustained reading.",
+      "role_distribution": "Use cobalt as the committed identity and verified-evidence role, ochre for qualified material, and near-neutral paper and carbon fields elsewhere.",
+      "contrast_method": "Verify every text and control pairing in rendered wide and narrow artifacts and preserve literal evidence labels without color."
+    },
+    "anti_reflex_review": {
+      "category_default": "A consulting-style cream report with prestige serif headings, red accents, and numbered editorial sections.",
+      "anti_default_default": "A black technical interface with neon evidence states and oversized grotesk headlines presented as rigor.",
+      "revision": "Use claim-to-evidence attachment derived from inspected working papers; keep the palette, typography, and interruption subordinate to that structural identity."
+    },
+    "implementation_system": {
+      "status": "provisional",
+      "token_strategy": ["Map Paper, Carbon, Signal cobalt, and Trace ochre to semantic canvas, text, verified, and qualified roles in the inspected project token system."],
+      "type_constraints": ["Keep body copy near 65–75 characters, balance short display lines, preserve readable line-height, and define available fallbacks before implementation-facing status."],
+      "layout_constraints": ["Define one reading-column measure, one evidence-margin width, protected edge spacing, and an inline narrow transformation with no horizontal overflow."],
+      "motion_constraints": ["Use one optional claim-to-evidence transition and expose the same attachment immediately under reduced motion or failed animation."],
+      "component_recipes": ["Compose existing text, disclosure, and status primitives; create only the attached evidence carrier as project-specific expression."],
+      "hardening_checks": ["Test long claims, missing sources, grayscale, keyboard order, narrow wrapping, sticky obstruction, and evidence labels under localization."]
+    },
     "brand_signature": {
       "identity_premise": "Rigor becomes visible because every recommendation remains structurally attached to its evidence and uncertainty.",
       "primary_carrier": {

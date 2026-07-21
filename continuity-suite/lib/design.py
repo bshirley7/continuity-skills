@@ -27,6 +27,8 @@ EXPRESSION_INTENSITIES = {"quiet", "present", "signature"}
 EXPRESSION_DIMENSIONS = ("composition", "typography", "color", "motion", "imagery", "surface_depth", "voice")
 EXPRESSION_MODES = {"calibrated", "boundary-study"}
 EXPRESSION_SOURCES = {"inferred", "user-supplied"}
+DESIGN_REGISTERS = {"brand", "product", "mixed"}
+COLOR_COMMITMENTS = {"restrained", "committed", "full-palette", "drenched"}
 REFINEMENT_PASS_STATUSES = {"completed", "pending", "not-applicable"}
 REFINEMENT_PASS_IDS = (
     "provenance-grounding", "divergent-exploration", "boundary-push",
@@ -897,6 +899,41 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
                 "containment_boundary": "Do not weaken comprehension, accessibility, recovery, or favorable behavior.",
                 "removal_order": ["ornamental effects", "secondary motion", "secondary color"],
             },
+            "design_register": {
+                "mode": "mixed",
+                "source": "inferred",
+                "rationale": "Balance identity-building moments with clear, familiar routine use until the project evidence supports a narrower register.",
+                "brand_behavior": "Use the signature where orientation, recognition, or narrative matters.",
+                "product_behavior": "Keep repeated, dense, consequential, and recovery surfaces task-led and quiet.",
+            },
+            "usage_scene": {
+                "people": "The recorded primary audience",
+                "setting": "The documented or reasonably inferred use environment",
+                "ambient_conditions": "Unknown; avoid relying on fragile contrast, motion, or ideal viewing conditions.",
+                "frequency_and_consequence": "Unknown; preserve comprehension and recovery while the context is refined.",
+                "design_effect": "Use the scene as a provisional calibration aid rather than a verified user fact.",
+            },
+            "color_commitment": {
+                "level": "restrained",
+                "source": "inferred",
+                "rationale": "Keep color subordinate until project-specific semantic and brand roles are authored.",
+                "role_distribution": "Reserve stronger chroma for identity or consequential state and keep routine fields quiet.",
+                "contrast_method": "Verify text and control contrast in rendered artifacts; never rely on color alone.",
+            },
+            "anti_reflex_review": {
+                "category_default": "No project-specific category reflex was recorded for this legacy direction.",
+                "anti_default_default": "Do not replace an obvious category default with an equally interchangeable anti-default aesthetic.",
+                "revision": "Re-derive palette, typography, composition, imagery, and voice from the subject before implementation-facing status.",
+            },
+            "implementation_system": {
+                "status": "provisional",
+                "token_strategy": ["Translate approved semantic roles into the actual project token system."],
+                "type_constraints": ["Set readable measures, wrapping behavior, fallbacks, and responsive ceilings before implementation-facing status."],
+                "layout_constraints": ["Define spacing rhythm, collision behavior, and narrow-screen transformation in the target stack."],
+                "motion_constraints": ["Preserve content without motion and respect reduced-motion preferences."],
+                "component_recipes": ["Use installed primitives for behavior while keeping the project-specific carrier visible."],
+                "hardening_checks": ["Test long content, overflow, focus, target sizes, contrast, interruption, and recovery."],
+            },
             "brand_signature": {
                 "identity_premise": creative_signature,
                 "primary_carrier": {"role": "Make the direction recognizable.", "rule": creative_signature, "quiet_variant": "Preserve the same relationship with reduced scale and contrast."},
@@ -1004,6 +1041,92 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
     if not isinstance(removal, list) or not removal or any(not isinstance(item, str) or not item.strip() for item in removal):
         raise DesignError("distinctive_expression expression_budget requires removal_order")
     result["expression_budget"]["removal_order"] = list(dict.fromkeys(item.strip() for item in removal))
+    register = value.get("design_register", {})
+    if not isinstance(register, dict):
+        raise DesignError("distinctive_expression design_register must be an object")
+    register_mode = register.get("mode", "mixed")
+    register_source = register.get("source", "inferred")
+    if register_mode not in DESIGN_REGISTERS or register_source not in EXPRESSION_SOURCES:
+        raise DesignError("distinctive_expression design_register requires a valid mode and source")
+    result["design_register"] = {"mode": register_mode, "source": register_source}
+    register_defaults = {
+        "rationale": "Balance identity-building moments with clear, familiar routine use.",
+        "brand_behavior": "Use the signature where orientation, recognition, or narrative matters.",
+        "product_behavior": "Keep repeated, dense, consequential, and recovery surfaces task-led and quiet.",
+    }
+    for key, default in register_defaults.items():
+        text = register.get(key, default)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression design_register requires {key}")
+        result["design_register"][key] = text.strip()
+    scene = value.get("usage_scene", {})
+    if not isinstance(scene, dict):
+        raise DesignError("distinctive_expression usage_scene must be an object")
+    scene_defaults = {
+        "people": "The recorded primary audience",
+        "setting": "The documented or reasonably inferred use environment",
+        "ambient_conditions": "Unknown; avoid relying on ideal viewing conditions.",
+        "frequency_and_consequence": "Unknown; preserve comprehension and recovery while refining context.",
+        "design_effect": "Use the scene as a provisional calibration aid rather than a verified user fact.",
+    }
+    result["usage_scene"] = {}
+    for key, default in scene_defaults.items():
+        text = scene.get(key, default)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression usage_scene requires {key}")
+        result["usage_scene"][key] = text.strip()
+    color_commitment = value.get("color_commitment", {})
+    if not isinstance(color_commitment, dict):
+        raise DesignError("distinctive_expression color_commitment must be an object")
+    color_level = color_commitment.get("level", "restrained")
+    color_source = color_commitment.get("source", "inferred")
+    if color_level not in COLOR_COMMITMENTS or color_source not in EXPRESSION_SOURCES:
+        raise DesignError("distinctive_expression color_commitment requires a valid level and source")
+    result["color_commitment"] = {"level": color_level, "source": color_source}
+    color_defaults = {
+        "rationale": "Keep color subordinate until project-specific semantic and brand roles are authored.",
+        "role_distribution": "Reserve stronger chroma for identity or consequential state and keep routine fields quiet.",
+        "contrast_method": "Verify text and control contrast in rendered artifacts; never rely on color alone.",
+    }
+    for key, default in color_defaults.items():
+        text = color_commitment.get(key, default)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression color_commitment requires {key}")
+        result["color_commitment"][key] = text.strip()
+    anti_reflex = value.get("anti_reflex_review", {})
+    if not isinstance(anti_reflex, dict):
+        raise DesignError("distinctive_expression anti_reflex_review must be an object")
+    anti_reflex_defaults = {
+        "category_default": "Identify the most likely category reflex before implementation.",
+        "anti_default_default": "Identify the fashionable counter-default that could replace it without becoming more specific.",
+        "revision": "Revise any interchangeable choice from subject evidence before implementation-facing status.",
+    }
+    result["anti_reflex_review"] = {}
+    for key, default in anti_reflex_defaults.items():
+        text = anti_reflex.get(key, default)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression anti_reflex_review requires {key}")
+        result["anti_reflex_review"][key] = text.strip()
+    implementation = value.get("implementation_system", {})
+    if not isinstance(implementation, dict):
+        raise DesignError("distinctive_expression implementation_system must be an object")
+    implementation_status = implementation.get("status", "provisional")
+    if implementation_status not in {"provisional", "stack-grounded"}:
+        raise DesignError("distinctive_expression implementation_system requires a valid status")
+    result["implementation_system"] = {"status": implementation_status}
+    implementation_defaults = {
+        "token_strategy": ["Translate approved semantic roles into the actual project token system."],
+        "type_constraints": ["Set readable measures, wrapping behavior, fallbacks, and responsive ceilings."],
+        "layout_constraints": ["Define spacing rhythm, collision behavior, and narrow-screen transformation."],
+        "motion_constraints": ["Preserve content without motion and respect reduced-motion preferences."],
+        "component_recipes": ["Use installed primitives for behavior while preserving project-specific expression."],
+        "hardening_checks": ["Test long content, overflow, focus, target sizes, contrast, interruption, and recovery."],
+    }
+    for key, default in implementation_defaults.items():
+        items = implementation.get(key, default)
+        if not isinstance(items, list) or not items or any(not isinstance(item, str) or not item.strip() for item in items):
+            raise DesignError(f"distinctive_expression implementation_system requires non-empty {key}")
+        result["implementation_system"][key] = list(dict.fromkeys(item.strip() for item in items))
     brand = value.get("brand_signature")
     if brand is None:
         brand = {
@@ -1594,11 +1717,37 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
             f"- **Containment boundary:** {expression['expression_budget']['containment_boundary']}",
             "- **Intensity:** " + "; ".join(f"{dimension}={level}" for dimension, level in expression["expression_budget"]["intensity"].items()),
             "- **Removal order:** " + " → ".join(expression["expression_budget"]["removal_order"]), "",
+            "### Design register", "",
+            f"- **Mode:** `{expression['design_register']['mode']}`",
+            f"- **Source:** `{expression['design_register']['source']}`",
+            f"- **Rationale:** {expression['design_register']['rationale']}",
+            f"- **Brand behavior:** {expression['design_register']['brand_behavior']}",
+            f"- **Product behavior:** {expression['design_register']['product_behavior']}", "",
+            "### Usage scene", "",
+            f"- **People:** {expression['usage_scene']['people']}",
+            f"- **Setting:** {expression['usage_scene']['setting']}",
+            f"- **Ambient conditions:** {expression['usage_scene']['ambient_conditions']}",
+            f"- **Frequency and consequence:** {expression['usage_scene']['frequency_and_consequence']}",
+            f"- **Design effect:** {expression['usage_scene']['design_effect']}", "",
+            "### Color commitment", "",
+            f"- **Level:** `{expression['color_commitment']['level']}`",
+            f"- **Source:** `{expression['color_commitment']['source']}`",
+            f"- **Rationale:** {expression['color_commitment']['rationale']}",
+            f"- **Role distribution:** {expression['color_commitment']['role_distribution']}",
+            f"- **Contrast method:** {expression['color_commitment']['contrast_method']}", "",
+            "### Anti-reflex review", "",
+            f"- **Category default:** {expression['anti_reflex_review']['category_default']}",
+            f"- **Counter-default risk:** {expression['anti_reflex_review']['anti_default_default']}",
+            f"- **Revision:** {expression['anti_reflex_review']['revision']}", "",
             "### Anti-default decisions", "", *[f"- {item}" for item in expression["anti_defaults"]], "",
             "### Expression system", "",
         ])
         for dimension, rules in expression["expression_system"].items():
             lines.extend([f"#### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in rules], ""])
+        implementation = expression["implementation_system"]
+        lines.extend(["### Implementation system", "", f"- **Status:** `{implementation['status']}`", ""])
+        for dimension in ("token_strategy", "type_constraints", "layout_constraints", "motion_constraints", "component_recipes", "hardening_checks"):
+            lines.extend([f"#### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in implementation[dimension]], ""])
         brand = expression["brand_signature"]
         lines.extend([
             "### Brand signature system", "",
@@ -1926,6 +2075,32 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
         if not isinstance(item.get("evidence"), str) or not item["evidence"].strip() or item["scenario"] in validation_by_scenario:
             raise DesignError("Artifact validation results require unique scenarios and evidence")
         validation_by_scenario[item["scenario"]] = item
+    craft_findings = manifest.get("craft_findings", [])
+    if not isinstance(craft_findings, list):
+        raise DesignError("Artifact craft_findings must be an array")
+    normalized_findings: list[dict[str, Any]] = []
+    for item in craft_findings:
+        if not isinstance(item, dict):
+            raise DesignError("Artifact craft finding is invalid")
+        rule_id = _identifier(str(item.get("rule_id", "")), "craft finding rule ID")
+        if item.get("severity") not in {"info", "warning", "error", "critical"} or item.get("status") not in {"open", "resolved", "accepted-intentional", "not-applicable"}:
+            raise DesignError(f"Artifact craft finding {rule_id} has invalid severity or status")
+        normalized = {"rule_id": rule_id, "severity": item["severity"], "status": item["status"]}
+        for key in ("artifact_ref", "location", "evidence"):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"Artifact craft finding {rule_id} requires {key}")
+            normalized[key] = text.strip()
+        for key in ("response", "override_rationale"):
+            text = item.get(key, "")
+            if not isinstance(text, str):
+                raise DesignError(f"Artifact craft finding {rule_id} has invalid {key}")
+            normalized[key] = text.strip()
+        if normalized["status"] == "resolved" and not normalized["response"]:
+            raise DesignError(f"Resolved craft finding {rule_id} requires a response")
+        if normalized["status"] == "accepted-intentional" and not normalized["override_rationale"]:
+            raise DesignError(f"Intentional craft finding {rule_id} requires an override rationale")
+        normalized_findings.append(normalized)
     claims = manifest.get("design_claims", [])
     if not isinstance(claims, list):
         raise DesignError("Artifact design_claims must be an array")
@@ -1978,6 +2153,9 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
             readiness_problems.append("differentiated audience routes are not all demonstrated")
         if failures:
             readiness_problems.append("artifact validation has failures")
+        blocking_findings = [item for item in normalized_findings if item["status"] == "open" and item["severity"] in {"error", "critical"}]
+        if blocking_findings:
+            readiness_problems.append("artifact craft review has unresolved error or critical findings")
         if not claims or any(claim["coverage"] != "demonstrated" for claim in claims):
             readiness_problems.append("design claims are missing demonstrated evidence")
         if missing_decided_insights:
@@ -2020,6 +2198,7 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
         "verified_files": verified_files,
         "missing_differentiated_audiences": missing_audiences,
         "failed_validations": failures,
+        "craft_findings": normalized_findings,
         "missing_decided_insights": missing_decided_insights,
         "implementation_ready": maturity == "implementation-facing" and not readiness_problems,
         "candidate": candidate,

@@ -32,6 +32,24 @@
       "type": "array",
       "items": {"type": "object", "required": ["scenario", "status", "evidence"], "properties": {"scenario": {"type": "string", "minLength": 1}, "status": {"enum": ["passed", "failed", "not-applicable"]}, "evidence": {"type": "string", "minLength": 1}}, "additionalProperties": false}
     },
+    "craft_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "severity", "status", "artifact_ref", "location", "evidence", "response", "override_rationale"],
+        "properties": {
+          "rule_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "severity": {"enum": ["info", "warning", "error", "critical"]},
+          "status": {"enum": ["open", "resolved", "accepted-intentional", "not-applicable"]},
+          "artifact_ref": {"type": "string", "minLength": 1},
+          "location": {"type": "string", "minLength": 1},
+          "evidence": {"type": "string", "minLength": 1},
+          "response": {"type": "string"},
+          "override_rationale": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
     "execution_authorized": {"const": false}
   },
   "additionalProperties": false
