@@ -119,6 +119,164 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("Inconsistent hierarchy between detail views", markdown)
         self.assertIn("**Creative signature:**", markdown)
 
+    def test_distinctive_expression_renders_from_provenance_and_persists(self):
+        recovery = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="expression-recovery")),
+        )["directions"][0]
+        recovery["direction_id"] = "evidence-margin"
+        recovery["creative_provenance"] = [
+            {
+                "provenance_id": "working-papers",
+                "classification": "inspected",
+                "observation": "Project workshops use annotated working papers.",
+                "source_refs": ["docs/research/workshops.md"],
+                "design_implication": "Attach evidence annotations to the claims they qualify.",
+            },
+            {
+                "provenance_id": "bounded-risk",
+                "classification": "inferred",
+                "observation": "One structural interruption can make evidence visible without adding decoration.",
+                "source_refs": [],
+                "design_implication": "Let one evidence block cross the reading-column boundary.",
+            },
+        ]
+        expression_budget = recovery["distinctive_expression"]["expression_budget"]
+        refinement_passes = recovery["distinctive_expression"]["refinement_passes"]
+        contextual_reviews = [{
+            "review_id": "evidence-comprehension",
+            "routing": "inferred",
+            "perspective": "Evidence comprehension",
+            "why_applicable": "Executive readers must distinguish a recommendation from the evidence and uncertainty that qualify it.",
+            "finding": "A detached evidence panel would make qualification look optional.",
+            "design_response": "Attach the evidence margin to the claim it qualifies and preserve adjacency on narrow targets.",
+            "preserved_behavior": ["Linear reading order", "Direct access to the recommendation"],
+            "verification": "In wide and narrow compositions, every qualified claim is immediately associated with its evidence state.",
+        }]
+        expression_budget.update({
+            "boundary_being_pushed": "Make the evidence margin the single dominant compositional interruption.",
+            "quiet_field": "Keep typography, imagery, motion, and depth quiet around the evidence margin.",
+        })
+        recovery["distinctive_expression"] = {
+            "aesthetic_thesis": "A working brief whose visible annotations make rigor part of the identity.",
+            "subject_world": ["Annotated working papers and evidence margins"],
+            "signature_element": "A responsive evidence margin attached to each qualified claim.",
+            "aesthetic_risk": {
+                "move": "Let one proof block cross the primary reading boundary.",
+                "rationale": "The interruption makes evidence structurally visible.",
+                "boundary": "Preserve linear reading order and a non-motion equivalent.",
+            },
+            "anti_defaults": ["Reject generic editorial numbering and interchangeable cream-and-red prestige styling."],
+            "expression_system": {
+                "palette": ["Paper #F2F0EA; Carbon #171816; Signal cobalt #2855D9"],
+                "typography": ["Compact grotesk display, readable serif body, tabular mono utility"],
+                "composition": ["Recommendation column with attached evidence margin"],
+                "material_imagery": ["Use qualified working artifacts rather than generic executive photography"],
+                "motion": ["One claim-to-evidence reveal with a reduced-motion equivalent"],
+                "voice": ["Direct executive language that distinguishes observation from inference"],
+            },
+            "expression_budget": expression_budget,
+            "refinement_passes": refinement_passes,
+            "contextual_reviews": contextual_reviews,
+            "reference_compositions": ["Wide evidence margin; narrow inline evidence reveal"],
+            "uniqueness_checks": ["Removing the evidence margin removes the identity, not merely decoration"],
+            "provenance_ids": ["working-papers", "bounded-risk"],
+        }
+        value = input_value(design_id="distinctive-expression", directions=[recovery])
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        selected = design.select(self.root, self.config, draft["design_id"], ["evidence-margin"], "reviewer")
+        markdown = (self.root / ".continuity/private/design/distinctive-expression/design.md").read_text(encoding="utf-8")
+        for text in (
+            "## Distinctive expression", "### Subject world", "### Aesthetic risk",
+            "### Expression budget", "### Multi-pass refinement",
+            "### Contextual review outcomes", "#### Evidence comprehension",
+            "### Anti-default decisions", "### Expression system", "### Creative provenance",
+            "**Aesthetic proposition:**", "**Bounded aesthetic risk:**",
+            "`inspected`", "docs/research/workshops.md", "No direct source; inference is explicitly labeled.",
+        ):
+            self.assertIn(text, markdown)
+        approved = design.approve(
+            self.root, self.config, draft["design_id"], draft["revision"], "reviewer", selected["required_authorization_text"]
+        )
+        contract = approved["alignment_contract"]
+        self.assertEqual(contract["distinctive_expression"][0]["aesthetic_risk"]["move"], recovery["distinctive_expression"]["aesthetic_risk"]["move"])
+        self.assertEqual(contract["distinctive_expression"][0]["expression_budget"]["primary_dimension"], "composition")
+        self.assertEqual(len(contract["distinctive_expression"][0]["refinement_passes"]), 7)
+        self.assertEqual(contract["distinctive_expression"][0]["contextual_reviews"][0]["review_id"], "evidence-comprehension")
+        self.assertEqual({item["provenance_id"] for item in contract["creative_provenance"]}, {"working-papers", "bounded-risk"})
+
+    def test_distinctive_expression_rejects_multiple_signature_dimensions(self):
+        recovery = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id="bad-budget-recovery")),
+        )["directions"][0]
+        recovery["distinctive_expression"]["expression_budget"]["intensity"]["typography"] = "signature"
+        with self.assertRaisesRegex(design.DesignError, "exactly one signature"):
+            design.draft(
+                self.root, self.config, CATALOG,
+                self.write_input(input_value(design_id="bad-budget", directions=[recovery])),
+            )
+
+    def test_distinctive_expression_rejects_out_of_order_refinement_passes(self):
+        recovery = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id="bad-passes-recovery")),
+        )["directions"][0]
+        passes = recovery["distinctive_expression"]["refinement_passes"]
+        passes[0], passes[1] = passes[1], passes[0]
+        with self.assertRaisesRegex(design.DesignError, "ordered multi-pass"):
+            design.draft(
+                self.root, self.config, CATALOG,
+                self.write_input(input_value(design_id="bad-passes", directions=[recovery])),
+            )
+
+    def test_completed_contextual_review_requires_evidence_records(self):
+        recovery = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id="missing-context-review-recovery")),
+        )["directions"][0]
+        contextual = next(item for item in recovery["distinctive_expression"]["refinement_passes"] if item["pass_id"] == "contextual-review")
+        contextual.update({"status": "completed", "changes": ["Adjusted hierarchy."], "unresolved": []})
+        with self.assertRaisesRegex(design.DesignError, "evidence-bearing contextual_reviews"):
+            design.draft(
+                self.root, self.config, CATALOG,
+                self.write_input(input_value(design_id="missing-context-review", directions=[recovery])),
+            )
+
+    def test_contextual_review_requires_verifiable_fields(self):
+        recovery = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id="invalid-context-review-recovery")),
+        )["directions"][0]
+        recovery["distinctive_expression"]["contextual_reviews"] = [{
+            "review_id": "trust", "routing": "inferred", "perspective": "Trust",
+            "why_applicable": "Consequential claims require qualification.", "finding": "Claims appear certain.",
+            "design_response": "Label their evidence state.", "preserved_behavior": ["Direct reading order"],
+        }]
+        with self.assertRaisesRegex(design.DesignError, "requires verification"):
+            design.draft(
+                self.root, self.config, CATALOG,
+                self.write_input(input_value(design_id="invalid-context-review", directions=[recovery])),
+            )
+
+    def test_distinctive_expression_rejects_unknown_provenance(self):
+        recovery = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="bad-expression-recovery")),
+        )["directions"][0]
+        recovery["distinctive_expression"]["provenance_ids"] = ["missing-source"]
+        with self.assertRaisesRegex(design.DesignError, "unknown creative provenance"):
+            design.draft(
+                self.root,
+                self.config,
+                CATALOG,
+                self.write_input(input_value(design_id="bad-expression", directions=[recovery])),
+            )
+
     def test_prototype_integrity_renders_and_persists(self):
         value = input_value(
             design_id="prototype-integrity",

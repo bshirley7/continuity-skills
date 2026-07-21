@@ -1,0 +1,177 @@
+{
+  "creative_provenance": [
+    {
+      "provenance_id": "workshop-marginalia",
+      "classification": "inspected",
+      "observation": "Reviewed project workshops use annotated working papers to expose assumptions and evidence beside a recommendation.",
+      "source_refs": ["docs/research/workshop-notes.md", "docs/brand/existing-materials.md"],
+      "design_implication": "Use local annotations as a structural evidence device rather than generic decorative numbering."
+    },
+    {
+      "provenance_id": "calm-authority",
+      "classification": "inferred",
+      "observation": "The audience needs confidence without prestige theater or visual urgency.",
+      "source_refs": [],
+      "design_implication": "Use controlled contrast, precise typography, and one deliberate interruption instead of ornamental luxury cues."
+    }
+  ],
+  "distinctive_expression": {
+    "aesthetic_thesis": "A working brief whose visible annotations make rigor, uncertainty, and decision progress part of the identity.",
+    "subject_world": [
+      "Annotated working papers, evidence margins, decision exhibits, and workshop synthesis",
+      "Executive reading patterns that move between a recommendation and its basis"
+    ],
+    "signature_element": "A responsive evidence margin that stays attached to the claim it qualifies and becomes an inline reveal on narrow screens.",
+    "aesthetic_risk": {
+      "move": "Let the evidence margin interrupt the primary reading column at one consequential moment.",
+      "rationale": "The interruption makes proof structurally visible instead of treating it as secondary metadata.",
+      "boundary": "The reading order remains linear, keyboard accessible, and understandable when the margin collapses or motion is reduced."
+    },
+    "anti_defaults": [
+      "Do not use generic numbered editorial sections when order carries no meaning.",
+      "Do not rely on warm cream, high-contrast serif, and red accent as a substitute for a project-specific identity."
+    ],
+    "expression_system": {
+      "palette": [
+        "Paper — #F2F0EA — primary reading field",
+        "Carbon — #171816 — text and structural rules",
+        "Signal cobalt — #2855D9 — verified evidence and active navigation",
+        "Trace ochre — #C88A24 — provisional or qualified material"
+      ],
+      "typography": [
+        "Display: a compact grotesk with assertive width for recommendations, used sparingly.",
+        "Body: a highly legible serif optimized for sustained reading rather than luxury signaling.",
+        "Utility: a tabular mono for provenance, dates, and evidence states."
+      ],
+      "composition": [
+        "Use a recommendation column and an attached evidence margin; allow one evidence block to cross the boundary as the signature interruption."
+      ],
+      "material_imagery": [
+        "Use cropped working artifacts, diagram fragments, or visibly qualified evidence; avoid generic executive photography."
+      ],
+      "motion": [
+        "Use one orchestrated reveal that connects a claim to its evidence; provide an immediate non-motion equivalent."
+      ],
+      "voice": [
+        "Write in direct executive language, distinguish observation from inference, and avoid abstract transformation claims."
+      ]
+    },
+    "expression_budget": {
+      "boundary_being_pushed": "Make the evidence margin the one unmistakable structural interruption.",
+      "primary_dimension": "composition",
+      "supporting_dimensions": ["voice", "color"],
+      "restrained_dimensions": ["typography", "motion", "imagery", "surface_depth"],
+      "intensity": {
+        "composition": "signature",
+        "typography": "quiet",
+        "color": "present",
+        "motion": "quiet",
+        "imagery": "quiet",
+        "surface_depth": "quiet",
+        "voice": "present"
+      },
+      "quiet_field": "Keep the reading field, type scale, imagery, motion, and surface treatment disciplined around the evidence interruption.",
+      "containment_boundary": "The margin may interrupt the column once, but must preserve linear reading order, readable measure, and a clear narrow-screen transformation.",
+      "removal_order": [
+        "Remove ornamental artifact fragments",
+        "Reduce secondary color emphasis",
+        "Simplify the boundary crossing while preserving claim-to-evidence attachment"
+      ]
+    },
+    "refinement_passes": [
+      {
+        "pass_id": "provenance-grounding",
+        "status": "completed",
+        "purpose": "Ground the direction in inspected working materials and supplied project intent.",
+        "changes": ["Replaced generic editorial devices with evidence annotations derived from working papers."],
+        "preserved": ["Calm executive readability."],
+        "unresolved": []
+      },
+      {
+        "pass_id": "divergent-exploration",
+        "status": "completed",
+        "purpose": "Compare distinct structures before convergence.",
+        "changes": ["Selected an attached evidence margin over a conventional report grid and a presentation-like sequence."],
+        "preserved": ["Direct access to the recommendation."],
+        "unresolved": []
+      },
+      {
+        "pass_id": "boundary-push",
+        "status": "completed",
+        "purpose": "Make the subject-specific signature visible in the concept.",
+        "changes": ["Allowed one proof block to cross the reading boundary."],
+        "preserved": ["Linear semantic order."],
+        "unresolved": []
+      },
+      {
+        "pass_id": "contextual-review",
+        "status": "completed",
+        "purpose": "Review the direction for executive comprehension, evidence integrity, accessibility, and trust.",
+        "changes": ["Distinguished observed and inferred material through labels and color roles."],
+        "preserved": ["Evidence remains adjacent to the claim it qualifies."],
+        "unresolved": []
+      },
+      {
+        "pass_id": "restraint-edit",
+        "status": "completed",
+        "purpose": "Quiet competing expression and protect reading rhythm.",
+        "changes": ["Limited the boundary crossing to one moment and kept typography, motion, imagery, and depth quiet."],
+        "preserved": ["The evidence margin remains the recognizable signature."],
+        "unresolved": []
+      },
+      {
+        "pass_id": "responsive-transformation",
+        "status": "completed",
+        "purpose": "Transform the organizing idea for narrow targets.",
+        "changes": ["Converted the persistent margin into an inline reveal immediately following its claim."],
+        "preserved": ["Claim-to-evidence attachment and reading order."],
+        "unresolved": []
+      },
+      {
+        "pass_id": "artifact-critique",
+        "status": "pending",
+        "purpose": "Compare representative rendered output with the design contract.",
+        "changes": [],
+        "preserved": [],
+        "unresolved": ["Representative wide and narrow artifacts have not yet been reviewed."]
+      }
+    ],
+    "contextual_reviews": [
+      {
+        "review_id": "executive-comprehension",
+        "routing": "inferred",
+        "perspective": "Executive comprehension",
+        "why_applicable": "The audience must move quickly from a recommendation to the evidence and uncertainty that qualify it.",
+        "finding": "A detached evidence panel would make qualification look optional and weaken the reading path.",
+        "design_response": "Attach the evidence margin directly to each qualified claim and convert it to an immediate inline reveal on narrow targets.",
+        "preserved_behavior": [
+          "Direct access to the recommendation",
+          "Linear reading order"
+        ],
+        "verification": "In wide and narrow reference compositions, each qualified claim remains immediately associated with its evidence state."
+      },
+      {
+        "review_id": "evidence-trust",
+        "routing": "inferred",
+        "perspective": "Evidence and trust",
+        "why_applicable": "The direction presents observations, inferences, and recommendations with materially different certainty.",
+        "finding": "Color alone would not reliably communicate evidence status or survive grayscale output.",
+        "design_response": "Pair every evidence color role with a direct status label and preserve that label in non-color contexts.",
+        "preserved_behavior": [
+          "Calm executive tone",
+          "Evidence adjacent to the claim it qualifies"
+        ],
+        "verification": "Evidence states remain distinguishable with color removed and are announced with equivalent text."
+      }
+    ],
+    "reference_compositions": [
+      "Wide: recommendation field with persistent evidence margin and one boundary-crossing proof moment.",
+      "Narrow: linear brief with evidence disclosed immediately after each qualified claim."
+    ],
+    "uniqueness_checks": [
+      "Removing the evidence margin would remove the identity, not merely decoration.",
+      "The palette, type roles, composition, and copy would change materially for an unrelated product."
+    ],
+    "provenance_ids": ["workshop-marginalia", "calm-authority"]
+  }
+}

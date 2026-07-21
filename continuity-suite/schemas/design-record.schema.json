@@ -13,10 +13,12 @@
     "catalog_packs": {"type": "array", "items": {"type": "object", "required": ["pack_id", "version"], "properties": {"pack_id": {"type": "string"}, "version": {"type": "string"}}, "additionalProperties": false}},
     "alignment_contract": {
       "type": "object",
-      "required": ["selected_direction_ids", "preserve", "non_goals", "implementation_guidance", "validation_criteria", "prohibited_patterns"],
+      "required": ["selected_direction_ids", "creative_signatures", "distinctive_expression", "creative_provenance", "preserve", "non_goals", "implementation_guidance", "validation_criteria", "prohibited_patterns"],
       "properties": {
         "selected_direction_ids": {"type": "array", "items": {"type": "string"}},
         "creative_signatures": {"type": "array", "items": {"type": "string"}},
+        "distinctive_expression": {"type": "array", "items": {"type": "object"}},
+        "creative_provenance": {"type": "array", "items": {"type": "object"}},
         "content_provenance": {"type": "array", "items": {"type": "object"}},
         "audience_architecture": {"oneOf": [{"type": "object"}, {"type": "null"}]},
         "prototype_scope": {"oneOf": [{"type": "object"}, {"type": "null"}]},

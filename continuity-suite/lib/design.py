@@ -22,6 +22,14 @@ TARGETS = {"ui", "document", "image"}
 CATALOG_MODALITIES = TARGETS | {"campaign", "platform"}
 EVIDENCE_STATUSES = {"validated", "inferred", "not-applicable"}
 CONTENT_CLASSIFICATIONS = {"inspected", "supplied", "inferred", "illustrative"}
+CREATIVE_PROVENANCE_CLASSIFICATIONS = {"inspected", "supplied", "inferred"}
+EXPRESSION_INTENSITIES = {"quiet", "present", "signature"}
+EXPRESSION_DIMENSIONS = ("composition", "typography", "color", "motion", "imagery", "surface_depth", "voice")
+REFINEMENT_PASS_STATUSES = {"completed", "pending", "not-applicable"}
+REFINEMENT_PASS_IDS = (
+    "provenance-grounding", "divergent-exploration", "boundary-push",
+    "contextual-review", "restraint-edit", "responsive-transformation", "artifact-critique",
+)
 AUDIENCE_MODES = {"shared-core", "differentiated", "unresolved"}
 PROTOTYPE_MATURITY = {"directional", "behavioral", "implementation-facing"}
 VALIDATION_STATUSES = {"required", "passed", "not-applicable"}
@@ -694,6 +702,201 @@ def _validate_insight_decisions(value: Any) -> list[dict[str, Any]]:
     return result
 
 
+def _validate_creative_provenance(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise DesignError("creative_provenance must be an array")
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise DesignError("Each creative provenance record must be an object")
+        provenance_id = _identifier(str(item.get("provenance_id", "")), "creative provenance ID")
+        if provenance_id in seen:
+            raise DesignError("Creative provenance IDs must be unique within a direction")
+        classification = item.get("classification")
+        if classification not in CREATIVE_PROVENANCE_CLASSIFICATIONS:
+            raise DesignError(f"Creative provenance {provenance_id} requires a valid classification")
+        normalized = {"provenance_id": provenance_id, "classification": classification}
+        for key in ("observation", "design_implication"):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"Creative provenance {provenance_id} requires {key}")
+            normalized[key] = text.strip()
+        source_refs = item.get("source_refs", [])
+        if not isinstance(source_refs, list) or any(not isinstance(entry, str) or not entry.strip() for entry in source_refs):
+            raise DesignError(f"Creative provenance {provenance_id} has invalid source_refs")
+        normalized["source_refs"] = list(dict.fromkeys(entry.strip() for entry in source_refs))
+        if classification in {"inspected", "supplied"} and not normalized["source_refs"]:
+            raise DesignError(f"Creative provenance {provenance_id} requires source_refs for {classification} material")
+        result.append(normalized)
+        seen.add(provenance_id)
+    return result
+
+
+def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creative_signature: str) -> dict[str, Any]:
+    if value is None:
+        return {
+            "aesthetic_thesis": creative_signature,
+            "subject_world": ["Derive visual language from the recorded project intent and inspected product context before implementation."],
+            "signature_element": creative_signature,
+            "aesthetic_risk": {
+                "move": "No additional aesthetic risk was authored in this legacy direction.",
+                "rationale": "Preserve backward compatibility while making the missing creative decision visible.",
+                "boundary": "Do not invent novelty that weakens comprehension, accessibility, or favorable behavior.",
+            },
+            "anti_defaults": ["Do not substitute an interchangeable category or model-generated aesthetic for subject-specific expression."],
+            "expression_system": {
+                "palette": ["Derive named color roles from the subject and selected direction before artifact generation."],
+                "typography": ["Choose deliberate display, body, and utility roles appropriate to the subject before artifact generation."],
+                "composition": ["Create a target-native reference composition that makes the signature visible."],
+                "material_imagery": ["Use only materials and imagery supported by project context or clearly labeled inference."],
+                "motion": ["Use one orchestrated motion idea only when it reinforces meaning and the target supports motion."],
+                "voice": ["Use audience-native language rather than reusable design-copy formulas."],
+            },
+            "reference_compositions": ["A representative composition is still required before implementation-facing status."],
+            "uniqueness_checks": ["Confirm the expression could not be transferred unchanged to an unrelated project."],
+            "expression_budget": {
+                "boundary_being_pushed": "No authored boundary was recorded for this legacy direction.",
+                "primary_dimension": "composition",
+                "supporting_dimensions": ["voice"],
+                "restrained_dimensions": ["typography", "color", "motion", "imagery", "surface_depth"],
+                "intensity": {dimension: ("signature" if dimension == "composition" else "quiet") for dimension in EXPRESSION_DIMENSIONS},
+                "quiet_field": "Keep surrounding content and controls conventional until a project-specific expression budget is authored.",
+                "containment_boundary": "Do not weaken comprehension, accessibility, recovery, or favorable behavior.",
+                "removal_order": ["ornamental effects", "secondary motion", "secondary color"],
+            },
+            "refinement_passes": [
+                {"pass_id": pass_id, "status": "pending", "purpose": "Legacy direction requires an explicit refinement pass.", "changes": [], "preserved": [], "unresolved": ["Refinement evidence not yet recorded."]}
+                for pass_id in REFINEMENT_PASS_IDS
+            ],
+            "contextual_reviews": [],
+            "provenance_ids": sorted(provenance_ids),
+        }
+    if not isinstance(value, dict):
+        raise DesignError("distinctive_expression must be an object")
+    result: dict[str, Any] = {}
+    for key in ("aesthetic_thesis", "signature_element"):
+        text = value.get(key)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression requires {key}")
+        result[key] = text.strip()
+    for key in ("subject_world", "anti_defaults", "reference_compositions", "uniqueness_checks"):
+        items = value.get(key)
+        if not isinstance(items, list) or not items or any(not isinstance(item, str) or not item.strip() for item in items):
+            raise DesignError(f"distinctive_expression requires non-empty {key}")
+        result[key] = list(dict.fromkeys(item.strip() for item in items))
+    risk = value.get("aesthetic_risk")
+    if not isinstance(risk, dict):
+        raise DesignError("distinctive_expression requires aesthetic_risk")
+    result["aesthetic_risk"] = {}
+    for key in ("move", "rationale", "boundary"):
+        text = risk.get(key)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression aesthetic_risk requires {key}")
+        result["aesthetic_risk"][key] = text.strip()
+    system = value.get("expression_system")
+    dimensions = ("palette", "typography", "composition", "material_imagery", "motion", "voice")
+    if not isinstance(system, dict) or set(system) != set(dimensions):
+        raise DesignError("distinctive_expression requires the complete expression_system")
+    result["expression_system"] = {}
+    for dimension in dimensions:
+        items = system[dimension]
+        if not isinstance(items, list) or not items or any(not isinstance(item, str) or not item.strip() for item in items):
+            raise DesignError(f"distinctive_expression requires non-empty expression_system {dimension}")
+        result["expression_system"][dimension] = list(dict.fromkeys(item.strip() for item in items))
+    budget = value.get("expression_budget")
+    if not isinstance(budget, dict):
+        raise DesignError("distinctive_expression requires expression_budget")
+    result["expression_budget"] = {}
+    for key in ("boundary_being_pushed", "quiet_field", "containment_boundary"):
+        text = budget.get(key)
+        if not isinstance(text, str) or not text.strip():
+            raise DesignError(f"distinctive_expression expression_budget requires {key}")
+        result["expression_budget"][key] = text.strip()
+    primary = budget.get("primary_dimension")
+    if primary not in EXPRESSION_DIMENSIONS:
+        raise DesignError("distinctive_expression expression_budget requires a valid primary_dimension")
+    result["expression_budget"]["primary_dimension"] = primary
+    for key in ("supporting_dimensions", "restrained_dimensions"):
+        items = budget.get(key)
+        if not isinstance(items, list) or not items or any(item not in EXPRESSION_DIMENSIONS for item in items):
+            raise DesignError(f"distinctive_expression expression_budget has invalid {key}")
+        result["expression_budget"][key] = list(dict.fromkeys(items))
+    if set(result["expression_budget"]["supporting_dimensions"]) & set(result["expression_budget"]["restrained_dimensions"]):
+        raise DesignError("distinctive_expression expression_budget dimensions must not conflict")
+    intensity = budget.get("intensity")
+    if not isinstance(intensity, dict) or set(intensity) != set(EXPRESSION_DIMENSIONS) or any(level not in EXPRESSION_INTENSITIES for level in intensity.values()):
+        raise DesignError("distinctive_expression expression_budget requires a complete intensity map")
+    if [dimension for dimension, level in intensity.items() if level == "signature"] != [primary]:
+        raise DesignError("distinctive_expression expression_budget requires exactly one signature intensity matching primary_dimension")
+    if sum(level == "quiet" for level in intensity.values()) < 2:
+        raise DesignError("distinctive_expression expression_budget requires at least two quiet dimensions")
+    result["expression_budget"]["intensity"] = dict(intensity)
+    removal = budget.get("removal_order")
+    if not isinstance(removal, list) or not removal or any(not isinstance(item, str) or not item.strip() for item in removal):
+        raise DesignError("distinctive_expression expression_budget requires removal_order")
+    result["expression_budget"]["removal_order"] = list(dict.fromkeys(item.strip() for item in removal))
+    passes = value.get("refinement_passes")
+    if not isinstance(passes, list) or [item.get("pass_id") for item in passes if isinstance(item, dict)] != list(REFINEMENT_PASS_IDS):
+        raise DesignError("distinctive_expression requires the ordered multi-pass refinement record")
+    result["refinement_passes"] = []
+    for item in passes:
+        status = item.get("status")
+        if status not in REFINEMENT_PASS_STATUSES:
+            raise DesignError(f"Refinement pass {item.get('pass_id')} requires a valid status")
+        normalized = {"pass_id": item["pass_id"], "status": status}
+        purpose = item.get("purpose")
+        if not isinstance(purpose, str) or not purpose.strip():
+            raise DesignError(f"Refinement pass {item['pass_id']} requires purpose")
+        normalized["purpose"] = purpose.strip()
+        for key in ("changes", "preserved", "unresolved"):
+            items_value = item.get(key, [])
+            if not isinstance(items_value, list) or any(not isinstance(entry, str) or not entry.strip() for entry in items_value):
+                raise DesignError(f"Refinement pass {item['pass_id']} has invalid {key}")
+            normalized[key] = list(dict.fromkeys(entry.strip() for entry in items_value))
+        if status == "completed" and not (normalized["changes"] or normalized["preserved"]):
+            raise DesignError(f"Completed refinement pass {item['pass_id']} requires a recorded outcome")
+        result["refinement_passes"].append(normalized)
+    reviews = value.get("contextual_reviews", [])
+    if not isinstance(reviews, list) or any(not isinstance(item, dict) for item in reviews):
+        raise DesignError("distinctive_expression contextual_reviews must be a list of objects")
+    result["contextual_reviews"] = []
+    seen_review_ids: set[str] = set()
+    for item in reviews:
+        review_id = _identifier(str(item.get("review_id") or ""), "contextual review ID")
+        if review_id in seen_review_ids:
+            raise DesignError(f"Duplicate contextual review ID: {review_id}")
+        routing = item.get("routing")
+        if routing not in {"explicit", "inferred"}:
+            raise DesignError(f"Contextual review {review_id} requires explicit or inferred routing")
+        normalized_review = {"review_id": review_id, "routing": routing}
+        for key in ("perspective", "why_applicable", "finding", "design_response", "verification"):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"Contextual review {review_id} requires {key}")
+            normalized_review[key] = text.strip()
+        preserved = item.get("preserved_behavior")
+        if not isinstance(preserved, list) or not preserved or any(not isinstance(entry, str) or not entry.strip() for entry in preserved):
+            raise DesignError(f"Contextual review {review_id} requires preserved_behavior")
+        normalized_review["preserved_behavior"] = list(dict.fromkeys(entry.strip() for entry in preserved))
+        result["contextual_reviews"].append(normalized_review)
+        seen_review_ids.add(review_id)
+    contextual_pass = next(item for item in result["refinement_passes"] if item["pass_id"] == "contextual-review")
+    if contextual_pass["status"] == "completed" and not result["contextual_reviews"]:
+        raise DesignError("A completed contextual-review pass requires evidence-bearing contextual_reviews")
+    linked = value.get("provenance_ids", [])
+    if not isinstance(linked, list) or any(not isinstance(item, str) or not item.strip() for item in linked):
+        raise DesignError("distinctive_expression has invalid provenance_ids")
+    result["provenance_ids"] = list(dict.fromkeys(item.strip() for item in linked))
+    if set(result["provenance_ids"]) - provenance_ids:
+        raise DesignError("distinctive_expression references unknown creative provenance IDs")
+    if provenance_ids and not result["provenance_ids"]:
+        raise DesignError("distinctive_expression must link its creative provenance")
+    return result
+
+
 def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
     strategy = DIRECTION_STRATEGIES[index]
     theme = payload["themes"][index % len(payload["themes"])] if payload["themes"] else ""
@@ -713,11 +916,79 @@ def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
     principles.extend(payload["constraints"][:2])
     required_dimensions = _required_grammar_dimensions(payload["targets"])
     preservation = payload["preserve"] or payload["current_strengths"]
+    creative_signature = f"Use {strategy['name'].casefold()} as a recognizable organizing move across the relevant visual and interaction dimensions, with project-specific expression supplied during revision."
     return {
         "direction_id": f"direction-{index + 1}",
         "name": name,
         "summary": summary,
-        "creative_signature": f"Use {strategy['name'].casefold()} as a recognizable organizing move across the relevant visual and interaction dimensions, with project-specific expression supplied during revision.",
+        "creative_signature": creative_signature,
+        "creative_provenance": [{
+            "provenance_id": "project-intent",
+            "classification": "inferred",
+            "observation": payload["intent"],
+            "source_refs": [],
+            "design_implication": f"Use the {strategy['name'].casefold()} strategy only as a provisional recovery direction until subject-specific expression is authored.",
+        }],
+        "distinctive_expression": {
+            "aesthetic_thesis": creative_signature,
+            "subject_world": [f"Infer initial visual language from the project intent, audience, and the subject matter of {scope}; verify it against inspected artifacts before approval."],
+            "signature_element": creative_signature,
+            "aesthetic_risk": {
+                "move": f"Make the {strategy['name'].casefold()} organization visually unmistakable without relying on a generic category template.",
+                "rationale": "A bounded expressive move gives the recovery direction enough character to evaluate.",
+                "boundary": "Preserve familiar semantics, accessibility, recovery, and favorable behavior.",
+            },
+            "anti_defaults": ["Reject interchangeable card grids, editorial styling, or fashionable palettes unless the subject and inspected evidence justify them."],
+            "expression_system": {
+                "palette": ["Name four to six subject-derived color roles and concrete values during revision; do not inherit a model-default palette."],
+                "typography": ["Define distinct display, body, and utility roles whose character follows the subject rather than a reusable pairing."],
+                "composition": [strategy["grammar"]["composition"]],
+                "material_imagery": ["Derive material and image treatment from inspected subject artifacts or label it inferred."],
+                "motion": [strategy["grammar"].get("motion", "Use no motion for static targets.")],
+                "voice": [strategy["grammar"]["voice"]],
+            },
+            "expression_budget": {
+                "boundary_being_pushed": f"Make {strategy['name'].casefold()} the single dominant organizing move.",
+                "primary_dimension": "composition",
+                "supporting_dimensions": ["voice"],
+                "restrained_dimensions": ["typography", "color", "motion", "imagery", "surface_depth"],
+                "intensity": {
+                    "composition": "signature",
+                    "typography": "quiet",
+                    "color": "quiet",
+                    "motion": "quiet",
+                    "imagery": "quiet",
+                    "surface_depth": "quiet",
+                    "voice": "present",
+                },
+                "quiet_field": "Keep type, color, motion, imagery, and surface treatment calm until subject-specific evidence supports a different allocation.",
+                "containment_boundary": "The organizing move must not compromise reading order, accessibility, recovery, or narrow-screen comprehension.",
+                "removal_order": ["Remove incidental decoration", "Reduce supporting emphasis", "Simplify the signature before compromising comprehension"],
+            },
+            "refinement_passes": [
+                {
+                    "pass_id": pass_id,
+                    "status": "pending",
+                    "purpose": purpose,
+                    "changes": [],
+                    "preserved": [],
+                    "unresolved": ["Recovery direction requires an authored, evidence-based refinement pass."],
+                }
+                for pass_id, purpose in (
+                    ("provenance-grounding", "Ground the direction in inspected or supplied subject evidence."),
+                    ("divergent-exploration", "Test materially different organizing ideas before convergence."),
+                    ("boundary-push", "Strengthen the most subject-specific expressive move."),
+                    ("contextual-review", "Review the concept through the contextually relevant usability and consequence perspectives."),
+                    ("restraint-edit", "Protect legibility and rhythm by quieting competing expression."),
+                    ("responsive-transformation", "Make the concept transform coherently across target sizes and modalities."),
+                    ("artifact-critique", "Compare rendered artifacts with the approved design and correct visible drift."),
+                )
+            ],
+            "contextual_reviews": [],
+            "reference_compositions": ["Create one wide and one narrow target-native composition before treating this recovery direction as implementation-facing."],
+            "uniqueness_checks": ["Confirm the composition, type, palette, and signature would change materially if the subject changed."],
+            "provenance_ids": ["project-intent"],
+        },
         "content_rules": ["Label illustrative or inferred content where it appears; do not present fixture values or unverified claims as observed fact."],
         "audience_strategy": ["Use a shared core for common intent and make materially different audience routes explicit rather than averaging their needs."],
         "prototype_boundaries": ["Treat demonstrated surfaces and states as bounded evidence; do not imply omitted workflows are designed or implementation-ready."],
@@ -759,6 +1030,12 @@ def _validate_direction(value: Any, index: int, targets: list[str]) -> dict[str,
     for key in ("name", "summary", "creative_signature"):
         if not isinstance(result.get(key), str) or not result[key].strip():
             raise DesignError(f"Direction {result['direction_id']} requires {key}")
+    result["creative_provenance"] = _validate_creative_provenance(result.get("creative_provenance"))
+    result["distinctive_expression"] = _validate_distinctive_expression(
+        result.get("distinctive_expression"),
+        {item["provenance_id"] for item in result["creative_provenance"]},
+        result["creative_signature"],
+    )
     grammar = result.get("design_grammar")
     required_dimensions = _required_grammar_dimensions(targets)
     if not isinstance(grammar, dict) or set(grammar) != set(required_dimensions):
@@ -956,6 +1233,10 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         *[f"- **{direction['name']}:** {direction['summary']}" for direction in selected], "",
         "**Creative signature:**", "",
         *[f"- {direction['creative_signature']}" for direction in selected], "",
+        "**Aesthetic proposition:**", "",
+        *[f"- {direction['distinctive_expression']['aesthetic_thesis']}" for direction in selected], "",
+        "**Bounded aesthetic risk:**", "",
+        *[f"- {direction['distinctive_expression']['aesthetic_risk']['move']} — Boundary: {direction['distinctive_expression']['aesthetic_risk']['boundary']}" for direction in selected], "",
         "**Principal tradeoff:**", "",
         *[f"- {item}" for direction in selected for item in direction["tradeoffs"][:1]], "",
         "**Preservation promise:**", "",
@@ -1048,6 +1329,73 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
     for direction in selected:
         lines.extend([f"### {direction['name']}", "", direction["summary"], "", "Creative signature:", "", direction["creative_signature"], "", "Principles:", ""])
         lines.extend(f"- {item}" for item in direction["principles"])
+        expression = direction["distinctive_expression"]
+        lines.extend([
+            "", "## Distinctive expression", "",
+            "### Aesthetic thesis", "", expression["aesthetic_thesis"], "",
+            "### Subject world", "", *[f"- {item}" for item in expression["subject_world"]], "",
+            "### Signature element", "", expression["signature_element"], "",
+            "### Aesthetic risk", "",
+            f"- **Move:** {expression['aesthetic_risk']['move']}",
+            f"- **Why it fits:** {expression['aesthetic_risk']['rationale']}",
+            f"- **Boundary:** {expression['aesthetic_risk']['boundary']}", "",
+            "### Expression budget", "",
+            f"- **Boundary being pushed:** {expression['expression_budget']['boundary_being_pushed']}",
+            f"- **Signature dimension:** `{expression['expression_budget']['primary_dimension']}`",
+            f"- **Supporting dimensions:** {', '.join(expression['expression_budget']['supporting_dimensions'])}",
+            f"- **Restrained dimensions:** {', '.join(expression['expression_budget']['restrained_dimensions'])}",
+            f"- **Quiet field:** {expression['expression_budget']['quiet_field']}",
+            f"- **Containment boundary:** {expression['expression_budget']['containment_boundary']}",
+            "- **Intensity:** " + "; ".join(f"{dimension}={level}" for dimension, level in expression["expression_budget"]["intensity"].items()),
+            "- **Removal order:** " + " → ".join(expression["expression_budget"]["removal_order"]), "",
+            "### Anti-default decisions", "", *[f"- {item}" for item in expression["anti_defaults"]], "",
+            "### Expression system", "",
+        ])
+        for dimension, rules in expression["expression_system"].items():
+            lines.extend([f"#### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in rules], ""])
+        lines.extend(["### Multi-pass refinement", ""])
+        for refinement in expression["refinement_passes"]:
+            lines.extend([
+                f"#### {refinement['pass_id'].replace('-', ' ').title()}", "",
+                f"- **Status:** `{refinement['status']}`",
+                f"- **Purpose:** {refinement['purpose']}",
+                f"- **Changed:** {'; '.join(refinement['changes']) or 'Nothing recorded.'}",
+                f"- **Preserved:** {'; '.join(refinement['preserved']) or 'Nothing recorded.'}",
+                f"- **Unresolved:** {'; '.join(refinement['unresolved']) or 'None.'}", "",
+            ])
+        lines.extend(["### Contextual review outcomes", ""])
+        if expression["contextual_reviews"]:
+            for review in expression["contextual_reviews"]:
+                lines.extend([
+                    f"#### {review['perspective']}", "",
+                    f"- **Routing:** `{review['routing']}`",
+                    f"- **Why it applies:** {review['why_applicable']}",
+                    f"- **Finding:** {review['finding']}",
+                    f"- **Design response:** {review['design_response']}",
+                    f"- **Preserved behavior:** {'; '.join(review['preserved_behavior'])}",
+                    f"- **Verification:** {review['verification']}", "",
+                ])
+        else:
+            lines.extend(["- No evidence-bearing contextual review has been completed; treat that refinement pass as pending.", ""])
+        lines.extend([
+            "### Reference compositions", "", *[f"- {item}" for item in expression["reference_compositions"]], "",
+            "### Uniqueness checks", "", *[f"- {item}" for item in expression["uniqueness_checks"]], "",
+            "### Creative provenance", "",
+        ])
+        provenance_by_id = {item["provenance_id"]: item for item in direction["creative_provenance"]}
+        if expression["provenance_ids"]:
+            for provenance_id in expression["provenance_ids"]:
+                item = provenance_by_id[provenance_id]
+                source_text = "; ".join(item["source_refs"]) or "No direct source; inference is explicitly labeled."
+                lines.extend([
+                    f"#### {provenance_id}", "",
+                    f"- **Classification:** `{item['classification']}`",
+                    f"- **Observation:** {item['observation']}",
+                    f"- **Sources:** {source_text}",
+                    f"- **Design implication:** {item['design_implication']}", "",
+                ])
+        else:
+            lines.extend(["- No creative provenance was authored. Treat the expression as provisional until its subject basis is recorded.", ""])
         lines.extend(["", "## Experience principles", "", *[f"- {item}" for item in direction["experience_principles"]], ""])
         lines.extend(["## Experience architecture", "", *[f"- {item}" for item in direction["experience_architecture"]], ""])
         lines.extend(["## Visual and interaction system", "", "#### Design grammar", ""])
@@ -1121,6 +1469,8 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
     alignment_contract = {
         "selected_direction_ids": record["selected_direction_ids"],
         "creative_signatures": [direction["creative_signature"] for direction in selected],
+        "distinctive_expression": [direction["distinctive_expression"] for direction in selected],
+        "creative_provenance": [item for direction in selected for item in direction["creative_provenance"]],
         "content_provenance": record.get("content_provenance", []),
         "audience_architecture": record.get("audience_architecture"),
         "prototype_scope": record.get("prototype_scope"),
