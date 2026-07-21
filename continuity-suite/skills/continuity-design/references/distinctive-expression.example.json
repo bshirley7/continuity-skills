@@ -111,11 +111,20 @@
     },
     "implementation_system": {
       "status": "provisional",
+      "capability_digest": ["Inspected project tokens and typography sources; existing text, disclosure, and status primitives can be composed, while the attached evidence carrier remains a custom capability."],
       "token_strategy": ["Map Paper, Carbon, Signal cobalt, and Trace ochre to semantic canvas, text, verified, and qualified roles in the inspected project token system."],
       "type_constraints": ["Keep body copy near 65–75 characters, balance short display lines, preserve readable line-height, and define available fallbacks before implementation-facing status."],
       "layout_constraints": ["Define one reading-column measure, one evidence-margin width, protected edge spacing, and an inline narrow transformation with no horizontal overflow."],
       "motion_constraints": ["Use one optional claim-to-evidence transition and expose the same attachment immediately under reduced motion or failed animation."],
       "component_recipes": ["Compose existing text, disclosure, and status primitives; create only the attached evidence carrier as project-specific expression."],
+      "change_impact_checks": ["Before changing evidence color, type, or attachment rules, identify affected marketing, review, approval, error, and recovery surfaces and recapture every required viewport."],
+      "surface_grammar": [
+        {"surface_role": "recommendation-field", "parent_role": "brief-canvas", "fill": "Paper reading field", "border": "No enclosing border; evidence rules communicate attachment", "elevation": "Base plane", "radius": "Square reading field", "density": "Measured for sustained executive reading", "typography": "Readable serif body with compact grotesk recommendations", "state_behavior": "Qualification remains directly labeled and attached in every state"},
+        {"surface_role": "evidence-margin", "parent_role": "recommendation-field", "fill": "Transparent or lightly qualified field", "border": "Signal rule encodes claim attachment", "elevation": "No shadow; one bounded spatial crossing supplies emphasis", "radius": "No decorative rounding", "density": "Compact provenance and status metadata", "typography": "Tabular utility face", "state_behavior": "Verified and qualified states remain literal without color"}
+      ],
+      "responsive_delta_matrix": [
+        {"element": "evidence margin", "desktop": "Persistent attached margin with one bounded crossing", "tablet": "Narrow attached rail with reduced metadata", "mobile": "Immediate inline evidence reveal after the claim", "invariant": "Claim, status, and source remain adjacent in semantic reading order"}
+      ],
       "hardening_checks": ["Test long claims, missing sources, grayscale, keyboard order, narrow wrapping, sticky obstruction, and evidence labels under localization."]
     },
     "brand_signature": {

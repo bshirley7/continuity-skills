@@ -201,6 +201,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "### Brand signature system", "#### Primary carrier", "#### Expression transformation",
             "### Design register", "### Usage scene", "### Color commitment",
             "### Anti-reflex review", "### Implementation system", "#### Hardening Checks",
+            "#### Capability Digest", "#### Surface Grammar", "#### Responsive Delta Matrix", "#### Change Impact Checks",
             "**Aesthetic proposition:**", "**Bounded aesthetic risk:**",
             "**Target weight:** `0.62`", "**Exploration ceiling:** `0.88`",
             "`inspected`", "docs/research/workshops.md", "No direct source; inference is explicitly labeled.",
@@ -220,6 +221,8 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(contract["distinctive_expression"][0]["design_register"]["mode"], "mixed")
         self.assertEqual(contract["distinctive_expression"][0]["color_commitment"]["level"], "restrained")
         self.assertEqual(contract["distinctive_expression"][0]["implementation_system"]["status"], "provisional")
+        self.assertTrue(contract["distinctive_expression"][0]["implementation_system"]["surface_grammar"])
+        self.assertTrue(contract["distinctive_expression"][0]["implementation_system"]["responsive_delta_matrix"])
         self.assertEqual({item["provenance_id"] for item in contract["creative_provenance"]}, {"working-papers", "bounded-risk"})
 
     def test_distinctive_expression_rejects_multiple_signature_dimensions(self):

@@ -1115,11 +1115,13 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
         raise DesignError("distinctive_expression implementation_system requires a valid status")
     result["implementation_system"] = {"status": implementation_status}
     implementation_defaults = {
+        "capability_digest": ["Record inspected tokens, components, assets, fonts, motion, breakpoints, and material missing capabilities before implementation-facing status."],
         "token_strategy": ["Translate approved semantic roles into the actual project token system."],
         "type_constraints": ["Set readable measures, wrapping behavior, fallbacks, and responsive ceilings."],
         "layout_constraints": ["Define spacing rhythm, collision behavior, and narrow-screen transformation."],
         "motion_constraints": ["Preserve content without motion and respect reduced-motion preferences."],
         "component_recipes": ["Use installed primitives for behavior while preserving project-specific expression."],
+        "change_impact_checks": ["Before revising a shared token or recipe, identify affected surfaces, states, preservation risks, and required recaptures."],
         "hardening_checks": ["Test long content, overflow, focus, target sizes, contrast, interruption, and recovery."],
     }
     for key, default in implementation_defaults.items():
@@ -1127,6 +1129,45 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
         if not isinstance(items, list) or not items or any(not isinstance(item, str) or not item.strip() for item in items):
             raise DesignError(f"distinctive_expression implementation_system requires non-empty {key}")
         result["implementation_system"][key] = list(dict.fromkeys(item.strip() for item in items))
+    surface_grammar = implementation.get("surface_grammar", [{
+        "surface_role": "primary-content", "parent_role": "application-or-artifact-canvas",
+        "fill": "Use the approved primary reading or working field.",
+        "border": "Use boundaries only when they communicate grouping, state, or interaction.",
+        "elevation": "Keep the primary field on the base plane; reserve elevation for temporary focus or consequential interruption.",
+        "radius": "Use the approved radius family consistently rather than library defaults.",
+        "density": "Match spacing and information density to the usage scene.",
+        "typography": "Apply the approved content hierarchy and readable measure.",
+        "state_behavior": "Preserve hierarchy, semantics, and contrast across interactive and system states.",
+    }])
+    if not isinstance(surface_grammar, list) or not surface_grammar or any(not isinstance(item, dict) for item in surface_grammar):
+        raise DesignError("distinctive_expression implementation_system requires surface_grammar")
+    result["implementation_system"]["surface_grammar"] = []
+    for item in surface_grammar:
+        normalized_surface = {}
+        for key in ("surface_role", "parent_role", "fill", "border", "elevation", "radius", "density", "typography", "state_behavior"):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"distinctive_expression implementation_system surface_grammar requires {key}")
+            normalized_surface[key] = text.strip()
+        result["implementation_system"]["surface_grammar"].append(normalized_surface)
+    responsive_matrix = implementation.get("responsive_delta_matrix", [{
+        "element": result["signature_element"],
+        "desktop": "Use the full approved composition.",
+        "tablet": "Recompose relationships before reducing scale or removing content.",
+        "mobile": "Preserve meaning, sequence, state, and recognition in a linear or disclosed form.",
+        "invariant": "Preserve the subject-derived relationship, semantic order, and required action.",
+    }])
+    if not isinstance(responsive_matrix, list) or not responsive_matrix or any(not isinstance(item, dict) for item in responsive_matrix):
+        raise DesignError("distinctive_expression implementation_system requires responsive_delta_matrix")
+    result["implementation_system"]["responsive_delta_matrix"] = []
+    for item in responsive_matrix:
+        normalized_delta = {}
+        for key in ("element", "desktop", "tablet", "mobile", "invariant"):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"distinctive_expression implementation_system responsive_delta_matrix requires {key}")
+            normalized_delta[key] = text.strip()
+        result["implementation_system"]["responsive_delta_matrix"].append(normalized_delta)
     brand = value.get("brand_signature")
     if brand is None:
         brand = {
@@ -1746,8 +1787,22 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
             lines.extend([f"#### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in rules], ""])
         implementation = expression["implementation_system"]
         lines.extend(["### Implementation system", "", f"- **Status:** `{implementation['status']}`", ""])
-        for dimension in ("token_strategy", "type_constraints", "layout_constraints", "motion_constraints", "component_recipes", "hardening_checks"):
+        for dimension in ("capability_digest", "token_strategy", "type_constraints", "layout_constraints", "motion_constraints", "component_recipes", "change_impact_checks", "hardening_checks"):
             lines.extend([f"#### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in implementation[dimension]], ""])
+        lines.extend([
+            "#### Surface Grammar", "",
+            "| Surface | Parent | Fill | Border | Elevation | Radius | Density | Typography | State behavior |",
+            "|---|---|---|---|---|---|---|---|---|",
+        ])
+        for surface in implementation["surface_grammar"]:
+            lines.append("| " + " | ".join(surface[key].replace("|", "\\|") for key in ("surface_role", "parent_role", "fill", "border", "elevation", "radius", "density", "typography", "state_behavior")) + " |")
+        lines.extend([
+            "", "#### Responsive Delta Matrix", "",
+            "| Element | Desktop | Tablet | Mobile | Invariant |", "|---|---|---|---|---|",
+        ])
+        for delta in implementation["responsive_delta_matrix"]:
+            lines.append("| " + " | ".join(delta[key].replace("|", "\\|") for key in ("element", "desktop", "tablet", "mobile", "invariant")) + " |")
+        lines.append("")
         brand = expression["brand_signature"]
         lines.extend([
             "### Brand signature system", "",
