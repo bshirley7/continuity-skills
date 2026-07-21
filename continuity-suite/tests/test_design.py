@@ -40,6 +40,8 @@ def input_value(**overrides):
         "intent": "Set direction before implementation.",
         "audiences": ["Operators"],
         "targets": ["ui"],
+        "consequence_level": "moderate",
+        "direction_assessment": {"material_ambiguities": [], "resolved_by_evidence": []},
         "industry": "b2b-saas",
         "sections": ["dashboards"],
         "themes": ["calm"],
@@ -52,6 +54,14 @@ def input_value(**overrides):
         "memory_ids": [],
     }
     value.update(overrides)
+    if "modality_assessment" not in overrides:
+        target_names = ", ".join(value["targets"])
+        value["modality_assessment"] = {
+            "observed_signals": [f"The requested output targets {target_names}"],
+            "selected_targets": value["targets"],
+            "rationale": f"The supplied target evidence identifies {target_names} as the intended modality.",
+            "conflicts": [],
+        }
     return value
 
 
@@ -410,7 +420,7 @@ class DesignLifecycleTests(unittest.TestCase):
             direction_count_basis="A recommendation is available.",
             direction_assessment={"material_ambiguities": ["Shared core or differentiated audience routes"], "resolved_by_evidence": []},
         )
-        with self.assertRaisesRegex(design.DesignError, "material design ambiguities"):
+        with self.assertRaisesRegex(design.DesignError, "At least 2 directions"):
             design.draft(self.root, self.config, CATALOG, self.write_input(value))
         value["direction_count"] = 2
         self.assertEqual(len(design.draft(self.root, self.config, CATALOG, self.write_input(value))["directions"]), 2)
@@ -787,12 +797,70 @@ class DesignLifecycleTests(unittest.TestCase):
             "intent": "Create a memorable and useful experience.",
             "audiences": ["Customers"],
             "targets": ["ui"],
+            "modality_assessment": {
+                "observed_signals": ["Interactive experience"], "selected_targets": ["ui"],
+                "rationale": "The requested output is interactive.", "conflicts": [],
+            },
+            "direction_count": 1,
+            "direction_count_basis": "The supplied direction resolves the organizing idea.",
+            "direction_assessment": {"material_ambiguities": ["How bold?", "How dense?"], "resolved_by_evidence": ["How bold?", "How dense?"]},
             "open_questions": ["How bold?", "How dense?"],
             "directions": [seed["directions"][0]],
         }
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
         self.assertEqual(len(draft["directions"]), 1)
         self.assertEqual(draft["directions"][0], seed["directions"][0])
+
+    def test_source_uncertainties_remain_visible_until_resolved(self):
+        value = input_value(
+            design_id="uncertainty-register",
+            open_questions=["Are verified silhouettes available?"],
+            source_uncertainties=[{
+                "question": "Are verified silhouettes available?", "disposition": "open",
+                "response": "", "source_refs": ["docs/recalls.md"],
+            }],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["source_uncertainties"][0]["disposition"], "open")
+        design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        markdown = (self.root / ".continuity/private/design/uncertainty-register/design.md").read_text()
+        self.assertIn("## Source uncertainty register", markdown)
+        self.assertIn("Are verified silhouettes available?", markdown)
+        value["open_questions"] = []
+        with self.assertRaisesRegex(design.DesignError, "must remain in open_questions"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_authored_directions_require_modality_and_matching_assessed_count(self):
+        seed = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="assessment-seed")))
+        direction = seed["directions"][0]
+        value = input_value(
+            design_id="missing-modality", directions=[direction], direction_count=1,
+            modality_assessment=None,
+        )
+        with self.assertRaisesRegex(design.DesignError, "require modality_assessment"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        value["modality_assessment"] = input_value()["modality_assessment"]
+        value["direction_count"] = 2
+        with self.assertRaisesRegex(design.DesignError, "Supplied direction count must match"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_modality_conflicts_and_high_consequence_fixture_claims_fail_closed(self):
+        conflict = input_value(
+            design_id="modality-conflict",
+            modality_assessment={
+                "observed_signals": ["A printed notice rendered in HTML"], "selected_targets": ["ui"],
+                "rationale": "HTML was selected as the carrier.",
+                "conflicts": [{"conflict": "The requested output is a document, not an interface", "status": "unresolved", "resolution": ""}],
+            },
+        )
+        with self.assertRaisesRegex(design.DesignError, "Modality conflict must be resolved"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(conflict))
+        fixture = input_value(
+            design_id="high-consequence-fixture", consequence_level="high",
+            prototype_scope={"maturity": "behavioral", "artifact_type": "HTML notice", "fixture_data": "present", "demonstrated_surfaces": ["Recall notice"], "demonstrated_states": ["default"], "omitted_surfaces": [], "omitted_states": []},
+        )
+        with self.assertRaisesRegex(design.DesignError, "require content_provenance"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(fixture))
 
     def test_cross_industry_cross_modality_evaluation_is_healthy(self):
         report = EVALUATION.evaluate(CATALOG, SCENARIOS)
@@ -2113,7 +2181,7 @@ class BoundaryTests(unittest.TestCase):
             goal = call("goal", "create", "--goal-file", str(goal_input))
             self.assertEqual(goal["design_refs"][0]["design_hash"], approved["design_hash"])
             doctor = call("project", "doctor")
-            self.assertTrue(doctor["design_catalog"]["healthy"])
+            self.assertTrue(doctor["design_catalog"]["healthy"], doctor["design_catalog"])
             self.assertEqual(doctor["design_catalog"]["approved_design"]["design_hash"], approved["design_hash"])
 
 

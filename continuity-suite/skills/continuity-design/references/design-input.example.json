@@ -3,6 +3,13 @@
   "intent": "Help new customers understand what the product can do, reach a useful result quickly, and return later without losing their place.",
   "audiences": ["People using the product for the first time", "Experienced customers returning to unfinished work"],
   "targets": ["ui"],
+  "consequence_level": "moderate",
+  "modality_assessment": {
+    "observed_signals": ["The request concerns interactive first-session and returning-user application screens"],
+    "selected_targets": ["ui"],
+    "rationale": "The primary output is an interactive product workflow; screenshots are review evidence rather than the target modality.",
+    "conflicts": []
+  },
   "direction_count": 2,
   "direction_count_basis": "One material tradeoff remains between a faster first outcome and more guided orientation",
   "direction_assessment": {
@@ -22,6 +29,14 @@
     }
   ],
   "working_assumptions": ["The first useful result is more important than exposing the complete product during the initial session"],
+  "source_uncertainties": [
+    {
+      "question": "Which existing shortcut do experienced users rely on most?",
+      "disposition": "open",
+      "response": "",
+      "source_refs": ["Existing returning-user screen"]
+    }
+  ],
   "evidence_inspected": ["docs/product/overview.md", "src/components", "Existing onboarding and returning-user screens"],
   "current_strengths": ["Returning users can resume unfinished work", "Experienced users have a fast keyboard path"],
   "current_gaps": ["New users cannot identify the first useful outcome", "Visual hierarchy changes between onboarding steps"],
@@ -57,7 +72,7 @@
   "preserve": ["Current fast path for experienced users"],
   "non_goals": ["Do not redesign unrelated account administration"],
   "validation_criteria": ["A first-time user can identify the primary action", "The existing keyboard path remains available without additional steps"],
-  "open_questions": [],
+  "open_questions": ["Which existing shortcut do experienced users rely on most?"],
   "consequences": [],
   "workflow_signals": [],
   "interaction_signals": [],

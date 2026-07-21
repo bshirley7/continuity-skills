@@ -37,6 +37,9 @@ REFINEMENT_PASS_IDS = (
 AUDIENCE_MODES = {"shared-core", "differentiated", "unresolved"}
 PROTOTYPE_MATURITY = {"directional", "behavioral", "implementation-facing"}
 VALIDATION_STATUSES = {"required", "passed", "not-applicable"}
+UNCERTAINTY_DISPOSITIONS = {"open", "assumed", "resolved", "deferred"}
+MODALITY_CONFLICT_STATUSES = {"resolved", "not-applicable", "unresolved"}
+CONSEQUENCE_LEVELS = {"routine", "moderate", "high"}
 INSIGHT_DECISION_STATUSES = {"decided", "provisional", "omitted"}
 ARTIFACT_MATURITY = {"directional", "behavioral", "implementation-facing"}
 COMPONENT_STRATEGIES = {"reuse", "compose", "extend", "custom", "missing-capability"}
@@ -676,6 +679,68 @@ def _validate_direction_assessment(value: Any) -> dict[str, list[str]] | None:
     if set(result["resolved_by_evidence"]) - set(result["material_ambiguities"]):
         raise DesignError("resolved_by_evidence must name material ambiguities")
     return result
+
+
+def _validate_source_uncertainties(value: Any, open_questions: list[str], working_assumptions: list[str]) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        raise DesignError("source_uncertainties must be an array of objects")
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        question = item.get("question")
+        disposition = item.get("disposition")
+        response = item.get("response", "")
+        source_refs = item.get("source_refs", [])
+        if not isinstance(question, str) or not question.strip() or question.strip() in seen:
+            raise DesignError("source_uncertainties requires unique non-empty questions")
+        if disposition not in UNCERTAINTY_DISPOSITIONS or not isinstance(response, str):
+            raise DesignError(f"Source uncertainty {question.strip()} requires a valid disposition and response")
+        if not isinstance(source_refs, list) or any(not isinstance(ref, str) or not ref.strip() for ref in source_refs):
+            raise DesignError(f"Source uncertainty {question.strip()} has invalid source_refs")
+        normalized = {"question": question.strip(), "disposition": disposition, "response": response.strip(), "source_refs": list(dict.fromkeys(ref.strip() for ref in source_refs))}
+        if disposition in {"open", "deferred"} and normalized["question"] not in open_questions:
+            raise DesignError(f"Open source uncertainty must remain in open_questions: {normalized['question']}")
+        if disposition == "assumed" and (not normalized["response"] or normalized["response"] not in working_assumptions):
+            raise DesignError(f"Assumed source uncertainty must remain in working_assumptions: {normalized['question']}")
+        if disposition == "resolved" and (not normalized["response"] or not normalized["source_refs"]):
+            raise DesignError(f"Resolved source uncertainty requires a response and source evidence: {normalized['question']}")
+        result.append(normalized)
+        seen.add(normalized["question"])
+    return result
+
+
+def _validate_modality_assessment(value: Any, targets: list[str], *, required: bool) -> dict[str, Any] | None:
+    if value is None:
+        if required:
+            raise DesignError("Authored directions require modality_assessment")
+        return None
+    if not isinstance(value, dict):
+        raise DesignError("modality_assessment must be an object")
+    signals = _string_list(value.get("observed_signals"), "modality_assessment observed_signals", required=True)
+    selected = _string_list(value.get("selected_targets"), "modality_assessment selected_targets", required=True)
+    if set(selected) != set(targets):
+        raise DesignError("modality_assessment selected_targets must exactly match targets")
+    rationale = value.get("rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
+        raise DesignError("modality_assessment requires rationale")
+    conflicts = value.get("conflicts", [])
+    if not isinstance(conflicts, list) or any(not isinstance(item, dict) for item in conflicts):
+        raise DesignError("modality_assessment conflicts must be an array of objects")
+    normalized_conflicts = []
+    for item in conflicts:
+        conflict = item.get("conflict")
+        status = item.get("status")
+        resolution = item.get("resolution", "")
+        if not isinstance(conflict, str) or not conflict.strip() or status not in MODALITY_CONFLICT_STATUSES or not isinstance(resolution, str):
+            raise DesignError("modality_assessment has an invalid conflict")
+        if status == "unresolved":
+            raise DesignError(f"Modality conflict must be resolved before direction authoring: {conflict.strip()}")
+        if status == "resolved" and not resolution.strip():
+            raise DesignError(f"Resolved modality conflict requires a resolution: {conflict.strip()}")
+        normalized_conflicts.append({"conflict": conflict.strip(), "status": status, "resolution": resolution.strip()})
+    return {"observed_signals": signals, "selected_targets": selected, "rationale": rationale.strip(), "conflicts": normalized_conflicts}
 
 
 def _validate_insight_decisions(value: Any) -> list[dict[str, Any]]:
@@ -1513,6 +1578,19 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         payload[key] = _validate_strings(payload, key)
     if not set(payload["targets"]).issubset(TARGETS):
         raise DesignError(f"Unknown targets: {sorted(set(payload['targets']) - TARGETS)}")
+    consequence_level = payload.get("consequence_level", "moderate")
+    if consequence_level not in CONSEQUENCE_LEVELS:
+        raise DesignError("consequence_level must be routine, moderate, or high")
+    payload["consequence_level"] = consequence_level
+    payload["source_uncertainties"] = _validate_source_uncertainties(
+        payload.get("source_uncertainties"), payload["open_questions"], payload["working_assumptions"]
+    )
+    supplied = payload.get("directions")
+    payload["modality_assessment"] = _validate_modality_assessment(
+        payload.get("modality_assessment"), payload["targets"], required=supplied is not None
+    )
+    if consequence_level == "high" and payload["prototype_scope"] and payload["prototype_scope"]["fixture_data"] == "present" and not payload["content_provenance"]:
+        raise DesignError("High-consequence prototypes with fixture content require content_provenance")
     catalog = load_catalog(catalog_path)
     lens_routing: list[dict[str, Any]] = []
     if not manual_lenses:
@@ -1534,14 +1612,18 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         status = "mixed" if len(active) > 1 else next(iter(active), "not-applicable")
         evidence_application[target] = {"status": status, **groups}
     count = _direction_count(payload)
+    if supplied is not None and payload["direction_assessment"] is None:
+        raise DesignError("Authored directions require direction_assessment")
     if payload["direction_assessment"]:
         unresolved_ambiguities = set(payload["direction_assessment"]["material_ambiguities"]) - set(payload["direction_assessment"]["resolved_by_evidence"])
-        if count == 1 and unresolved_ambiguities:
-            raise DesignError("One direction is not allowed while material design ambiguities remain unresolved")
-    supplied = payload.get("directions")
+        required_count = min(3, 1 + len(unresolved_ambiguities))
+        if count < required_count:
+            raise DesignError(f"At least {required_count} directions are required while material design ambiguities remain unresolved")
     if supplied is not None:
         if not isinstance(supplied, list) or not 1 <= len(supplied) <= 3:
             raise DesignError("Supplied creative work requires one to three directions")
+        if len(supplied) != count:
+            raise DesignError("Supplied direction count must match direction_count")
         directions = [_validate_direction(item, index, payload["targets"]) for index, item in enumerate(supplied)]
     else:
         directions = [_validate_direction(_generated_direction(payload, index), index, payload["targets"]) for index in range(count)]
@@ -1573,6 +1655,8 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "intent": payload["intent"].strip(),
         "audiences": payload["audiences"],
         "targets": payload["targets"],
+        "modality_assessment": payload["modality_assessment"],
+        "consequence_level": payload["consequence_level"],
         "industry": payload["industry"].strip(),
         "sections": payload["sections"],
         "themes": payload["themes"],
@@ -1584,6 +1668,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "constraints": payload["constraints"],
         "preserve": payload["preserve"],
         "open_questions": payload["open_questions"],
+        "source_uncertainties": payload["source_uncertainties"],
         "working_assumptions": payload["working_assumptions"],
         "evidence_inspected": payload["evidence_inspected"],
         "current_strengths": payload["current_strengths"],
@@ -1629,6 +1714,7 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         f"Design ID: `{draft_record['design_id']}`  ",
         f"Revision: `{draft_record['revision']}`  ",
         f"Targets: `{targets}`  ",
+        f"Consequence level: `{draft_record.get('consequence_level', 'moderate')}`  ",
         f"Evidence application: `{modality}`", "",
         f"Direction count basis: {draft_record['direction_count_basis']}", "",
         "## Decision at a glance", "",
@@ -1652,6 +1738,18 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         "Audiences:", "",
         *[f"- {item}" for item in draft_record["audiences"]], "",
     ]
+    modality_assessment = draft_record.get("modality_assessment")
+    lines.extend(["## Modality assessment", ""])
+    if modality_assessment:
+        lines.extend([
+            f"Selected targets: {', '.join(f'`{item}`' for item in modality_assessment['selected_targets'])}", "",
+            f"Rationale: {modality_assessment['rationale']}", "",
+            "Observed signals:", "", *[f"- {item}" for item in modality_assessment["observed_signals"]], "",
+        ])
+        if modality_assessment["conflicts"]:
+            lines.extend(["Resolved modality conflicts:", "", *[f"- **{item['conflict']} — {item['status']}:** {item['resolution'] or 'Not applicable.'}" for item in modality_assessment["conflicts"]], ""])
+    else:
+        lines.extend(["- Legacy input supplied no explicit modality assessment; verify targets before implementation-facing work.", ""])
     if draft_record["lens_selection_mode"] == "manual":
         lines.extend([
             "## Explicit design concepts",
@@ -1679,6 +1777,15 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
             lines.append(detail)
     else:
         lines.append("- No content provenance records were supplied; do not treat illustrative copy, fixture values, or inferred claims as verified evidence.")
+    lines.append("")
+    uncertainties = draft_record.get("source_uncertainties", [])
+    lines.extend(["## Source uncertainty register", ""])
+    if uncertainties:
+        for item in uncertainties:
+            sources = "; ".join(item["source_refs"]) or "No resolving source recorded."
+            lines.append(f"- **{item['question']} — {item['disposition']}:** {item['response'] or 'No answer assumed.'} Sources: {sources}")
+    else:
+        lines.append("- No structured source uncertainties were supplied; do not infer that the source material was complete.")
     lines.append("")
     architecture = draft_record.get("audience_architecture")
     lines.extend(["## Audience architecture", ""])
@@ -1989,6 +2096,9 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         "distinctive_expression": [direction["distinctive_expression"] for direction in selected],
         "creative_provenance": [item for direction in selected for item in direction["creative_provenance"]],
         "content_provenance": record.get("content_provenance", []),
+        "source_uncertainties": record.get("source_uncertainties", []),
+        "modality_assessment": record.get("modality_assessment"),
+        "consequence_level": record.get("consequence_level", "moderate"),
         "audience_architecture": record.get("audience_architecture"),
         "prototype_scope": record.get("prototype_scope"),
         "implementation_context": record.get("implementation_context"),
