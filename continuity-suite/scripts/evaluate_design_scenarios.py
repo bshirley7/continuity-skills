@@ -132,6 +132,7 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
         forbidden = set(scenario.get("forbidden_lenses", []))
         safeguards = set(scenario.get("required_safeguards", []))
         expected_conflicts = set(scenario.get("expected_conflicts", []))
+        expected_content_classifications = set(scenario.get("expected_content_classifications", []))
         if (
             not isinstance(scenario_id, str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]+", scenario_id)
@@ -144,6 +145,7 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
             or expected & forbidden
             or not (expected | forbidden | safeguards).issubset(available_lenses)
             or not expected_conflicts <= available_conflicts
+            or not expected_content_classifications <= design.CONTENT_CLASSIFICATIONS
         ):
             raise ValueError(f"Scenario is invalid: {scenario_id}")
         scenario_ids.add(scenario_id)
@@ -190,6 +192,9 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
             missing_conflicts = sorted(expected_conflicts - active_conflicts)
             unexpected_conflicts = sorted(active_conflicts - expected_conflicts)
             expected_count = scenario.get("expected_direction_count")
+            expected_content_classifications = set(scenario.get("expected_content_classifications", []))
+            actual_content_classifications = {item["classification"] for item in draft.get("content_provenance", [])}
+            content_integrity_ok = expected_content_classifications <= actual_content_classifications
             direction_count_ok = expected_count is None or len(draft["directions"]) == expected_count
             similarity = _maximum_similarity(draft["directions"])
             usefulness = _implementation_usefulness(draft["directions"])
@@ -217,6 +222,7 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
                     "unexpected_conflicts": unexpected_conflicts,
                     "direction_count": len(draft["directions"]),
                     "direction_count_ok": direction_count_ok,
+                    "content_integrity_ok": content_integrity_ok,
                     "maximum_direction_similarity": round(similarity, 4),
                     "implementation_usefulness": round(usefulness, 4),
                     "passed": not (
@@ -227,6 +233,7 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
                         or missing_conflicts
                         or unexpected_conflicts
                         or not direction_count_ok
+                        or not content_integrity_ok
                     ),
                 }
             )

@@ -9,6 +9,33 @@
   "evidence_inspected": ["docs/product/overview.md", "src/components", "Existing onboarding and returning-user screens"],
   "current_strengths": ["Returning users can resume unfinished work", "Experienced users have a fast keyboard path"],
   "current_gaps": ["New users cannot identify the first useful outcome", "Visual hierarchy changes between onboarding steps"],
+  "content_provenance": [
+    {"content_id": "resume-message", "classification": "inspected", "statement": "Returning users can resume unfinished work", "source_refs": ["Existing returning-user screen"], "required_qualification": "", "allowed_uses": ["design direction", "prototype copy"]},
+    {"content_id": "example-progress", "classification": "illustrative", "statement": "Three steps remain", "source_refs": [], "required_qualification": "Illustrative progress value; replace with product data", "allowed_uses": ["prototype"]}
+  ],
+  "audience_architecture": {
+    "mode": "differentiated",
+    "shared_core": ["Understand current work and resume safely"],
+    "routes": [
+      {"audience": "People using the product for the first time", "route": "guided first outcome", "needs": ["Orientation and a useful first result"]},
+      {"audience": "Experienced customers returning to unfinished work", "route": "direct resumption", "needs": ["Current state and fast continuation"]}
+    ],
+    "unresolved_conflicts": []
+  },
+  "prototype_scope": {
+    "maturity": "behavioral",
+    "artifact_type": "responsive HTML",
+    "demonstrated_surfaces": ["First-session start", "Returning-user resume"],
+    "demonstrated_states": ["default", "saved work available"],
+    "omitted_surfaces": ["Account administration"],
+    "omitted_states": ["offline synchronization failure"],
+    "fixture_data": "present"
+  },
+  "validation_matrix": [
+    {"scenario": "keyboard-only operation", "status": "required", "evidence": ""},
+    {"scenario": "localization expansion", "status": "required", "evidence": ""},
+    {"scenario": "representative long content", "status": "required", "evidence": ""}
+  ],
   "design_debt": ["Spacing and state treatments are implemented locally instead of through shared tokens"],
   "constraints": ["Preserve existing keyboard workflows"],
   "preserve": ["Current fast path for experienced users"],

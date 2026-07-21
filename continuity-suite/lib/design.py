@@ -20,6 +20,10 @@ AXES = {
 TARGETS = {"ui", "document", "image"}
 CATALOG_MODALITIES = TARGETS | {"campaign", "platform"}
 EVIDENCE_STATUSES = {"validated", "inferred", "not-applicable"}
+CONTENT_CLASSIFICATIONS = {"inspected", "supplied", "inferred", "illustrative"}
+AUDIENCE_MODES = {"shared-core", "differentiated", "unresolved"}
+PROTOTYPE_MATURITY = {"directional", "behavioral", "implementation-facing"}
+VALIDATION_STATUSES = {"required", "passed", "not-applicable"}
 DESIGN_GRAMMAR_DIMENSIONS = (
     "composition",
     "spacing_density",
@@ -513,6 +517,130 @@ def _required_grammar_dimensions(targets: list[str]) -> tuple[str, ...]:
     )
 
 
+def _validate_content_provenance(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise DesignError("content_provenance must be an array")
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise DesignError("Each content provenance record must be an object")
+        content_id = _identifier(str(item.get("content_id", "")), "content ID")
+        classification = item.get("classification")
+        statement = item.get("statement")
+        qualification = item.get("required_qualification", "")
+        if content_id in seen:
+            raise DesignError("Content provenance IDs must be unique")
+        if classification not in CONTENT_CLASSIFICATIONS:
+            raise DesignError(f"Unknown content classification: {classification}")
+        if not isinstance(statement, str) or not statement.strip():
+            raise DesignError(f"Content provenance {content_id} requires statement")
+        if classification in {"inferred", "illustrative"} and (not isinstance(qualification, str) or not qualification.strip()):
+            raise DesignError(f"Content provenance {content_id} requires qualification")
+        source_refs = item.get("source_refs", [])
+        allowed_uses = item.get("allowed_uses", [])
+        for key, strings in (("source_refs", source_refs), ("allowed_uses", allowed_uses)):
+            if not isinstance(strings, list) or any(not isinstance(entry, str) or not entry.strip() for entry in strings):
+                raise DesignError(f"Content provenance {content_id} has invalid {key}")
+        if classification == "inspected" and not source_refs:
+            raise DesignError(f"Inspected content provenance {content_id} requires source_refs")
+        records.append({
+            "content_id": content_id,
+            "classification": classification,
+            "statement": statement.strip(),
+            "source_refs": source_refs,
+            "required_qualification": qualification.strip() if isinstance(qualification, str) else "",
+            "allowed_uses": allowed_uses,
+        })
+        seen.add(content_id)
+    return records
+
+
+def _validate_audience_architecture(value: Any, audiences: list[str]) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or value.get("mode") not in AUDIENCE_MODES:
+        raise DesignError("audience_architecture requires a valid mode")
+    mode = value["mode"]
+    shared_core = value.get("shared_core", [])
+    unresolved = value.get("unresolved_conflicts", [])
+    for key, strings in (("shared_core", shared_core), ("unresolved_conflicts", unresolved)):
+        if not isinstance(strings, list) or any(not isinstance(entry, str) or not entry.strip() for entry in strings):
+            raise DesignError(f"audience_architecture has invalid {key}")
+    routes = value.get("routes", [])
+    if not isinstance(routes, list):
+        raise DesignError("audience_architecture routes must be an array")
+    normalized_routes: list[dict[str, Any]] = []
+    for route in routes:
+        if not isinstance(route, dict):
+            raise DesignError("Each audience route must be an object")
+        audience = route.get("audience")
+        route_name = route.get("route")
+        needs = route.get("needs", [])
+        if not isinstance(audience, str) or not audience.strip() or not isinstance(route_name, str) or not route_name.strip():
+            raise DesignError("Each audience route requires audience and route")
+        if not isinstance(needs, list) or not needs or any(not isinstance(entry, str) or not entry.strip() for entry in needs):
+            raise DesignError("Each audience route requires non-empty needs")
+        normalized_routes.append({"audience": audience.strip(), "route": route_name.strip(), "needs": needs})
+    if mode == "shared-core" and not shared_core:
+        raise DesignError("shared-core audience architecture requires shared_core")
+    if mode == "differentiated" and len(normalized_routes) < 2:
+        raise DesignError("differentiated audience architecture requires at least two routes")
+    if mode == "unresolved" and not unresolved:
+        raise DesignError("unresolved audience architecture requires unresolved_conflicts")
+    return {"mode": mode, "shared_core": shared_core, "routes": normalized_routes, "unresolved_conflicts": unresolved}
+
+
+def _validate_prototype_scope(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or value.get("maturity") not in PROTOTYPE_MATURITY:
+        raise DesignError("prototype_scope requires a valid maturity")
+    artifact_type = value.get("artifact_type")
+    if not isinstance(artifact_type, str) or not artifact_type.strip():
+        raise DesignError("prototype_scope requires artifact_type")
+    result = {"maturity": value["maturity"], "artifact_type": artifact_type.strip()}
+    for key in ("demonstrated_surfaces", "demonstrated_states", "omitted_surfaces", "omitted_states"):
+        strings = value.get(key, [])
+        if not isinstance(strings, list) or any(not isinstance(entry, str) or not entry.strip() for entry in strings):
+            raise DesignError(f"prototype_scope has invalid {key}")
+        result[key] = strings
+    fixture_data = value.get("fixture_data", "none")
+    if fixture_data not in {"none", "present"}:
+        raise DesignError("prototype_scope fixture_data must be none or present")
+    result["fixture_data"] = fixture_data
+    if result["maturity"] == "implementation-facing" and (not result["demonstrated_surfaces"] or not result["demonstrated_states"]):
+        raise DesignError("implementation-facing prototype scope requires demonstrated surfaces and states")
+    return result
+
+
+def _validate_validation_matrix(value: Any, prototype_scope: dict[str, Any] | None) -> list[dict[str, str]]:
+    if value is None:
+        value = []
+    if not isinstance(value, list):
+        raise DesignError("validation_matrix must be an array")
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict) or not isinstance(item.get("scenario"), str) or not item["scenario"].strip():
+            raise DesignError("Each validation entry requires scenario")
+        scenario = item["scenario"].strip()
+        status = item.get("status")
+        evidence = item.get("evidence", "")
+        if scenario in seen or status not in VALIDATION_STATUSES or not isinstance(evidence, str):
+            raise DesignError(f"Invalid validation entry: {scenario}")
+        if status in {"passed", "not-applicable"} and not evidence.strip():
+            raise DesignError(f"Validation entry {scenario} requires evidence or rationale")
+        result.append({"scenario": scenario, "status": status, "evidence": evidence.strip()})
+        seen.add(scenario)
+    if prototype_scope and prototype_scope["maturity"] == "implementation-facing":
+        if not result or any(item["status"] == "required" for item in result):
+            raise DesignError("implementation-facing prototypes require completed validation evidence")
+    return result
+
+
 def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
     strategy = DIRECTION_STRATEGIES[index]
     theme = payload["themes"][index % len(payload["themes"])] if payload["themes"] else ""
@@ -537,6 +665,9 @@ def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
         "name": name,
         "summary": summary,
         "creative_signature": f"Use {strategy['name'].casefold()} as a recognizable organizing move across the relevant visual and interaction dimensions, with project-specific expression supplied during revision.",
+        "content_rules": ["Label illustrative or inferred content where it appears; do not present fixture values or unverified claims as observed fact."],
+        "audience_strategy": ["Use a shared core for common intent and make materially different audience routes explicit rather than averaging their needs."],
+        "prototype_boundaries": ["Treat demonstrated surfaces and states as bounded evidence; do not imply omitted workflows are designed or implementation-ready."],
         "principles": principles,
         "design_grammar": {dimension: [strategy["grammar"][dimension]] for dimension in required_dimensions},
         "experience_principles": [
@@ -590,6 +721,16 @@ def _validate_direction(value: Any, index: int, targets: list[str]) -> dict[str,
     ):
         if not isinstance(result.get(key), list) or not result[key] or any(not isinstance(item, str) or not item.strip() for item in result[key]):
             raise DesignError(f"Direction {result['direction_id']} requires non-empty {key}")
+    defaults = {
+        "content_rules": ["Distinguish inspected, supplied, inferred, and illustrative content; qualify anything not evidenced."],
+        "audience_strategy": ["Preserve shared needs while making material audience differences explicit."],
+        "prototype_boundaries": ["Do not present unshown surfaces, states, or workflows as demonstrated or implementation-ready."],
+    }
+    for key, fallback in defaults.items():
+        candidate = result.get(key, fallback)
+        if not isinstance(candidate, list) or not candidate or any(not isinstance(item, str) or not item.strip() for item in candidate):
+            raise DesignError(f"Direction {result['direction_id']} requires non-empty {key}")
+        result[key] = candidate
     return result
 
 
@@ -610,6 +751,10 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     manual_lenses = "lenses" in payload
     for key in ("audiences", "targets"):
         payload[key] = _validate_strings(payload, key, required=True)
+    payload["content_provenance"] = _validate_content_provenance(payload.get("content_provenance"))
+    payload["audience_architecture"] = _validate_audience_architecture(payload.get("audience_architecture"), payload["audiences"])
+    payload["prototype_scope"] = _validate_prototype_scope(payload.get("prototype_scope"))
+    payload["validation_matrix"] = _validate_validation_matrix(payload.get("validation_matrix"), payload["prototype_scope"])
     for key in ("sections", "themes", "message_structures"):
         payload[key] = _validate_strings(payload, key)
     if manual_lenses:
@@ -715,6 +860,10 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "risk_signals": payload["risk_signals"],
         "source_note_ids": payload["source_note_ids"],
         "memory_ids": payload["memory_ids"],
+        "content_provenance": payload["content_provenance"],
+        "audience_architecture": payload["audience_architecture"],
+        "prototype_scope": payload["prototype_scope"],
+        "validation_matrix": payload["validation_matrix"],
         "directions": directions,
         "direction_count_basis": payload.get("direction_count_basis", "legacy heuristic" if payload.get("direction_count") is None else "agent assessed material ambiguity"),
         "catalog_packs": catalog_packs,
@@ -773,6 +922,52 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         ("Design debt", "design_debt"),
     ):
         lines.extend([f"### {heading}", "", *([f"- {item}" for item in draft_record[key]] or ["- None recorded."]), ""])
+    provenance = draft_record.get("content_provenance", [])
+    lines.extend(["## Content and evidence integrity", ""])
+    if provenance:
+        for item in provenance:
+            detail = f"- **{item['content_id']} ({item['classification']}):** {item['statement']}"
+            if item["required_qualification"]:
+                detail += f" Qualification: {item['required_qualification']}"
+            lines.append(detail)
+    else:
+        lines.append("- No content provenance records were supplied; do not treat illustrative copy, fixture values, or inferred claims as verified evidence.")
+    lines.append("")
+    architecture = draft_record.get("audience_architecture")
+    lines.extend(["## Audience architecture", ""])
+    if architecture:
+        lines.extend([f"Mode: `{architecture['mode']}`", ""])
+        lines.extend(["Shared core:", "", *([f"- {item}" for item in architecture["shared_core"]] or ["- None recorded."]), ""])
+        for route in architecture["routes"]:
+            lines.extend([f"### {route['audience']}: {route['route']}", "", *[f"- {item}" for item in route["needs"]], ""])
+        if architecture["unresolved_conflicts"]:
+            lines.extend(["Unresolved audience conflicts:", "", *[f"- {item}" for item in architecture["unresolved_conflicts"]], ""])
+    else:
+        lines.extend(["- No explicit audience architecture was recorded. Use the listed audiences as provisional context and do not silently average conflicting needs.", ""])
+    scope = draft_record.get("prototype_scope")
+    lines.extend(["## Demonstrated and not demonstrated", ""])
+    if scope:
+        lines.extend([
+            f"Artifact: `{scope['artifact_type']}`  ",
+            f"Maturity: `{scope['maturity']}`  ",
+            f"Fixture data: `{scope['fixture_data']}`", "",
+        ])
+        for heading, key in (
+            ("Demonstrated surfaces", "demonstrated_surfaces"),
+            ("Demonstrated states", "demonstrated_states"),
+            ("Omitted surfaces", "omitted_surfaces"),
+            ("Omitted states", "omitted_states"),
+        ):
+            lines.extend([f"### {heading}", "", *([f"- {item}" for item in scope[key]] or ["- None recorded."]), ""])
+    else:
+        lines.extend(["- No prototype scope was recorded. The design document demonstrates direction, not workflow completeness or implementation readiness.", ""])
+    matrix = draft_record.get("validation_matrix", [])
+    lines.extend(["## Prototype validation matrix", ""])
+    lines.extend(
+        [f"- **{item['scenario']} — {item['status']}:** {item['evidence'] or 'Evidence still required.'}" for item in matrix]
+        or ["- No validation evidence was recorded; implementation readiness is not claimed."]
+    )
+    lines.append("")
     lines.extend(["## Design thesis", ""])
     for direction in selected:
         lines.extend([f"### {direction['name']}", "", direction["summary"], "", "Creative signature:", "", direction["creative_signature"], "", "Principles:", ""])
@@ -783,6 +978,9 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         for dimension in _required_grammar_dimensions(draft_record["targets"]):
             lines.extend([f"##### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in direction["design_grammar"][dimension]], ""])
         lines.extend(["## Component and pattern direction", "", *[f"- {item}" for item in direction["component_patterns"]], ""])
+        lines.extend(["## Content rules", "", *[f"- {item}" for item in direction["content_rules"]], ""])
+        lines.extend(["## Audience strategy", "", *[f"- {item}" for item in direction["audience_strategy"]], ""])
+        lines.extend(["## Prototype boundaries", "", *[f"- {item}" for item in direction["prototype_boundaries"]], ""])
         lines.extend(["## Implementation contract", "", *[f"- {item}" for item in direction["implementation_guidance"]], ""])
         lines.extend(["### Acceptance and drift checks", "", *[f"- {item}" for item in direction["validation_criteria"]], ""])
         lines.extend(["### Prohibited patterns", "", *[f"- {item}" for item in direction["prohibited_patterns"]], ""])
@@ -847,6 +1045,13 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
     alignment_contract = {
         "selected_direction_ids": record["selected_direction_ids"],
         "creative_signatures": [direction["creative_signature"] for direction in selected],
+        "content_provenance": record.get("content_provenance", []),
+        "audience_architecture": record.get("audience_architecture"),
+        "prototype_scope": record.get("prototype_scope"),
+        "validation_matrix": record.get("validation_matrix", []),
+        "content_rules": [rule for direction in selected for rule in direction["content_rules"]],
+        "audience_strategy": [rule for direction in selected for rule in direction["audience_strategy"]],
+        "prototype_boundaries": [rule for direction in selected for rule in direction["prototype_boundaries"]],
         "preserve": record["preserve"],
         "non_goals": record["non_goals"],
         "implementation_guidance": [rule for direction in selected for rule in direction["implementation_guidance"]],

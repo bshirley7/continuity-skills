@@ -45,6 +45,7 @@ Define for each direction:
 - observable acceptance and drift checks;
 - favorable behavior that survives;
 - prohibited patterns and explicit tradeoffs.
+- content rules, audience strategy, and prototype boundaries when applicable.
 
 Use generated fallback directions only to recover a malformed draft. Do not present them as completed creative work.
 
@@ -73,7 +74,7 @@ Then provide the full experience, visual, implementation, safeguard, and validat
 
 The selected or explicitly combined direction becomes `design.md`. Keep it useful to planning, implementation, review, documents, and visual production without turning it into a task plan.
 
-The document must make current-state evidence, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. Omit irrelevant modality dimensions rather than fabricating requirements.
+The document must make current-state evidence, content provenance, audience architecture, demonstrated and omitted scope, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. Omit irrelevant modality dimensions rather than fabricating requirements. Apply [prototype integrity](prototype-integrity.md) when representative content, prototypes, or multiple audiences are in scope.
 
 ## 5. Maintain alignment
 

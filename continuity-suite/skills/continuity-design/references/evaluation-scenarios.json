@@ -34,10 +34,12 @@
         "audiences": ["Operations analysts"],
         "targets": ["ui"],
         "interaction_signals": ["Dense information, visual hierarchy, grouping, analytics, metrics, and object state"]
+        ,"content_provenance": [{"content_id": "queue-total", "classification": "illustrative", "statement": "18 items need review", "source_refs": [], "required_qualification": "Illustrative fixture count", "allowed_uses": ["prototype"]}]
       },
       "expected_lenses": ["context-boundary-identity-orientation", "perception-salience-affordance", "research-bias-evidence-validity"],
       "forbidden_lenses": [],
       "required_safeguards": ["accessibility", "trust"],
+      "expected_content_classifications": ["illustrative"],
       "expected_conflicts": ["density-versus-comprehension"]
     },
     {
@@ -69,10 +71,12 @@
         "consequences": ["Health consequence"],
         "workflow_signals": ["Current status and escalation path"],
         "risk_signals": ["Vulnerable users"]
+        ,"content_provenance": [{"content_id": "care-outcome", "classification": "illustrative", "statement": "Most requests resolve within one day", "source_refs": [], "required_qualification": "Illustrative timing only; not a care outcome or service commitment", "allowed_uses": ["prototype"]}]
       },
       "expected_lenses": ["choice-comparison-decision-integrity", "feedback-feedforward-temporal-state", "social-influence-persuasion-integrity"],
       "forbidden_lenses": [],
       "required_safeguards": ["accessibility", "error-prevention-recovery", "trust"],
+      "expected_content_classifications": ["illustrative"],
       "expected_conflicts": ["persuasion-versus-agency"]
     },
     {
@@ -173,10 +177,12 @@
         "intent": "Present interview, survey, sample, evidence, and study limitations for an executive decision.",
         "audiences": ["Executive sponsors"],
         "targets": ["document"]
+        ,"content_provenance": [{"content_id": "study-result", "classification": "inferred", "statement": "The proposed pattern may reduce decision time", "source_refs": [], "required_qualification": "Hypothesis inferred from the study context; not a measured result", "allowed_uses": ["design rationale"]}]
       },
       "expected_lenses": ["research-bias-evidence-validity"],
       "forbidden_lenses": [],
       "required_safeguards": ["accessibility", "trust"]
+      ,"expected_content_classifications": ["inferred"]
     },
     {
       "scenario_id": "campaign-image-social-proof",

@@ -119,6 +119,65 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("Inconsistent hierarchy between detail views", markdown)
         self.assertIn("**Creative signature:**", markdown)
 
+    def test_prototype_integrity_renders_and_persists(self):
+        value = input_value(
+            design_id="prototype-integrity",
+            audiences=["Occasional managers", "Full-time reviewers"],
+            content_provenance=[
+                {"content_id": "queue-count", "classification": "illustrative", "statement": "18 requests ready", "source_refs": [], "required_qualification": "Illustrative fixture value", "allowed_uses": ["prototype"]},
+                {"content_id": "workflow", "classification": "inspected", "statement": "Reviewers retain keyboard navigation", "source_refs": ["src/review"], "required_qualification": "", "allowed_uses": ["design"]},
+            ],
+            audience_architecture={
+                "mode": "differentiated",
+                "shared_core": ["Understand decision state"],
+                "routes": [
+                    {"audience": "Occasional managers", "route": "decision summary", "needs": ["Guided review"]},
+                    {"audience": "Full-time reviewers", "route": "evidence workbench", "needs": ["Dense comparison"]},
+                ],
+                "unresolved_conflicts": [],
+            },
+            prototype_scope={
+                "maturity": "behavioral", "artifact_type": "responsive HTML", "fixture_data": "present",
+                "demonstrated_surfaces": ["Review queue"], "demonstrated_states": ["default", "selected"],
+                "omitted_surfaces": ["Request creation"], "omitted_states": ["offline", "error"],
+            },
+            validation_matrix=[
+                {"scenario": "keyboard-only", "status": "passed", "evidence": "Manual traversal completed"},
+                {"scenario": "localization expansion", "status": "required", "evidence": ""},
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        markdown = (self.root / ".continuity/private/design/prototype-integrity/design.md").read_text(encoding="utf-8")
+        for heading in ("## Content and evidence integrity", "## Audience architecture", "## Demonstrated and not demonstrated", "## Prototype validation matrix", "## Content rules", "## Audience strategy", "## Prototype boundaries"):
+            self.assertIn(heading, markdown)
+        self.assertIn("Illustrative fixture value", markdown)
+        approved = design.approve(self.root, self.config, draft["design_id"], draft["revision"], "reviewer", selected["required_authorization_text"])
+        contract = approved["alignment_contract"]
+        self.assertEqual(contract["content_provenance"], draft["content_provenance"])
+        self.assertEqual(contract["audience_architecture"]["mode"], "differentiated")
+        self.assertEqual(contract["prototype_scope"]["maturity"], "behavioral")
+        self.assertTrue(contract["content_rules"])
+
+    def test_prototype_integrity_rejects_invalid_records(self):
+        cases = [
+            input_value(design_id="bad-classification", content_provenance=[{"content_id": "claim", "classification": "verified", "statement": "A claim"}]),
+            input_value(design_id="unqualified-fixture", content_provenance=[{"content_id": "claim", "classification": "illustrative", "statement": "A claim"}]),
+            input_value(design_id="thin-audiences", audience_architecture={"mode": "differentiated", "routes": [{"audience": "One", "route": "one", "needs": ["one"]}]}),
+            input_value(design_id="unfinished-readiness", prototype_scope={"maturity": "implementation-facing", "artifact_type": "HTML", "demonstrated_surfaces": ["Home"], "demonstrated_states": ["default"], "fixture_data": "none"}, validation_matrix=[{"scenario": "keyboard", "status": "required", "evidence": ""}]),
+        ]
+        for value in cases:
+            with self.subTest(design_id=value["design_id"]), self.assertRaises(design.DesignError):
+                design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_legacy_inputs_receive_conservative_integrity_defaults(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="legacy-integrity")))
+        self.assertEqual(draft["content_provenance"], [])
+        self.assertIsNone(draft["audience_architecture"])
+        self.assertIsNone(draft["prototype_scope"])
+        self.assertEqual(draft["validation_matrix"], [])
+        self.assertTrue(draft["directions"][0]["prototype_boundaries"])
+
     def test_non_ui_targets_require_only_meaningful_grammar_dimensions(self):
         document = design.draft(
             self.root,

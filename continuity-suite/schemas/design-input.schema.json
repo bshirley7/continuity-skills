@@ -34,6 +34,51 @@
     "risk_signals": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "source_note_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "memory_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "content_provenance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["content_id", "classification", "statement"],
+        "properties": {
+          "content_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "classification": {"enum": ["inspected", "supplied", "inferred", "illustrative"]},
+          "statement": {"type": "string", "minLength": 1},
+          "source_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "required_qualification": {"type": "string"},
+          "allowed_uses": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "audience_architecture": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["shared-core", "differentiated", "unresolved"]},
+        "shared_core": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "routes": {"type": "array", "items": {"type": "object", "required": ["audience", "route", "needs"], "properties": {"audience": {"type": "string", "minLength": 1}, "route": {"type": "string", "minLength": 1}, "needs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false}},
+        "unresolved_conflicts": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "prototype_scope": {
+      "type": "object",
+      "required": ["maturity", "artifact_type"],
+      "properties": {
+        "maturity": {"enum": ["directional", "behavioral", "implementation-facing"]},
+        "artifact_type": {"type": "string", "minLength": 1},
+        "demonstrated_surfaces": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "demonstrated_states": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "omitted_surfaces": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "omitted_states": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "fixture_data": {"enum": ["none", "present"]}
+      },
+      "additionalProperties": false
+    },
+    "validation_matrix": {
+      "type": "array",
+      "items": {"type": "object", "required": ["scenario", "status"], "properties": {"scenario": {"type": "string", "minLength": 1}, "status": {"enum": ["required", "passed", "not-applicable"]}, "evidence": {"type": "string"}}, "additionalProperties": false}
+    },
     "directions": {
       "type": "array",
       "minItems": 1,
