@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "artifact_id": "complete-react-prototype-v1",
+  "design_id": "design-example",
+  "revision": 1,
+  "design_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "maturity": "implementation-facing",
+  "fixture_data": "present-labeled",
+  "implementation_context_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "component_map_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "asset_strategy_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "artifact_critique_revision": 1,
+  "files": [
+    {"path": ".continuity/private/designs/design-example/1/prototype/App.tsx", "media_type": "application/typescript", "role": "prototype-source", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"path": ".continuity/private/designs/design-example/1/prototype/index.html", "media_type": "text/html", "role": "prototype", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"path": ".continuity/private/designs/design-example/1/captures/desktop.png", "media_type": "image/png", "role": "desktop", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"path": ".continuity/private/designs/design-example/1/captures/tablet.png", "media_type": "image/png", "role": "tablet", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"path": ".continuity/private/designs/design-example/1/captures/mobile.png", "media_type": "image/png", "role": "mobile", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+  ],
+  "demonstrated_audiences": ["Primary audience"],
+  "demonstrated_surfaces": ["Complete representative surface"],
+  "demonstrated_states": ["default", "loading", "error", "recovery", "complete"],
+  "omitted_surfaces": [],
+  "omitted_states": [],
+  "design_claims": [
+    {"design_section": "Component capability map", "claim": "Installed primitives support behavior while project-specific composition carries the identity", "coverage": "demonstrated", "evidence_refs": [".continuity/private/designs/design-example/1/prototype/index.html#primary-surface"], "insight_ids": []}
+  ],
+  "validation_results": [
+    {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Desktop, tablet, and mobile browser probes passed"},
+    {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "No required control is obscured at any required viewport"}
+  ],
+  "execution_authorized": false
+}

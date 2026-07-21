@@ -35,6 +35,12 @@ PROTOTYPE_MATURITY = {"directional", "behavioral", "implementation-facing"}
 VALIDATION_STATUSES = {"required", "passed", "not-applicable"}
 INSIGHT_DECISION_STATUSES = {"decided", "provisional", "omitted"}
 ARTIFACT_MATURITY = {"directional", "behavioral", "implementation-facing"}
+COMPONENT_STRATEGIES = {"reuse", "compose", "extend", "custom", "missing-capability"}
+ASSET_SOURCES = {"existing", "supplied", "generated", "derived", "deliberately-omitted"}
+ARTIFACT_MEDIA_TYPES = {
+    "text/html", "image/png", "text/css", "text/javascript", "application/javascript",
+    "application/typescript", "application/json", "image/svg+xml",
+}
 DESIGN_GRAMMAR_DIMENSIONS = (
     "composition",
     "spacing_density",
@@ -702,6 +708,123 @@ def _validate_insight_decisions(value: Any) -> list[dict[str, Any]]:
     return result
 
 
+def _string_list(value: Any, label: str, *, required: bool = False) -> list[str]:
+    if value is None:
+        value = []
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+        raise DesignError(f"{label} must be an array of non-empty strings")
+    result = list(dict.fromkeys(item.strip() for item in value))
+    if required and not result:
+        raise DesignError(f"{label} must not be empty")
+    return result
+
+
+def _validate_implementation_context(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or not isinstance(value.get("framework"), str) or not value["framework"].strip():
+        raise DesignError("implementation_context requires framework")
+    result: dict[str, Any] = {
+        "framework": value["framework"].strip(),
+        "framework_version": str(value.get("framework_version", "")).strip(),
+        "react_version": str(value.get("react_version", "")).strip(),
+        "storybook_available": value.get("storybook_available", False),
+    }
+    if not isinstance(result["storybook_available"], bool):
+        raise DesignError("implementation_context storybook_available must be boolean")
+    for key in (
+        "styling_systems", "ui_libraries", "motion_libraries", "data_libraries", "icon_libraries",
+        "component_roots", "token_sources", "asset_roots",
+    ):
+        result[key] = _string_list(value.get(key), f"implementation_context {key}")
+    result["evidence_refs"] = _string_list(value.get("evidence_refs"), "implementation_context evidence_refs", required=True)
+    return result
+
+
+def _validate_component_map(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise DesignError("component_map must be an array")
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise DesignError("Each component map entry must be an object")
+        component_id = _identifier(str(item.get("component_id", "")), "component ID")
+        if component_id in seen or item.get("strategy") not in COMPONENT_STRATEGIES:
+            raise DesignError(f"Invalid or duplicate component map entry: {component_id}")
+        normalized: dict[str, Any] = {"component_id": component_id, "strategy": item["strategy"]}
+        for key in ("experience_need", "surface", "responsive_behavior", "accessibility_contract", "custom_expression"):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"Component {component_id} requires {key}")
+            normalized[key] = text.strip()
+        normalized["existing_capability"] = str(item.get("existing_capability", "")).strip()
+        normalized["components"] = _string_list(item.get("components"), f"component {component_id} components")
+        normalized["required_states"] = _string_list(item.get("required_states"), f"component {component_id} required_states", required=True)
+        if normalized["strategy"] in {"reuse", "compose", "extend"} and not normalized["components"]:
+            raise DesignError(f"Component {component_id} strategy {normalized['strategy']} requires existing components")
+        result.append(normalized)
+        seen.add(component_id)
+    return result
+
+
+def _validate_asset_strategy(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise DesignError("asset_strategy must be an array")
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise DesignError("Each asset strategy entry must be an object")
+        asset_id = _identifier(str(item.get("asset_id", "")), "asset ID")
+        if asset_id in seen or item.get("source") not in ASSET_SOURCES:
+            raise DesignError(f"Invalid or duplicate asset strategy entry: {asset_id}")
+        normalized: dict[str, Any] = {"asset_id": asset_id, "source": item["source"]}
+        for key in (
+            "purpose", "art_direction", "provenance_status", "responsive_treatment",
+            "accessibility_alternative", "fallback", "claim_boundary",
+        ):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"Asset {asset_id} requires {key}")
+            normalized[key] = text.strip()
+        normalized["source_refs"] = _string_list(item.get("source_refs"), f"asset {asset_id} source_refs")
+        normalized["required_crops"] = _string_list(item.get("required_crops"), f"asset {asset_id} required_crops")
+        if normalized["source"] in {"existing", "supplied", "derived"} and not normalized["source_refs"]:
+            raise DesignError(f"Asset {asset_id} source {normalized['source']} requires source_refs")
+        result.append(normalized)
+        seen.add(asset_id)
+    return result
+
+
+def _validate_completion_contract(value: Any, targets: list[str]) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or value.get("mode") not in {"exploration", "complete-prototype"}:
+        raise DesignError("completion_contract requires a valid mode")
+    viewports = _string_list(value.get("required_viewports"), "completion_contract required_viewports")
+    if set(viewports) - {"desktop", "tablet", "mobile"}:
+        raise DesignError("completion_contract has an unknown viewport")
+    required_states = _string_list(value.get("required_states"), "completion_contract required_states")
+    content_status = value.get("content_status")
+    if content_status not in {"representative", "production", "mixed"}:
+        raise DesignError("completion_contract requires content_status")
+    critique = value.get("artifact_critique_required")
+    if not isinstance(critique, bool):
+        raise DesignError("completion_contract artifact_critique_required must be boolean")
+    if value["mode"] == "complete-prototype" and "ui" in targets:
+        if set(viewports) != {"desktop", "tablet", "mobile"} or not required_states or not critique:
+            raise DesignError("Complete UI prototypes require desktop, tablet, mobile, relevant states, and artifact critique")
+    return {
+        "mode": value["mode"], "required_viewports": viewports, "required_states": required_states,
+        "content_status": content_status, "artifact_critique_required": critique,
+    }
+
+
 def _validate_creative_provenance(value: Any) -> list[dict[str, Any]]:
     if value is None:
         return []
@@ -1087,6 +1210,13 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     payload["validation_matrix"] = _validate_validation_matrix(payload.get("validation_matrix"), payload["prototype_scope"])
     payload["direction_assessment"] = _validate_direction_assessment(payload.get("direction_assessment"))
     payload["insight_decisions"] = _validate_insight_decisions(payload.get("insight_decisions"))
+    payload["implementation_context"] = _validate_implementation_context(payload.get("implementation_context"))
+    payload["component_map"] = _validate_component_map(payload.get("component_map"))
+    payload["asset_strategy"] = _validate_asset_strategy(payload.get("asset_strategy"))
+    payload["completion_contract"] = _validate_completion_contract(payload.get("completion_contract"), payload["targets"])
+    if payload["completion_contract"] and payload["completion_contract"]["mode"] == "complete-prototype" and "ui" in payload["targets"]:
+        if not payload["implementation_context"] or not payload["component_map"] or not payload["asset_strategy"]:
+            raise DesignError("Complete UI prototypes require implementation_context, component_map, and asset_strategy")
     for key in ("sections", "themes", "message_structures"):
         payload[key] = _validate_strings(payload, key)
     if manual_lenses:
@@ -1199,6 +1329,10 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "content_provenance": payload["content_provenance"],
         "audience_architecture": payload["audience_architecture"],
         "prototype_scope": payload["prototype_scope"],
+        "implementation_context": payload["implementation_context"],
+        "component_map": payload["component_map"],
+        "asset_strategy": payload["asset_strategy"],
+        "completion_contract": payload["completion_contract"],
         "validation_matrix": payload["validation_matrix"],
         "direction_assessment": payload["direction_assessment"],
         "insight_decisions": payload["insight_decisions"],
@@ -1402,6 +1536,52 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         for dimension in _required_grammar_dimensions(draft_record["targets"]):
             lines.extend([f"##### {dimension.replace('_', ' ').title()}", "", *[f"- {item}" for item in direction["design_grammar"][dimension]], ""])
         lines.extend(["## Component and pattern direction", "", *[f"- {item}" for item in direction["component_patterns"]], ""])
+        implementation_context = draft_record.get("implementation_context")
+        if implementation_context:
+            lines.extend([
+                "## React and implementation system", "",
+                f"- **Framework:** {implementation_context['framework']} {implementation_context['framework_version'] or ''}".rstrip(),
+                f"- **React:** {implementation_context['react_version'] or 'Not independently verified'}",
+                f"- **Styling:** {', '.join(implementation_context['styling_systems']) or 'No configured styling system recorded'}",
+                f"- **UI libraries:** {', '.join(implementation_context['ui_libraries']) or 'No installed UI library recorded'}",
+                f"- **Motion:** {', '.join(implementation_context['motion_libraries']) or 'No installed motion library recorded'}",
+                f"- **Data presentation:** {', '.join(implementation_context['data_libraries']) or 'No installed data library recorded'}",
+                f"- **Icons:** {', '.join(implementation_context['icon_libraries']) or 'No installed icon library recorded'}",
+                f"- **Component roots:** {', '.join(implementation_context['component_roots']) or 'None recorded'}",
+                f"- **Token sources:** {', '.join(implementation_context['token_sources']) or 'None recorded'}",
+                f"- **Evidence:** {', '.join(implementation_context['evidence_refs'])}", "",
+            ])
+        if draft_record.get("component_map"):
+            lines.extend(["### Component capability map", "", "| Need | Surface | Strategy | Capability | Required states | Custom expression |", "|---|---|---|---|---|---|"])
+            for item in draft_record["component_map"]:
+                capability = item["existing_capability"] or ", ".join(item["components"]) or "No existing capability"
+                lines.append(f"| {item['experience_need']} | {item['surface']} | `{item['strategy']}` | {capability} | {', '.join(item['required_states'])} | {item['custom_expression']} |")
+            lines.append("")
+        if draft_record.get("asset_strategy"):
+            lines.extend(["## Asset strategy", ""])
+            for item in draft_record["asset_strategy"]:
+                lines.extend([
+                    f"### {item['asset_id']}", "",
+                    f"- **Purpose:** {item['purpose']}",
+                    f"- **Source:** `{item['source']}`",
+                    f"- **Art direction:** {item['art_direction']}",
+                    f"- **Provenance:** {item['provenance_status']}",
+                    f"- **Crops:** {', '.join(item['required_crops']) or 'No crop variants required'}",
+                    f"- **Responsive treatment:** {item['responsive_treatment']}",
+                    f"- **Alternative:** {item['accessibility_alternative']}",
+                    f"- **Fallback:** {item['fallback']}",
+                    f"- **Claim boundary:** {item['claim_boundary']}", "",
+                ])
+        if draft_record.get("completion_contract"):
+            contract = draft_record["completion_contract"]
+            lines.extend([
+                "## Prototype completion contract", "",
+                f"- **Mode:** `{contract['mode']}`",
+                f"- **Required viewports:** {', '.join(contract['required_viewports']) or 'None'}",
+                f"- **Required states:** {', '.join(contract['required_states']) or 'None'}",
+                f"- **Content status:** `{contract['content_status']}`",
+                f"- **Artifact critique required:** {'yes' if contract['artifact_critique_required'] else 'no'}", "",
+            ])
         lines.extend(["## Content rules", "", *[f"- {item}" for item in direction["content_rules"]], ""])
         lines.extend(["## Audience strategy", "", *[f"- {item}" for item in direction["audience_strategy"]], ""])
         lines.extend(["## Prototype boundaries", "", *[f"- {item}" for item in direction["prototype_boundaries"]], ""])
@@ -1474,6 +1654,10 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         "content_provenance": record.get("content_provenance", []),
         "audience_architecture": record.get("audience_architecture"),
         "prototype_scope": record.get("prototype_scope"),
+        "implementation_context": record.get("implementation_context"),
+        "component_map": record.get("component_map", []),
+        "asset_strategy": record.get("asset_strategy", []),
+        "completion_contract": record.get("completion_contract"),
         "validation_matrix": record.get("validation_matrix", []),
         "insight_decisions": record.get("insight_decisions", []),
         "content_rules": [rule for direction in selected for rule in direction["content_rules"]],
@@ -1549,10 +1733,7 @@ def _png_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", data[16:24])
 
 
-def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
-    _enabled(config)
-    manifest = _read_json(manifest_path)
-    approved = _read_json(root / ".continuity" / "design.json")
+def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], approved: dict[str, Any], *, candidate: bool) -> dict[str, Any]:
     for key in ("design_id", "revision", "design_hash"):
         if manifest.get(key) != approved.get(key):
             raise DesignError(f"Artifact manifest {key} does not match the approved design")
@@ -1571,7 +1752,7 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
     screenshot_roles: set[str] = set()
     verified_files: list[dict[str, Any]] = []
     for item in files:
-        if not isinstance(item, dict) or item.get("media_type") not in {"text/html", "image/png"}:
+        if not isinstance(item, dict) or item.get("media_type") not in ARTIFACT_MEDIA_TYPES:
             raise DesignError("Artifact files require supported media types")
         relative, path = _artifact_relative_path(root, item.get("path"))
         if relative in file_paths or not path.is_file():
@@ -1596,7 +1777,7 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
                 if not re.search(pattern, text, re.IGNORECASE):
                     raise DesignError(f"HTML artifact is missing bound metadata {name}: {relative}")
             html_texts[relative] = text
-        else:
+        elif item["media_type"] == "image/png":
             width, height = _png_dimensions(path)
             verified.update({"width": width, "height": height})
             screenshot_roles.add(role)
@@ -1677,8 +1858,27 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
             readiness_problems.append("responsive HTML requires overflow and sticky-obstruction probe results")
         if readiness_problems:
             raise DesignError("Artifact is not implementation-facing: " + "; ".join(readiness_problems))
+    if manifest.get("schema_version", 1) == 2:
+        contract = approved.get("alignment_contract", {})
+        for field, value in (
+            ("implementation_context_hash", contract.get("implementation_context")),
+            ("component_map_hash", contract.get("component_map", [])),
+            ("asset_strategy_hash", contract.get("asset_strategy", [])),
+        ):
+            expected = hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            if manifest.get(field) != expected:
+                raise DesignError(f"Artifact manifest {field} does not match the design contract")
+        completion = contract.get("completion_contract")
+        if maturity == "implementation-facing" and isinstance(completion, dict) and completion.get("artifact_critique_required"):
+            if not isinstance(manifest.get("artifact_critique_revision"), int) or manifest["artifact_critique_revision"] < 1:
+                raise DesignError("Implementation-facing complete prototypes require an artifact critique revision")
+            required_roles = set(completion.get("required_viewports", []))
+            if required_roles - screenshot_roles:
+                raise DesignError("Artifact is missing completion-contract viewport captures")
+            if set(completion.get("required_states", [])) - set(manifest.get("demonstrated_states", [])):
+                raise DesignError("Artifact is missing completion-contract states")
     return {
-        "schema_version": 1,
+        "schema_version": manifest.get("schema_version", 1),
         "artifact_id": artifact_id,
         "design_id": manifest["design_id"],
         "revision": manifest["revision"],
@@ -1689,5 +1889,40 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
         "failed_validations": failures,
         "missing_decided_insights": missing_decided_insights,
         "implementation_ready": maturity == "implementation-facing" and not readiness_problems,
+        "candidate": candidate,
         "execution_authorized": False,
     }
+
+
+def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    approved = _read_json(root / ".continuity" / "design.json")
+    return _validate_artifact_against_record(root, manifest, approved, candidate=False)
+
+
+def validate_candidate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    design_id = _identifier(str(manifest.get("design_id", "")), "design ID")
+    design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
+    draft = _read_json(design_dir / "draft.json")
+    if draft.get("status") != "awaiting-approval" or not draft.get("selected_direction_ids") or not draft.get("design_hash"):
+        raise DesignError("Candidate artifact requires a selected private design awaiting approval")
+    selected = [item for item in draft["directions"] if item["direction_id"] in draft["selected_direction_ids"]]
+    alignment_contract = {
+        "audience_architecture": draft.get("audience_architecture"),
+        "validation_matrix": draft.get("validation_matrix", []),
+        "insight_decisions": draft.get("insight_decisions", []),
+        "implementation_context": draft.get("implementation_context"),
+        "component_map": draft.get("component_map", []),
+        "asset_strategy": draft.get("asset_strategy", []),
+        "completion_contract": draft.get("completion_contract"),
+        "selected_direction_ids": draft["selected_direction_ids"],
+        "implementation_guidance": [rule for direction in selected for rule in direction["implementation_guidance"]],
+    }
+    candidate_record = {
+        "design_id": draft["design_id"], "revision": draft["revision"], "design_hash": draft["design_hash"],
+        "alignment_contract": alignment_contract,
+    }
+    return _validate_artifact_against_record(root, manifest, candidate_record, candidate=True)

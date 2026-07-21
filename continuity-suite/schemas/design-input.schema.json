@@ -75,6 +75,79 @@
       },
       "additionalProperties": false
     },
+    "implementation_context": {
+      "type": "object",
+      "required": ["framework", "evidence_refs"],
+      "properties": {
+        "framework": {"type": "string", "minLength": 1},
+        "framework_version": {"type": "string"},
+        "react_version": {"type": "string"},
+        "styling_systems": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "ui_libraries": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "motion_libraries": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "data_libraries": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "icon_libraries": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "component_roots": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "token_sources": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "asset_roots": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "storybook_available": {"type": "boolean"},
+        "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "component_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["component_id", "experience_need", "surface", "strategy", "components", "required_states", "responsive_behavior", "accessibility_contract", "custom_expression"],
+        "properties": {
+          "component_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "experience_need": {"type": "string", "minLength": 1},
+          "surface": {"type": "string", "minLength": 1},
+          "existing_capability": {"type": "string"},
+          "strategy": {"enum": ["reuse", "compose", "extend", "custom", "missing-capability"]},
+          "components": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "required_states": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "responsive_behavior": {"type": "string", "minLength": 1},
+          "accessibility_contract": {"type": "string", "minLength": 1},
+          "custom_expression": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "asset_strategy": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["asset_id", "purpose", "source", "art_direction", "provenance_status", "responsive_treatment", "accessibility_alternative", "fallback", "claim_boundary"],
+        "properties": {
+          "asset_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "purpose": {"type": "string", "minLength": 1},
+          "source": {"enum": ["existing", "supplied", "generated", "derived", "deliberately-omitted"]},
+          "art_direction": {"type": "string", "minLength": 1},
+          "provenance_status": {"type": "string", "minLength": 1},
+          "source_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "required_crops": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "responsive_treatment": {"type": "string", "minLength": 1},
+          "accessibility_alternative": {"type": "string", "minLength": 1},
+          "fallback": {"type": "string", "minLength": 1},
+          "claim_boundary": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "completion_contract": {
+      "type": "object",
+      "required": ["mode", "required_viewports", "required_states", "content_status", "artifact_critique_required"],
+      "properties": {
+        "mode": {"enum": ["exploration", "complete-prototype"]},
+        "required_viewports": {"type": "array", "uniqueItems": true, "items": {"enum": ["desktop", "tablet", "mobile"]}},
+        "required_states": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "content_status": {"enum": ["representative", "production", "mixed"]},
+        "artifact_critique_required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
     "validation_matrix": {
       "type": "array",
       "items": {"type": "object", "required": ["scenario", "status"], "properties": {"scenario": {"type": "string", "minLength": 1}, "status": {"enum": ["required", "passed", "not-applicable"]}, "evidence": {"type": "string"}}, "additionalProperties": false}

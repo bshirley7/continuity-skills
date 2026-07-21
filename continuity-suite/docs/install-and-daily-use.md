@@ -28,7 +28,7 @@ python3 continuity-suite/installer/install.py \
   --collection design
 ```
 
-The design workflow uses installed offline references, keeps drafts private, and publishes only an exact hash-approved `docs/design/design.md`. It does not authorize implementation.
+The design workflow uses installed offline references, keeps drafts private, and publishes only an exact hash-approved `docs/design/design.md`. For React and web work it defaults to a complete private prototype: Continuity inspects the installed framework, UI libraries, components, tokens, and assets; maps reuse, composition, extension, and custom work; renders representative desktop, tablet, and mobile output; completes artifact critique; and validates the candidate before approval. The private prototype stays outside product routes and build inputs. Neither the prototype nor design approval authorizes implementation.
 
 If your terminal is already inside the target project, you can still run the installer by using the absolute path to the suite:
 

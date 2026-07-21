@@ -10430,6 +10430,8 @@ def design_command(args: argparse.Namespace) -> Any:
             return design_lib.show(root, config, args.design_id)
         if args.command == "artifact-validate":
             return design_lib.validate_artifact(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "prototype-validate":
+            return design_lib.validate_candidate_artifact(root, config, Path(args.manifest).expanduser().resolve())
         raise ContinuityError(f"Unknown design command {args.command}")
     except design_lib.DesignError as exc:
         raise ContinuityError(str(exc)) from exc
@@ -10755,6 +10757,9 @@ def build_parser() -> argparse.ArgumentParser:
     design_artifact_validate = design_sub.add_parser("artifact-validate")
     design_artifact_validate.add_argument("--manifest", required=True)
     design_artifact_validate.set_defaults(handler=design_command)
+    design_prototype_validate = design_sub.add_parser("prototype-validate")
+    design_prototype_validate.add_argument("--manifest", required=True)
+    design_prototype_validate.set_defaults(handler=design_command)
 
     goal = top.add_parser("goal")
     goal_sub = goal.add_subparsers(dest="command", required=True)

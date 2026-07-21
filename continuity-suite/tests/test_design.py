@@ -444,6 +444,95 @@ class DesignLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(design.DesignError, "project-relative"):
             design.validate_artifact(self.root, self.config, manifest_path)
 
+    def test_complete_react_prototype_validates_before_approval(self):
+        value = input_value(
+            design_id="complete-react",
+            implementation_context={
+                "framework": "Next.js", "framework_version": "15", "react_version": "19",
+                "styling_systems": ["Tailwind CSS"], "ui_libraries": ["Radix UI"],
+                "motion_libraries": ["Motion"], "data_libraries": [], "icon_libraries": ["Lucide"],
+                "component_roots": ["src/components"], "token_sources": ["src/styles/tokens.css"],
+                "asset_roots": ["public/images"], "storybook_available": False,
+                "evidence_refs": ["package.json", "components.json"],
+            },
+            component_map=[{
+                "component_id": "decision-surface", "experience_need": "Review a consequential decision",
+                "surface": "Decision review", "existing_capability": "Radix Dialog and project Button",
+                "strategy": "compose", "components": ["Dialog", "Button"],
+                "required_states": ["default", "loading", "error", "recovery", "complete"],
+                "responsive_behavior": "Two-column review becomes a linear evidence-first sequence.",
+                "accessibility_contract": "Focus, status, and consequence remain programmatically available.",
+                "custom_expression": "A project-specific evidence margin carries the identity.",
+            }],
+            asset_strategy=[{
+                "asset_id": "evidence-material", "purpose": "Ground the review in recognizable project evidence.",
+                "source": "deliberately-omitted", "art_direction": "Use structured evidence fragments rather than generic photography.",
+                "provenance_status": "Omission is deliberate; no rights-bearing asset is required.", "source_refs": [],
+                "required_crops": [], "responsive_treatment": "Evidence fragments reflow without decorative cropping.",
+                "accessibility_alternative": "All evidence remains readable text.", "fallback": "Preserve the structured evidence field.",
+                "claim_boundary": "Do not imply that illustrative evidence is verified.",
+            }],
+            completion_contract={
+                "mode": "complete-prototype", "required_viewports": ["desktop", "tablet", "mobile"],
+                "required_states": ["default", "loading", "error", "recovery", "complete"],
+                "content_status": "representative", "artifact_critique_required": True,
+            },
+            prototype_scope={
+                "maturity": "implementation-facing", "artifact_type": "React",
+                "demonstrated_surfaces": ["Decision review"],
+                "demonstrated_states": ["default", "loading", "error", "recovery", "complete"],
+                "omitted_surfaces": [], "omitted_states": [], "fixture_data": "present",
+            },
+            validation_matrix=[
+                {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed."},
+                {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Viewport captures inspected."},
+            ],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        artifact_dir = self.root / ".continuity/private/designs/complete-react/1"
+        artifact_dir.mkdir(parents=True)
+        html = artifact_dir / "index.html"
+        html.write_text(
+            "<html><head>"
+            f'<meta name="continuity-design-id" content="{selected["design_id"]}">'
+            f'<meta name="continuity-design-revision" content="{selected["revision"]}">'
+            f'<meta name="continuity-design-hash" content="{selected["design_hash"]}">'
+            '<meta name="continuity-prototype-maturity" content="implementation-facing">'
+            '<meta name="continuity-fixture-data" content="present-labeled">'
+            '</head><body><main id="primary-surface">Decision review</main></body></html>', encoding="utf-8",
+        )
+        files = [{"path": ".continuity/private/designs/complete-react/1/index.html", "media_type": "text/html", "role": "prototype", "sha256": design.hashlib.sha256(html.read_bytes()).hexdigest()}]
+        for name, width in (("desktop", 1440), ("tablet", 768), ("mobile", 390)):
+            png = artifact_dir / f"{name}.png"
+            png.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + (900).to_bytes(4, "big"))
+            files.append({"path": f".continuity/private/designs/complete-react/1/{name}.png", "media_type": "image/png", "role": name, "sha256": design.hashlib.sha256(png.read_bytes()).hexdigest()})
+        digest = lambda item: design.hashlib.sha256(json.dumps(item, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        manifest = {
+            "schema_version": 2, "artifact_id": "complete-react-v1", "design_id": selected["design_id"],
+            "revision": selected["revision"], "design_hash": selected["design_hash"], "maturity": "implementation-facing",
+            "fixture_data": "present-labeled", "implementation_context_hash": digest(value["implementation_context"]),
+            "component_map_hash": digest(value["component_map"]), "asset_strategy_hash": digest(value["asset_strategy"]),
+            "artifact_critique_revision": 1, "files": files, "demonstrated_audiences": ["Operators"],
+            "demonstrated_surfaces": ["Decision review"],
+            "demonstrated_states": ["default", "loading", "error", "recovery", "complete"],
+            "omitted_surfaces": [], "omitted_states": [],
+            "design_claims": [{"design_section": "Component capability map", "claim": "Decision surface is demonstrated", "coverage": "demonstrated", "evidence_refs": [".continuity/private/designs/complete-react/1/index.html#primary-surface"], "insight_ids": []}],
+            "validation_results": [
+                {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed."},
+                {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Viewport captures inspected."},
+            ], "execution_authorized": False,
+        }
+        manifest_path = self.write_input(manifest)
+        result = design.validate_candidate_artifact(self.root, self.config, manifest_path)
+        self.assertTrue(result["candidate"])
+        self.assertTrue(result["implementation_ready"])
+        markdown = (self.root / ".continuity/private/design/complete-react/design.md").read_text()
+        self.assertIn("## React and implementation system", markdown)
+        self.assertIn("### Component capability map", markdown)
+        self.assertIn("## Asset strategy", markdown)
+        self.assertIn("## Prototype completion contract", markdown)
+
     def test_non_ui_targets_require_only_meaningful_grammar_dimensions(self):
         document = design.draft(
             self.root,

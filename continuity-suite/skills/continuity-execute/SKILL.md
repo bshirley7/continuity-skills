@@ -31,6 +31,7 @@ Verify the isolated worktree, integration branch and remote base, scope, current
 ## Responsible execution stages
 
 1. Implement only approved scope using project architecture and developer best practices. When the goal binds an approved design, verify its exact hash before editing and use its preservation rules, visual and interaction grammar, component direction, prohibited patterns, and drift checks as implementation constraints. Do not invent a new design direction inside execution.
+   When the approved design includes `implementation_context`, `component_map`, `asset_strategy`, or a complete-prototype contract, reinspect their evidence before editing. Reuse, compose, extend, or create components according to the recorded strategy; preserve the signature expression; do not add an overlapping UI library or new dependency without approved-plan authority. Compare representative production captures with the approved prototype and record justified deviations. The private prototype is evidence, not code that may be copied into production without review.
    Follow the approved delivery frontier: start only slices whose blockers are complete, and never interpret an unresolved decision-map item as implementation discretion.
 2. Add focused tests and keep types, interfaces, migrations, compatibility, accessibility, performance, and privacy correct as applicable.
 3. Record alignment checkpoints after major phases. Route discoveries into feedback or new candidates.
