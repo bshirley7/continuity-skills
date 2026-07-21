@@ -156,6 +156,11 @@ class DesignLifecycleTests(unittest.TestCase):
             "verification": "In wide and narrow compositions, every qualified claim is immediately associated with its evidence state.",
         }]
         expression_budget.update({
+            "target_weight": 0.62,
+            "exploration_ceiling": 0.88,
+            "mode": "calibrated",
+            "source": "inferred",
+            "weight_rationale": "The evidence margin can carry a strong authored point of view while the reading field remains quiet.",
             "boundary_being_pushed": "Make the evidence margin the single dominant compositional interruption.",
             "quiet_field": "Keep typography, imagery, motion, and depth quiet around the evidence margin.",
         })
@@ -194,6 +199,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "### Contextual review outcomes", "#### Evidence comprehension",
             "### Anti-default decisions", "### Expression system", "### Creative provenance",
             "**Aesthetic proposition:**", "**Bounded aesthetic risk:**",
+            "**Target weight:** `0.62`", "**Exploration ceiling:** `0.88`",
             "`inspected`", "docs/research/workshops.md", "No direct source; inference is explicitly labeled.",
         ):
             self.assertIn(text, markdown)
@@ -203,6 +209,8 @@ class DesignLifecycleTests(unittest.TestCase):
         contract = approved["alignment_contract"]
         self.assertEqual(contract["distinctive_expression"][0]["aesthetic_risk"]["move"], recovery["distinctive_expression"]["aesthetic_risk"]["move"])
         self.assertEqual(contract["distinctive_expression"][0]["expression_budget"]["primary_dimension"], "composition")
+        self.assertEqual(contract["distinctive_expression"][0]["expression_budget"]["target_weight"], 0.62)
+        self.assertEqual(contract["distinctive_expression"][0]["expression_budget"]["exploration_ceiling"], 0.88)
         self.assertEqual(len(contract["distinctive_expression"][0]["refinement_passes"]), 7)
         self.assertEqual(contract["distinctive_expression"][0]["contextual_reviews"][0]["review_id"], "evidence-comprehension")
         self.assertEqual({item["provenance_id"] for item in contract["creative_provenance"]}, {"working-papers", "bounded-risk"})
@@ -217,6 +225,31 @@ class DesignLifecycleTests(unittest.TestCase):
             design.draft(
                 self.root, self.config, CATALOG,
                 self.write_input(input_value(design_id="bad-budget", directions=[recovery])),
+            )
+
+    def test_distinctive_expression_rejects_invalid_expression_weights(self):
+        recovery = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id="bad-weight-recovery")),
+        )["directions"][0]
+        recovery["distinctive_expression"]["expression_budget"].update({
+            "target_weight": 0.8,
+            "exploration_ceiling": 0.6,
+        })
+        with self.assertRaisesRegex(design.DesignError, "greater than or equal"):
+            design.draft(
+                self.root, self.config, CATALOG,
+                self.write_input(input_value(design_id="bad-weight", directions=[recovery])),
+            )
+
+        recovery["distinctive_expression"]["expression_budget"].update({
+            "target_weight": 1.1,
+            "exploration_ceiling": 1.0,
+        })
+        with self.assertRaisesRegex(design.DesignError, "between 0 and 1"):
+            design.draft(
+                self.root, self.config, CATALOG,
+                self.write_input(input_value(design_id="out-of-range-weight", directions=[recovery])),
             )
 
     def test_distinctive_expression_rejects_out_of_order_refinement_passes(self):

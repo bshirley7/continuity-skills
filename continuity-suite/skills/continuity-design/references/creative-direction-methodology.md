@@ -58,6 +58,7 @@ Define for each direction:
 - favorable behavior that survives;
 - prohibited patterns and explicit tradeoffs.
 - content rules, audience strategy, and prototype boundaries when applicable.
+- an inferred or user-supplied expression target, a bounded exploration ceiling, and the project evidence that justifies them.
 
 For created or materially reshaped work, apply [distinctive expression methodology](distinctive-expression-methodology.md). Carry its creative provenance, subject world, aesthetic thesis, signature element, bounded aesthetic risk, anti-default decisions, concrete expression system, reference compositions, and uniqueness checks into the direction so they survive selection and render into `design.md`.
 
@@ -88,7 +89,7 @@ Then provide the full experience, visual, implementation, safeguard, and validat
 
 The selected or explicitly combined direction becomes `design.md`. Keep it useful to planning, implementation, review, documents, and visual production without turning it into a task plan.
 
-The document must make current-state evidence, content provenance, creative provenance, distinctive expression, audience architecture, demonstrated and omitted scope, insight-to-design decisions, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. Omit irrelevant modality dimensions rather than fabricating requirements. Apply [prototype integrity](prototype-integrity.md) when representative content, prototypes, or multiple audiences are in scope.
+The document must make current-state evidence, content provenance, creative provenance, distinctive expression, expression target and exploration ceiling, audience architecture, demonstrated and omitted scope, insight-to-design decisions, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. Omit irrelevant modality dimensions rather than fabricating requirements. Apply [prototype integrity](prototype-integrity.md) when representative content, prototypes, or multiple audiences are in scope.
 
 ## 5. Maintain alignment
 

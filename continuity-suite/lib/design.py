@@ -25,6 +25,8 @@ CONTENT_CLASSIFICATIONS = {"inspected", "supplied", "inferred", "illustrative"}
 CREATIVE_PROVENANCE_CLASSIFICATIONS = {"inspected", "supplied", "inferred"}
 EXPRESSION_INTENSITIES = {"quiet", "present", "signature"}
 EXPRESSION_DIMENSIONS = ("composition", "typography", "color", "motion", "imagery", "surface_depth", "voice")
+EXPRESSION_MODES = {"calibrated", "boundary-study"}
+EXPRESSION_SOURCES = {"inferred", "user-supplied"}
 REFINEMENT_PASS_STATUSES = {"completed", "pending", "not-applicable"}
 REFINEMENT_PASS_IDS = (
     "provenance-grounding", "divergent-exploration", "boundary-push",
@@ -881,6 +883,11 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
             "reference_compositions": ["A representative composition is still required before implementation-facing status."],
             "uniqueness_checks": ["Confirm the expression could not be transferred unchanged to an unrelated project."],
             "expression_budget": {
+                "target_weight": 0.35,
+                "exploration_ceiling": 0.55,
+                "mode": "calibrated",
+                "source": "inferred",
+                "weight_rationale": "Use restrained project-specific expression until stronger project evidence or an explicit user preference is available.",
                 "boundary_being_pushed": "No authored boundary was recorded for this legacy direction.",
                 "primary_dimension": "composition",
                 "supporting_dimensions": ["voice"],
@@ -933,6 +940,30 @@ def _validate_distinctive_expression(value: Any, provenance_ids: set[str], creat
     if not isinstance(budget, dict):
         raise DesignError("distinctive_expression requires expression_budget")
     result["expression_budget"] = {}
+    target_weight = budget.get("target_weight", 0.5)
+    exploration_ceiling = budget.get("exploration_ceiling", max(0.7, target_weight) if isinstance(target_weight, (int, float)) and not isinstance(target_weight, bool) else 0.7)
+    if not isinstance(target_weight, (int, float)) or isinstance(target_weight, bool) or not 0 <= target_weight <= 1:
+        raise DesignError("distinctive_expression expression_budget target_weight must be between 0 and 1")
+    if not isinstance(exploration_ceiling, (int, float)) or isinstance(exploration_ceiling, bool) or not 0 <= exploration_ceiling <= 1:
+        raise DesignError("distinctive_expression expression_budget exploration_ceiling must be between 0 and 1")
+    if exploration_ceiling < target_weight:
+        raise DesignError("distinctive_expression expression_budget exploration_ceiling must be greater than or equal to target_weight")
+    mode = budget.get("mode", "calibrated")
+    source = budget.get("source", "inferred")
+    if mode not in EXPRESSION_MODES:
+        raise DesignError("distinctive_expression expression_budget requires a valid mode")
+    if source not in EXPRESSION_SOURCES:
+        raise DesignError("distinctive_expression expression_budget requires a valid source")
+    rationale = budget.get("weight_rationale", "Balance subject-specific expression with the recorded project constraints and consequence level.")
+    if not isinstance(rationale, str) or not rationale.strip():
+        raise DesignError("distinctive_expression expression_budget requires weight_rationale")
+    result["expression_budget"].update({
+        "target_weight": float(target_weight),
+        "exploration_ceiling": float(exploration_ceiling),
+        "mode": mode,
+        "source": source,
+        "weight_rationale": rationale.strip(),
+    })
     for key in ("boundary_being_pushed", "quiet_field", "containment_boundary"):
         text = budget.get(key)
         if not isinstance(text, str) or not text.strip():
@@ -1474,6 +1505,11 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
             f"- **Why it fits:** {expression['aesthetic_risk']['rationale']}",
             f"- **Boundary:** {expression['aesthetic_risk']['boundary']}", "",
             "### Expression budget", "",
+            f"- **Target weight:** `{expression['expression_budget']['target_weight']:.2f}`",
+            f"- **Exploration ceiling:** `{expression['expression_budget']['exploration_ceiling']:.2f}`",
+            f"- **Mode:** `{expression['expression_budget']['mode']}`",
+            f"- **Source:** `{expression['expression_budget']['source']}`",
+            f"- **Calibration rationale:** {expression['expression_budget']['weight_rationale']}",
             f"- **Boundary being pushed:** {expression['expression_budget']['boundary_being_pushed']}",
             f"- **Signature dimension:** `{expression['expression_budget']['primary_dimension']}`",
             f"- **Supporting dimensions:** {', '.join(expression['expression_budget']['supporting_dimensions'])}",

@@ -34,6 +34,20 @@ Use concrete decisions. Name color roles and values when they are settled. Name 
 
 Use one meaningful risk rather than distributing novelty everywhere. The risk may change composition, hierarchy, typography, interaction, imagery, material treatment, or voice. It must advance the subject and remain bounded by comprehension, accessibility, favorable behavior, and recovery.
 
+Set an expression posture on a `0.0`–`1.0` scale. Infer it from project evidence when the user does not supply one, and label the source. Use these bands as guidance rather than visual presets:
+
+- `0.0`–`0.2`: restrained precision;
+- `0.2`–`0.4`: quietly distinctive;
+- `0.4`–`0.6`: balanced expression;
+- `0.6`–`0.8`: strongly authored;
+- `0.8`–`1.0`: exploratory and boundary-pushing.
+
+Record a `target_weight` for the recommended direction and an `exploration_ceiling` greater than or equal to it. The target governs the selected direction; the ceiling permits a divergent direction to test a more expressive possibility. Use `boundary-study` only when the user explicitly asks to challenge normal category expectations or the exploration is clearly labeled as such. Do not use values above `1.0`.
+
+The weight controls the permitted intensity of the primary carrier, compositional departure, typographic character, palette novelty, image and material direction, motion choreography, and distance from category conventions. It never relaxes accessibility, readability, truthful state, authority, recovery, responsive integrity, favorable behavior, provenance, or other non-negotiable safeguards.
+
+Do not scale every dimension together. A high weight strengthens the chosen signature carrier and may raise one supporting carrier while at least two dimensions remain quiet. For consequential products, place greater expression in orientation, recognition, or reversible exploration and keep commitment, permission, safety, financial, and recovery surfaces quieter even when the overall project weight is high.
+
 No risk is a valid outcome only when restraint itself is a project-specific proposition and its precision is specified. A legacy direction that has not made this decision remains visibly provisional.
 
 Allocate an explicit expression budget. Choose exactly one signature dimension from composition, typography, color, motion, imagery, surface and depth, or voice. Supporting dimensions may be present, but keep at least two dimensions quiet. State the field that stays calm, the boundary containing the expressive move, and the order in which treatments should be removed when the artifact becomes noisy.

@@ -57,6 +57,11 @@
       ]
     },
     "expression_budget": {
+      "target_weight": 0.62,
+      "exploration_ceiling": 0.88,
+      "mode": "calibrated",
+      "source": "inferred",
+      "weight_rationale": "The audience benefits from a clearly authored point of view, while sustained executive reading and evidence integrity keep the selected direction below the exploration ceiling.",
       "boundary_being_pushed": "Make the evidence margin the one unmistakable structural interruption.",
       "primary_dimension": "composition",
       "supporting_dimensions": ["voice", "color"],
