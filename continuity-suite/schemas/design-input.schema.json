@@ -79,6 +79,15 @@
       "type": "array",
       "items": {"type": "object", "required": ["scenario", "status"], "properties": {"scenario": {"type": "string", "minLength": 1}, "status": {"enum": ["required", "passed", "not-applicable"]}, "evidence": {"type": "string"}}, "additionalProperties": false}
     },
+    "direction_assessment": {
+      "type": "object",
+      "required": ["material_ambiguities", "resolved_by_evidence"],
+      "properties": {
+        "material_ambiguities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "resolved_by_evidence": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
     "directions": {
       "type": "array",
       "minItems": 1,

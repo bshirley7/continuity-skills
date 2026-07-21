@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import shutil
+import struct
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ CONTENT_CLASSIFICATIONS = {"inspected", "supplied", "inferred", "illustrative"}
 AUDIENCE_MODES = {"shared-core", "differentiated", "unresolved"}
 PROTOTYPE_MATURITY = {"directional", "behavioral", "implementation-facing"}
 VALIDATION_STATUSES = {"required", "passed", "not-applicable"}
+ARTIFACT_MATURITY = {"directional", "behavioral", "implementation-facing"}
 DESIGN_GRAMMAR_DIMENSIONS = (
     "composition",
     "spacing_density",
@@ -641,6 +643,22 @@ def _validate_validation_matrix(value: Any, prototype_scope: dict[str, Any] | No
     return result
 
 
+def _validate_direction_assessment(value: Any) -> dict[str, list[str]] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise DesignError("direction_assessment must be an object")
+    result: dict[str, list[str]] = {}
+    for key in ("material_ambiguities", "resolved_by_evidence"):
+        items = value.get(key, [])
+        if not isinstance(items, list) or any(not isinstance(item, str) or not item.strip() for item in items):
+            raise DesignError(f"direction_assessment has invalid {key}")
+        result[key] = list(dict.fromkeys(item.strip() for item in items))
+    if set(result["resolved_by_evidence"]) - set(result["material_ambiguities"]):
+        raise DesignError("resolved_by_evidence must name material ambiguities")
+    return result
+
+
 def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
     strategy = DIRECTION_STRATEGIES[index]
     theme = payload["themes"][index % len(payload["themes"])] if payload["themes"] else ""
@@ -755,6 +773,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     payload["audience_architecture"] = _validate_audience_architecture(payload.get("audience_architecture"), payload["audiences"])
     payload["prototype_scope"] = _validate_prototype_scope(payload.get("prototype_scope"))
     payload["validation_matrix"] = _validate_validation_matrix(payload.get("validation_matrix"), payload["prototype_scope"])
+    payload["direction_assessment"] = _validate_direction_assessment(payload.get("direction_assessment"))
     for key in ("sections", "themes", "message_structures"):
         payload[key] = _validate_strings(payload, key)
     if manual_lenses:
@@ -801,6 +820,10 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         status = "mixed" if len(active) > 1 else next(iter(active), "not-applicable")
         evidence_application[target] = {"status": status, **groups}
     count = _direction_count(payload)
+    if payload["direction_assessment"]:
+        unresolved_ambiguities = set(payload["direction_assessment"]["material_ambiguities"]) - set(payload["direction_assessment"]["resolved_by_evidence"])
+        if count == 1 and unresolved_ambiguities:
+            raise DesignError("One direction is not allowed while material design ambiguities remain unresolved")
     supplied = payload.get("directions")
     if supplied is not None:
         if not isinstance(supplied, list) or not 1 <= len(supplied) <= 3:
@@ -864,6 +887,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "audience_architecture": payload["audience_architecture"],
         "prototype_scope": payload["prototype_scope"],
         "validation_matrix": payload["validation_matrix"],
+        "direction_assessment": payload["direction_assessment"],
         "directions": directions,
         "direction_count_basis": payload.get("direction_count_basis", "legacy heuristic" if payload.get("direction_count") is None else "agent assessed material ambiguity"),
         "catalog_packs": catalog_packs,
@@ -1099,3 +1123,148 @@ def bind_approved(root: Path, config: dict[str, Any], design_ids: list[str]) -> 
     if not document.is_file() or hashlib.sha256(document.read_bytes()).hexdigest() != record["design_hash"]:
         raise DesignError("Approved design document does not match its recorded hash")
     return [{"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"], "alignment_contract": record.get("alignment_contract", {})}]
+
+
+def _artifact_relative_path(root: Path, value: Any) -> tuple[str, Path]:
+    if not isinstance(value, str) or not value.strip():
+        raise DesignError("Artifact file requires a project-relative path")
+    candidate = Path(value)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise DesignError("Artifact paths must be project-relative and cannot traverse parents")
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as exc:
+        raise DesignError("Artifact path escapes the project root") from exc
+    return candidate.as_posix(), resolved
+
+
+def _png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()[:24]
+    if len(data) != 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise DesignError(f"Invalid PNG artifact: {path}")
+    return struct.unpack(">II", data[16:24])
+
+
+def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    approved = _read_json(root / ".continuity" / "design.json")
+    for key in ("design_id", "revision", "design_hash"):
+        if manifest.get(key) != approved.get(key):
+            raise DesignError(f"Artifact manifest {key} does not match the approved design")
+    artifact_id = _identifier(str(manifest.get("artifact_id", "")), "artifact ID")
+    maturity = manifest.get("maturity")
+    if maturity not in ARTIFACT_MATURITY:
+        raise DesignError("Artifact manifest requires a valid maturity")
+    fixture_data = manifest.get("fixture_data")
+    if fixture_data not in {"none", "present-labeled", "present-unlabeled"}:
+        raise DesignError("Artifact manifest requires a valid fixture_data status")
+    files = manifest.get("files")
+    if not isinstance(files, list) or not files:
+        raise DesignError("Artifact manifest requires files")
+    file_paths: set[str] = set()
+    html_texts: dict[str, str] = {}
+    screenshot_roles: set[str] = set()
+    verified_files: list[dict[str, Any]] = []
+    for item in files:
+        if not isinstance(item, dict) or item.get("media_type") not in {"text/html", "image/png"}:
+            raise DesignError("Artifact files require supported media types")
+        relative, path = _artifact_relative_path(root, item.get("path"))
+        if relative in file_paths or not path.is_file():
+            raise DesignError(f"Artifact file is missing or duplicated: {relative}")
+        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        if item.get("sha256") != actual_hash:
+            raise DesignError(f"Artifact file hash mismatch: {relative}")
+        role = item.get("role")
+        if not isinstance(role, str) or not role.strip():
+            raise DesignError(f"Artifact file requires role: {relative}")
+        verified: dict[str, Any] = {"path": relative, "media_type": item["media_type"], "role": role, "sha256": actual_hash}
+        if item["media_type"] == "text/html":
+            text = path.read_text(encoding="utf-8")
+            for name, content in {
+                "continuity-design-id": manifest["design_id"],
+                "continuity-design-revision": str(manifest["revision"]),
+                "continuity-design-hash": manifest["design_hash"],
+                "continuity-prototype-maturity": maturity,
+                "continuity-fixture-data": fixture_data,
+            }.items():
+                pattern = rf'<meta\s+name=["\']{re.escape(name)}["\']\s+content=["\']{re.escape(content)}["\']\s*/?>'
+                if not re.search(pattern, text, re.IGNORECASE):
+                    raise DesignError(f"HTML artifact is missing bound metadata {name}: {relative}")
+            html_texts[relative] = text
+        else:
+            width, height = _png_dimensions(path)
+            verified.update({"width": width, "height": height})
+            screenshot_roles.add(role)
+        verified_files.append(verified)
+        file_paths.add(relative)
+    validations = manifest.get("validation_results", [])
+    if not isinstance(validations, list):
+        raise DesignError("Artifact validation_results must be an array")
+    validation_by_scenario: dict[str, dict[str, Any]] = {}
+    for item in validations:
+        if not isinstance(item, dict) or not isinstance(item.get("scenario"), str) or item.get("status") not in {"passed", "not-applicable", "failed"}:
+            raise DesignError("Artifact validation result is invalid")
+        if not isinstance(item.get("evidence"), str) or not item["evidence"].strip() or item["scenario"] in validation_by_scenario:
+            raise DesignError("Artifact validation results require unique scenarios and evidence")
+        validation_by_scenario[item["scenario"]] = item
+    claims = manifest.get("design_claims", [])
+    if not isinstance(claims, list):
+        raise DesignError("Artifact design_claims must be an array")
+    for claim in claims:
+        if not isinstance(claim, dict) or claim.get("coverage") not in {"demonstrated", "omitted"}:
+            raise DesignError("Artifact design claim is invalid")
+        if not all(isinstance(claim.get(key), str) and claim[key].strip() for key in ("design_section", "claim")):
+            raise DesignError("Artifact design claims require section and claim")
+        evidence_refs = claim.get("evidence_refs", [])
+        if claim["coverage"] == "demonstrated" and (not isinstance(evidence_refs, list) or not evidence_refs):
+            raise DesignError("Demonstrated design claims require artifact evidence")
+        for reference in evidence_refs:
+            if not isinstance(reference, str) or reference.split("#", 1)[0] not in file_paths:
+                raise DesignError("Design claim evidence must reference a bound artifact file")
+            if "#" in reference:
+                file_ref, anchor = reference.split("#", 1)
+                if file_ref not in html_texts or not re.search(rf'id=["\']{re.escape(anchor)}["\']', html_texts[file_ref], re.IGNORECASE):
+                    raise DesignError("Design claim evidence anchor is missing")
+    demonstrated_audiences = manifest.get("demonstrated_audiences", [])
+    if not isinstance(demonstrated_audiences, list) or any(not isinstance(item, str) or not item.strip() for item in demonstrated_audiences):
+        raise DesignError("Artifact demonstrated_audiences is invalid")
+    architecture = approved.get("alignment_contract", {}).get("audience_architecture")
+    missing_audiences: list[str] = []
+    if isinstance(architecture, dict) and architecture.get("mode") == "differentiated":
+        expected = {route["audience"] for route in architecture.get("routes", [])}
+        missing_audiences = sorted(expected - set(demonstrated_audiences))
+    failures = sorted(item["scenario"] for item in validations if item["status"] == "failed")
+    readiness_problems: list[str] = []
+    if maturity == "implementation-facing":
+        if fixture_data == "present-unlabeled":
+            readiness_problems.append("fixture content is not locally labeled")
+        if missing_audiences:
+            readiness_problems.append("differentiated audience routes are not all demonstrated")
+        if failures:
+            readiness_problems.append("artifact validation has failures")
+        if not claims or any(claim["coverage"] != "demonstrated" for claim in claims):
+            readiness_problems.append("design claims are missing demonstrated evidence")
+        required = {item["scenario"] for item in approved.get("alignment_contract", {}).get("validation_matrix", []) if item.get("status") == "required"}
+        if required - set(validation_by_scenario):
+            readiness_problems.append("approved validation requirements lack artifact results")
+        if html_texts and not {"desktop", "mobile"} <= screenshot_roles:
+            readiness_problems.append("responsive HTML requires desktop and mobile screenshots")
+        if html_texts and {"horizontal-overflow", "sticky-action-obstruction"} - set(validation_by_scenario):
+            readiness_problems.append("responsive HTML requires overflow and sticky-obstruction probe results")
+        if readiness_problems:
+            raise DesignError("Artifact is not implementation-facing: " + "; ".join(readiness_problems))
+    return {
+        "schema_version": 1,
+        "artifact_id": artifact_id,
+        "design_id": manifest["design_id"],
+        "revision": manifest["revision"],
+        "design_hash": manifest["design_hash"],
+        "maturity": maturity,
+        "verified_files": verified_files,
+        "missing_differentiated_audiences": missing_audiences,
+        "failed_validations": failures,
+        "implementation_ready": maturity == "implementation-facing" and not readiness_problems,
+        "execution_authorized": False,
+    }

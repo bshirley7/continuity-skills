@@ -5,6 +5,10 @@
   "targets": ["ui"],
   "direction_count": 2,
   "direction_count_basis": "One material tradeoff remains between a faster first outcome and more guided orientation",
+  "direction_assessment": {
+    "material_ambiguities": ["Whether the first session prioritizes immediate outcome or guided orientation"],
+    "resolved_by_evidence": []
+  },
   "working_assumptions": ["The first useful result is more important than exposing the complete product during the initial session"],
   "evidence_inspected": ["docs/product/overview.md", "src/components", "Existing onboarding and returning-user screens"],
   "current_strengths": ["Returning users can resume unfinished work", "Experienced users have a fast keyboard path"],

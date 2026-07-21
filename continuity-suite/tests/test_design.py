@@ -178,6 +178,96 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(draft["validation_matrix"], [])
         self.assertTrue(draft["directions"][0]["prototype_boundaries"])
 
+    def test_one_direction_rejects_unresolved_material_ambiguity(self):
+        value = input_value(
+            design_id="premature-convergence",
+            direction_count=1,
+            direction_count_basis="A recommendation is available.",
+            direction_assessment={"material_ambiguities": ["Shared core or differentiated audience routes"], "resolved_by_evidence": []},
+        )
+        with self.assertRaisesRegex(design.DesignError, "material design ambiguities"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        value["direction_count"] = 2
+        self.assertEqual(len(design.draft(self.root, self.config, CATALOG, self.write_input(value))["directions"]), 2)
+
+    def test_artifact_manifest_binds_files_and_reports_audience_coverage(self):
+        value = input_value(
+            design_id="artifact-design",
+            audiences=["Managers", "Reviewers"],
+            audience_architecture={
+                "mode": "differentiated", "shared_core": ["Decision identity"], "unresolved_conflicts": [],
+                "routes": [
+                    {"audience": "Managers", "route": "guided decision", "needs": ["Plain-language consequence"]},
+                    {"audience": "Reviewers", "route": "evidence workbench", "needs": ["Dense evidence"]},
+                ],
+            },
+            prototype_scope={"maturity": "behavioral", "artifact_type": "HTML", "demonstrated_surfaces": ["Queue"], "demonstrated_states": ["default"], "omitted_surfaces": [], "omitted_states": [], "fixture_data": "present"},
+            validation_matrix=[{"scenario": "sticky-action-obstruction", "status": "required", "evidence": ""}],
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        approved = design.approve(self.root, self.config, draft["design_id"], 1, "reviewer", selected["required_authorization_text"])
+        artifact_dir = self.root / "docs/design/artifacts"
+        artifact_dir.mkdir(parents=True)
+        html = artifact_dir / "queue.html"
+        html.write_text(
+            "<html><head>"
+            f'<meta name="continuity-design-id" content="{approved["design_id"]}">'
+            f'<meta name="continuity-design-revision" content="{approved["revision"]}">'
+            f'<meta name="continuity-design-hash" content="{approved["design_hash"]}">'
+            '<meta name="continuity-prototype-maturity" content="behavioral">'
+            '<meta name="continuity-fixture-data" content="present-labeled">'
+            '</head><body><section id="reviewer-route">Reviewer workbench</section></body></html>',
+            encoding="utf-8",
+        )
+        manifest = {
+            "schema_version": 1, "artifact_id": "queue-v1", "design_id": approved["design_id"],
+            "revision": approved["revision"], "design_hash": approved["design_hash"], "maturity": "behavioral",
+            "fixture_data": "present-labeled",
+            "files": [{"path": "docs/design/artifacts/queue.html", "media_type": "text/html", "role": "prototype", "sha256": design.hashlib.sha256(html.read_bytes()).hexdigest()}],
+            "demonstrated_audiences": ["Reviewers"], "demonstrated_surfaces": ["Queue"], "demonstrated_states": ["default"],
+            "omitted_surfaces": ["Manager route"], "omitted_states": ["error"],
+            "design_claims": [{"design_section": "Audience architecture", "claim": "Reviewer evidence workbench", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/queue.html#reviewer-route"]}],
+            "validation_results": [], "execution_authorized": False,
+        }
+        manifest_path = self.root / "artifact.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        result = design.validate_artifact(self.root, self.config, manifest_path)
+        self.assertEqual(result["missing_differentiated_audiences"], ["Managers"])
+        self.assertFalse(result["implementation_ready"])
+        manifest["maturity"] = "implementation-facing"
+        html.write_text(html.read_text().replace('content="behavioral"', 'content="implementation-facing"'), encoding="utf-8")
+        manifest["files"][0]["sha256"] = design.hashlib.sha256(html.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "not implementation-facing"):
+            design.validate_artifact(self.root, self.config, manifest_path)
+        html.write_text(html.read_text().replace("</body>", '<section id="manager-route">Manager decision path</section></body>'), encoding="utf-8")
+        for name, width, height, role in (("desktop.png", 1440, 900, "desktop"), ("mobile.png", 390, 844, "mobile")):
+            png = artifact_dir / name
+            png.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big"))
+            manifest["files"].append({"path": f"docs/design/artifacts/{name}", "media_type": "image/png", "role": role, "sha256": design.hashlib.sha256(png.read_bytes()).hexdigest()})
+        manifest["files"][0]["sha256"] = design.hashlib.sha256(html.read_bytes()).hexdigest()
+        manifest["demonstrated_audiences"] = ["Managers", "Reviewers"]
+        manifest["omitted_surfaces"] = []
+        manifest["design_claims"].append({"design_section": "Audience architecture", "claim": "Manager guided decision", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/queue.html#manager-route"]})
+        manifest["validation_results"] = [
+            {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed"},
+            {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Desktop and mobile inspection recorded"},
+        ]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        ready = design.validate_artifact(self.root, self.config, manifest_path)
+        self.assertTrue(ready["implementation_ready"])
+
+    def test_artifact_manifest_rejects_hash_drift_and_unsafe_paths(self):
+        value = input_value(design_id="artifact-drift")
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        approved = design.approve(self.root, self.config, draft["design_id"], 1, "reviewer", selected["required_authorization_text"])
+        manifest = {"artifact_id": "bad-artifact", "design_id": approved["design_id"], "revision": 1, "design_hash": approved["design_hash"], "maturity": "directional", "fixture_data": "none", "files": [{"path": "../escape.html", "media_type": "text/html", "role": "prototype", "sha256": "0" * 64}], "demonstrated_audiences": [], "design_claims": [], "validation_results": []}
+        manifest_path = self.write_input(manifest)
+        with self.assertRaisesRegex(design.DesignError, "project-relative"):
+            design.validate_artifact(self.root, self.config, manifest_path)
+
     def test_non_ui_targets_require_only_meaningful_grammar_dimensions(self):
         document = design.draft(
             self.root,
@@ -1669,6 +1759,8 @@ class BoundaryTests(unittest.TestCase):
             self.assertTrue(installed_evaluation["healthy"], installed_evaluation)
             self.assertTrue(installed_evaluation["offline"])
             self.assertTrue((root / ".claude/commands/continuity-design.md").is_file())
+            self.assertTrue((root / ".agents/skills/continuity-design/scripts/artifact-browser-probe.js").is_file())
+            self.assertTrue((root / ".agents/continuity/schemas/design-artifact-manifest.schema.json").is_file())
             config = json.loads((root / ".continuity/config.json").read_text())
             self.assertEqual(config["collections"], ["core", "design", "projects"])
             cli = root / ".agents/continuity/bin/continuity"
@@ -1676,7 +1768,9 @@ class BoundaryTests(unittest.TestCase):
             design_input.write_text(json.dumps(input_value()), encoding="utf-8")
 
             def call(*args):
-                return json.loads(subprocess.run([str(cli), "--project-root", str(root), *args], check=True, capture_output=True, text=True).stdout)
+                result = subprocess.run([str(cli), "--project-root", str(root), *args], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+                return json.loads(result.stdout)
 
             draft_record = call("design", "draft", "--input", str(design_input))
             selected = call("design", "select", draft_record["design_id"], "--direction", "direction-1", "--actor", "human")

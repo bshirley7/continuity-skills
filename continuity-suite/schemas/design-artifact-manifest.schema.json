@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity design artifact manifest",
+  "type": "object",
+  "required": ["schema_version", "artifact_id", "design_id", "revision", "design_hash", "maturity", "fixture_data", "files", "demonstrated_audiences", "demonstrated_surfaces", "demonstrated_states", "omitted_surfaces", "omitted_states", "design_claims", "validation_results", "execution_authorized"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "design_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "design_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "maturity": {"enum": ["directional", "behavioral", "implementation-facing"]},
+    "fixture_data": {"enum": ["none", "present-labeled", "present-unlabeled"]},
+    "files": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "object", "required": ["path", "media_type", "role", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "media_type": {"enum": ["text/html", "image/png"]}, "role": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false}
+    },
+    "demonstrated_audiences": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "demonstrated_surfaces": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "demonstrated_states": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "omitted_surfaces": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "omitted_states": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "design_claims": {
+      "type": "array",
+      "items": {"type": "object", "required": ["design_section", "claim", "coverage", "evidence_refs"], "properties": {"design_section": {"type": "string", "minLength": 1}, "claim": {"type": "string", "minLength": 1}, "coverage": {"enum": ["demonstrated", "omitted"]}, "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false}
+    },
+    "validation_results": {
+      "type": "array",
+      "items": {"type": "object", "required": ["scenario", "status", "evidence"], "properties": {"scenario": {"type": "string", "minLength": 1}, "status": {"enum": ["passed", "failed", "not-applicable"]}, "evidence": {"type": "string", "minLength": 1}}, "additionalProperties": false}
+    },
+    "execution_authorized": {"const": false}
+  },
+  "additionalProperties": false
+}

@@ -31,3 +31,13 @@ Fixture data, one successful path, or a polished responsive shell never proves w
 Choose scenarios from the artifact and its risks. For responsive UI, normally include narrow and wide layouts, visible focus, keyboard-only operation, 200% zoom, long labels, localization expansion, reduced motion, realistic content, and all relevant states. Also test sticky or fixed actions for content obstruction and safe-area conflicts.
 
 Record each scenario as `required`, `passed`, or `not-applicable`. A passed result needs evidence; a not-applicable result needs rationale. Do not label a prototype implementation-facing while required checks remain open.
+
+## Artifact assurance
+
+Bind each HTML and PNG to the exact approved design through a project-relative artifact manifest. Put the design ID, revision, design hash, maturity, and fixture status in HTML metadata; hash every artifact file; and record screenshot roles.
+
+Map each material design claim to a demonstrated artifact file or HTML anchor, or mark it omitted. For differentiated audiences, demonstrate every audience route before claiming implementation readiness. A description of a route in `design.md` is not evidence that its interface exists.
+
+For responsive HTML, run [artifact-browser-probe.js](../scripts/artifact-browser-probe.js) at desktop and mobile viewports through the available browser automation tool. Store the returned JSON as validation evidence, capture both screenshot roles, and record `horizontal-overflow` and `sticky-action-obstruction` results.
+
+Run `continuity design artifact-validate --manifest <manifest.json>`. Treat failures, missing audience routes, unlabeled fixtures, missing required validation or probe results, absent responsive screenshots, and unbound design claims as readiness blockers. Validation never authorizes implementation.

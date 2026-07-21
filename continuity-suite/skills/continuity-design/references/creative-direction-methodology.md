@@ -30,6 +30,8 @@ Choose the direction count from material ambiguity:
 - two when one consequential alternative remains;
 - three when several coherent approaches would change structure, behavior, or communication.
 
+Record the material ambiguities and which, if any, inspected evidence resolves. Do not reduce the count to one while a recorded ambiguity remains unresolved. A complete risk inventory or polished recommendation does not settle audience architecture, workflow order, information architecture, or expressive posture.
+
 Do not mistake settled safety constraints for settled creative direction. A consequential workflow may have one correct safeguard model and still support multiple credible architectures or aesthetic postures. When the request asks for exploration or improvement and the existing expression is not clearly authoritative, prefer showing two genuinely useful directions over prematurely presenting one answer as inevitable.
 
 Each direction must be project-specific and genuinely different in its organizing idea, experience architecture, expression, and tradeoffs. Differences in palette, typeface, or decoration alone do not constitute separate directions.
