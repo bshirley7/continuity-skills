@@ -536,6 +536,7 @@ def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
         "direction_id": f"direction-{index + 1}",
         "name": name,
         "summary": summary,
+        "creative_signature": f"Use {strategy['name'].casefold()} as a recognizable organizing move across the relevant visual and interaction dimensions, with project-specific expression supplied during revision.",
         "principles": principles,
         "design_grammar": {dimension: [strategy["grammar"][dimension]] for dimension in required_dimensions},
         "experience_principles": [
@@ -571,7 +572,7 @@ def _validate_direction(value: Any, index: int, targets: list[str]) -> dict[str,
         raise DesignError("Each direction must be an object")
     result = dict(value)
     result["direction_id"] = _identifier(str(result.get("direction_id") or f"direction-{index + 1}"), "direction ID")
-    for key in ("name", "summary"):
+    for key in ("name", "summary", "creative_signature"):
         if not isinstance(result.get(key), str) or not result[key].strip():
             raise DesignError(f"Direction {result['direction_id']} requires {key}")
     grammar = result.get("design_grammar")
@@ -738,6 +739,19 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         f"Targets: `{targets}`  ",
         f"Evidence application: `{modality}`", "",
         f"Direction count basis: {draft_record['direction_count_basis']}", "",
+        "## Decision at a glance", "",
+        f"**Intent:** {draft_record['intent']}", "",
+        f"**Audience:** {'; '.join(draft_record['audiences'])}", "",
+        "**Selected direction:**", "",
+        *[f"- **{direction['name']}:** {direction['summary']}" for direction in selected], "",
+        "**Creative signature:**", "",
+        *[f"- {direction['creative_signature']}" for direction in selected], "",
+        "**Principal tradeoff:**", "",
+        *[f"- {item}" for direction in selected for item in direction["tradeoffs"][:1]], "",
+        "**Preservation promise:**", "",
+        *([f"- {item}" for item in (draft_record["preserve"] or draft_record["current_strengths"])] or ["- No favorable behavior was evidenced for preservation."]), "",
+        "**Material unknowns:**", "",
+        *([f"- {item}" for item in draft_record["open_questions"][:2]] or ["- None currently material."]), "",
         "## Product and experience context", "", draft_record["intent"], "",
         "Audiences:", "",
         *[f"- {item}" for item in draft_record["audiences"]], "",
@@ -761,7 +775,7 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         lines.extend([f"### {heading}", "", *([f"- {item}" for item in draft_record[key]] or ["- None recorded."]), ""])
     lines.extend(["## Design thesis", ""])
     for direction in selected:
-        lines.extend([f"### {direction['name']}", "", direction["summary"], "", "Principles:", ""])
+        lines.extend([f"### {direction['name']}", "", direction["summary"], "", "Creative signature:", "", direction["creative_signature"], "", "Principles:", ""])
         lines.extend(f"- {item}" for item in direction["principles"])
         lines.extend(["", "## Experience principles", "", *[f"- {item}" for item in direction["experience_principles"]], ""])
         lines.extend(["## Experience architecture", "", *[f"- {item}" for item in direction["experience_architecture"]], ""])
@@ -832,6 +846,7 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
     selected = [item for item in record["directions"] if item["direction_id"] in record["selected_direction_ids"]]
     alignment_contract = {
         "selected_direction_ids": record["selected_direction_ids"],
+        "creative_signatures": [direction["creative_signature"] for direction in selected],
         "preserve": record["preserve"],
         "non_goals": record["non_goals"],
         "implementation_guidance": [rule for direction in selected for rule in direction["implementation_guidance"]],

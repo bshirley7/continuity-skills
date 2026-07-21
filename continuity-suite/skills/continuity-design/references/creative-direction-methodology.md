@@ -26,15 +26,18 @@ Infer useful category references privately from project evidence. Never require 
 
 Choose the direction count from material ambiguity:
 
-- one when the organizing idea, character, and principal tradeoffs are settled;
+- one only when the organizing idea, character, and expressive posture are settled by inspected evidence or an explicit user choice;
 - two when one consequential alternative remains;
 - three when several coherent approaches would change structure, behavior, or communication.
+
+Do not mistake settled safety constraints for settled creative direction. A consequential workflow may have one correct safeguard model and still support multiple credible architectures or aesthetic postures. When the request asks for exploration or improvement and the existing expression is not clearly authoritative, prefer showing two genuinely useful directions over prematurely presenting one answer as inevitable.
 
 Each direction must be project-specific and genuinely different in its organizing idea, experience architecture, expression, and tradeoffs. Differences in palette, typeface, or decoration alone do not constitute separate directions.
 
 Define for each direction:
 
 - a concise thesis and principles;
+- a memorable creative signature that could not be pasted unchanged onto an unrelated product;
 - experience architecture and important states;
 - visual and interaction grammar appropriate to the target modality;
 - component and pattern direction;
@@ -44,6 +47,27 @@ Define for each direction:
 - prohibited patterns and explicit tradeoffs.
 
 Use generated fallback directions only to recover a malformed draft. Do not present them as completed creative work.
+
+## 3a. Make the point of view visible
+
+A strong direction should feel authored, not merely compliant. Tie one dominant expressive move to the project's intent: a characteristic composition, typographic relationship, spatial rhythm, interaction motif, image treatment, material quality, or voice pattern. Let supporting choices reinforce that move instead of assembling an unrelated palette, font, card style, and animation preset.
+
+Be decisive enough that implementation teams can recognize drift. Specify what should be bold, quiet, dense, spare, tactile, editorial, technical, warm, or restrained through observable rules rather than adjective stacks. Avoid generic dashboard/card grids, excessive rounded containers, arbitrary gradients, default glass effects, decorative motion, interchangeable sans-serif systems, and indiscriminate hero imagery unless project evidence makes them the right choice.
+
+Safeguards, accessibility, evidence integrity, and recovery remain mandatory, but present them as constraints around the creative thesis. Do not let a long risk inventory obscure what the artifact should look, feel, and communicate like.
+
+## 3b. Lead with the decision
+
+Before the detailed contract, give the reviewer a compact decision view containing:
+
+- the reconstructed problem and audience;
+- current strengths worth preserving;
+- the recommended direction and its creative signature;
+- why it fits now and the principal tradeoff;
+- the preservation promise;
+- no more than the material unknowns or one to two non-blocking questions.
+
+Then provide the full experience, visual, implementation, safeguard, and validation detail. The first screenful should make the creative decision understandable; the rest should make it durable.
 
 ## 4. Produce the durable contract
 

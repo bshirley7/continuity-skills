@@ -103,12 +103,13 @@ class DesignLifecycleTests(unittest.TestCase):
         )
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
         direction = draft["directions"][0]
+        self.assertTrue(direction["creative_signature"])
         self.assertTrue(any("fast expert navigation" in item.casefold() for item in direction["experience_principles"]))
         self.assertEqual(direction["validation_criteria"], value["validation_criteria"])
         design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
         markdown = (self.root / ".continuity/private/design/assessed-design/design.md").read_text(encoding="utf-8")
         for heading in (
-            "## Current-state assessment", "## Design thesis", "## Experience principles",
+            "## Decision at a glance", "## Current-state assessment", "## Design thesis", "## Experience principles",
             "## Experience architecture", "## Visual and interaction system",
             "## Component and pattern direction", "## Implementation contract",
             "### Acceptance and drift checks", "### Prohibited patterns",
@@ -116,6 +117,7 @@ class DesignLifecycleTests(unittest.TestCase):
             self.assertIn(heading, markdown)
         self.assertIn("Fast expert navigation", markdown)
         self.assertIn("Inconsistent hierarchy between detail views", markdown)
+        self.assertIn("**Creative signature:**", markdown)
 
     def test_non_ui_targets_require_only_meaningful_grammar_dimensions(self):
         document = design.draft(
@@ -478,6 +480,7 @@ class DesignLifecycleTests(unittest.TestCase):
                     "direction_id": "incomplete",
                     "name": "Incomplete",
                     "summary": "Missing the implementation-facing grammar.",
+                    "creative_signature": "Use one deliberate focal relationship to make the primary task recognizable.",
                     "principles": ["Keep the task clear."],
                     "variation_levers": ["Adjust density."],
                     "tradeoffs": ["Less visible context."],

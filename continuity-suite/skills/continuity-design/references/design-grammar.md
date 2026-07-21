@@ -31,6 +31,9 @@ Do not invent motion for a static artifact or application states for a standalon
 
 - Every rule must trace to inspected evidence, project intent, a selected direction, a preservation requirement, or a reviewed catalog pack.
 - Dimensions must reinforce one another. Do not choose typography, color, geometry, motion, imagery, and voice as independent style samples.
+- Establish one dominant creative signature and show how the relevant dimensions reinforce it. The signature must be specific enough to distinguish this product or artifact from a competent generic template.
+- Prefer a few deliberate, high-contrast decisions over exhaustive styling. Name the characteristic move, its bounded variations, and where restraint is required.
+- Reject interchangeable defaults—card grids for every hierarchy, pills for every label, gradients for unearned emphasis, ornamental glass, ubiquitous rounded rectangles, generic geometric sans typography, and motion without state meaning—unless the selected direction explains why they belong.
 - Name bounded variation and prohibited combinations where inconsistent interpretation would be likely.
 - Preserve familiar interaction semantics and accessibility even when expression changes.
 - Distinguish universal decisions from section-specific or platform-specific exceptions.
