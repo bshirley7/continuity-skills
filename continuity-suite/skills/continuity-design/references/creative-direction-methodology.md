@@ -32,6 +32,16 @@ Choose the direction count from material ambiguity:
 
 Record the material ambiguities and which, if any, inspected evidence resolves. Do not reduce the count to one while a recorded ambiguity remains unresolved. A complete risk inventory or polished recommendation does not settle audience architecture, workflow order, information architecture, or expressive posture.
 
+Translate each material insight that changes the design through an insight-to-design decision:
+
+- name the insight and its evidence source;
+- state the concrete design response;
+- identify the surfaces and states it affects;
+- define what observable artifact evidence would prove the response exists;
+- mark the decision decided, provisional, or deliberately omitted.
+
+Map only consequential insights. A useful map explains why the design took its shape; it is not an inventory of observations or an instruction to turn every finding into a component.
+
 Do not mistake settled safety constraints for settled creative direction. A consequential workflow may have one correct safeguard model and still support multiple credible architectures or aesthetic postures. When the request asks for exploration or improvement and the existing expression is not clearly authoritative, prefer showing two genuinely useful directions over prematurely presenting one answer as inevitable.
 
 Each direction must be project-specific and genuinely different in its organizing idea, experience architecture, expression, and tradeoffs. Differences in palette, typeface, or decoration alone do not constitute separate directions.
@@ -76,7 +86,7 @@ Then provide the full experience, visual, implementation, safeguard, and validat
 
 The selected or explicitly combined direction becomes `design.md`. Keep it useful to planning, implementation, review, documents, and visual production without turning it into a task plan.
 
-The document must make current-state evidence, content provenance, audience architecture, demonstrated and omitted scope, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. Omit irrelevant modality dimensions rather than fabricating requirements. Apply [prototype integrity](prototype-integrity.md) when representative content, prototypes, or multiple audiences are in scope.
+The document must make current-state evidence, content provenance, audience architecture, demonstrated and omitted scope, insight-to-design decisions, design thesis, experience rules, visual system, target-specific decisions, preservation, non-goals, implementation constraints, and validation criteria easy to find. Omit irrelevant modality dimensions rather than fabricating requirements. Apply [prototype integrity](prototype-integrity.md) when representative content, prototypes, or multiple audiences are in scope.
 
 ## 5. Maintain alignment
 

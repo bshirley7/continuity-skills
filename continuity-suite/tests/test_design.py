@@ -145,11 +145,21 @@ class DesignLifecycleTests(unittest.TestCase):
                 {"scenario": "keyboard-only", "status": "passed", "evidence": "Manual traversal completed"},
                 {"scenario": "localization expansion", "status": "required", "evidence": ""},
             ],
+            insight_decisions=[{
+                "insight_id": "expert-route",
+                "insight": "Full-time reviewers need to retain dense keyboard-supported comparison.",
+                "status": "decided",
+                "source_refs": ["src/review"],
+                "design_response": "Keep a dense evidence workbench as a differentiated reviewer route.",
+                "affected_surfaces": ["Review queue", "Evidence detail"],
+                "affected_states": ["default", "selected"],
+                "observable_evidence": "The reviewer route exposes comparable evidence and complete keyboard traversal.",
+            }],
         )
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
         selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
         markdown = (self.root / ".continuity/private/design/prototype-integrity/design.md").read_text(encoding="utf-8")
-        for heading in ("## Content and evidence integrity", "## Audience architecture", "## Demonstrated and not demonstrated", "## Prototype validation matrix", "## Content rules", "## Audience strategy", "## Prototype boundaries"):
+        for heading in ("## Content and evidence integrity", "## Audience architecture", "## Demonstrated and not demonstrated", "## Prototype validation matrix", "## Insight-to-design decisions", "## Content rules", "## Audience strategy", "## Prototype boundaries"):
             self.assertIn(heading, markdown)
         self.assertIn("Illustrative fixture value", markdown)
         approved = design.approve(self.root, self.config, draft["design_id"], draft["revision"], "reviewer", selected["required_authorization_text"])
@@ -157,6 +167,7 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(contract["content_provenance"], draft["content_provenance"])
         self.assertEqual(contract["audience_architecture"]["mode"], "differentiated")
         self.assertEqual(contract["prototype_scope"]["maturity"], "behavioral")
+        self.assertEqual(contract["insight_decisions"][0]["insight_id"], "expert-route")
         self.assertTrue(contract["content_rules"])
 
     def test_prototype_integrity_rejects_invalid_records(self):
@@ -176,6 +187,7 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIsNone(draft["audience_architecture"])
         self.assertIsNone(draft["prototype_scope"])
         self.assertEqual(draft["validation_matrix"], [])
+        self.assertEqual(draft["insight_decisions"], [])
         self.assertTrue(draft["directions"][0]["prototype_boundaries"])
 
     def test_one_direction_rejects_unresolved_material_ambiguity(self):
@@ -203,6 +215,12 @@ class DesignLifecycleTests(unittest.TestCase):
             },
             prototype_scope={"maturity": "behavioral", "artifact_type": "HTML", "demonstrated_surfaces": ["Queue"], "demonstrated_states": ["default"], "omitted_surfaces": [], "omitted_states": [], "fixture_data": "present"},
             validation_matrix=[{"scenario": "sticky-action-obstruction", "status": "required", "evidence": ""}],
+            insight_decisions=[{
+                "insight_id": "manager-guidance", "insight": "Occasional managers need a guided decision route.",
+                "status": "decided", "source_refs": [], "design_response": "Provide a plain-language manager decision path.",
+                "affected_surfaces": ["Manager route"], "affected_states": ["default"],
+                "observable_evidence": "A separate manager route explains consequence and next action.",
+            }],
         )
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
         selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
@@ -227,7 +245,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "files": [{"path": "docs/design/artifacts/queue.html", "media_type": "text/html", "role": "prototype", "sha256": design.hashlib.sha256(html.read_bytes()).hexdigest()}],
             "demonstrated_audiences": ["Reviewers"], "demonstrated_surfaces": ["Queue"], "demonstrated_states": ["default"],
             "omitted_surfaces": ["Manager route"], "omitted_states": ["error"],
-            "design_claims": [{"design_section": "Audience architecture", "claim": "Reviewer evidence workbench", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/queue.html#reviewer-route"]}],
+            "design_claims": [{"design_section": "Audience architecture", "claim": "Reviewer evidence workbench", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/queue.html#reviewer-route"], "insight_ids": []}],
             "validation_results": [], "execution_authorized": False,
         }
         manifest_path = self.root / "artifact.json"
@@ -249,7 +267,7 @@ class DesignLifecycleTests(unittest.TestCase):
         manifest["files"][0]["sha256"] = design.hashlib.sha256(html.read_bytes()).hexdigest()
         manifest["demonstrated_audiences"] = ["Managers", "Reviewers"]
         manifest["omitted_surfaces"] = []
-        manifest["design_claims"].append({"design_section": "Audience architecture", "claim": "Manager guided decision", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/queue.html#manager-route"]})
+        manifest["design_claims"].append({"design_section": "Audience architecture", "claim": "Manager guided decision", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/queue.html#manager-route"], "insight_ids": ["manager-guidance"]})
         manifest["validation_results"] = [
             {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed"},
             {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Desktop and mobile inspection recorded"},

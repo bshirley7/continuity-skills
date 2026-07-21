@@ -17,8 +17,8 @@
   "omitted_surfaces": ["Account administration"],
   "omitted_states": ["offline synchronization failure"],
   "design_claims": [
-    {"design_section": "Audience architecture", "claim": "First-time users receive a guided first outcome", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/onboarding.html#guided-start"]},
-    {"design_section": "Prototype boundaries", "claim": "Offline recovery is not demonstrated", "coverage": "omitted", "evidence_refs": []}
+    {"design_section": "Audience architecture", "claim": "First-time users receive a guided first outcome", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/onboarding.html#guided-start"], "insight_ids": ["returning-users-resume"]},
+    {"design_section": "Prototype boundaries", "claim": "Offline recovery is not demonstrated", "coverage": "omitted", "evidence_refs": [], "insight_ids": []}
   ],
   "validation_results": [
     {"scenario": "keyboard-only operation", "status": "passed", "evidence": "Manual traversal recorded in the review log"},

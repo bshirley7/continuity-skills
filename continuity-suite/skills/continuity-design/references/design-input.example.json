@@ -9,6 +9,18 @@
     "material_ambiguities": ["Whether the first session prioritizes immediate outcome or guided orientation"],
     "resolved_by_evidence": []
   },
+  "insight_decisions": [
+    {
+      "insight_id": "returning-users-resume",
+      "insight": "Returning users can already resume unfinished work and should not lose that favorable behavior.",
+      "status": "decided",
+      "source_refs": ["Existing returning-user screen"],
+      "design_response": "Create a direct returning-user route that exposes the saved object, last meaningful state, and one primary continuation action before onboarding guidance.",
+      "affected_surfaces": ["Returning-user resume"],
+      "affected_states": ["saved work available", "saved work stale"],
+      "observable_evidence": "The returning-user artifact shows saved-work identity, freshness, and a direct resume action without replaying first-session steps."
+    }
+  ],
   "working_assumptions": ["The first useful result is more important than exposing the complete product during the initial session"],
   "evidence_inspected": ["docs/product/overview.md", "src/components", "Existing onboarding and returning-user screens"],
   "current_strengths": ["Returning users can resume unfinished work", "Experienced users have a fast keyboard path"],

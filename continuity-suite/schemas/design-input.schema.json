@@ -88,6 +88,24 @@
       },
       "additionalProperties": false
     },
+    "insight_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["insight_id", "insight", "status", "design_response", "affected_surfaces", "affected_states", "observable_evidence"],
+        "properties": {
+          "insight_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "insight": {"type": "string", "minLength": 1},
+          "status": {"enum": ["decided", "provisional", "omitted"]},
+          "source_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "design_response": {"type": "string", "minLength": 1},
+          "affected_surfaces": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "affected_states": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "observable_evidence": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
     "directions": {
       "type": "array",
       "minItems": 1,

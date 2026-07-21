@@ -36,7 +36,7 @@ Record each scenario as `required`, `passed`, or `not-applicable`. A passed resu
 
 Bind each HTML and PNG to the exact approved design through a project-relative artifact manifest. Put the design ID, revision, design hash, maturity, and fixture status in HTML metadata; hash every artifact file; and record screenshot roles.
 
-Map each material design claim to a demonstrated artifact file or HTML anchor, or mark it omitted. For differentiated audiences, demonstrate every audience route before claiming implementation readiness. A description of a route in `design.md` is not evidence that its interface exists.
+Map each material design claim to a demonstrated artifact file or HTML anchor, or mark it omitted. Attach the relevant decided insight IDs to those claims. An implementation-facing artifact must demonstrate every decided insight; provisional and omitted insights remain visible without being misrepresented as implemented. For differentiated audiences, demonstrate every audience route before claiming implementation readiness. A description of a route in `design.md` is not evidence that its interface exists.
 
 For responsive HTML, run [artifact-browser-probe.js](../scripts/artifact-browser-probe.js) at desktop and mobile viewports through the available browser automation tool. Store the returned JSON as validation evidence, capture both screenshot roles, and record `horizontal-overflow` and `sticky-action-obstruction` results.
 

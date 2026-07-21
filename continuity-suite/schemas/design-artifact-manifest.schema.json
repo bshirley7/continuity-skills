@@ -22,7 +22,7 @@
     "omitted_states": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "design_claims": {
       "type": "array",
-      "items": {"type": "object", "required": ["design_section", "claim", "coverage", "evidence_refs"], "properties": {"design_section": {"type": "string", "minLength": 1}, "claim": {"type": "string", "minLength": 1}, "coverage": {"enum": ["demonstrated", "omitted"]}, "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false}
+      "items": {"type": "object", "required": ["design_section", "claim", "coverage", "evidence_refs", "insight_ids"], "properties": {"design_section": {"type": "string", "minLength": 1}, "claim": {"type": "string", "minLength": 1}, "coverage": {"enum": ["demonstrated", "omitted"]}, "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}, "insight_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false}
     },
     "validation_results": {
       "type": "array",

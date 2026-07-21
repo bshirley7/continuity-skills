@@ -25,6 +25,7 @@ CONTENT_CLASSIFICATIONS = {"inspected", "supplied", "inferred", "illustrative"}
 AUDIENCE_MODES = {"shared-core", "differentiated", "unresolved"}
 PROTOTYPE_MATURITY = {"directional", "behavioral", "implementation-facing"}
 VALIDATION_STATUSES = {"required", "passed", "not-applicable"}
+INSIGHT_DECISION_STATUSES = {"decided", "provisional", "omitted"}
 ARTIFACT_MATURITY = {"directional", "behavioral", "implementation-facing"}
 DESIGN_GRAMMAR_DIMENSIONS = (
     "composition",
@@ -659,6 +660,40 @@ def _validate_direction_assessment(value: Any) -> dict[str, list[str]] | None:
     return result
 
 
+def _validate_insight_decisions(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise DesignError("insight_decisions must be an array")
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise DesignError("Each insight decision must be an object")
+        insight_id = _identifier(str(item.get("insight_id", "")), "insight ID")
+        if insight_id in seen:
+            raise DesignError("Insight decision IDs must be unique")
+        status = item.get("status")
+        if status not in INSIGHT_DECISION_STATUSES:
+            raise DesignError(f"Insight decision {insight_id} requires a valid status")
+        normalized: dict[str, Any] = {"insight_id": insight_id, "status": status}
+        for key in ("insight", "design_response", "observable_evidence"):
+            text = item.get(key)
+            if not isinstance(text, str) or not text.strip():
+                raise DesignError(f"Insight decision {insight_id} requires {key}")
+            normalized[key] = text.strip()
+        for key in ("source_refs", "affected_surfaces", "affected_states"):
+            strings = item.get(key, [])
+            if not isinstance(strings, list) or any(not isinstance(entry, str) or not entry.strip() for entry in strings):
+                raise DesignError(f"Insight decision {insight_id} has invalid {key}")
+            normalized[key] = list(dict.fromkeys(entry.strip() for entry in strings))
+        if status == "decided" and not normalized["affected_surfaces"]:
+            raise DesignError(f"Decided insight {insight_id} requires affected_surfaces")
+        result.append(normalized)
+        seen.add(insight_id)
+    return result
+
+
 def _generated_direction(payload: dict[str, Any], index: int) -> dict[str, Any]:
     strategy = DIRECTION_STRATEGIES[index]
     theme = payload["themes"][index % len(payload["themes"])] if payload["themes"] else ""
@@ -774,6 +809,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     payload["prototype_scope"] = _validate_prototype_scope(payload.get("prototype_scope"))
     payload["validation_matrix"] = _validate_validation_matrix(payload.get("validation_matrix"), payload["prototype_scope"])
     payload["direction_assessment"] = _validate_direction_assessment(payload.get("direction_assessment"))
+    payload["insight_decisions"] = _validate_insight_decisions(payload.get("insight_decisions"))
     for key in ("sections", "themes", "message_structures"):
         payload[key] = _validate_strings(payload, key)
     if manual_lenses:
@@ -888,6 +924,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "prototype_scope": payload["prototype_scope"],
         "validation_matrix": payload["validation_matrix"],
         "direction_assessment": payload["direction_assessment"],
+        "insight_decisions": payload["insight_decisions"],
         "directions": directions,
         "direction_count_basis": payload.get("direction_count_basis", "legacy heuristic" if payload.get("direction_count") is None else "agent assessed material ambiguity"),
         "catalog_packs": catalog_packs,
@@ -992,6 +1029,21 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
         or ["- No validation evidence was recorded; implementation readiness is not claimed."]
     )
     lines.append("")
+    insight_decisions = draft_record.get("insight_decisions", [])
+    lines.extend(["## Insight-to-design decisions", ""])
+    if insight_decisions:
+        for item in insight_decisions:
+            lines.extend([
+                f"### {item['insight_id']}", "",
+                f"**Insight:** {item['insight']}  ",
+                f"**Status:** `{item['status']}`  ",
+                f"**Design response:** {item['design_response']}  ",
+                f"**Affected surfaces:** {'; '.join(item['affected_surfaces']) or 'None'}  ",
+                f"**Affected states:** {'; '.join(item['affected_states']) or 'None'}  ",
+                f"**Observable evidence:** {item['observable_evidence']}", "",
+            ])
+    else:
+        lines.extend(["- No material insight-to-design decisions were recorded.", ""])
     lines.extend(["## Design thesis", ""])
     for direction in selected:
         lines.extend([f"### {direction['name']}", "", direction["summary"], "", "Creative signature:", "", direction["creative_signature"], "", "Principles:", ""])
@@ -1073,6 +1125,7 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         "audience_architecture": record.get("audience_architecture"),
         "prototype_scope": record.get("prototype_scope"),
         "validation_matrix": record.get("validation_matrix", []),
+        "insight_decisions": record.get("insight_decisions", []),
         "content_rules": [rule for direction in selected for rule in direction["content_rules"]],
         "audience_strategy": [rule for direction in selected for rule in direction["audience_strategy"]],
         "prototype_boundaries": [rule for direction in selected for rule in direction["prototype_boundaries"]],
@@ -1218,6 +1271,9 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
         if not all(isinstance(claim.get(key), str) and claim[key].strip() for key in ("design_section", "claim")):
             raise DesignError("Artifact design claims require section and claim")
         evidence_refs = claim.get("evidence_refs", [])
+        insight_ids = claim.get("insight_ids", [])
+        if not isinstance(insight_ids, list) or any(not isinstance(item, str) or not item.strip() for item in insight_ids):
+            raise DesignError("Artifact design claim insight_ids must be an array of IDs")
         if claim["coverage"] == "demonstrated" and (not isinstance(evidence_refs, list) or not evidence_refs):
             raise DesignError("Demonstrated design claims require artifact evidence")
         for reference in evidence_refs:
@@ -1227,6 +1283,20 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
                 file_ref, anchor = reference.split("#", 1)
                 if file_ref not in html_texts or not re.search(rf'id=["\']{re.escape(anchor)}["\']', html_texts[file_ref], re.IGNORECASE):
                     raise DesignError("Design claim evidence anchor is missing")
+    decided_insights = {
+        item["insight_id"]
+        for item in approved.get("alignment_contract", {}).get("insight_decisions", [])
+        if item.get("status") == "decided"
+    }
+    demonstrated_insights = {
+        insight_id
+        for claim in claims
+        if claim.get("coverage") == "demonstrated"
+        for insight_id in claim.get("insight_ids", [])
+    }
+    if demonstrated_insights - decided_insights:
+        raise DesignError("Artifact claims reference unknown decided insight IDs")
+    missing_decided_insights = sorted(decided_insights - demonstrated_insights)
     demonstrated_audiences = manifest.get("demonstrated_audiences", [])
     if not isinstance(demonstrated_audiences, list) or any(not isinstance(item, str) or not item.strip() for item in demonstrated_audiences):
         raise DesignError("Artifact demonstrated_audiences is invalid")
@@ -1246,6 +1316,8 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
             readiness_problems.append("artifact validation has failures")
         if not claims or any(claim["coverage"] != "demonstrated" for claim in claims):
             readiness_problems.append("design claims are missing demonstrated evidence")
+        if missing_decided_insights:
+            readiness_problems.append("decided insights lack demonstrated artifact evidence")
         required = {item["scenario"] for item in approved.get("alignment_contract", {}).get("validation_matrix", []) if item.get("status") == "required"}
         if required - set(validation_by_scenario):
             readiness_problems.append("approved validation requirements lack artifact results")
@@ -1265,6 +1337,7 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
         "verified_files": verified_files,
         "missing_differentiated_audiences": missing_audiences,
         "failed_validations": failures,
+        "missing_decided_insights": missing_decided_insights,
         "implementation_ready": maturity == "implementation-facing" and not readiness_problems,
         "execution_authorized": False,
     }
