@@ -18,6 +18,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 - Review the diff for correctness, maintainability, data integrity, compatibility, accessibility, performance, privacy, security, and supply-chain risk.
 - Stop on failed commands, unreviewed findings, missing evidence, stale approval, or discovered work that belongs in a separate note, roadmap item, or goal.
 - Never mark `code-review`, `validation`, or `security-review` passed without reproducible evidence.
+- When a goal binds an approved design, verify its ID, revision, and hash and test the applicable preservation requirements, prohibited patterns, accessibility rules, and drift checks. Aesthetic judgment may require recorded human review, but unsupported visual claims do not pass automatically.
 
 ## Workflow
 
@@ -34,7 +35,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 .agents/continuity/bin/continuity --project-root "$PWD" test run <goal-id> --worktree <execution-worktree> --branch <goal-branch>
 ```
 
-4. Add any targeted tests required by the diff, update the goal checks when needed, then rerun the machine runner. Perform an evidence-based code review and manual trust-boundary review. Capture concrete findings, fixed issues, and residual risk.
+4. Add any targeted tests required by the diff, update the goal checks when needed, then rerun the machine runner. Perform an evidence-based code review and manual trust-boundary review. When design-bound, compare representative changed surfaces or artifacts with the approved design contract and record preservation, accessibility, responsive, component, and drift findings. Capture concrete findings, fixed issues, and residual risk.
 5. Record the result. A passed record is rejected unless the machine evidence still matches the enrolled repository, goal worktree and branch, approved plan, behavior configuration, configured commands, and current source fingerprint:
 
 ```text

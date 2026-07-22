@@ -30,6 +30,8 @@ Every installed skill applies the versioned development assurance standard. The 
 .continuity-portfolio/                  ignored supervisor claims and capacity reservations
 docs/project-memory/                    canonical searchable project memory
 docs/project-roadmap/                   canonical sanitized project roadmap
+docs/design/design.md                   exact approved design direction when the optional collection is enabled
+.continuity/design.json                 approved design ID, revision, hash, catalog versions, and non-authorizing state
 .continuity/shared-notes/packets/       reviewed non-authorizing note packets
 ```
 
@@ -50,6 +52,8 @@ python3 continuity-suite/installer/install.py \
   --integration-branch <branch> \
   --validation <project-validation-command>
 ```
+
+Add `--collection design` for projects that need the optional offline design workflow. Core and project-management collections remain enabled by default; upgrades preserve the project’s selected collections.
 
 The main skill guides the user through recommended defaults and explicit overrides. For a deterministic initial install, pass `--configuration <answers.json>`; for a terminal questionnaire, pass `--interactive`. After installation, use:
 
@@ -107,6 +111,12 @@ continuity memory similar "<situation>" --scope all
 
 continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id> | --roadmap-id <id> | --packet-id <id> | --audit-id <id> | --goal-id <id>]
 
+continuity design catalog
+continuity design draft --input <design-input.json>
+continuity design select <design-id> --direction <direction-id> [--combine <direction-id>] --actor <identity>
+continuity design approve <design-id> --revision <revision> --approved-by <identity> --authorization-text <exact-text>
+continuity workflow status --design-id <design-id>
+
 continuity portfolio update --root <workspace>
 continuity portfolio update --root <workspace> --apply
 continuity portfolio update --root <workspace> --version <tag> --apply
@@ -126,6 +136,8 @@ continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
 continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --disposition <approved|changes-requested|merged|closed> --evidence <text>
 ```
 
+The offline design catalog selects one foundation pack per active axis plus any reviewed category overlays matching the design input. Draft and approved design records preserve every selected pack ID and version.
+
 Use `continuity suite update --check`, a dry run, and an explicit tagged update for existing installations. Release artifacts are attested and hash-manifested; modified suite-managed files fail closed, each update creates a rollback snapshot, and project-owned configuration and ignored private state remain outside release replacement. See [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md). Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 
 `continuity portfolio update` applies that same project-local transaction across discovered projects. It is a dry-run unless `--apply` is present, runs doctor before and after each project, isolates unhealthy projects, and restores the project snapshot automatically when post-update doctor fails.
@@ -139,15 +151,16 @@ The steps below are the concise reference. [Operating Workflow](docs/operating-w
 3. Invoke `$continuity-triage`, or allow the nightly review to classify and route items. Refine occurrence dimensions and review recurring patterns when useful.
 4. Use `$continuity-memory` and `$continuity-roadmap` to retrieve cited context briefs. Private similarity may inform triage, but only canonical promoted memory is trusted planning evidence. Use the local read-only roadmap sidecar when visual transport helps.
 5. Use `$continuity-share` only for explicitly selected, sanitized, approved developer handoffs.
-6. Use `$continuity-plan` only for selected candidates. Verify action claims, map unresolved decisions for complex work, record `roadmap_ids` and structured `roadmap_impact`, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
-7. Approve an exact goal version; it queues for the project-configured dispatch time.
-8. Use `$continuity-dispatch` to start an approved goal earlier when needed.
-9. Use `$continuity-execute` in the assigned isolated worktree. Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts, then commit them.
-10. Use `$continuity-test` for the final source-bound run on that committed state.
-11. Use `$continuity-product-audit` to reconcile applicable product behavior with approved intent on the same source state, or record explicit not-applicable evidence.
-12. Push the tested and audited commit, then use `$continuity-merge` to bind merge safety to the local head, remote head, PR head, and configured base.
-13. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
-14. Record human review separately as `approved`, `changes-requested`, `merged`, or `closed`. In-scope changes reopen the same goal with explicit authorization; scope changes require revision and fresh approval. Only recorded merge evidence moves the goal to `completed`.
+6. When material experience decisions are unresolved and the optional collection is enabled, use `$continuity-design` to select and exactly approve `docs/design/design.md`. This approves only the design document.
+7. Use `$continuity-plan` only for selected candidates. Verify action claims, map unresolved decisions for complex work, record `roadmap_ids`, `design_ids` when applicable, and structured `roadmap_impact`, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
+8. Approve an exact goal version; it queues for the project-configured dispatch time.
+9. Use `$continuity-dispatch` to start an approved goal earlier when needed.
+10. Use `$continuity-execute` in the assigned isolated worktree. Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts, then commit them.
+11. Use `$continuity-test` for the final source-bound run on that committed state.
+12. Use `$continuity-product-audit` to reconcile applicable product behavior with approved intent, including any exact approved design, on the same source state, or record explicit not-applicable evidence.
+13. Push the tested and audited commit, then use `$continuity-merge` to bind merge safety to the local head, remote head, PR head, and configured base.
+14. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
+15. Record human review separately as `approved`, `changes-requested`, `merged`, or `closed`. In-scope changes reopen the same goal with explicit authorization; scope changes require revision and fresh approval. Only recorded merge evidence moves the goal to `completed`.
 
 ```mermaid
 flowchart LR

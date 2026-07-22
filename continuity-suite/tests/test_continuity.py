@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -14,6 +15,7 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 
 SUITE = Path(__file__).resolve().parents[1]
@@ -23,6 +25,14 @@ sys.path.insert(0, str(SUITE / "lib"))
 import roadmap as roadmap_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
+
+
+def collection_skills(*collection_ids: str) -> set[str]:
+    skills: set[str] = set()
+    for collection_id in collection_ids:
+        payload = json.loads((SUITE / "collections" / f"{collection_id}.json").read_text(encoding="utf-8"))
+        skills.update(payload["skills"])
+    return skills
 
 
 class ContinuityTest(unittest.TestCase):
@@ -2843,8 +2853,15 @@ class ReferenceTest(unittest.TestCase):
                 continue
             local_references = sorted(path for path in (skill_dir / "references").iterdir() if path.is_file())
             self.assertTrue(local_references, f"{skill_dir.name} requires an applied reference")
+            catalog_references: set[str] = set()
+            if skill_dir.name == "continuity-design":
+                catalog = json.loads((skill_dir / "references" / "catalog.json").read_text(encoding="utf-8"))
+                catalog_references = {str(pack["reference"]) for pack in catalog["packs"]}
             for reference in local_references:
-                self.assertIn(f"references/{reference.name}", skill_text, f"{reference} is not linked from SKILL.md")
+                self.assertTrue(
+                    f"references/{reference.name}" in skill_text or reference.name in catalog_references,
+                    f"{reference} is not linked from SKILL.md or the design catalog",
+                )
 
 
 class InstallerTest(unittest.TestCase):
@@ -3121,11 +3138,16 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((root / ".agents" / "references" / "development-assurance-standard.md").exists())
             self.assertTrue((root / ".agents" / "references" / "workflow-handoffs.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-plan" / "references" / "goal-planning-lenses.md").exists())
+            default_skills = collection_skills("core", "projects")
+            self.assertTrue((root / ".agents" / "skills" / "continuity-product-audit" / "SKILL.md").is_file())
             for source in (SUITE / "references").rglob("*"):
                 if source.is_file():
                     self.assertTrue((root / ".agents" / "references" / source.relative_to(SUITE / "references")).is_file())
             for skill_source in (SUITE / "skills").iterdir():
                 if not skill_source.is_dir():
+                    continue
+                if skill_source.name not in default_skills:
+                    self.assertFalse((root / ".agents" / "skills" / skill_source.name).exists())
                     continue
                 for source in (skill_source / "references").glob("*"):
                     if source.is_file():
@@ -3240,6 +3262,9 @@ class InstallerTest(unittest.TestCase):
                         self.assertTrue((surface_root / "references" / source.relative_to(SUITE / "references")).is_file())
                 for skill_source in (SUITE / "skills").iterdir():
                     if not skill_source.is_dir():
+                        continue
+                    if skill_source.name not in default_skills:
+                        self.assertFalse((surface_root / "skills" / skill_source.name).exists())
                         continue
                     for source in (skill_source / "references").glob("*"):
                         if source.is_file():
@@ -3436,10 +3461,14 @@ class InstallerTest(unittest.TestCase):
             second_manifest["project_id"] = "sample-project-two"
             second_manifest["scheduler"]["portfolio_max_concurrency"] = 1
             second_manifest_path.write_text(json.dumps(second_manifest, indent=2) + "\n", encoding="utf-8")
+            review_day = dt.datetime.now(ZoneInfo("America/Chicago")).date() + dt.timedelta(days=1)
+            while review_day.weekday() >= 5:
+                review_day += dt.timedelta(days=1)
+            review_at = dt.datetime.combine(review_day, dt.time(20, 30), ZoneInfo("America/Chicago")).isoformat()
             actions = subprocess.run(
                 [
                     "python3", str(CLI), "--json", "portfolio", "actions", "--root", temp,
-                    "--action", "review", "--at", "2026-07-19T20:30:00-05:00",
+                    "--action", "review", "--at", review_at,
                     "--supervisor-task-id", "supervisor-test-task", "--sweep-id", "installer-sweep-one",
                 ],
                 check=True,
@@ -3477,7 +3506,7 @@ class InstallerTest(unittest.TestCase):
             actions_after_success = subprocess.run(
                 [
                     "python3", str(CLI), "--json", "portfolio", "actions", "--root", temp,
-                    "--action", "review", "--at", "2026-07-19T20:30:00-05:00",
+                    "--action", "review", "--at", review_at,
                     "--supervisor-task-id", "supervisor-test-task", "--sweep-id", "installer-sweep-two",
                 ],
                 check=True,

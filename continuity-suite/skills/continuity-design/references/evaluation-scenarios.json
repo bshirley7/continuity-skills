@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "thresholds": {
+    "minimum_routing_precision": 1.0,
+    "minimum_routing_recall": 1.0,
+    "minimum_safeguard_coverage": 1.0,
+    "minimum_conflict_resolution_coverage": 1.0,
+    "maximum_direction_similarity": 0.78,
+    "minimum_implementation_usefulness": 0.9
+  },
+  "scenarios": [
+    {
+      "scenario_id": "consumer-onboarding-resumption",
+      "industry_group": "consumer",
+      "modality": "ui",
+      "input": {
+        "title": "A first session people can resume",
+        "intent": "Help a first-time customer learn the product, reach a useful result, and resume saved work after an interruption.",
+        "audiences": ["First-time customers"],
+        "targets": ["ui"],
+        "sections": ["onboarding"]
+      },
+      "expected_lenses": ["mental-model-comprehension-transfer", "memory-learning-experience-continuity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "error-prevention-recovery"]
+    },
+    {
+      "scenario_id": "b2b-analytical-workspace",
+      "industry_group": "b2b-saas",
+      "modality": "ui",
+      "input": {
+        "title": "Operational analytics workspace",
+        "intent": "Help operators scan dense information, compare current metrics, and understand the state of each object in a shared workspace.",
+        "audiences": ["Operations analysts"],
+        "targets": ["ui"],
+        "interaction_signals": ["Dense information, visual hierarchy, grouping, analytics, metrics, and object state"]
+        ,"content_provenance": [{"content_id": "queue-total", "classification": "illustrative", "statement": "18 items need review", "source_refs": [], "required_qualification": "Illustrative fixture count", "allowed_uses": ["prototype"]}]
+      },
+      "expected_lenses": ["context-boundary-identity-orientation", "perception-salience-affordance", "research-bias-evidence-validity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "trust"],
+      "expected_content_classifications": ["illustrative"],
+      "expected_conflicts": ["density-versus-comprehension"]
+    },
+    {
+      "scenario_id": "finance-comparison-commitment",
+      "industry_group": "finance",
+      "modality": "ui",
+      "input": {
+        "title": "Choose and open an account",
+        "intent": "Let a customer compare pricing and account options before an irreversible commitment.",
+        "audiences": ["Retail banking customers"],
+        "targets": ["ui"],
+        "consequences": ["Financial consequence"],
+        "workflow_signals": ["Asynchronous verification status and recovery"]
+      },
+      "expected_lenses": ["choice-comparison-decision-integrity", "feedback-feedforward-temporal-state", "social-influence-persuasion-integrity", "identity-assurance-proportional-verification-exclusion-recovery", "delegated-authorization-scope-revocation"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "behavioral-ethics", "trust"],
+      "expected_conflicts": ["persuasion-versus-agency"]
+    },
+    {
+      "scenario_id": "health-high-consequence-status",
+      "industry_group": "health",
+      "modality": "ui",
+      "input": {
+        "title": "Care request status",
+        "intent": "Show a vulnerable patient what is happening next without implying a health outcome.",
+        "audiences": ["Patients and caregivers"],
+        "targets": ["ui"],
+        "consequences": ["Health consequence"],
+        "workflow_signals": ["Current status and escalation path"],
+        "risk_signals": ["Vulnerable users"]
+        ,"content_provenance": [{"content_id": "care-outcome", "classification": "illustrative", "statement": "Most requests resolve within one day", "source_refs": [], "required_qualification": "Illustrative timing only; not a care outcome or service commitment", "allowed_uses": ["prototype"]}]
+      },
+      "expected_lenses": ["choice-comparison-decision-integrity", "feedback-feedforward-temporal-state", "social-influence-persuasion-integrity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "error-prevention-recovery", "trust"],
+      "expected_content_classifications": ["illustrative"],
+      "expected_conflicts": ["persuasion-versus-agency"]
+    },
+    {
+      "scenario_id": "commerce-review-comparison",
+      "industry_group": "commerce",
+      "modality": "ui",
+      "input": {
+        "title": "Product comparison",
+        "intent": "Help shoppers compare options using customer reviews and ratings before checkout.",
+        "audiences": ["Online shoppers"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["choice-comparison-decision-integrity", "social-influence-persuasion-integrity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["behavioral-ethics", "trust"],
+      "expected_conflicts": ["persuasion-versus-agency"]
+    },
+    {
+      "scenario_id": "media-feed-attention",
+      "industry_group": "media-social",
+      "modality": "ui",
+      "input": {
+        "title": "A calmer activity feed",
+        "intent": "Improve feed engagement and retention without turning every update into an interruption.",
+        "audiences": ["Community members"],
+        "targets": ["ui"],
+        "interaction_signals": ["Notification controls and sustainable engagement"]
+      },
+      "expected_lenses": ["attention-interruption", "sustainable-engagement-wellbeing-autonomy", "motivation-progress-temporal-agency", "social-influence-persuasion-integrity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["behavioral-ethics", "accessibility"],
+      "expected_conflicts": ["persuasion-versus-agency"]
+    },
+    {
+      "scenario_id": "travel-offline-location",
+      "industry_group": "travel",
+      "modality": "ui",
+      "input": {
+        "title": "Offline trip progress",
+        "intent": "Keep a traveler oriented on a map and route when tracking becomes stale or synchronization fails offline.",
+        "audiences": ["Travelers in transit"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["spatial-context-location-agency", "feedback-feedforward-temporal-state"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["error-prevention-recovery", "accessibility"]
+    },
+    {
+      "scenario_id": "education-practice-progress",
+      "industry_group": "education",
+      "modality": "ui",
+      "input": {
+        "title": "Learning practice and progress",
+        "intent": "Help a novice learn through practice, assessment, visible progress, and later resumption.",
+        "audiences": ["Adult learners"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["mental-model-comprehension-transfer", "motivation-progress-temporal-agency", "memory-learning-experience-continuity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "behavioral-ethics"],
+      "expected_conflicts": ["persuasion-versus-agency"]
+    },
+    {
+      "scenario_id": "developer-ai-publication",
+      "industry_group": "developer-ai",
+      "modality": "ui",
+      "input": {
+        "title": "AI-assisted release notes",
+        "intent": "Let an operator review an AI-generated recommendation, correct its source attribution, and publish approved content.",
+        "audiences": ["Release managers"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["human-agency-calibrated-reliance-automation-boundaries", "explanation-contestability-decision-support", "record-provenance-correction-contestability", "authorship-provenance-content-integrity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["behavioral-ethics", "trust", "error-prevention-recovery"],
+      "expected_conflicts": ["automation-versus-human-authority"]
+    },
+    {
+      "scenario_id": "operational-icons-and-status",
+      "industry_group": "enterprise-administration",
+      "modality": "ui",
+      "input": {
+        "title": "Operational toolbar",
+        "intent": "Make compact toolbar icons and visual status understandable during upload processing and retry.",
+        "audiences": ["Enterprise administrators"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["iconography-visual-language", "symbol-comprehension-redundant-coding", "feedback-feedforward-temporal-state"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "error-prevention-recovery"]
+    },
+    {
+      "scenario_id": "research-report-document",
+      "industry_group": "professional-services",
+      "modality": "document",
+      "input": {
+        "title": "Customer research report",
+        "intent": "Present interview, survey, sample, evidence, and study limitations for an executive decision.",
+        "audiences": ["Executive sponsors"],
+        "targets": ["document"]
+        ,"content_provenance": [{"content_id": "study-result", "classification": "inferred", "statement": "The proposed pattern may reduce decision time", "source_refs": [], "required_qualification": "Hypothesis inferred from the study context; not a measured result", "allowed_uses": ["design rationale"]}]
+      },
+      "expected_lenses": ["research-bias-evidence-validity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "trust"]
+      ,"expected_content_classifications": ["inferred"]
+    },
+    {
+      "scenario_id": "campaign-image-social-proof",
+      "industry_group": "professional-services",
+      "modality": "image",
+      "input": {
+        "title": "Evidence-led campaign image",
+        "intent": "Create a visual hierarchy around a testimonial and social proof without overstating the claim.",
+        "audiences": ["Prospective clients"],
+        "targets": ["image"]
+      },
+      "expected_lenses": ["perception-salience-affordance", "research-bias-evidence-validity", "social-influence-persuasion-integrity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["behavioral-ethics", "trust"],
+      "expected_conflicts": ["density-versus-comprehension", "persuasion-versus-agency"]
+    },
+    {
+      "scenario_id": "delegated-administration",
+      "industry_group": "enterprise-administration",
+      "modality": "ui",
+      "input": {
+        "title": "Delegated access",
+        "intent": "Let an administrator assign a role and permission after authentication, then revoke delegated authorization.",
+        "audiences": ["Organization administrators"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["identity-assurance-proportional-verification-exclusion-recovery", "delegated-authorization-scope-revocation"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["trust", "error-prevention-recovery"]
+    },
+    {
+      "scenario_id": "neutral-contact-page",
+      "industry_group": "cross-industry",
+      "modality": "ui",
+      "input": {
+        "title": "Contact page",
+        "intent": "Give people a clear way to contact the organization.",
+        "audiences": ["Site visitors"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": [],
+      "forbidden_lenses": ["choice-comparison-decision-integrity", "human-agency-calibrated-reliance-automation-boundaries", "social-influence-persuasion-integrity"],
+      "required_safeguards": ["accessibility", "usability"]
+    },
+    {
+      "scenario_id": "project-plan-not-pricing-plan",
+      "industry_group": "b2b-saas",
+      "modality": "ui",
+      "input": {
+        "title": "Project plan workspace",
+        "intent": "Organize project work and ownership in a shared workspace.",
+        "audiences": ["Delivery teams"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["context-boundary-identity-orientation"],
+      "forbidden_lenses": ["choice-comparison-decision-integrity"],
+      "required_safeguards": ["accessibility", "usability"]
+    },
+    {
+      "scenario_id": "expert-workflow-not-endorsement",
+      "industry_group": "developer-tooling",
+      "modality": "ui",
+      "input": {
+        "title": "Expert keyboard workflow",
+        "intent": "Help an expert configure an unfamiliar tool without losing keyboard efficiency.",
+        "audiences": ["Experienced developers"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["mental-model-comprehension-transfer"],
+      "forbidden_lenses": ["social-influence-persuasion-integrity"],
+      "required_safeguards": ["accessibility", "usability"]
+    },
+    {
+      "scenario_id": "data-model-not-ai-model",
+      "industry_group": "developer-tooling",
+      "modality": "ui",
+      "input": {
+        "title": "Relational data model editor",
+        "intent": "Edit table relationships and validate schema changes.",
+        "audiences": ["Database engineers"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": [],
+      "forbidden_lenses": ["human-agency-calibrated-reliance-automation-boundaries"],
+      "required_safeguards": ["error-prevention-recovery", "usability"]
+    },
+    {
+      "scenario_id": "subscription-renewal",
+      "industry_group": "consumer",
+      "modality": "ui",
+      "input": {
+        "title": "Subscription renewal choice",
+        "intent": "Explain pricing, the default renewal state, cancellation, and alternative subscription plans.",
+        "audiences": ["Subscribers"],
+        "targets": ["ui"]
+      },
+      "expected_lenses": ["choice-comparison-decision-integrity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["behavioral-ethics", "trust"]
+    },
+    {
+      "scenario_id": "creative-ambiguity",
+      "industry_group": "cross-industry",
+      "modality": "ui",
+      "input": {
+        "title": "A new product home",
+        "intent": "Create a useful and memorable starting experience.",
+        "audiences": ["New and returning customers"],
+        "targets": ["ui"],
+        "open_questions": ["How much guidance should appear initially?", "How much exploration should be visible?"]
+      },
+      "expected_lenses": [],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "usability"],
+      "expected_direction_count": 3
+    },
+    {
+      "scenario_id": "child-safety-decision",
+      "industry_group": "consumer",
+      "modality": "ui",
+      "input": {
+        "title": "Child account safety choice",
+        "intent": "Help a guardian understand an irreversible safety consequence before continuing.",
+        "audiences": ["Guardians"],
+        "targets": ["ui"],
+        "risk_signals": ["Child and vulnerable users"]
+      },
+      "expected_lenses": ["choice-comparison-decision-integrity", "feedback-feedforward-temporal-state", "social-influence-persuasion-integrity"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "behavioral-ethics", "error-prevention-recovery", "trust"],
+      "expected_conflicts": ["persuasion-versus-agency"]
+    }
+  ]
+}

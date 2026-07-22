@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Continuity configuration",
   "type": "object",
-  "required": ["schema_version", "assurance_standard_version", "project_id", "integration_branch", "timezone", "default_start_time", "max_runtime_minutes", "memory_docs", "roadmap_docs", "private_dir", "memory_stale_after_days", "product_audit_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "behavior_config_path", "behavior_skill_path", "behavior_configuration_hash"],
+  "required": ["schema_version", "assurance_standard_version", "project_id", "integration_branch", "timezone", "default_start_time", "max_runtime_minutes", "memory_docs", "roadmap_docs", "private_dir", "memory_stale_after_days", "product_audit_stale_after_days", "validation_commands", "security_commands", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "collections", "behavior_config_path", "behavior_skill_path", "behavior_configuration_hash"],
   "properties": {
     "schema_version": {"const": 1},
     "assurance_standard_version": {"const": 2},
     "project_id": {"type": "string", "minLength": 1},
+    "collections": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"enum": ["core", "projects", "design"]}, "allOf": [{"contains": {"const": "core"}}, {"contains": {"const": "projects"}}]},
     "integration_branch": {"type": "string", "minLength": 1},
     "timezone": {"type": "string"},
     "default_start_time": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},

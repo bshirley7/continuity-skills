@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Design"
+  short_description: "Assess products and establish durable creative direction"
+  default_prompt: "Use $continuity-design to assess the current product, develop coherent creative directions, and establish an approved design.md for implementation alignment."

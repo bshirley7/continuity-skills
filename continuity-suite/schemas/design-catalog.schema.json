@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity offline design catalog",
+  "type": "object",
+  "required": ["schema_version", "catalog_version", "packs"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "catalog_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "packs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["pack_id", "version", "axis", "role", "reference", "categories", "applicability", "modalities", "modality_independent_principles"],
+        "properties": {
+          "pack_id": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+          "axis": {"enum": ["industry", "section-flow", "theme", "message-structure", "lens"]},
+          "role": {"enum": ["foundation", "category"]},
+          "reference": {"type": "string", "pattern": "^[^/]+\\.md$"},
+          "categories": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+          "applicability": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "modalities": {
+            "type": "object",
+            "required": ["ui", "document", "image"],
+            "properties": {
+              "ui": {"enum": ["validated", "inferred", "not-applicable"]},
+              "document": {"enum": ["validated", "inferred", "not-applicable"]},
+              "image": {"enum": ["validated", "inferred", "not-applicable"]},
+              "campaign": {"enum": ["validated", "inferred", "not-applicable"]},
+              "platform": {"enum": ["validated", "inferred", "not-applicable"]}
+            },
+            "additionalProperties": false
+          },
+          "modality_independent_principles": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "evidence_kind": {"enum": ["literature"]},
+          "evidence_sufficiency": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["sample_count", "product_count", "industry_count"],
+                "properties": {
+                  "sample_count": {"type": "integer", "minimum": 12},
+                  "product_count": {"type": "integer", "minimum": 6},
+                  "industry_count": {"type": "integer", "minimum": 1}
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["sample_count", "publisher_count", "evidence_family_count"],
+                "properties": {
+                  "sample_count": {"type": "integer", "minimum": 12},
+                  "publisher_count": {"type": "integer", "minimum": 3},
+                  "evidence_family_count": {"type": "integer", "minimum": 3}
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

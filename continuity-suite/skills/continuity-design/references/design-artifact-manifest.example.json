@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "artifact_id": "onboarding-prototype-v1",
+  "design_id": "design-example",
+  "revision": 1,
+  "design_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "maturity": "behavioral",
+  "fixture_data": "present-labeled",
+  "files": [
+    {"path": "docs/design/artifacts/onboarding.html", "media_type": "text/html", "role": "prototype", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"path": "docs/design/artifacts/onboarding-desktop.png", "media_type": "image/png", "role": "desktop", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"path": "docs/design/artifacts/onboarding-mobile.png", "media_type": "image/png", "role": "mobile", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+  ],
+  "demonstrated_audiences": ["People using the product for the first time"],
+  "demonstrated_surfaces": ["Onboarding start"],
+  "demonstrated_states": ["default", "saved work available"],
+  "omitted_surfaces": ["Account administration"],
+  "omitted_states": ["offline synchronization failure"],
+  "design_claims": [
+    {"design_section": "Audience architecture", "claim": "First-time users receive a guided first outcome", "coverage": "demonstrated", "evidence_refs": ["docs/design/artifacts/onboarding.html#guided-start"], "insight_ids": ["returning-users-resume"]},
+    {"design_section": "Prototype boundaries", "claim": "Offline recovery is not demonstrated", "coverage": "omitted", "evidence_refs": [], "insight_ids": []}
+  ],
+  "validation_results": [
+    {"scenario": "keyboard-only operation", "status": "passed", "evidence": "Manual traversal recorded in the review log"},
+    {"scenario": "horizontal-overflow", "status": "passed", "evidence": "Browser probe passed at desktop and mobile viewports"},
+    {"scenario": "sticky-action-obstruction", "status": "passed", "evidence": "Mobile screenshot and keyboard-open inspection show no covered controls"}
+  ],
+  "craft_findings": [
+    {"rule_id": "text-clipping", "severity": "error", "status": "resolved", "artifact_ref": "docs/design/artifacts/onboarding-mobile.png", "location": "#guided-start h1", "evidence": "Initial capture clipped the final line at 320px; the revised capture shows the complete heading.", "response": "Reduced the narrow display ceiling and restored line height.", "override_rationale": ""}
+  ],
+  "execution_authorized": false
+}

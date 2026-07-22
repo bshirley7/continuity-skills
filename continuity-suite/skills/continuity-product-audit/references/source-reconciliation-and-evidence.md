@@ -45,4 +45,3 @@ Severity describes consequence. Confidence describes strength of the
 conclusion. Scope and time horizon decide whether the finding belongs in the
 current goal. Gate impact follows from those fields; it must not be used to
 pull later work into the active delivery.
-

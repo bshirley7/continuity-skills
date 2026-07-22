@@ -16,6 +16,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 - Derive every status, completion, validation, security, mergeability, and memory claim from recorded evidence; distinguish passed, pending, failed, blocked, partial, and not-applicable states precisely.
 - Redact secrets, personal data, raw captures, private ledger content, credentials, and sensitive operational details from project and portfolio reports.
 - Audit report completeness against notes, memory IDs, plan hash, feedback, acceptance criteria, exclusions, changed files, validation, security review, merge safety, documentation, and memory impact. Surface stale or contradictory evidence.
+- For design-bound goals, report the exact design revision, affected surfaces or artifacts, verified alignment, approved deviations, unresolved drift, and design debt without presenting subjective claims as machine-verified.
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" report project

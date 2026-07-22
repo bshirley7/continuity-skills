@@ -31,6 +31,7 @@ import roadmap as roadmap_lib  # noqa: E402
 import github_projects as github_projects_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
+import design as design_lib  # noqa: E402
 import product_audit as product_audit_lib  # noqa: E402
 
 SCHEMA_VERSION = 1
@@ -702,6 +703,15 @@ def render_planning_artifacts(goal: dict[str, Any]) -> str:
                 )
         else:
             lines.append("- No PRD or feature-request source document is attached to this goal.")
+    if "design_refs" in goal:
+        lines.extend(["", "### Approved design", ""])
+        design_refs = goal.get("design_refs", [])
+        if design_refs:
+            for item in design_refs:
+                packs = ", ".join(f"{pack['pack_id']}@{pack['version']}" for pack in item.get("catalog_packs", []))
+                lines.append(f"- `{item['design_id']}` revision {item['revision']}; design hash `{item['design_hash']}`; catalog packs: {packs or 'none'}")
+        else:
+            lines.append("- No approved design document is attached to this goal.")
     brief = goal.get("triage_brief")
     if brief:
         lines.extend([
@@ -2971,6 +2981,8 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
     machine = {key: goal.get(key) for key in sorted(immutable_keys)}
     if "source_capture_refs" in goal:
         machine["source_capture_refs"] = goal.get("source_capture_refs", [])
+    if "design_refs" in goal:
+        machine["design_refs"] = goal.get("design_refs", [])
     plan = (directory / "plan.md").read_text(encoding="utf-8")
     return hashlib.sha256((json.dumps(machine, sort_keys=True) + "\n" + plan).encode()).hexdigest()
 
@@ -2989,6 +3001,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "depends_on",
         "source_note_ids",
         "memory_ids",
+        "design_ids",
         "roadmap_ids",
         "exclusions",
         "documentation_updates",
@@ -3036,6 +3049,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "source_note_ids": payload.get("source_note_ids", []),
         "note_dispositions": note_dispositions,
         "memory_ids": payload.get("memory_ids", []),
+        "design_ids": payload.get("design_ids", []),
         "roadmap_ids": roadmap_ids,
         "roadmap_impact": validate_roadmap_impact(payload.get("roadmap_impact"), roadmap_ids),
         "scope": payload["scope"],
@@ -3053,11 +3067,16 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
     validate_goal_roadmap_targets(root, config, goal["roadmap_ids"], goal["roadmap_impact"])
     goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal["roadmap_ids"])
     goal["source_capture_refs"] = source_capture_refs_for_notes(root, config, goal["source_note_ids"])
+    try:
+        goal["design_refs"] = design_lib.bind_approved(root, config, goal["design_ids"])
+    except design_lib.DesignError as exc:
+        raise ContinuityError(str(exc)) from exc
     plan = payload.get("plan_markdown") or (
         f"# {goal_id}: {goal['title']}\n\n"
         f"## Context and memory\n\nNotes: {', '.join(goal['source_note_ids']) or 'None'}  \n"
         f"Source documents: {', '.join(item['document_id'] + '@' + item['source_hash'][:12] for item in goal['source_capture_refs']) or 'None'}  \n"
         f"Memory: {', '.join(goal['memory_ids']) or 'None'}\n\n"
+        f"Approved design: {', '.join(item['design_id'] + '@' + item['design_hash'][:12] for item in goal['design_refs']) or 'None'}\n\n"
         f"Roadmap: {', '.join(goal['roadmap_ids']) or 'None'}\n\n"
         f"## Proposed execution scope\n\n{goal['scope']}\n\n"
         f"## Exclusions\n\n" + "\n".join(f"- {item}" for item in goal["exclusions"]) + "\n\n"
@@ -3559,6 +3578,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     payload = json_load(Path(args.goal_file).expanduser())
     if not isinstance(payload, dict):
         raise ContinuityError("Revision file must be a JSON object")
+    goal.setdefault("design_ids", [])
     allowed = {
         "title",
         "priority",
@@ -3566,6 +3586,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "source_note_ids",
         "note_dispositions",
         "memory_ids",
+        "design_ids",
         "roadmap_ids",
         "roadmap_impact",
         "scope",
@@ -3583,7 +3604,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
             goal[key] = value
     if "source_note_ids" in payload and "note_dispositions" not in payload:
         goal["note_dispositions"] = None
-    for key in ("depends_on", "source_note_ids", "memory_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
+    for key in ("depends_on", "source_note_ids", "memory_ids", "design_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
         value = goal.get(key)
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
             raise ContinuityError(f"Goal field {key} must be an array of non-empty strings")
@@ -3612,6 +3633,10 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     validate_goal_roadmap_targets(root, config, goal.get("roadmap_ids", []), goal["roadmap_impact"])
     goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal.get("roadmap_ids", []))
     goal["source_capture_refs"] = source_capture_refs_for_notes(root, config, goal.get("source_note_ids", []))
+    try:
+        goal["design_refs"] = design_lib.bind_approved(root, config, goal.get("design_ids", []))
+    except design_lib.DesignError as exc:
+        raise ContinuityError(str(exc)) from exc
     plan = payload.get("plan_markdown")
     if plan is not None:
         if not isinstance(plan, str) or not plan.strip():
@@ -5897,6 +5922,40 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     if not installation["healthy"]:
         record["healthy"] = False
         record["problems"].extend(installation["problems"])
+    collection_checks = {"enabled": config.get("collections", []), "missing_skills": [], "unexpected_collection_skills": []}
+    try:
+        definitions = [json_load(path, {}) for path in sorted((CONTROL_ROOT / "collections").glob("*.json"))]
+        by_collection = {item.get("collection_id"): set(item.get("skills", [])) for item in definitions}
+        enabled = set(config.get("collections", []))
+        expected = set().union(*(by_collection.get(item, set()) for item in enabled)) if enabled else set()
+        all_collection_skills = set().union(*by_collection.values()) if by_collection else set()
+        installed = {path.name for path in (root / ".agents" / "skills").glob("continuity*") if path.is_dir()}
+        collection_checks["missing_skills"] = sorted(expected - installed)
+        collection_checks["unexpected_collection_skills"] = sorted((installed & all_collection_skills) - expected)
+        if collection_checks["missing_skills"] or collection_checks["unexpected_collection_skills"]:
+            record["healthy"] = False
+            record["problems"].append(f"collection skill mismatch: {collection_checks}")
+    except (OSError, json.JSONDecodeError) as exc:
+        record["healthy"] = False
+        record["problems"].append(f"collection definitions are invalid: {exc}")
+    record["collections"] = collection_checks
+    if "design" in set(config.get("collections", [])):
+        installed_catalog = root / ".agents" / "skills" / "continuity-design" / "references" / "catalog.json"
+        try:
+            catalog = design_lib.load_catalog(installed_catalog)
+            record["design_catalog"] = {"healthy": True, "catalog_version": catalog["catalog_version"], "packs": [{"pack_id": item["pack_id"], "version": item["version"]} for item in catalog["packs"]]}
+            approved_path = root / ".continuity" / "design.json"
+            if approved_path.exists():
+                approved = json_load(approved_path, {})
+                runtime_lib.validate_schema_file(approved, CONTROL_ROOT / "schemas" / "design-record.schema.json", "approved design")
+                document = root / str(approved.get("document_path", ""))
+                if not document.is_file() or hashlib.sha256(document.read_bytes()).hexdigest() != approved.get("design_hash"):
+                    raise ContinuityError("approved design document does not match .continuity/design.json")
+                record["design_catalog"]["approved_design"] = {"design_id": approved["design_id"], "revision": approved["revision"], "design_hash": approved["design_hash"]}
+        except (design_lib.DesignError, runtime_lib.RuntimeIntegrityError, OSError, json.JSONDecodeError, ContinuityError) as exc:
+            record["healthy"] = False
+            record["design_catalog"] = {"healthy": False, "problem": str(exc)}
+            record["problems"].append(f"design catalog or approved design is invalid: {exc}")
     schema_checks: list[dict[str, Any]] = []
     for value, schema_name, label in (
         (config, "project-config.schema.json", "project config"),
@@ -7846,6 +7905,12 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
 def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     goals = goal_list(argparse.Namespace(state=None))
+    if args.design_id:
+        try:
+            status = design_lib.workflow(root, config, args.design_id)
+        except design_lib.DesignError as exc:
+            raise ContinuityError(str(exc)) from exc
+        return {"schema_version": 1, "project_id": config["project_id"], "generated_at": iso_now(config), "design": status}
     if args.audit_id:
         try:
             audit = product_audit_lib.workflow(root, config, args.audit_id)
@@ -10348,6 +10413,30 @@ def github_projects_command(args: argparse.Namespace) -> Any:
         raise ContinuityError(str(exc)) from exc
 
 
+def design_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    installed_catalog = root / ".agents" / "skills" / "continuity-design" / "references" / "catalog.json"
+    catalog_path = installed_catalog if installed_catalog.is_file() else CONTROL_ROOT / "skills" / "continuity-design" / "references" / "catalog.json"
+    try:
+        if args.command == "catalog":
+            return design_lib.catalog_summary(config, catalog_path, args.axis)
+        if args.command == "draft":
+            return design_lib.draft(root, config, catalog_path, Path(args.input).expanduser().resolve())
+        if args.command == "select":
+            return design_lib.select(root, config, args.design_id, [args.direction, *(args.combine or [])], args.actor)
+        if args.command == "approve":
+            return design_lib.approve(root, config, args.design_id, args.revision, args.approved_by, args.authorization_text)
+        if args.command == "show":
+            return design_lib.show(root, config, args.design_id)
+        if args.command == "artifact-validate":
+            return design_lib.validate_artifact(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "prototype-validate":
+            return design_lib.validate_candidate_artifact(root, config, Path(args.manifest).expanduser().resolve())
+        raise ContinuityError(f"Unknown design command {args.command}")
+    except design_lib.DesignError as exc:
+        raise ContinuityError(str(exc)) from exc
+
+
 def shared_note_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
@@ -10642,6 +10731,35 @@ def build_parser() -> argparse.ArgumentParser:
     github_projects_apply.add_argument("plan_hash")
     github_projects_apply.set_defaults(handler=github_projects_command)
 
+    design = top.add_parser("design")
+    design_sub = design.add_subparsers(dest="command", required=True)
+    design_catalog = design_sub.add_parser("catalog")
+    design_catalog.add_argument("--axis", choices=["industry", "section-flow", "theme", "message-structure", "lens"])
+    design_catalog.set_defaults(handler=design_command)
+    design_draft = design_sub.add_parser("draft")
+    design_draft.add_argument("--input", required=True)
+    design_draft.set_defaults(handler=design_command)
+    design_select = design_sub.add_parser("select")
+    design_select.add_argument("design_id")
+    design_select.add_argument("--direction", required=True)
+    design_select.add_argument("--combine", action="append")
+    design_select.add_argument("--actor", required=True)
+    design_select.set_defaults(handler=design_command)
+    design_approve = design_sub.add_parser("approve")
+    design_approve.add_argument("design_id")
+    design_approve.add_argument("--revision", type=int, required=True)
+    design_approve.add_argument("--approved-by", required=True)
+    design_approve.add_argument("--authorization-text", required=True)
+    design_approve.set_defaults(handler=design_command)
+    design_show = design_sub.add_parser("show")
+    design_show.add_argument("design_id", nargs="?")
+    design_show.set_defaults(handler=design_command)
+    design_artifact_validate = design_sub.add_parser("artifact-validate")
+    design_artifact_validate.add_argument("--manifest", required=True)
+    design_artifact_validate.set_defaults(handler=design_command)
+    design_prototype_validate = design_sub.add_parser("prototype-validate")
+    design_prototype_validate.add_argument("--manifest", required=True)
+    design_prototype_validate.set_defaults(handler=design_command)
 
     goal = top.add_parser("goal")
     goal_sub = goal.add_subparsers(dest="command", required=True)
@@ -10803,6 +10921,7 @@ def build_parser() -> argparse.ArgumentParser:
     workflow_subject.add_argument("--packet-id")
     workflow_subject.add_argument("--memory-id")
     workflow_subject.add_argument("--roadmap-id")
+    workflow_subject.add_argument("--design-id")
     workflow_status_command.set_defaults(handler=workflow_status)
 
     project_admin = top.add_parser("project")
