@@ -57,12 +57,15 @@ $continuity-product-audit reconcile observed product behavior with approved proj
 $continuity-merge     assess PR readiness and execute or record an exact human-authorized merge
 $continuity-report    summarize status, blockers, memory, roadmap, and evidence
 $continuity-share     prepare sanitized note packets for explicit sharing
+$continuity-improve   refine learned playbooks from evaluated usage without changing protected contracts
 $continuity-design    create and approve an exact design document from offline guidance (optional collection)
 ```
 
 Every skill uses `continuity workflow status` as its shared machine handoff. Manual work is owned by `$continuity-workflow`, which continues through every machine-selected non-human skill and remediation loop without returning a status-only handoff to the user. It pauses only when the machine handoff declares an explicit human-required approval, then resumes from canonical state after that approval is recorded. Exact note status includes a derived dated lifecycle, planning disposition, separate goal tracks, and non-authorizing relationship candidates. Plans classify every source note as current-goal, later, context-only, or duplicate; only current-goal notes adopt execution state. Unqualified status remains project routing context only.
 
 Shared references explain that machine contract, while each task skill includes a compact applied guide with decision boundaries, examples, anti-examples, quality checks, and stage-specific handoff requirements. The references improve judgment but never override CLI state or create authorization.
+
+Every installed skill separates its protected `SKILL.md` contract from an evolvable `references/learned-playbook.md`. `$continuity-improve` records sanitized private outcomes, discovers recurring successful and adverse patterns, stages bounded playbook candidates, and accepts a candidate only when fixed validation improves, untouched test evidence does not regress, protected invariants pass, and a human reviews the result. It never edits the live skill, auto-adopts guidance, or turns usage into execution authority; an approved package still requires a separately approved suite-source goal and normal release validation.
 
 Notes and feedback are captured first with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata. A pointed-to PRD or feature request remains one source capture with an exact private snapshot, document hash, revision lineage, and structurally anchored atomic items. Official project documents can appear in trusted retrieval as product intent; supplied references stay private. Neither form proves implementation behavior or authorizes work.
 

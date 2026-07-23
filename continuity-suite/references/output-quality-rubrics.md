@@ -30,6 +30,7 @@ Use these rubrics as an internal self-review before handing work to another Cont
 | Report | Decisions first, exact subject and recommendation, supporting evidence, allowed disposition, blocker detail, privacy-safe summary |
 | Share | Selected atomic content, minimum necessary text, redaction, exact target and version, immutable hash, non-authorizing import |
 | Design | Inspected current-state evidence, strengths and gaps, project-specific distinct directions, explicit tradeoffs, preservation and non-goals, target-appropriate grammar, implementation guidance, observable drift checks, accessibility, modality limits, selected exact draft, catalog versions, immutable hash, non-authorizing approval |
+| Improve | Sanitized objective usage evidence, stable patterns, exact skill and playbook hashes, bounded playbook-only edits, disjoint validation and test cases, strict improvement, no test regression, protected invariants, retained rejection evidence, explicit human review, non-authorizing package |
 
 ## Blocking defects
 

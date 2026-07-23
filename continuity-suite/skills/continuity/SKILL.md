@@ -5,6 +5,8 @@ description: Configure, update, recover, audit, and route the project-local Cont
 
 # Continuity
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Use this as the suite entry point. Keep the neutral suite reusable while encoding repository-specific behavior in committed project configuration and the generated `$continuity-local` skill.
 
 ## Contract and assurance
@@ -74,6 +76,7 @@ Use `suite update --check`, `suite update --dry-run`, and an explicit tagged upd
 - Approved isolated execution: `$continuity-execute`
 - Quality, tests, validation, and security review: `$continuity-test`
 - Product, website, release, and intent-conformance audits: `$continuity-product-audit`
+- Recurring skill successes, failures, corrections, inefficiency, or usage-derived refinement: `$continuity-improve`
 - PR readiness, merge safety, and human merge records: `$continuity-merge`
 - Morning, completion, or portfolio reporting: `$continuity-report`
 

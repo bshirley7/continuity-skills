@@ -1,0 +1,33 @@
+{
+  "proposal_id": "proposal-report-state-language-v1",
+  "skill_name": "continuity-report",
+  "title": "Clarify review-ready reporting language",
+  "summary": "Add a reusable reporting check that distinguishes delivered evidence from human-completed disposition.",
+  "base_skill_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "base_playbook_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "pattern_keys": ["report-false-completion"],
+  "usage_refs": ["usage-example"],
+  "edit_budget": 2,
+  "operations": [
+    {
+      "op": "add",
+      "target": "State-accurate completion language",
+      "content": "Before saying completed, verify the machine state is completed and human-review evidence is passed. Describe review-ready as awaiting human disposition.",
+      "rationale": "Repeated usage evidence shows review-ready language being overstated.",
+      "usage_refs": ["usage-example"]
+    }
+  ],
+  "expected_outcomes": ["No false completion claims on review-ready goals", "Fewer user corrections to status language"],
+  "evaluation_plan": {
+    "metric": "state-accurate-report-basis-points",
+    "minimum_validation_gain": 500,
+    "required_invariants": [
+      "authority-preserved",
+      "privacy-preserved",
+      "protected-contract-unchanged",
+      "state-accuracy-preserved"
+    ],
+    "validation_case_refs": ["eval:report:validation:01"],
+    "test_case_refs": ["eval:report:test:01"]
+  }
+}

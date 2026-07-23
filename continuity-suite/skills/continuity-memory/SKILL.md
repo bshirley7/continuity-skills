@@ -5,6 +5,8 @@ description: Index, search, brief, audit, verify, curate, promote, and supersede
 
 # Continuity Memory
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Treat committed Markdown under `docs/project-memory/` as canonical. Treat the ignored SQLite FTS5 database as a rebuildable search index. Private/all scope also indexes raw capture items with their structured occurrence dimensions; this makes feedback searchable without promoting it to canonical truth.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `.continuity/config.json`, and the project memory index before acting.

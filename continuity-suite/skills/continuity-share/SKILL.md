@@ -5,6 +5,8 @@ description: Prepare, approve, publish, and import sanitized project note packet
 
 # Continuity Share
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Read `.agents/references/continuity-contract.md`, `.agents/references/development-assurance-standard.md`, and `$continuity-local` before acting.
 
 Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [sanitization and import](references/sanitization-and-import.md) before preparing, reviewing, publishing, or importing a packet. Apply the privacy, provenance, and recipient-need sections of [decision lenses](../../references/decision-lenses.md).

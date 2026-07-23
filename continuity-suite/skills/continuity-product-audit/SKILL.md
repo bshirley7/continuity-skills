@@ -5,6 +5,8 @@ description: Audit a website, application, documentation surface, or shipped pro
 
 # Continuity Product Audit
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Use this skill to reconcile what the product actually does with what the project
 currently says it should do. The audit produces source-bound evidence and
 non-authorizing findings; it does not approve a goal, expand scope, dispatch

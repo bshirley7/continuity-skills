@@ -27,6 +27,7 @@ Every installed skill applies the versioned development assurance standard. The 
 .continuity/scheduler.json               selected scheduler handoff and registration state
 .continuity/private/                    ignored captures, queues, goals, locks, indexes
 .continuity/private/source-snapshots/   ignored exact PRD and feature-request revisions
+.continuity/private/skill-improvement/ ignored usage, proposals, evaluations, and review evidence
 .continuity-portfolio/                  ignored supervisor claims and capacity reservations
 docs/project-memory/                    canonical searchable project memory
 docs/project-roadmap/                   canonical sanitized project roadmap
@@ -132,6 +133,15 @@ continuity audit capture-findings <audit-id>
 continuity audit compare <audit-id> --against <prior-audit-id>
 continuity audit due
 
+continuity improve baseline <skill-name>
+continuity improve usage-record --input <usage.json>
+continuity improve patterns <skill-name> --min-count 2
+continuity improve propose --input <proposal.json> --candidate <candidate-learned-playbook.md>
+continuity improve evaluate <proposal-id> --result-file <evaluation.json>
+continuity improve review <proposal-id> --disposition <approved|rejected|held> --actor <human> --authorization-text <text> --evidence <text>
+continuity improve show [proposal-id]
+continuity improve package <proposal-id> --output <project-relative-directory>
+
 continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
 continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --disposition <approved|changes-requested|merged|closed> --evidence <text>
 ```
@@ -161,6 +171,7 @@ The steps below are the concise reference. [Operating Workflow](docs/operating-w
 13. Push the tested and audited commit, then use `$continuity-merge` to bind merge safety to the local head, remote head, PR head, and configured base.
 14. End overnight work at `review-ready`; use `$continuity-report` for a decision-first morning report.
 15. Record human review separately as `approved`, `changes-requested`, `merged`, or `closed`. In-scope changes reopen the same goal with explicit authorization; scope changes require revision and fresh approval. Only recorded merge evidence moves the goal to `completed`.
+16. When a skill outcome has sanitized objective evidence, use `$continuity-improve` to record usage and periodically evaluate recurring patterns. An accepted and human-reviewed learned-playbook package remains non-authorizing until a separate approved suite-source goal applies and releases it.
 
 ```mermaid
 flowchart LR

@@ -5,6 +5,8 @@ description: Assess an existing product or artifact, create and compare project-
 
 # Continuity Design
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Work entirely offline from the installed reference catalog. Do not browse for design examples or access an external maintenance system from this skill.
 
 Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), [decision lenses](../../references/decision-lenses.md), and the [Continuity contract](../../references/continuity-contract.md). Machine state and approval boundaries remain authoritative.

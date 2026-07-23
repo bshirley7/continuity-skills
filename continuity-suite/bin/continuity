@@ -33,6 +33,7 @@ import shared_notes as shared_notes_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
 import design as design_lib  # noqa: E402
 import product_audit as product_audit_lib  # noqa: E402
+import skill_improvement as skill_improvement_lib  # noqa: E402
 
 SCHEMA_VERSION = 1
 ASSURANCE_STANDARD_VERSION = 2
@@ -10220,6 +10221,14 @@ def roadmap_command(args: argparse.Namespace) -> Any:
         raise ContinuityError(str(exc)) from exc
 
 
+def skill_improvement_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    try:
+        return skill_improvement_lib.command(root, config, args, CONTROL_ROOT / "schemas")
+    except skill_improvement_lib.SkillImprovementError as exc:
+        raise ContinuityError(str(exc)) from exc
+
+
 def github_projects_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
@@ -10648,6 +10657,41 @@ def build_parser() -> argparse.ArgumentParser:
     audit_compare.set_defaults(handler=product_audit_command)
     audit_due = audit_sub.add_parser("due")
     audit_due.set_defaults(handler=product_audit_command)
+
+    improve = top.add_parser("improve")
+    improve_sub = improve.add_subparsers(dest="command", required=True)
+    improve_baseline = improve_sub.add_parser("baseline")
+    improve_baseline.add_argument("skill_name")
+    improve_baseline.set_defaults(handler=skill_improvement_command)
+    improve_usage = improve_sub.add_parser("usage-record")
+    improve_usage.add_argument("--input", required=True)
+    improve_usage.set_defaults(handler=skill_improvement_command)
+    improve_patterns = improve_sub.add_parser("patterns")
+    improve_patterns.add_argument("skill_name")
+    improve_patterns.add_argument("--min-count", type=int, default=2)
+    improve_patterns.set_defaults(handler=skill_improvement_command)
+    improve_propose = improve_sub.add_parser("propose")
+    improve_propose.add_argument("--input", required=True)
+    improve_propose.add_argument("--candidate", required=True)
+    improve_propose.set_defaults(handler=skill_improvement_command)
+    improve_evaluate = improve_sub.add_parser("evaluate")
+    improve_evaluate.add_argument("proposal_id")
+    improve_evaluate.add_argument("--result-file", required=True)
+    improve_evaluate.set_defaults(handler=skill_improvement_command)
+    improve_review = improve_sub.add_parser("review")
+    improve_review.add_argument("proposal_id")
+    improve_review.add_argument("--disposition", choices=sorted(skill_improvement_lib.REVIEW_DISPOSITIONS), required=True)
+    improve_review.add_argument("--actor", required=True)
+    improve_review.add_argument("--authorization-text", required=True)
+    improve_review.add_argument("--evidence", action="append", required=True)
+    improve_review.set_defaults(handler=skill_improvement_command)
+    improve_show = improve_sub.add_parser("show")
+    improve_show.add_argument("proposal_id", nargs="?")
+    improve_show.set_defaults(handler=skill_improvement_command)
+    improve_package = improve_sub.add_parser("package")
+    improve_package.add_argument("proposal_id")
+    improve_package.add_argument("--output", required=True)
+    improve_package.set_defaults(handler=skill_improvement_command)
 
     roadmap = top.add_parser("roadmap")
     roadmap_sub = roadmap.add_subparsers(dest="command", required=True)

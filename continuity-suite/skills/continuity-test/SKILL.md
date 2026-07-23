@@ -5,6 +5,8 @@ description: Plan, run, record, and report project-specific validation plus Cont
 
 # Continuity Test
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Use this skill as the structured quality gate for a Continuity goal. It complements `$continuity-execute`; it does not authorize scope expansion, dispatch, PR creation, or merge.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the testing and merge standard](../../references/testing-and-merge-standard.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, the approved plan, and the current compliance ledger before acting.

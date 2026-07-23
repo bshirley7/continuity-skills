@@ -5,6 +5,8 @@ description: Create, retrieve, audit, reconcile, export, and visualize committed
 
 # Continuity Roadmap
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Read `.agents/references/continuity-contract.md`, `.agents/references/development-assurance-standard.md`, and `$continuity-local` before acting.
 
 Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality rubrics](../../references/output-quality-rubrics.md), and [roadmap modeling](references/roadmap-modeling.md) before selecting hierarchy, reporting health, or recording impact. Read [the GitHub Projects adapter](references/github-projects-adapter.md) before preparing, approving, applying, or reconciling that external projection. Apply the **Business outcome**, **Engineering and architecture**, and **Delivery and rollback** lenses as relevant.

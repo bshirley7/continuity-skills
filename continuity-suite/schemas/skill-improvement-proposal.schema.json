@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity skill improvement proposal",
+  "type": "object",
+  "required": [
+    "proposal_id",
+    "skill_name",
+    "title",
+    "summary",
+    "base_skill_sha256",
+    "base_playbook_sha256",
+    "target_layer",
+    "pattern_keys",
+    "usage_refs",
+    "edit_budget",
+    "operations",
+    "expected_outcomes",
+    "evaluation_plan",
+    "created_at",
+    "execution_authorized"
+  ],
+  "properties": {
+    "proposal_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "skill_name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 200},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "base_skill_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "base_playbook_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "candidate_playbook_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "target_layer": {"const": "evolvable-playbook"},
+    "pattern_keys": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+    },
+    "usage_refs": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+    },
+    "edit_budget": {"type": "integer", "minimum": 1, "maximum": 8},
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["op", "target", "content", "rationale", "usage_refs"],
+        "properties": {
+          "op": {"enum": ["add", "replace", "delete"]},
+          "target": {"type": "string", "minLength": 1, "maxLength": 256},
+          "content": {"type": "string", "maxLength": 10000},
+          "rationale": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "usage_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "expected_outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "evaluation_plan": {
+      "type": "object",
+      "required": ["metric", "minimum_validation_gain", "required_invariants", "validation_case_refs", "test_case_refs"],
+      "properties": {
+        "metric": {"type": "string", "minLength": 1, "maxLength": 128},
+        "minimum_validation_gain": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "required_invariants": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+        },
+        "validation_case_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+        "test_case_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+      },
+      "additionalProperties": false
+    },
+    "created_at": {"type": "string", "minLength": 1},
+    "execution_authorized": {"const": false}
+  },
+  "additionalProperties": false
+}
