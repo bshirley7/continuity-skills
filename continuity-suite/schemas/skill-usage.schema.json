@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity skill usage record",
+  "type": "object",
+  "required": [
+    "usage_id",
+    "skill_name",
+    "skill_sha256",
+    "playbook_sha256",
+    "recorded_at",
+    "task_kind",
+    "outcome",
+    "summary",
+    "pattern_keys",
+    "signals",
+    "evidence_refs",
+    "privacy_reviewed",
+    "execution_authorized"
+  ],
+  "properties": {
+    "usage_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "skill_name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "skill_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "playbook_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "recorded_at": {"type": "string", "minLength": 1},
+    "task_kind": {"type": "string", "minLength": 1, "maxLength": 128},
+    "outcome": {"enum": ["success", "failure", "mixed", "blocked", "unknown"]},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "pattern_keys": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+    },
+    "signals": {
+      "type": "object",
+      "required": ["user_corrected", "retries", "tool_failures", "clarifications", "validation_status"],
+      "properties": {
+        "user_corrected": {"type": "boolean"},
+        "retries": {"type": "integer", "minimum": 0},
+        "tool_failures": {"type": "integer", "minimum": 0},
+        "clarifications": {"type": "integer", "minimum": 0},
+        "validation_status": {"enum": ["passed", "failed", "partial", "not-run"]},
+        "workflow_disposition": {"type": "string", "maxLength": 128},
+        "turns": {"type": "integer", "minimum": 0},
+        "latency_ms": {"type": "integer", "minimum": 0},
+        "approximate_tokens": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 256}
+    },
+    "source_ref": {"type": "string", "maxLength": 256},
+    "privacy_reviewed": {"const": true},
+    "execution_authorized": {"const": false}
+  },
+  "additionalProperties": false
+}

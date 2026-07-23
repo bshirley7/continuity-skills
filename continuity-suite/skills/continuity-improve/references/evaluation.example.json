@@ -1,0 +1,26 @@
+{
+  "proposal_id": "proposal-report-state-language-v1",
+  "candidate_playbook_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "evaluated_at": "2026-07-22T13:00:00-05:00",
+  "metric": "state-accurate-report-basis-points",
+  "validation": {
+    "baseline_score": 7000,
+    "candidate_score": 8500,
+    "case_refs": ["eval:report:validation:01"],
+    "evidence_refs": ["private:eval:report:validation:01"]
+  },
+  "test": {
+    "baseline_score": 8000,
+    "candidate_score": 8000,
+    "case_refs": ["eval:report:test:01"],
+    "evidence_refs": ["private:eval:report:test:01"]
+  },
+  "invariants": [
+    {"invariant_id": "authority-preserved", "status": "passed", "evidence_refs": ["private:invariant:authority"]},
+    {"invariant_id": "privacy-preserved", "status": "passed", "evidence_refs": ["private:invariant:privacy"]},
+    {"invariant_id": "protected-contract-unchanged", "status": "passed", "evidence_refs": ["private:invariant:contract"]},
+    {"invariant_id": "state-accuracy-preserved", "status": "passed", "evidence_refs": ["private:invariant:state"]}
+  ],
+  "regressions": [],
+  "evidence_refs": ["private:eval:proposal-report-state-language-v1"]
+}

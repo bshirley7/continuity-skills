@@ -5,6 +5,8 @@ description: Classify, split, deduplicate, relate, defer, archive, reclassify, o
 
 # Continuity Triage
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Route knowledge conservatively. Classification or promotion never authorizes documentation or execution.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$continuity-local`, and `.continuity/config.json` before changing state.

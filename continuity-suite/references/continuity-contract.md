@@ -42,6 +42,12 @@ Use exactly one primary classification for every atomic item: `context`, `insigh
 
 Preserve the capture time and classify occurrence type, internal/external perspective, sentiment, impact, confidence, actionability, stakeholders, themes, and any explicit pattern key. Positive outcomes are evidence worth preserving, not noise. Repeated changes, behaviors, needs, risks, and failures should inform adaptability and future planning without becoming automatic instructions.
 
+## Skill improvement
+
+Treat each installed `SKILL.md` as the protected operational contract and its `references/learned-playbook.md` as the only usage-evolvable layer. Record only sanitized structured outcomes bound to the exact skill and playbook hashes. Raw transcripts, prompts, responses, tool arguments, tool output, note content, credentials, personal data, customer data, and absolute paths are never improvement input.
+
+Repeated usage may produce a non-authorizing pattern and a bounded learned-playbook candidate. Frequency, user silence, agent confidence, and model preference do not prove correctness. Candidate selection requires fixed validation improvement, an untouched non-regressing test set, passed authority/privacy/protected-contract/state-accuracy invariants, no recorded regressions, and explicit human review. Rejected candidates remain evidence. Review and packaging never edit installed skills, authorize execution, or publish a release; applying an approved package requires a separately approved suite-source goal and normal validation, review, merge, release, and installation controls.
+
 A single source may yield one or many atomic notes. For meeting, conversational, or aggregated feedback input, retain one stable source reference and source timestamp while assigning a stable item ID and lifecycle to every semantically distinct decision, need, feedback item, question, risk, or later idea. Do not split mechanically by line or bullet, and do not merge items merely because they arrived in one message. Record multi-item input as `capture_mode: batch`; keep each item's routing, planning disposition, goal relationships, timestamps, and work status independent.
 
 Set `execution_authorized: false` during capture and triage. Classify ambiguity as context, a question, or a held candidate.

@@ -5,6 +5,8 @@ description: Capture singular callouts or batches of manual, meeting, file, PRD,
 
 # Continuity Capture
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Treat every note as project knowledge first. Never interpret capture as approval, dispatch, or permission to modify documentation, code, Git state, or external systems.
 
 ## Contract

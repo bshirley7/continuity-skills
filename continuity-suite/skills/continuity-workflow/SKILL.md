@@ -5,6 +5,8 @@ description: Run a manual Continuity request as one sequential, state-driven wor
 
 # Continuity Workflow
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Use this as the manual entry point for end-to-end Continuity work. A manual invocation is one workflow run, not a request to execute one skill and return a status-only handoff.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `AGENTS.md`, `.continuity/project.json`, and `.continuity/config.json` before advancing state.
