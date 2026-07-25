@@ -183,7 +183,15 @@ The CLI is the state recorder and gatekeeper; the skills are the user-facing wor
 
 ## 6. Record A Local Approval
 
-When `$continuity-plan` creates a goal that is ready for review, inspect the exact plan version and use the command shown by `workflow status`.
+When `$continuity-plan` creates a decision-complete routine goal and the user says “proceed,” use the command shown by `workflow status`:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" goal proceed <goal-id>
+```
+
+This records approval against the current plan hash and starts the interactive run. It does not require an identity, authorization phrase, signing key, or second start confirmation.
+
+Use the detailed receipt flow for unattended scheduling or a policy-controlled separate approval:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --goal-id <goal-id>
@@ -193,7 +201,7 @@ When `$continuity-plan` creates a goal that is ready for review, inspect the exa
   --authorization-text "Approve <goal-id> plan v<version>"
 ```
 
-For local installs, approval needs a recorded human identity and exact authorization text. SSH signing is only required when `.continuity/config.json` has `require_signed_approvals: true`.
+Detailed unattended approval needs a recorded human identity and exact authorization text. SSH signing is required there when `.continuity/config.json` has `require_signed_approvals: true`; it is not added to routine interactive `/goal` or `goal proceed` work.
 
 Separate approval does not start product-code execution while `execution_enabled` is `false`. An explicit routine `/goal` request can still authorize its own interactive attempt; the flag continues to protect scheduled and unattended dispatch.
 
@@ -229,6 +237,6 @@ If doctor reports `execution is enabled but no required GitHub checks are config
 
 If doctor reports a missing external audit checkpoint, execution is enabled. Disable execution for local setup, or complete the production audit and backup flow.
 
-If an approval asks for an SSH signing key, the project has `require_signed_approvals: true`. For a local-only project, make an explicit reviewed configuration change that sets `.continuity/config.json` `require_signed_approvals` to `false`. For a project that intentionally requires signed approvals, configure `.continuity/trusted-approvers` through protected human review.
+If routine interactive work asks for an SSH signing key, the agent selected the wrong path: use `/goal` or `goal proceed`. For intentionally unattended or consequential signed transitions, configure `.continuity/trusted-approvers` through protected human review.
 
 If the online release check says `release not found`, local work can still continue when `project doctor` reports no managed-file drift and the installed suite manifest is healthy.

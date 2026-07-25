@@ -162,9 +162,9 @@ A plain cron or `launchd` process can calculate due actions and detect stale sta
 
 ### Fast interactive lane
 
-For a routine request that should become code now, invoke `/goal <request>`. The agent runs capture, triage, roadmap-inbox projection, context retrieval, proportional planning, activation, and dispatch as one uninterrupted workflow. `goal activate` records the exact request text, the aligned plan hash, and the separate approval and dispatch machine events. It does not require the user to approve an agent-generated ID or repeat “start now.”
+For a routine request that should become code now, invoke `/goal <request>`. The agent runs capture, triage, roadmap-inbox projection, context retrieval, proportional planning, activation, and dispatch as one uninterrupted workflow. `goal activate` binds the captured request hashes to the aligned plan hash and records separate approval and dispatch machine events. It does not require the user to provide an identity, authorization phrase, signing key, approve an agent-generated ID, or repeat “start now.”
 
-This lane is unavailable when another code goal owns the project lock, the request is not decision-complete, signed approvals are required, risk is elevated or consequential, or a restricted external effect is in scope. `execution_enabled: false` continues to disable scheduled and unattended dispatch; the exact interactive `/goal` request supplies authority for its own attempt. Other blocked cases return to the detailed cycle below at the one stage that actually needs authority.
+This lane is unavailable when another code goal owns the project lock, the request is not decision-complete, risk is elevated or consequential, or a restricted external effect is in scope. Project signing policy continues to protect unattended and action-specific consequential transitions; it does not add a second signature to a routine interactive request. `execution_enabled: false` continues to disable scheduled and unattended dispatch; the exact interactive `/goal` request supplies authority for its own attempt.
 
 ### 1. Capture information during normal work
 
@@ -319,11 +319,19 @@ Create the goal from a reviewed JSON file:
   --goal-file /path/to/reviewed-goal.json
 ```
 
-The new goal remains `awaiting-feedback`. A routine `/goal` plan exposes `goal activate` as its next non-human action. Nightly review and separately prepared plans may not use that request-bound shortcut.
+The new goal remains `awaiting-feedback`. A routine `/goal` plan exposes `goal activate` as its next action. A separately prepared, decision-complete routine plan exposes `goal proceed`; invoke it when the user says “proceed” and continue directly into coding.
 
 ### 5. Approve the exact plan version
 
-A human reviews the plan, its evidence, its exclusions, and its intended outcome. Approval must name the goal and plan version explicitly.
+A human reviews the plan, its evidence, its exclusions, and its intended outcome. For routine interactive work, “proceed” is the durable approval:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" goal proceed <goal-id>
+```
+
+The command binds approval to the current material plan hash and dispatches immediately without asking the human to restate machine-generated identifiers or sign again.
+
+For unattended scheduling or a policy-controlled separate approval, use the detailed receipt flow:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" goal approve <goal-id> \
@@ -334,7 +342,7 @@ A human reviews the plan, its evidence, its exclusions, and its intended outcome
 
 Approval binds to the material plan hash. Editing the plan, machine goal, planning artifacts, or relevant roadmap context invalidates approval.
 
-Approval normally queues the goal for the configured dispatch time. It does not start implementation by itself.
+The detailed receipt flow queues the goal for the configured dispatch time. Interactive `goal proceed` starts implementation because the user's instruction already includes approval to proceed.
 
 ### 6. Run the nightly review
 

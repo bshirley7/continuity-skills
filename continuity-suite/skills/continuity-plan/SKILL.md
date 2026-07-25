@@ -51,4 +51,4 @@ Do not publish decision or delivery tickets externally as a side effect of plann
 
 ## Handoff
 
-Run `continuity workflow status` on entry and `continuity workflow status --goal-id <goal-id>` after creation or revision. Under `/goal`, bind the exact request with `goal activate` and continue directly into execution. Other `awaiting-feedback` goals hand off to `$continuity-dispatch` for one of the machine-listed human actions; never infer approval.
+Run `continuity workflow status` on entry and `continuity workflow status --goal-id <goal-id>` after creation or revision. Under `/goal`, bind the submitted request with `goal activate` and continue directly into execution. If the user has said “proceed” on another decision-complete routine plan, run the listed `goal proceed` action and continue without another approval or start prompt. Higher-risk, restricted-effect, and unattended goals hand off to `$continuity-dispatch` for the specific authority they require.

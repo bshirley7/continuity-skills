@@ -3205,8 +3205,14 @@ def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple
         except runtime_lib.RuntimeIntegrityError as exc:
             raise ContinuityError(str(exc)) from exc
         verify_approval_signature(root, config, directory, approval)
-    elif config.get("require_signed_approvals", False):
+    elif (
+        config.get("require_signed_approvals", False)
+        and approval.get("authorization_source") not in {"goal-request", "plan-proceed"}
+    ):
         raise ContinuityError("This project requires an SSH-signed approval receipt")
+    if approval.get("authorization_source") in {"goal-request", "plan-proceed"}:
+        if goal.get("risk_level") != "routine" or goal.get("restricted_side_effects"):
+            raise ContinuityError("Conversation approval is valid only for routine work without restricted side effects")
     validate_goal_planning_artifacts(goal, require_resolved=True)
     validate_planning_artifact_parity(directory, goal)
     current_hash = goal_material_hash(directory, goal)
@@ -3264,6 +3270,7 @@ def approval_receipt_payload(approval: dict[str, Any]) -> dict[str, Any]:
             "approved_at",
             "approved_by",
             "authorization_text",
+            "authorization_source",
             "nonce",
         )
         if key in approval
@@ -3790,6 +3797,7 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
         "approved_at": stamp,
         "approved_by": args.approved_by,
         "authorization_text": args.authorization_text,
+        "authorization_source": "explicit-receipt",
         "nonce": secrets.token_hex(16),
         "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
     }
@@ -3832,55 +3840,35 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
     return {"goal": goal, "approval": approval}
 
 
-def goal_activate(args: argparse.Namespace) -> dict[str, Any]:
-    """Bind one explicit /goal request to a routine interactive implementation run."""
-    root, config = load_context()
-    directory, goal = load_goal(root, config, args.goal_id)
-    if goal.get("state") != "awaiting-feedback":
-        raise ContinuityError(f"Only an awaiting-feedback goal can be activated; current state is {goal.get('state')}")
-    if goal.get("authorization_mode") != "goal-request":
-        raise ContinuityError("Fast activation requires authorization_mode goal-request")
+def validate_conversation_scope(goal: dict[str, Any]) -> None:
     if goal.get("risk_level") != "routine":
-        raise ContinuityError("Elevated or consequential goals require separate plan approval")
+        raise ContinuityError("Elevated or consequential goals require separate action-specific approval")
     if goal.get("restricted_side_effects"):
         raise ContinuityError("Goals with restricted side effects require separate action-specific approval")
-    if config.get("require_signed_approvals", False):
-        raise ContinuityError("Fast activation is unavailable when signed approvals are required")
-    source_note_ids = goal.get("source_note_ids", [])
-    if not source_note_ids:
-        raise ContinuityError("Fast activation requires the /goal request to be captured and triaged")
-    actionable_current_goal = False
-    dispositions = {item.get("note_id"): item for item in goal.get("note_dispositions", [])}
-    for note_id in source_note_ids:
-        _capture_path, _capture, item = find_note_item(root, config, note_id)
-        if item.get("routing_status") not in {"route", "promote", "defer", "archive"}:
-            raise ContinuityError(f"Fast activation requires triage before planning: {note_id}")
-        disposition = dispositions.get(note_id, {})
-        if (
-            disposition.get("disposition") == "current-goal"
-            and item.get("kind") in {"documentation-candidate", "backlog-candidate", "execution-candidate", "explicit-instruction"}
-            and item.get("routing_status") in {"route", "promote"}
-        ):
-            actionable_current_goal = True
-    if not actionable_current_goal:
-        raise ContinuityError("Fast activation requires a triaged actionable current-goal note")
-    request_path = Path(args.request_file).expanduser()
-    request_text = request_path.read_text(encoding="utf-8").strip()
-    if not request_text:
-        raise ContinuityError("The /goal request file must contain the user's explicit request")
-    if len(request_text) > MAX_NOTE_TEXT_CHARS:
-        raise ContinuityError(f"The /goal request exceeds {MAX_NOTE_TEXT_CHARS} characters")
+
+
+def record_conversation_approval(
+    root: Path,
+    config: dict[str, Any],
+    directory: Path,
+    goal: dict[str, Any],
+    source: str,
+    authority_hash: str,
+    required_stages: tuple[str, ...],
+) -> tuple[dict[str, Any], str]:
+    """Record a bounded interactive approval without asking the user to restate or sign it."""
+    validate_conversation_scope(goal)
     validate_goal_planning_artifacts(goal, require_resolved=True)
     validate_planning_artifact_parity(directory, goal)
     if goal.get("roadmap_fingerprint") != roadmap_fingerprint(root, config, goal.get("roadmap_ids", [])):
-        raise ContinuityError("Roadmap context changed after planning; revise the goal before activation")
+        raise ContinuityError("Roadmap context changed after planning; revise the goal before proceeding")
     compliance = json_load(directory / "compliance.json", {})
     if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
         raise ContinuityError("Goal compliance ledger uses a missing or unsupported assurance standard")
-    for stage in ("capture-triage", "memory-retrieval", "roadmap-retrieval", "plan-review"):
+    for stage in required_stages:
         state = compliance.get("stages", {}).get(stage, {}).get("status")
         if state not in {"passed", "not-applicable"}:
-            raise ContinuityError(f"Compliance stage {stage} must pass before activation")
+            raise ContinuityError(f"Compliance stage {stage} must pass before proceeding")
     plan_hash = goal_material_hash(directory, goal)
     stamp = iso_now(config)
     approval = {
@@ -3891,21 +3879,29 @@ def goal_activate(args: argparse.Namespace) -> dict[str, Any]:
         "plan_hash": plan_hash,
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "approved_at": stamp,
-        "approved_by": args.requested_by,
-        "authorization_text": request_text,
+        "approved_by": "interactive-user",
+        "authorization_text": (
+            f"Conversation {source} bound to {goal['goal_id']} plan "
+            f"v{goal['plan_version']} ({authority_hash})"
+        ),
+        "authorization_source": source,
         "nonce": secrets.token_hex(16),
         "signature_format": "legacy-unsigned",
     }
     if not approval["behavior_configuration_hash"]:
         approval.pop("behavior_configuration_hash")
     try:
-        runtime_lib.validate_schema_file(approval, CONTROL_ROOT / "schemas" / "approval-receipt.schema.json", "approval receipt")
+        runtime_lib.validate_schema_file(
+            approval,
+            CONTROL_ROOT / "schemas" / "approval-receipt.schema.json",
+            "approval receipt",
+        )
     except runtime_lib.RuntimeIntegrityError as exc:
         raise ContinuityError(str(exc)) from exc
     json_dump(directory / "approval.json", approval)
     compliance["stages"]["approval"] = {
         "status": "passed",
-        "evidence": ["interactive /goal request", hashlib.sha256(request_text.encode()).hexdigest(), plan_hash],
+        "evidence": [f"interactive conversation: {source}", authority_hash, plan_hash],
         "updated_at": stamp,
     }
     compliance["updated_at"] = stamp
@@ -3918,17 +3914,70 @@ def goal_activate(args: argparse.Namespace) -> dict[str, Any]:
     update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "queued")
     append_jsonl(
         directory / "feedback.jsonl",
-        {"at": stamp, "author": args.requested_by, "type": "goal-request-authorization", "text": request_text},
+        {
+            "at": stamp,
+            "author": "interactive-user",
+            "type": f"{source}-authorization",
+            "text": approval["authorization_text"],
+        },
     )
     append_jsonl(
         private_path(root, config) / "events.jsonl",
         {
             "at": stamp,
-            "event": "goal.activated",
+            "event": "goal.conversation-approved",
             "goal_id": goal["goal_id"],
             "plan_version": goal["plan_version"],
-            "request_hash": hashlib.sha256(request_text.encode()).hexdigest(),
+            "authorization_source": source,
+            "authority_hash": authority_hash,
         },
+    )
+    return approval, plan_hash
+
+
+def goal_activate(args: argparse.Namespace) -> dict[str, Any]:
+    """Bind one explicit /goal request to a routine interactive implementation run."""
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") != "awaiting-feedback":
+        raise ContinuityError(f"Only an awaiting-feedback goal can be activated; current state is {goal.get('state')}")
+    if goal.get("authorization_mode") != "goal-request":
+        raise ContinuityError("Fast activation requires authorization_mode goal-request")
+    validate_conversation_scope(goal)
+    source_note_ids = goal.get("source_note_ids", [])
+    if not source_note_ids:
+        raise ContinuityError("Fast activation requires the /goal request to be captured and triaged")
+    actionable_current_goal = False
+    request_material: list[dict[str, str]] = []
+    dispositions = {item.get("note_id"): item for item in goal.get("note_dispositions", [])}
+    for note_id in source_note_ids:
+        _capture_path, _capture, item = find_note_item(root, config, note_id)
+        request_material.append(
+            {
+                "note_id": note_id,
+                "text_sha256": hashlib.sha256(str(item.get("text", "")).encode()).hexdigest(),
+            }
+        )
+        if item.get("routing_status") not in {"route", "promote", "defer", "archive"}:
+            raise ContinuityError(f"Fast activation requires triage before planning: {note_id}")
+        disposition = dispositions.get(note_id, {})
+        if (
+            disposition.get("disposition") == "current-goal"
+            and item.get("kind") in {"documentation-candidate", "backlog-candidate", "execution-candidate", "explicit-instruction"}
+            and item.get("routing_status") in {"route", "promote"}
+        ):
+            actionable_current_goal = True
+    if not actionable_current_goal:
+        raise ContinuityError("Fast activation requires a triaged actionable current-goal note")
+    request_hash = canonical_hash({"source_notes": request_material})
+    approval, plan_hash = record_conversation_approval(
+        root,
+        config,
+        directory,
+        goal,
+        "goal-request",
+        request_hash,
+        ("capture-triage", "memory-retrieval", "roadmap-retrieval", "plan-review"),
     )
     dispatch = goal_start(argparse.Namespace(goal_id=goal["goal_id"], fast_interactive=True))
     return {
@@ -3937,7 +3986,41 @@ def goal_activate(args: argparse.Namespace) -> dict[str, Any]:
         "dispatch": dispatch,
         "authorization_envelope": {
             "mode": "interactive-goal-request",
-            "request_hash": hashlib.sha256(request_text.encode()).hexdigest(),
+            "request_hash": request_hash,
+            "plan_hash": plan_hash,
+            "renew_only_for": [
+                "material scope expansion",
+                "elevated or consequential risk",
+                "restricted external side effect",
+                "destructive or irreversible action",
+            ],
+        },
+    }
+
+
+def goal_proceed(args: argparse.Namespace) -> dict[str, Any]:
+    """Treat the current user's proceed instruction as one bounded interactive authorization."""
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") != "awaiting-feedback":
+        raise ContinuityError(f"Only an awaiting-feedback plan can proceed; current state is {goal.get('state')}")
+    authority_hash = goal_material_hash(directory, goal)
+    approval, plan_hash = record_conversation_approval(
+        root,
+        config,
+        directory,
+        goal,
+        "plan-proceed",
+        authority_hash,
+        ("memory-retrieval", "roadmap-retrieval", "plan-review"),
+    )
+    dispatch = goal_start(argparse.Namespace(goal_id=goal["goal_id"], fast_interactive=True))
+    return {
+        "goal": json_load(directory / "goal.json", {}),
+        "approval": approval,
+        "dispatch": dispatch,
+        "authorization_envelope": {
+            "mode": "interactive-plan-proceed",
             "plan_hash": plan_hash,
             "renew_only_for": [
                 "material scope expansion",
@@ -7859,16 +7942,25 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
             goal.get("authorization_mode") == "goal-request"
             and goal.get("risk_level") == "routine"
             and not goal.get("restricted_side_effects")
-            and not config.get("require_signed_approvals", False)
         )
-        next_skill = "goal" if fast_eligible else "continuity-dispatch"
+        proceed_eligible = goal.get("risk_level") == "routine" and not goal.get("restricted_side_effects")
+        next_skill = "goal" if proceed_eligible else "continuity-dispatch"
         if fast_eligible:
             actions.append(
                 workflow_action(
                     "activate",
                     "goal",
-                    f"{prefix} goal activate {goal_id} --requested-by <user> --request-file <exact-request.txt>",
-                    requirements=["exact /goal request", "decision-complete aligned plan", "routine interactive scope"],
+                    f"{prefix} goal activate {goal_id}",
+                    requirements=["submitted /goal request", "decision-complete aligned plan", "routine interactive scope"],
+                )
+            )
+        elif proceed_eligible:
+            actions.append(
+                workflow_action(
+                    "proceed",
+                    "goal",
+                    f"{prefix} goal proceed {goal_id}",
+                    requirements=["current user said proceed", "decision-complete aligned plan", "routine interactive scope"],
                 )
             )
         else:
@@ -11025,9 +11117,10 @@ def build_parser() -> argparse.ArgumentParser:
     approve.set_defaults(handler=goal_approve)
     activate = goal_sub.add_parser("activate")
     activate.add_argument("goal_id")
-    activate.add_argument("--requested-by", required=True)
-    activate.add_argument("--request-file", required=True)
     activate.set_defaults(handler=goal_activate)
+    proceed = goal_sub.add_parser("proceed")
+    proceed.add_argument("goal_id")
+    proceed.set_defaults(handler=goal_proceed)
     start = goal_sub.add_parser("start")
     start.add_argument("goal_id")
     start.set_defaults(handler=goal_start)

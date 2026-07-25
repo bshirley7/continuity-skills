@@ -24,7 +24,7 @@ Do not reconstruct missing machine state from prose. A missing identifier, stale
 
 ## Interactive goal mode
 
-Routine actionable work runs through `/goal`. The exact request is captured and triaged in one pass, actionable notes enter the private roadmap inbox, and an aligned routine goal exposes a non-human `activate` action. `goal activate` binds the request text to the plan hash and dispatches one interactive attempt. Status, capture, triage, memory, roadmap, plan, approval, and dispatch remain distinct records; they are not distinct user stops.
+Routine actionable work runs through `/goal`. The request is captured and triaged in one pass, actionable notes enter the private roadmap inbox, and an aligned routine goal exposes an `activate` action. `goal activate` binds the source-note hashes to the plan hash and dispatches one interactive attempt. A reviewed routine plan exposes `goal proceed` after the user says “proceed.” Status, capture, triage, memory, roadmap, plan, approval, and dispatch remain distinct records; they are not distinct user stops.
 
 If risk is elevated or consequential, restricted side effects are present, signed approval is configured, or the plan contains unresolved decisions, `/goal` returns to the separate approval path.
 

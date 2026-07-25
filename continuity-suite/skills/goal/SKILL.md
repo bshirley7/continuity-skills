@@ -26,21 +26,19 @@ Read [the learned playbook](references/learned-playbook.md), [workflow handoffs]
    - `plan_reviewed: true`
    - `memory_reviewed: true`
    - exact source-note dispositions and only relevant memory and roadmap IDs.
-6. Preserve the user's exact `/goal` request in a private temporary file and run:
+6. The submitted `/goal` request is already the authorization. Run:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" goal activate <goal-id> \
-  --requested-by "<user identity>" \
-  --request-file <exact-request.txt>
+.agents/continuity/bin/continuity --project-root "$PWD" goal activate <goal-id>
 ```
 
-`goal activate` binds the exact request to the plan hash, records approval, performs the interactive preflight, dispatches the goal, and returns the execution prompt. Continue immediately into implementation. Do not ask for a second “approve” or “start now” decision.
+`goal activate` derives the request authority from the captured and triaged source notes, binds their hashes to the plan hash, records approval, performs the interactive preflight, dispatches the goal, and returns the execution prompt. Continue immediately into implementation. Do not ask for an identity string, approval phrase, signing key, second “approve,” or “start now” decision.
 7. Create or reuse the isolated goal worktree and code the approved scope. Run proportionate candidate checks while coding, then complete source-bound validation, security review, documentation/memory/roadmap impact, product conformance when applicable, and merge-safety evidence.
 8. Return once with the implemented outcome, validation, remaining risks, and the next genuine human decision. A pull-request merge, deployment, publication, destructive action, new cost, credential use, private-data disclosure, or other restricted external side effect still requires its exact action-specific authority.
 
 ## When the envelope must stop
 
-Do not use fast activation when the proposed plan contains an unresolved decision, material ambiguity, elevated or consequential risk, a restricted side effect, signed-approval policy, or scope beyond the user's request. Record `authorization_mode: "separate-approval"` or the appropriate higher risk, prepare the evidence, and ask only for the one decision that unlocks safe work.
+Do not use fast activation when the proposed plan contains an unresolved decision, material ambiguity, elevated or consequential risk, a restricted side effect, or scope beyond the user's request. A project signing policy applies to unattended dispatch and action-specific consequential transitions; it does not make the user sign the routine interactive request again. Record `authorization_mode: "separate-approval"` or the appropriate higher risk only when the work itself requires a separate decision.
 
 During execution, continue without renewed approval for fixes, tests, formatting, generated-file refreshes, merge-conflict remediation, and other reversible work already inside scope. Renew authority only for material scope expansion, a higher risk ceiling, destructive or irreversible action, private-data disclosure, new cost, or a restricted external effect.
 

@@ -132,7 +132,7 @@ Keep execution disabled unless you intentionally want approved goals to be eligi
 
 The local first-run prerequisite is `git` on macOS or Linux. The installer creates project configuration and leaves execution disabled unless `--enable-execution` is supplied. Daily local use records explicit human approvals with the approving identity and authorization text; terminal commands still run through the host's normal user approval flow.
 
-SSH-signed approvals are optional hardening, not a universal install requirement. Use `--require-signed-approvals` only when the project should cryptographically enforce approver identity for approvals, dispositions, resume authorizations, and shared-packet approvals. In that mode, configure a trusted approver before enabling execution:
+SSH-signed approvals are optional hardening for unattended scheduling and action-specific consequential transitions, not a universal interactive requirement. Routine `/goal` and `goal proceed` work records a hash-bound conversation receipt without asking the human to sign again. Use `--require-signed-approvals` when the project should cryptographically enforce approver identity for unattended approvals, dispositions, resume authorizations, and shared-packet approvals. In that mode, configure a trusted approver before enabling unattended execution:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" approval trust add --identity <github-login> --public-key <ssh-public-key>
@@ -345,7 +345,7 @@ The apply step creates the Project and fields via `gh`, writes the returned Proj
 
 The plan and approval receipts remain ignored private state. Applying a plan rechecks current canonical roadmap content and configuration, preflights the destination's field types and options, and fails closed before mutation when the Project contract is incompatible. Remote edits discovered by `inspect` are proposals only; they must return through normal Continuity capture, triage, planning, and approved roadmap impact before canonical state changes. See `$continuity-roadmap`'s `github-projects-adapter.md` reference for ownership, permissions, signed approval, polling, and future webhook rules.
 
-`workflow status` reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. It never crosses an approval or review boundary automatically.
+`workflow status` reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. A submitted `/goal` or the user's “proceed” instruction is the routine interactive approval boundary; the matching `goal activate` or `goal proceed` command records it and continues without another user prompt.
 
 For a manual end-to-end run, invoke `$continuity-workflow` or `/continuity-workflow` with the request and any known subject ID. The runner re-reads this handoff after every task skill and immediately continues through `next_skill`. A failed test, stale artifact, merge-safety finding, or recoverable tool error routes into remediation and does not end the workflow. The run pauses only when workflow status explicitly sets `human_required: true`; after the recorded approval, invoke the same workflow again and it resumes from canonical state without replaying completed stages.
 

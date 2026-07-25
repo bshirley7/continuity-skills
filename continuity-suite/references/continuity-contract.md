@@ -2,7 +2,7 @@
 
 ## Governing rule
 
-Treat notes as project knowledge first. Code execution requires a deliberately promoted, decision-complete goal bound to explicit human authority. For routine interactive work, `/goal <request>` is that authority: `goal activate` binds the exact request to the resulting plan hash and records approval plus dispatch without another human pause. Captured notes, inferred intent, and scheduled work never receive that shortcut.
+Treat notes as project knowledge first. Code execution requires a deliberately promoted, decision-complete goal bound to explicit human authority. For routine interactive work, `/goal <request>` is that authority: `goal activate` binds the captured request hashes to the resulting plan hash and records approval plus dispatch without another human pause. Saying “proceed” on a reviewed routine plan is equivalent authority through `goal proceed`. Captured notes without a submitted request, inferred intent, and scheduled work never receive that shortcut.
 
 ## Assurance standard
 

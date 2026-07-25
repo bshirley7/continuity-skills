@@ -643,18 +643,15 @@ unresolved_gaps: []
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["execution_enabled"] = False
         self.write_json(manifest_path, manifest)
-        request_text = "Implement the approved bridge change now."
-        request_file = self.root / "goal-request.txt"
-        request_file.write_text(request_text, encoding="utf-8")
-        activated = json.loads(
-            self.cli(
-                "goal", "activate", goal["goal_id"],
-                "--requested-by", "fixture-user",
-                "--request-file", str(request_file),
-            ).stdout
-        )
+        config_path = self.root / ".continuity" / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["require_signed_approvals"] = True
+        self.write_json(config_path, config)
+        activated = json.loads(self.cli("goal", "activate", goal["goal_id"]).stdout)
         self.assertEqual(activated["goal"]["state"], "dispatched")
-        self.assertEqual(activated["approval"]["authorization_text"], request_text)
+        self.assertEqual(activated["approval"]["approved_by"], "interactive-user")
+        self.assertEqual(activated["approval"]["authorization_source"], "goal-request")
+        self.assertEqual(activated["approval"]["signature_format"], "legacy-unsigned")
         self.assertEqual(activated["dispatch"]["execution_mode"], "interactive-fast")
         self.assertIn(
             "interactive-goal-request:execution-authorized; unattended-execution-disabled",
@@ -666,6 +663,24 @@ unresolved_gaps: []
         self.assertEqual(status["human_requirements"], [])
         inbox = json.loads(self.cli("roadmap", "inbox", "--status", "planned").stdout)
         self.assertIn(instruction["item_id"], {candidate["note_id"] for candidate in inbox})
+
+    def test_goal_proceed_treats_plan_approval_as_dispatch_authority_without_extra_signing(self) -> None:
+        goal = self.create_goal("Proceed without repeated signing")
+        config_path = self.root / ".continuity" / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["require_signed_approvals"] = True
+        self.write_json(config_path, config)
+        status = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
+        self.assertEqual([action["disposition"] for action in status["allowed_actions"]], ["proceed"])
+        self.assertEqual(status["human_requirements"], [])
+        self.assertNotIn("--authorization-text", status["allowed_actions"][0]["command"])
+        self.assertNotIn("--signing-key", status["allowed_actions"][0]["command"])
+        proceeded = json.loads(self.cli("goal", "proceed", goal["goal_id"]).stdout)
+        self.assertEqual(proceeded["goal"]["state"], "dispatched")
+        self.assertEqual(proceeded["approval"]["authorization_source"], "plan-proceed")
+        self.assertEqual(proceeded["approval"]["signature_format"], "legacy-unsigned")
+        self.assertEqual(proceeded["dispatch"]["execution_mode"], "interactive-fast")
+        self.assertEqual(proceeded["authorization_envelope"]["mode"], "interactive-plan-proceed")
 
     def test_goal_activate_rejects_risk_and_restricted_side_effects(self) -> None:
         for title, risk, effects in (
@@ -688,14 +703,7 @@ unresolved_gaps: []
                 },
             )
             goal = json.loads(self.cli("goal", "create", "--goal-file", str(goal_file)).stdout)
-            request_file = self.root / f"{goal['goal_id']}.txt"
-            request_file.write_text(f"Start {title}.", encoding="utf-8")
-            rejected = self.cli(
-                "goal", "activate", goal["goal_id"],
-                "--requested-by", "fixture-user",
-                "--request-file", str(request_file),
-                expected=2,
-            )
+            rejected = self.cli("goal", "activate", goal["goal_id"], expected=2)
             self.assertIn("require separate", rejected.stderr)
 
     def test_derived_note_queue_ignores_stale_snapshots_and_resolves_questions(self) -> None:
@@ -1535,7 +1543,8 @@ unresolved_gaps: []
         (self.root / "goal-Review-rework.json").unlink()
         initial = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
         self.assertEqual(initial["current_stage"], "plan-review")
-        self.assertEqual({action["disposition"] for action in initial["allowed_actions"]}, {"approve", "revise", "hold", "cancel"})
+        self.assertEqual([action["disposition"] for action in initial["allowed_actions"]], ["proceed"])
+        self.assertEqual(initial["human_requirements"], [])
         self.approve(goal)
         self.cli("goal", "start", goal["goal_id"])
         self.git("checkout", "-b", "continuity/review-rework")
@@ -2369,7 +2378,8 @@ unresolved_gaps: []
         self.assertEqual(goal["delivery_slices"][0]["status"], "planning-candidate")
         status = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
         self.assertEqual(status["handoff"]["subject_ids"]["goal_id"], goal["goal_id"])
-        self.assertIn("approve", status["handoff"]["human_requirements"])
+        self.assertEqual(status["handoff"]["human_requirements"], [])
+        self.assertEqual([action["disposition"] for action in status["allowed_actions"]], ["proceed"])
 
     def test_note_lifecycle_dispositions_relationships_and_dated_stages(self) -> None:
         capture = self.create_capture()
