@@ -841,15 +841,19 @@ def continuity_skill_names(root: Path) -> list[str]:
     skills_root = root / ".agents" / "skills"
     return sorted(
         path.name
-        for path in skills_root.glob("continuity*")
-        if path.is_dir() and (path / "SKILL.md").is_file()
+        for path in skills_root.iterdir()
+        if (path.name == "goal" or path.name.startswith("continuity"))
+        and path.is_dir()
+        and (path / "SKILL.md").is_file()
     )
 
 
 def remove_owned_skill_adapters(target: Path) -> None:
     if not target.exists():
         return
-    for path in target.glob("continuity*"):
+    for path in target.iterdir():
+        if path.name != "goal" and not path.name.startswith("continuity"):
+            continue
         if path.is_dir() and not path.is_symlink():
             shutil.rmtree(path)
         elif path.exists() or path.is_symlink():
@@ -897,6 +901,18 @@ def sync_skill_adapter(root: Path, surface_root: Path) -> None:
 
 
 def render_surface_command(skill_name: str) -> str:
+    if skill_name == "goal":
+        return (
+            "# goal\n\n"
+            "Slash command: `/goal`\n\n"
+            "Read and follow `AGENTS.md`, then read `.agents/skills/goal/SKILL.md` and "
+            "`.agents/skills/continuity-local/SKILL.md`. Treat trailing user text as the exact "
+            "interactive goal request. Capture and triage it, project actionable notes into the "
+            "private roadmap inbox, create the smallest aligned routine goal, bind the exact request "
+            "with `goal activate`, and continue into coding without separate approval or start pauses. "
+            "Stop for material scope or risk expansion, destructive or irreversible action, private-data "
+            "disclosure, new cost, restricted external effects, or final merge authority.\n"
+        )
     return (
         f"# {skill_name}\n\n"
         f"Slash command: `/{skill_name}`\n\n"
@@ -1971,6 +1987,10 @@ def note_triage(args: argparse.Namespace) -> dict[str, Any]:
         "work_status": selected.get("work_status"),
     }
     append_jsonl(private_path(root, config) / "events.jsonl", event)
+    try:
+        roadmap_lib.projection(root, config)
+    except roadmap_lib.RoadmapError as exc:
+        raise ContinuityError(f"Note was triaged but roadmap projection failed: {exc}") from exc
     return selected
 
 
@@ -2974,6 +2994,9 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
         "acceptance_criteria",
         "documentation_updates",
         "required_checks",
+        "authorization_mode",
+        "risk_level",
+        "restricted_side_effects",
         "runtime_limit_minutes",
         "triage_brief",
         "decision_map",
@@ -3007,6 +3030,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "exclusions",
         "documentation_updates",
         "required_checks",
+        "restricted_side_effects",
     ):
         value = payload.get(key, [])
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
@@ -3021,6 +3045,12 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError("runtime_limit_minutes must be an integer of at least 1")
     if runtime_limit > int(config.get("max_runtime_minutes", 360)):
         raise ContinuityError("runtime_limit_minutes exceeds the configured project maximum")
+    authorization_mode = payload.get("authorization_mode", "separate-approval")
+    if authorization_mode not in {"separate-approval", "goal-request"}:
+        raise ContinuityError("authorization_mode must be separate-approval or goal-request")
+    risk_level = payload.get("risk_level", "routine")
+    if risk_level not in {"routine", "elevated", "consequential"}:
+        raise ContinuityError("risk_level must be routine, elevated, or consequential")
     stamp = iso_now(config)
     goal_id = validate_identifier(payload.get("goal_id") or stable_id("goal", config["project_id"], stamp, payload["title"]), "goal ID")
     directory = goal_dir(root, config, goal_id)
@@ -3058,6 +3088,9 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "acceptance_criteria": payload["acceptance_criteria"],
         "documentation_updates": payload.get("documentation_updates", []),
         "required_checks": payload.get("required_checks", []),
+        "authorization_mode": authorization_mode,
+        "risk_level": risk_level,
+        "restricted_side_effects": payload.get("restricted_side_effects", []),
         "runtime_limit_minutes": runtime_limit,
         "triage_brief": validate_triage_brief(payload.get("triage_brief")),
         "decision_map": validate_decision_map(payload.get("decision_map")),
@@ -3105,8 +3138,9 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": stamp,
     }
     compliance["stages"]["memory-retrieval"] = {
-        "status": "passed" if goal["memory_ids"] else "pending",
-        "evidence": goal["memory_ids"],
+        "status": "passed" if goal["memory_ids"] else "not-applicable" if payload.get("memory_reviewed") else "pending",
+        "evidence": goal["memory_ids"]
+        or ([str(payload.get("memory_review_evidence", "Relevant project memory was reviewed; no matching trusted record was found"))] if payload.get("memory_reviewed") else []),
         "updated_at": stamp,
     }
     compliance["stages"]["roadmap-retrieval"] = {
@@ -3580,6 +3614,9 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ContinuityError("Revision file must be a JSON object")
     goal.setdefault("design_ids", [])
+    goal.setdefault("authorization_mode", "separate-approval")
+    goal.setdefault("risk_level", "routine")
+    goal.setdefault("restricted_side_effects", [])
     allowed = {
         "title",
         "priority",
@@ -3595,6 +3632,8 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "acceptance_criteria",
         "documentation_updates",
         "required_checks",
+        "risk_level",
+        "restricted_side_effects",
         "runtime_limit_minutes",
         "triage_brief",
         "decision_map",
@@ -3605,7 +3644,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
             goal[key] = value
     if "source_note_ids" in payload and "note_dispositions" not in payload:
         goal["note_dispositions"] = None
-    for key in ("depends_on", "source_note_ids", "memory_ids", "design_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
+    for key in ("depends_on", "source_note_ids", "memory_ids", "design_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks", "restricted_side_effects"):
         value = goal.get(key)
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
             raise ContinuityError(f"Goal field {key} must be an array of non-empty strings")
@@ -3617,6 +3656,9 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError("runtime_limit_minutes must be an integer of at least 1")
     if goal["runtime_limit_minutes"] > int(config.get("max_runtime_minutes", 360)):
         raise ContinuityError("runtime_limit_minutes exceeds the configured project maximum")
+    if goal.get("risk_level") not in {"routine", "elevated", "consequential"}:
+        raise ContinuityError("risk_level must be routine, elevated, or consequential")
+    goal["authorization_mode"] = "separate-approval"
     goal["triage_brief"] = validate_triage_brief(goal.get("triage_brief"))
     goal["decision_map"] = validate_decision_map(goal.get("decision_map"))
     goal["delivery_slices"] = validate_delivery_slices(goal.get("delivery_slices"))
@@ -3788,6 +3830,123 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
         },
     )
     return {"goal": goal, "approval": approval}
+
+
+def goal_activate(args: argparse.Namespace) -> dict[str, Any]:
+    """Bind one explicit /goal request to a routine interactive implementation run."""
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") != "awaiting-feedback":
+        raise ContinuityError(f"Only an awaiting-feedback goal can be activated; current state is {goal.get('state')}")
+    if goal.get("authorization_mode") != "goal-request":
+        raise ContinuityError("Fast activation requires authorization_mode goal-request")
+    if goal.get("risk_level") != "routine":
+        raise ContinuityError("Elevated or consequential goals require separate plan approval")
+    if goal.get("restricted_side_effects"):
+        raise ContinuityError("Goals with restricted side effects require separate action-specific approval")
+    if config.get("require_signed_approvals", False):
+        raise ContinuityError("Fast activation is unavailable when signed approvals are required")
+    source_note_ids = goal.get("source_note_ids", [])
+    if not source_note_ids:
+        raise ContinuityError("Fast activation requires the /goal request to be captured and triaged")
+    actionable_current_goal = False
+    dispositions = {item.get("note_id"): item for item in goal.get("note_dispositions", [])}
+    for note_id in source_note_ids:
+        _capture_path, _capture, item = find_note_item(root, config, note_id)
+        if item.get("routing_status") not in {"route", "promote", "defer", "archive"}:
+            raise ContinuityError(f"Fast activation requires triage before planning: {note_id}")
+        disposition = dispositions.get(note_id, {})
+        if (
+            disposition.get("disposition") == "current-goal"
+            and item.get("kind") in {"documentation-candidate", "backlog-candidate", "execution-candidate", "explicit-instruction"}
+            and item.get("routing_status") in {"route", "promote"}
+        ):
+            actionable_current_goal = True
+    if not actionable_current_goal:
+        raise ContinuityError("Fast activation requires a triaged actionable current-goal note")
+    request_path = Path(args.request_file).expanduser()
+    request_text = request_path.read_text(encoding="utf-8").strip()
+    if not request_text:
+        raise ContinuityError("The /goal request file must contain the user's explicit request")
+    if len(request_text) > MAX_NOTE_TEXT_CHARS:
+        raise ContinuityError(f"The /goal request exceeds {MAX_NOTE_TEXT_CHARS} characters")
+    validate_goal_planning_artifacts(goal, require_resolved=True)
+    validate_planning_artifact_parity(directory, goal)
+    if goal.get("roadmap_fingerprint") != roadmap_fingerprint(root, config, goal.get("roadmap_ids", [])):
+        raise ContinuityError("Roadmap context changed after planning; revise the goal before activation")
+    compliance = json_load(directory / "compliance.json", {})
+    if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError("Goal compliance ledger uses a missing or unsupported assurance standard")
+    for stage in ("capture-triage", "memory-retrieval", "roadmap-retrieval", "plan-review"):
+        state = compliance.get("stages", {}).get(stage, {}).get("status")
+        if state not in {"passed", "not-applicable"}:
+            raise ContinuityError(f"Compliance stage {stage} must pass before activation")
+    plan_hash = goal_material_hash(directory, goal)
+    stamp = iso_now(config)
+    approval = {
+        "schema_version": SCHEMA_VERSION,
+        "project_id": config["project_id"],
+        "goal_id": goal["goal_id"],
+        "plan_version": goal["plan_version"],
+        "plan_hash": plan_hash,
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+        "approved_at": stamp,
+        "approved_by": args.requested_by,
+        "authorization_text": request_text,
+        "nonce": secrets.token_hex(16),
+        "signature_format": "legacy-unsigned",
+    }
+    if not approval["behavior_configuration_hash"]:
+        approval.pop("behavior_configuration_hash")
+    try:
+        runtime_lib.validate_schema_file(approval, CONTROL_ROOT / "schemas" / "approval-receipt.schema.json", "approval receipt")
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    json_dump(directory / "approval.json", approval)
+    compliance["stages"]["approval"] = {
+        "status": "passed",
+        "evidence": ["interactive /goal request", hashlib.sha256(request_text.encode()).hexdigest(), plan_hash],
+        "updated_at": stamp,
+    }
+    compliance["updated_at"] = stamp
+    json_dump(directory / "compliance.json", compliance)
+    goal["plan_hash"] = plan_hash
+    goal["state"] = "queued"
+    goal["scheduled_for"] = stamp
+    goal["updated_at"] = stamp
+    json_dump(directory / "goal.json", goal)
+    update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "queued")
+    append_jsonl(
+        directory / "feedback.jsonl",
+        {"at": stamp, "author": args.requested_by, "type": "goal-request-authorization", "text": request_text},
+    )
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "goal.activated",
+            "goal_id": goal["goal_id"],
+            "plan_version": goal["plan_version"],
+            "request_hash": hashlib.sha256(request_text.encode()).hexdigest(),
+        },
+    )
+    dispatch = goal_start(argparse.Namespace(goal_id=goal["goal_id"], fast_interactive=True))
+    return {
+        "goal": json_load(directory / "goal.json", {}),
+        "approval": approval,
+        "dispatch": dispatch,
+        "authorization_envelope": {
+            "mode": "interactive-goal-request",
+            "request_hash": hashlib.sha256(request_text.encode()).hexdigest(),
+            "plan_hash": plan_hash,
+            "renew_only_for": [
+                "material scope expansion",
+                "elevated or consequential risk",
+                "restricted external side effect",
+                "destructive or irreversible action",
+            ],
+        },
+    }
 
 
 def requested_workspace_roots(values: Iterable[str] = ()) -> list[Path]:
@@ -5930,7 +6089,11 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
         enabled = set(config.get("collections", []))
         expected = set().union(*(by_collection.get(item, set()) for item in enabled)) if enabled else set()
         all_collection_skills = set().union(*by_collection.values()) if by_collection else set()
-        installed = {path.name for path in (root / ".agents" / "skills").glob("continuity*") if path.is_dir()}
+        installed = {
+            path.name
+            for path in (root / ".agents" / "skills").iterdir()
+            if (path.name == "goal" or path.name.startswith("continuity")) and path.is_dir()
+        }
         collection_checks["missing_skills"] = sorted(expected - installed)
         collection_checks["unexpected_collection_skills"] = sorted((installed & all_collection_skills) - expected)
         if collection_checks["missing_skills"] or collection_checks["unexpected_collection_skills"]:
@@ -6647,6 +6810,7 @@ def git_result(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
 def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
+    fast_interactive = bool(getattr(args, "fast_interactive", False))
     failures: list[str] = []
     evidence: list[str] = []
     try:
@@ -6654,7 +6818,10 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
         if not manifest.get("continuity_enabled"):
             failures.append("Continuity is disabled")
         if not manifest.get("execution_enabled"):
-            failures.append("project product-code execution is disabled")
+            if fast_interactive:
+                evidence.append("interactive-goal-request:execution-authorized; unattended-execution-disabled")
+            else:
+                failures.append("project product-code execution is disabled")
         if manifest.get("project_id") != config.get("project_id"):
             failures.append("project manifest and configuration IDs differ")
         if manifest.get("integration_branch") != config.get("integration_branch"):
@@ -6667,7 +6834,7 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
         evidence.append(f"approval:{approval['plan_hash']}")
     except ContinuityError as exc:
         failures.append(str(exc))
-    if config.get("require_audit_checkpoints", False):
+    if config.get("require_audit_checkpoints", False) and not fast_interactive:
         try:
             checkpoint = verify_audit_checkpoint(root, config)
             evidence.append(f"audit-checkpoint:{checkpoint['created_at']}")
@@ -6690,7 +6857,11 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
         if config.get("refresh_base_on_preflight", False):
             fetched = git_result(root, "fetch", "origin", base)
             if fetched.returncode != 0:
-                failures.append(f"failed to fetch origin/{base}: {fetched.stderr.strip()}")
+                message = f"failed to fetch origin/{base}: {fetched.stderr.strip()}"
+                if fast_interactive:
+                    evidence.append(f"advisory:{message}")
+                else:
+                    failures.append(message)
             else:
                 evidence.append(f"fetched:origin/{base}")
         local = git_result(root, "show-ref", "--verify", f"refs/heads/{base}")
@@ -6705,7 +6876,7 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
             failures.append("origin remote is unavailable")
         else:
             evidence.append("origin:configured")
-    if config.get("require_pr_auth", False):
+    if config.get("require_pr_auth", False) and not fast_interactive:
         gh = shutil.which("gh")
         if not gh:
             failures.append("GitHub CLI is required but unavailable")
@@ -6733,7 +6904,13 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
     }
     compliance["updated_at"] = stamp
     json_dump(directory / "compliance.json", compliance)
-    report = {"goal_id": args.goal_id, "passed": not failures, "failures": failures, "evidence": evidence}
+    report = {
+        "goal_id": args.goal_id,
+        "mode": "interactive-fast" if fast_interactive else "standard",
+        "passed": not failures,
+        "failures": failures,
+        "evidence": evidence,
+    }
     json_dump(directory / "preflight.json", report)
     return report
 
@@ -6755,10 +6932,11 @@ def execution_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
 def goal_start(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     goal, approval = validate_approval(root, config, args.goal_id)
+    fast_interactive = bool(getattr(args, "fast_interactive", False))
     if goal.get("state") != "queued":
         raise ContinuityError(f"Only a queued goal can be dispatched; current state is {goal.get('state')}")
     active_lease = None
-    if config.get("require_remote_lease", False):
+    if config.get("require_remote_lease", False) and not fast_interactive:
         active_lease = validate_active_remote_lease(
             root,
             config,
@@ -6766,7 +6944,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
             str(int(goal.get("execution_attempt", 1))),
         )
     directory = goal_dir(root, config, args.goal_id)
-    preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id))
+    preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id, fast_interactive=fast_interactive))
     if not preflight["passed"]:
         raise ContinuityError(f"Execution preflight failed: {preflight['failures']}")
     lock_path = private_path(root, config) / "project.lock.json"
@@ -6823,6 +7001,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "behavior_skill_path": config.get("behavior_skill_path", BEHAVIOR_SKILL_PATH),
         "assurance_standard_version": ASSURANCE_STANDARD_VERSION,
+        "execution_mode": "interactive-fast" if fast_interactive else "standard",
         "remote_lease": {
             key: active_lease.get(key)
             for key in ("goal_id", "attempt_id", "owner_fingerprint", "lease_commit", "bound_run_id", "bound_task_id")
@@ -7676,15 +7855,31 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         actions.append(workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True))
     elif state == "awaiting-feedback":
         current_stage = "plan-review"
-        next_skill = "continuity-dispatch"
-        actions.extend(
-            [
-                workflow_action("approve", "continuity-dispatch", f'{prefix} goal approve {goal_id} --version {goal["plan_version"]} --approved-by <human> --authorization-text "Approve {goal_id} plan v{goal["plan_version"]}"' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""), human_required=True, requirements=["decision-complete plan", "trusted SSH approver" if config.get("require_signed_approvals", False) else "recorded human identity"]),
-                workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True),
-                workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
-                workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
-            ]
+        fast_eligible = (
+            goal.get("authorization_mode") == "goal-request"
+            and goal.get("risk_level") == "routine"
+            and not goal.get("restricted_side_effects")
+            and not config.get("require_signed_approvals", False)
         )
+        next_skill = "goal" if fast_eligible else "continuity-dispatch"
+        if fast_eligible:
+            actions.append(
+                workflow_action(
+                    "activate",
+                    "goal",
+                    f"{prefix} goal activate {goal_id} --requested-by <user> --request-file <exact-request.txt>",
+                    requirements=["exact /goal request", "decision-complete aligned plan", "routine interactive scope"],
+                )
+            )
+        else:
+            actions.extend(
+                [
+                    workflow_action("approve", "continuity-dispatch", f'{prefix} goal approve {goal_id} --version {goal["plan_version"]} --approved-by <human> --authorization-text "Approve {goal_id} plan v{goal["plan_version"]}"' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""), human_required=True, requirements=["decision-complete plan", "trusted SSH approver" if config.get("require_signed_approvals", False) else "recorded human identity"]),
+                    workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True),
+                    workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
+                    workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
+                ]
+            )
     elif state == "held":
         current_stage = "held"
         next_skill = "continuity-dispatch"
@@ -10705,6 +10900,10 @@ def build_parser() -> argparse.ArgumentParser:
     roadmap_list.add_argument("--tag")
     roadmap_list.add_argument("--sprint")
     roadmap_list.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_list)
+    roadmap_inbox = roadmap_sub.add_parser("inbox")
+    roadmap_inbox.add_argument("--kind", choices=sorted(roadmap_lib.ROADMAP_KINDS))
+    roadmap_inbox.add_argument("--status", choices=["inbox", "triaged", "planned"])
+    roadmap_inbox.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_inbox)
     roadmap_show = roadmap_sub.add_parser("show")
     roadmap_show.add_argument("roadmap_id")
     roadmap_show.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_show)
@@ -10824,6 +11023,11 @@ def build_parser() -> argparse.ArgumentParser:
     approve.add_argument("--signing-key", help="SSH private key used to sign the canonical approval receipt")
     approve.add_argument("--schedule")
     approve.set_defaults(handler=goal_approve)
+    activate = goal_sub.add_parser("activate")
+    activate.add_argument("goal_id")
+    activate.add_argument("--requested-by", required=True)
+    activate.add_argument("--request-file", required=True)
+    activate.set_defaults(handler=goal_activate)
     start = goal_sub.add_parser("start")
     start.add_argument("goal_id")
     start.set_defaults(handler=goal_start)

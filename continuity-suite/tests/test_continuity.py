@@ -580,6 +580,16 @@ unresolved_gaps: []
         self.assertEqual(routed["work_status"], "open")
         self.assertIn("updated_at", routed)
         self.assertFalse(routed["execution_authorized"])
+        inbox = json.loads(self.cli("roadmap", "inbox").stdout)
+        projected = next(candidate for candidate in inbox if candidate["note_id"] == item["item_id"])
+        self.assertEqual(projected["status"], "triaged")
+        self.assertEqual(projected["visibility"], "private-inbox")
+        self.assertFalse(projected["execution_authorized"])
+        projection = json.loads((self.root / ".continuity" / "private" / "roadmap" / "projection.json").read_text(encoding="utf-8"))
+        self.assertIn(item["item_id"], {candidate["note_id"] for candidate in projection["roadmap_inbox"]})
+        brief = self.cli("roadmap", "brief", "approved bridge change").stdout
+        self.assertIn("Triaged roadmap inbox", brief)
+        self.assertIn(item["item_id"], brief)
         self.cli("note", "triage", capture["capture_id"], item["item_id"], "--kind", "explicit-instruction", "--action", "promote")
         queue = self.root / ".continuity" / "private" / "queues" / "planning.jsonl"
         self.assertEqual(len(queue.read_text(encoding="utf-8").splitlines()), 1)
@@ -594,6 +604,99 @@ unresolved_gaps: []
         deferred_question = capture["items"][2]["item_id"]
         morning = json.loads(self.cli("report", "morning").stdout)
         self.assertNotIn(deferred_question, {item.get("note_id") for item in morning["decisions_needed"]})
+
+    def test_goal_activate_binds_one_request_and_dispatches_routine_interactive_work(self) -> None:
+        capture = self.create_capture()
+        instruction = capture["items"][3]
+        self.cli(
+            "note", "triage", capture["capture_id"], instruction["item_id"],
+            "--kind", "explicit-instruction", "--action", "promote",
+        )
+        goal_file = self.root / "fast-goal.json"
+        self.write_json(
+            goal_file,
+            {
+                "title": "Implement the bridge change",
+                "scope": "Implement the requested bridge change without replacing Electron.",
+                "exclusions": ["Do not deploy or merge"],
+                "acceptance_criteria": ["The bridge behavior is implemented", "Validation passes"],
+                "source_note_ids": [instruction["item_id"]],
+                "note_dispositions": [
+                    {
+                        "note_id": instruction["item_id"],
+                        "disposition": "current-goal",
+                        "reason": "This is the exact implementation requested through /goal.",
+                        "delivery_slice_ids": [],
+                    }
+                ],
+                "memory_ids": ["memory-current"],
+                "authorization_mode": "goal-request",
+                "risk_level": "routine",
+                "restricted_side_effects": [],
+                "plan_reviewed": True,
+                "plan_review_evidence": "The plan is a faithful, bounded translation of the explicit request.",
+                "memory_reviewed": True,
+            },
+        )
+        goal = json.loads(self.cli("goal", "create", "--goal-file", str(goal_file)).stdout)
+        manifest_path = self.root / ".continuity" / "project.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["execution_enabled"] = False
+        self.write_json(manifest_path, manifest)
+        request_text = "Implement the approved bridge change now."
+        request_file = self.root / "goal-request.txt"
+        request_file.write_text(request_text, encoding="utf-8")
+        activated = json.loads(
+            self.cli(
+                "goal", "activate", goal["goal_id"],
+                "--requested-by", "fixture-user",
+                "--request-file", str(request_file),
+            ).stdout
+        )
+        self.assertEqual(activated["goal"]["state"], "dispatched")
+        self.assertEqual(activated["approval"]["authorization_text"], request_text)
+        self.assertEqual(activated["dispatch"]["execution_mode"], "interactive-fast")
+        self.assertIn(
+            "interactive-goal-request:execution-authorized; unattended-execution-disabled",
+            json.loads((self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "preflight.json").read_text(encoding="utf-8"))["evidence"],
+        )
+        self.assertEqual(activated["authorization_envelope"]["mode"], "interactive-goal-request")
+        status = json.loads(self.cli("workflow", "status", "--goal-id", goal["goal_id"]).stdout)["goal"]
+        self.assertEqual(status["current_stage"], "execution-start")
+        self.assertEqual(status["human_requirements"], [])
+        inbox = json.loads(self.cli("roadmap", "inbox", "--status", "planned").stdout)
+        self.assertIn(instruction["item_id"], {candidate["note_id"] for candidate in inbox})
+
+    def test_goal_activate_rejects_risk_and_restricted_side_effects(self) -> None:
+        for title, risk, effects in (
+            ("Elevated fast goal", "elevated", []),
+            ("External fast goal", "routine", ["deploy to production"]),
+        ):
+            goal_file = self.root / f"{title.replace(' ', '-')}.json"
+            self.write_json(
+                goal_file,
+                {
+                    "title": title,
+                    "scope": "Prepare work that requires a separate authority decision.",
+                    "acceptance_criteria": ["The bounded work is complete"],
+                    "memory_ids": ["memory-current"],
+                    "authorization_mode": "goal-request",
+                    "risk_level": risk,
+                    "restricted_side_effects": effects,
+                    "plan_reviewed": True,
+                    "memory_reviewed": True,
+                },
+            )
+            goal = json.loads(self.cli("goal", "create", "--goal-file", str(goal_file)).stdout)
+            request_file = self.root / f"{goal['goal_id']}.txt"
+            request_file.write_text(f"Start {title}.", encoding="utf-8")
+            rejected = self.cli(
+                "goal", "activate", goal["goal_id"],
+                "--requested-by", "fixture-user",
+                "--request-file", str(request_file),
+                expected=2,
+            )
+            self.assertIn("require separate", rejected.stderr)
 
     def test_derived_note_queue_ignores_stale_snapshots_and_resolves_questions(self) -> None:
         capture = self.create_capture()
@@ -3114,6 +3217,7 @@ class InstallerTest(unittest.TestCase):
             self.assertNotIn("project-continuity:start", agents)
             self.assertIn("Run manual end-to-end work through `$continuity-workflow`", agents)
             self.assertTrue((root / ".agents" / "skills" / "continuity" / "SKILL.md").exists())
+            self.assertTrue((root / ".agents" / "skills" / "goal" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-local" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-memory" / "SKILL.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-roadmap" / "SKILL.md").exists())
@@ -3127,6 +3231,7 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((root / ".agents" / "continuity" / "automation" / "provider-adapter-contract.md").exists())
             self.assertFalse((root / ".agents" / "project-continuity").exists())
             for command_root in (root / ".claude" / "commands", root / ".cursor" / "commands"):
+                self.assertTrue((command_root / "goal.md").exists())
                 self.assertTrue((command_root / "continuity-capture.md").exists())
                 self.assertTrue((command_root / "continuity-triage.md").exists())
                 self.assertTrue((command_root / "continuity-workflow.md").exists())
@@ -3135,6 +3240,9 @@ class InstallerTest(unittest.TestCase):
                 self.assertIn(".agents/skills/continuity-capture/SKILL.md", command_text)
                 self.assertIn(".agents/skills/continuity-local/SKILL.md", command_text)
                 self.assertIn("pause only at an explicit `human_required` approval boundary", command_text)
+                goal_command = (command_root / "goal.md").read_text(encoding="utf-8")
+                self.assertIn("Slash command: `/goal`", goal_command)
+                self.assertIn("continue into coding without separate approval or start pauses", goal_command)
             self.assertTrue((root / ".agents" / "references" / "development-assurance-standard.md").exists())
             self.assertTrue((root / ".agents" / "references" / "workflow-handoffs.md").exists())
             self.assertTrue((root / ".agents" / "skills" / "continuity-plan" / "references" / "goal-planning-lenses.md").exists())

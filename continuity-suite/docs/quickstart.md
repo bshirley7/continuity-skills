@@ -111,6 +111,7 @@ Continuity installs canonical skills under `.agents/skills/` and project-specifi
 In Codex, invoke the skills by name:
 
 ```text
+$goal
 $continuity
 $continuity-capture
 $continuity-triage
@@ -127,6 +128,7 @@ $continuity-report
 In slash-command hosts, use the generated shims:
 
 ```text
+/goal
 /continuity
 /continuity-capture
 /continuity-triage
@@ -143,14 +145,10 @@ In slash-command hosts, use the generated shims:
 The most common local flow is:
 
 ```text
-/continuity-capture   capture meeting notes, feedback, a PRD, or a feature request
-/continuity-triage    classify each captured item and route it
-/continuity-memory    retrieve or promote trusted project knowledge
-/continuity-roadmap   inspect roadmap context and links
-/continuity-plan      draft a reviewable plan from selected current-goal inputs
-/continuity-dispatch  record exact human approval or keep the goal awaiting feedback
-/continuity-report    summarize status, blockers, and decisions needed
+/goal <request>       capture, triage, update the roadmap inbox, plan, and start routine coding
 ```
+
+Use the granular commands when you want only one specialist stage, are resuming durable state, or are preparing unattended or higher-risk work.
 
 If slash commands are not available in the current host, ask the agent to use the matching `$continuity-*` skill or open the installed `SKILL.md` file directly.
 
@@ -168,6 +166,7 @@ Use these manual triggers:
 
 | When you want to run | Invoke | Notes |
 | --- | --- | --- |
+| Start a routine implementation now | `/goal <request>` | Uses one request-bound authorization envelope through triage, roadmap visibility, planning, dispatch, and coding. |
 | Route the next Continuity action | `/continuity` | Reads project health and handoff state, then routes to the right workflow. |
 | Capture new input | `/continuity-capture` | Creates private atomic notes from meetings, feedback, decisions, risks, PRDs, or feature requests. |
 | Classify captured notes | `/continuity-triage` | Use after capture, or whenever `workflow status` lists triage as the next skill. |
@@ -180,7 +179,7 @@ Use these manual triggers:
 | Assess PR and merge readiness | `/continuity-merge` | Use after final validation and a pushed PR. Human merge disposition is still separate. |
 | Summarize state and decisions | `/continuity-report` | Use any time a status, blocker, or morning-style decision report is needed. |
 
-The CLI is the state recorder and gatekeeper; the skills are the manual triggers for agent work. Do not add a generic "run next step" command that crosses approval, dispatch, execution, test, merge, or completion boundaries automatically.
+The CLI is the state recorder and gatekeeper; the skills are the user-facing workflows. `/goal` may bind one explicit routine request to approval and interactive dispatch. It never crosses merge, deployment, publication, destructive action, private-data disclosure, new cost, or other restricted external-effect boundaries automatically.
 
 ## 6. Record A Local Approval
 
@@ -196,7 +195,7 @@ When `$continuity-plan` creates a goal that is ready for review, inspect the exa
 
 For local installs, approval needs a recorded human identity and exact authorization text. SSH signing is only required when `.continuity/config.json` has `require_signed_approvals: true`.
 
-Approval does not start product-code execution while `execution_enabled` is `false`.
+Separate approval does not start product-code execution while `execution_enabled` is `false`. An explicit routine `/goal` request can still authorize its own interactive attempt; the flag continues to protect scheduled and unattended dispatch.
 
 ## 7. Work From The Machine Handoff
 
@@ -211,18 +210,18 @@ Use `workflow status` before and after each skill:
 
 Treat this output as the handoff. It lists the current stage, blockers, next skill, human requirements, and exact allowed command templates. Do not infer approval, dispatch, merge, or completion from conversation context alone.
 
-For manual work, start with `$continuity-workflow` or `/continuity-workflow`. It follows the machine-selected skill sequence continuously, including remediation and reruns, and pauses only for an action explicitly marked `human_required`. Resume the same workflow after recording the approval; completed stages are discovered from canonical state and are not repeated.
+For routine interactive implementation, start with `$goal` or `/goal`. For resumed, scheduled, diagnostic, or separately reviewed work, use `$continuity-workflow` or `/continuity-workflow`. Both continue through routine remediation and reruns; only genuine human authority boundaries pause.
 
-## 8. Turn On Execution Later
+## 8. Turn On Unattended Execution Later
 
-Execution is a separate production-readiness step. Before setting `execution_enabled` to `true`, configure:
+Scheduled and unattended execution is a separate production-readiness step. Before setting `execution_enabled` to `true`, configure:
 
 - exact hosted GitHub check names and reviewer requirements
 - an external audit checkpoint and verified encrypted backup
 - scheduler provider and registration, if scheduled work should run
 - trusted SSH approvers only if the project requires signed approval receipts
 
-Use [Production Pilot](production-pilot.md) for the controlled off-hours path. Keep local installs in analysis-and-planning mode until those requirements are intentionally in place.
+Use [Production Pilot](production-pilot.md) for the controlled off-hours path. Routine interactive `/goal` work does not require scheduler enrollment, remote leases, external audit checkpoints, or GitHub authentication merely to begin coding; those controls return when the workflow reaches the external operation they protect.
 
 ## Troubleshooting
 

@@ -169,6 +169,69 @@ def entries(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+def inbox_entries(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Project actionable, triaged notes into the private roadmap inbox."""
+    result: list[dict[str, Any]] = []
+    actionable_kinds = {
+        "documentation-candidate": "chore",
+        "backlog-candidate": "story",
+        "execution-candidate": "story",
+        "explicit-instruction": "story",
+    }
+    for path in sorted((_private(root, config) / "captures").glob("**/*.json")):
+        capture = _load(path, {})
+        if not isinstance(capture, dict):
+            continue
+        for item in capture.get("items", []):
+            if not isinstance(item, dict) or item.get("kind") not in actionable_kinds:
+                continue
+            routing_status = item.get("routing_status")
+            if routing_status not in {"route", "promote", "defer"}:
+                continue
+            note_id = str(item.get("item_id", ""))
+            text = str(item.get("text", "")).strip()
+            if not note_id or not text:
+                continue
+            active_goal_links = [
+                goal_id
+                for goal_id, link in item.get("goal_links", {}).items()
+                if isinstance(link, dict)
+                and link.get("disposition") == "current-goal"
+                and link.get("state") not in {"cancelled", "completed", "unlinked"}
+            ]
+            status = "planned" if active_goal_links else "inbox" if routing_status == "defer" else "triaged"
+            title = text.splitlines()[0].strip()
+            if len(title) > 96:
+                title = title[:93].rstrip() + "..."
+            result.append(
+                {
+                    "roadmap_id": f"inbox-{note_id}",
+                    "note_id": note_id,
+                    "title": title,
+                    "kind": actionable_kinds[item["kind"]],
+                    "note_kind": item["kind"],
+                    "status": status,
+                    "health": "unknown",
+                    "summary": text,
+                    "goals": sorted(active_goal_links),
+                    "parent_ids": [],
+                    "depends_on": [],
+                    "memory_ids": [],
+                    "note_ids": [note_id],
+                    "evidence": [f"capture:{capture.get('capture_id')}"],
+                    "actionability": item.get("actionability"),
+                    "impact": item.get("impact"),
+                    "confidence": item.get("confidence"),
+                    "themes": item.get("themes", []),
+                    "review_after": item.get("review_after"),
+                    "updated_at": item.get("updated_at") or capture.get("captured_at"),
+                    "visibility": "private-inbox",
+                    "execution_authorized": False,
+                }
+            )
+    return result
+
+
 def audit(root: Path, config: dict[str, Any], *, persist: bool = True) -> dict[str, Any]:
     issues: dict[str, list[Any]] = {name: [] for name in ("invalid", "duplicates", "unknown_parents", "unknown_dependencies", "unknown_links", "cycles", "orphans", "milestone_health", "sprint", "estimates", "dates", "contradictions", "stale_note_links")}
     normalized: list[dict[str, Any]] = []
@@ -259,6 +322,7 @@ def _append_jsonl(path: Path, value: Any) -> None:
 def projection(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     root = root.resolve()
     committed = entries(root, config)
+    inbox = inbox_entries(root, config)
     goals = []
     for path in (_private(root, config) / "goals").glob("*/goal.json"):
         goal = _load(path, {})
@@ -268,7 +332,16 @@ def projection(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     for path in sorted((root / ".continuity" / "shared-notes" / "packets").glob("**/*.md")):
         metadata, _body = parse_entry(path)
         packets.append({**metadata, "path": str(path.relative_to(root)), "visibility": "committed"})
-    value = {"schema_version": 1, "project_id": config["project_id"], "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "entities": committed, "goals": goals, "note_links": links, "shared_packets": packets}
+    value = {
+        "schema_version": 1,
+        "project_id": config["project_id"],
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "entities": committed,
+        "roadmap_inbox": inbox,
+        "goals": goals,
+        "note_links": links,
+        "shared_packets": packets,
+    }
     target = _private(root, config) / "roadmap" / "projection.json"
     _dump(target, value)
     db = _private(root, config) / "roadmap" / "projection.sqlite"
@@ -317,6 +390,7 @@ def _goal_allows(root: Path, config: dict[str, Any], goal_id: str, roadmap_id: s
         "schema_version", "goal_id", "project_id", "title", "plan_version", "priority", "depends_on",
         "source_note_ids", "note_dispositions", "memory_ids", "roadmap_ids", "roadmap_impact", "roadmap_fingerprint", "scope", "exclusions",
         "acceptance_criteria", "documentation_updates", "required_checks", "runtime_limit_minutes",
+        "authorization_mode", "risk_level", "restricted_side_effects",
         "triage_brief", "decision_map", "delivery_slices",
     }
     machine = {key: goal.get(key) for key in sorted(immutable_keys)}
@@ -340,7 +414,14 @@ def _goal_allows(root: Path, config: dict[str, Any], goal_id: str, roadmap_id: s
 
 def command_index(root: Path, config: dict[str, Any], _args: argparse.Namespace) -> dict[str, Any]:
     value = projection(root, config)
-    return {"entries": len(value["entities"]), "goals": len(value["goals"]), "note_links": len(value["note_links"]), "shared_packets": len(value["shared_packets"]), "projection": str((_private(root, config) / "roadmap" / "projection.json").relative_to(root))}
+    return {
+        "entries": len(value["entities"]),
+        "inbox": len(value["roadmap_inbox"]),
+        "goals": len(value["goals"]),
+        "note_links": len(value["note_links"]),
+        "shared_packets": len(value["shared_packets"]),
+        "projection": str((_private(root, config) / "roadmap" / "projection.json").relative_to(root)),
+    }
 
 
 def command_list(root: Path, config: dict[str, Any], args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -354,17 +435,57 @@ def command_list(root: Path, config: dict[str, Any], args: argparse.Namespace) -
     return [{key: item.get(key) for key in ("roadmap_id", "title", "kind", "status", "health", "target_date", "path", "visibility")} for item in result]
 
 
+def command_inbox(root: Path, config: dict[str, Any], args: argparse.Namespace) -> list[dict[str, Any]]:
+    result = inbox_entries(root, config)
+    if getattr(args, "status", None):
+        result = [item for item in result if item.get("status") == args.status]
+    if getattr(args, "kind", None):
+        result = [item for item in result if item.get("kind") == args.kind]
+    return result
+
+
 def command_show(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     return _find_entry(root, config, args.roadmap_id)
 
 
 def command_brief(root: Path, config: dict[str, Any], args: argparse.Namespace) -> str:
     matches = search(root, config, args.query, args.limit)
+    tokens = [token.lower() for token in args.query.replace("/", " ").replace("-", " ").split() if token]
+    inbox_matches = [
+        item
+        for item in inbox_entries(root, config)
+        if not tokens
+        or all(
+            token
+            in " ".join(
+                str(item.get(key, ""))
+                for key in ("title", "summary", "kind", "note_kind", "themes")
+            ).lower()
+            for token in tokens
+        )
+    ][: args.limit]
     lines = [f"# Project Roadmap Brief: {args.query}", ""]
-    if not matches:
-        lines.append("No matching committed roadmap context was found.")
+    if not matches and not inbox_matches:
+        lines.append("No matching committed roadmap context or triaged inbox candidate was found.")
     for item in matches:
         lines.extend([f"## {item.get('title')} ({item.get('roadmap_id')})", "", str(item.get("summary", "")), "", f"- Kind: {item.get('kind')}", f"- Status: {item.get('status')}", f"- Health: {item.get('health', 'unknown')}", f"- Dependencies: {', '.join(item.get('depends_on', [])) or 'none'}", f"- Memory: {', '.join(item.get('memory_ids', [])) or 'none'}", f"- Source: `{item.get('path')}`", ""])
+    if inbox_matches:
+        lines.extend(["## Triaged roadmap inbox", ""])
+        for item in inbox_matches:
+            lines.extend(
+                [
+                    f"### {item.get('title')} ({item.get('note_id')})",
+                    "",
+                    str(item.get("summary", "")),
+                    "",
+                    f"- Status: {item.get('status')}",
+                    f"- Actionability: {item.get('actionability')}",
+                    f"- Impact: {item.get('impact')}",
+                    f"- Goals: {', '.join(item.get('goals', [])) or 'none'}",
+                    "- Authority: planning context only",
+                    "",
+                ]
+            )
     return "\n".join(lines)
 
 

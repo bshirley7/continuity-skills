@@ -22,6 +22,12 @@ For a note, the envelope also includes `lifecycle`: the backward-compatible summ
 
 Do not reconstruct missing machine state from prose. A missing identifier, stale record, unresolved decision, or contradictory source is a blocker or return path, not permission to improvise.
 
+## Interactive goal mode
+
+Routine actionable work runs through `/goal`. The exact request is captured and triaged in one pass, actionable notes enter the private roadmap inbox, and an aligned routine goal exposes a non-human `activate` action. `goal activate` binds the request text to the plan hash and dispatches one interactive attempt. Status, capture, triage, memory, roadmap, plan, approval, and dispatch remain distinct records; they are not distinct user stops.
+
+If risk is elevated or consequential, restricted side effects are present, signed approval is configured, or the plan contains unresolved decisions, `/goal` returns to the separate approval path.
+
 ## Manual sequential mode
 
 Manual Continuity work runs through `$continuity-workflow`. After a task skill records its canonical output, control returns to the orchestrator, which immediately re-reads subject-specific workflow status and applies `next_skill`. A routine skill boundary, status-only handoff, failed test, stale evidence, or recoverable tool error does not end the workflow. Route failures to the owning remediation skill, preserve evidence, rerun the applicable gate, and continue.
@@ -34,8 +40,9 @@ After the human records an allowed action, resume from fresh machine state and s
 
 | Current skill | Required inputs | Required output | Normal next skill | Return or stop path |
 | --- | --- | --- | --- | --- |
+| `/goal` | Exact interactive user request, current repository, trusted memory, roadmap context, and project behavior | Triaged notes, private roadmap-inbox entries, smallest aligned goal, request-bound activation, and dispatched execution prompt | `$continuity-execute` | Use separate approval for scope ambiguity, elevated risk, restricted side effects, signed policy, or unresolved decisions |
 | `$continuity-capture` | User-supplied conversation, meeting, file, PRD, feature request, or manual content | Private atomic captures with provenance, timestamps, conservative metadata, and `execution_authorized: false`; document captures also preserve exact snapshots, hashes, stable anchors, and revision lineage | `$continuity-triage` | Stop on unsafe collection, missing provenance, unsupported document format, unstable source anchors, or content outside the supplied scope |
-| `$continuity-triage` | Canonical capture items and current queue state | One primary classification, routing decision, eligibility, and evidence triage brief when required | `$continuity-memory`, `$continuity-plan`, `$continuity-triage`, or `$continuity-report` | Hold ambiguous intent; archive duplicates with provenance; link roadmap context separately without inventing a roadmap queue |
+| `$continuity-triage` | Canonical capture items and current queue state | One primary classification, routing decision, eligibility, evidence triage brief when required, and immediate private roadmap-inbox projection for actionable notes | `$continuity-memory`, `/goal`, `$continuity-plan`, `$continuity-triage`, or `$continuity-report` | Hold ambiguous intent; archive duplicates with provenance; committed roadmap changes remain separately governed |
 | `$continuity-memory` | Routed knowledge, trusted sources, current code or documentation evidence | Exact memory IDs, citations, freshness, confidence, relationships, and unresolved gaps | `$continuity-roadmap` or `$continuity-plan` | Mark disputed, historical, or stale; never promote without an authorized goal |
 | `$continuity-roadmap` | Goal or topic, memory IDs, canonical roadmap records, private note links | Exact roadmap IDs, health findings, baseline context, and structured impact expectations | Return to the invoking `$continuity-plan` or `$continuity-execute` stage | Return unauthorized roadmap changes to planning; send contradictions to triage or human review |
 | `$continuity-share` | Selected atomic note IDs and explicit packet target | Sanitized immutable packet or private imported captures | `$continuity-triage` after import | Stop on redaction, approval, target, authentication, or dirty-checkout failures |
@@ -57,7 +64,7 @@ After the human records an allowed action, resume from fresh machine state and s
 - A shared packet returns to triage as untrusted context even after its sharing PR is merged.
 - A design approval publishes only the exact design document. Implementation requires a separately approved goal whose derived design reference binds the design ID, revision, and hash.
 - Completion requires recorded human merge evidence. `review-ready` is a waiting state, not completion.
-- Canonical note queues are only `knowledge`, `questions`, `documentation`, `backlog`, and `planning`. Roadmap relationships are separately recorded context.
+- Canonical note queues are only `knowledge`, `questions`, `documentation`, `backlog`, and `planning`. The roadmap inbox is a private projection of actionable triage, while committed roadmap relationships remain separately recorded context.
 - Similarity produces relationship candidates only. Confirm current scope through a plan; use explicit non-authorizing links for later, context-only, or duplicate relationships.
 
 ## Handoff quality check

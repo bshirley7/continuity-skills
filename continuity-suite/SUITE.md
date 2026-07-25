@@ -6,7 +6,7 @@ For a first local install path, read [Quickstart](docs/quickstart.md). For the d
 
 ## Operating boundary
 
-Notes are knowledge first. Capture and triage never authorize documentation or code changes. An executable goal requires a decision-complete plan, exact version approval, a valid plan hash, successful preflight, and explicit dispatch.
+Notes are knowledge first. Capture and triage never authorize documentation or code changes. For routine interactive work, `/goal` binds the exact user request to a decision-complete plan hash and records approval plus dispatch atomically. Unattended, elevated-risk, consequential, and separately prepared work retains distinct approval and dispatch decisions.
 
 Every installed skill applies the versioned development assurance standard. The CLI requires the same version in project configuration, enrollment manifests, dispatch records, and compliance ledgers, and blocks incompatible execution or completion.
 
@@ -40,7 +40,7 @@ The installed control directory also includes a provider-neutral portfolio super
 
 See `automation/provider-adapter-contract.md` for the provider conformance requirements and proof checklist.
 
-Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, installs `$continuity-workflow` as the manual sequential runner, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
+Installation creates a minimal project-memory index, installs `/goal` as the primary action entry point, keeps `$continuity` for configuration and routing, installs `$continuity-workflow` for resumed and scheduled work, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
 ## Installation
 
@@ -78,6 +78,7 @@ Raw captures never travel through Git. `$continuity-share` lets a developer sele
 
 ```text
 continuity roadmap index
+continuity roadmap inbox
 continuity roadmap list
 continuity roadmap show <roadmap-id>
 continuity roadmap brief "<topic-or-id>"
@@ -156,15 +157,15 @@ Use `continuity suite update --check`, a dry run, and an explicit tagged update 
 
 The steps below are the concise reference. [Operating Workflow](docs/operating-workflow.md) explains authority, scheduler activation, commands, failure handling, rework, and morning review in detail.
 
-1. Invoke `$continuity` for setup or routing. For manual end-to-end work, invoke `$continuity-workflow`; it applies `$continuity-local` with each machine-selected task skill, continues through non-human handoffs and remediation, and pauses only at explicit approval boundaries.
-2. Invoke `$continuity-capture` in the active project conversation or point it to a local Markdown/plain-text PRD or feature request. One document revision remains one source capture with multiple atomic items.
-3. Invoke `$continuity-triage`, or allow the nightly review to classify and route items. Refine occurrence dimensions and review recurring patterns when useful.
+1. Invoke `/goal <request>` for routine interactive implementation. It applies `$continuity-local`, captures and triages the request, updates the private roadmap inbox, creates the smallest aligned goal, activates it, and continues into code without routine handoff pauses. Use `$continuity` for setup or routing and `$continuity-workflow` for resumed, scheduled, diagnostic, or separately reviewed work.
+2. For knowledge-only intake, invoke `$continuity-capture` in the active project conversation or point it to a local Markdown/plain-text PRD or feature request. One document revision remains one source capture with multiple atomic items.
+3. Invoke `$continuity-triage`, or allow `/goal` or the nightly review to classify and route items. Actionable triaged notes appear immediately in the private roadmap inbox.
 4. Use `$continuity-memory` and `$continuity-roadmap` to retrieve cited context briefs. Private similarity may inform triage, but only canonical promoted memory is trusted planning evidence. Use the local read-only roadmap sidecar when visual transport helps.
 5. Use `$continuity-share` only for explicitly selected, sanitized, approved developer handoffs.
 6. When material experience decisions are unresolved and the optional collection is enabled, use `$continuity-design` to select and exactly approve `docs/design/design.md`. This approves only the design document.
 7. Use `$continuity-plan` only for selected candidates. Verify action claims, map unresolved decisions for complex work, record `roadmap_ids`, `design_ids` when applicable, and structured `roadmap_impact`, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
-8. Approve an exact goal version; it queues for the project-configured dispatch time.
-9. Use `$continuity-dispatch` to start an approved goal earlier when needed.
+8. For routine `/goal` work, bind the exact request and activate the aligned plan immediately. For unattended, elevated-risk, consequential, signed-policy, or separately prepared work, approve an exact goal version and use `$continuity-dispatch`.
+9. Continue directly into execution when fast activation succeeds.
 10. Use `$continuity-execute` in the assigned isolated worktree. Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts, then commit them.
 11. Use `$continuity-test` for the final source-bound run on that committed state.
 12. Use `$continuity-product-audit` to reconcile applicable product behavior with approved intent, including any exact approved design, on the same source state, or record explicit not-applicable evidence.
@@ -175,17 +176,19 @@ The steps below are the concise reference. [Operating Workflow](docs/operating-w
 
 ```mermaid
 flowchart LR
-    A["Captured notes"] --> B["Atomic classification"]
+    Z["/goal request"] --> A["Capture and atomic triage"]
+    A --> E["Private roadmap inbox"]
     B --> C["Private project knowledge"]
     B --> D["Questions and deferred items"]
-    B --> E["Planning candidates"]
+    A --> B["Knowledge and questions"]
     C --> F["Approved memory promotion"]
     F --> G["Trusted searchable memory"]
-    E --> H["Versioned plan"]
+    E --> H["Smallest aligned plan"]
     G --> H
-    H --> I{"Explicit plan approval"}
-    I -->|"No"| J["Feedback or hold"]
-    I -->|"Yes"| K["10 PM queue or manual start"]
+    H --> I{"Authority path"}
+    I -->|"Routine interactive"| K["Request-bound activation"]
+    I -->|"Unattended or higher risk"| J["Separate approval and dispatch"]
+    J --> K
     K --> L["Isolated project worktree"]
     L --> M["Testing, code review, validation, and security report"]
     M --> N["Product-conformance audit"]

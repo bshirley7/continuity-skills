@@ -4,7 +4,7 @@
 
 # Continuity Suite
 
-Continuity turns project conversations and notes into searchable memory, roadmap context, reviewable plans, supervised off-hours execution, and next-business-day decision reports.
+Continuity turns one explicit `/goal` request into triaged project context, immediate roadmap visibility, a bounded plan, and working code. The same suite retains stricter supervised controls for unattended execution and consequential actions.
 
 ## Start Here
 
@@ -33,8 +33,8 @@ python3 continuity-suite/installer/install.py \
   --validation "project validation command"
 ```
 
-After installation, day-to-day use happens inside the project with `$continuity-*` skills and the installed project-local CLI at `.agents/continuity/bin/continuity`.
-The installer also creates `.claude/commands/continuity-*.md` and `.cursor/commands/continuity-*.md` shims so compatible hosts can invoke the same workflows as slash commands such as `/continuity-workflow`, `/continuity-capture`, and `/continuity-triage`.
+After installation, routine action starts with `/goal <request>`. Granular `$continuity-*` skills and the project-local CLI at `.agents/continuity/bin/continuity` remain available for scheduled, resumed, diagnostic, and specialist work.
+The installer creates `.claude/commands/goal.md`, `.cursor/commands/goal.md`, and the granular Continuity shims.
 
 The guided installer can save portable user defaults in `~/.continuity/defaults.json`, then generate isolated project controls for Codex, Claude Code, Cursor, Windsurf, or another `AGENTS.md`-aware surface. One provider-owned portfolio supervisor calculates due actions, refreshes an expiring heartbeat, atomically reserves capacity, and issues one-time project claims. Repository-specific commands, instructions, notes, approvals, roadmap state, and execution enrollment never move into the user-default profile.
 
@@ -43,6 +43,7 @@ To update every enrolled project beneath one or more workspace roots, run `conti
 ## Daily Skill Calls
 
 ```text
+/goal                 go from one explicit request to working code
 $continuity           configure, audit, and route the suite
 $continuity-workflow  run a manual request sequentially until approval or completion
 $continuity-capture   capture a callout, meeting batch, PRD, or feature request
@@ -61,13 +62,13 @@ $continuity-improve   refine learned playbooks from evaluated usage without chan
 $continuity-design    create and approve an exact design document from offline guidance (optional collection)
 ```
 
-Every skill uses `continuity workflow status` as its shared machine handoff. Manual work is owned by `$continuity-workflow`, which continues through every machine-selected non-human skill and remediation loop without returning a status-only handoff to the user. It pauses only when the machine handoff declares an explicit human-required approval, then resumes from canonical state after that approval is recorded. Exact note status includes a derived dated lifecycle, planning disposition, separate goal tracks, and non-authorizing relationship candidates. Plans classify every source note as current-goal, later, context-only, or duplicate; only current-goal notes adopt execution state. Unqualified status remains project routing context only.
+Every skill uses `continuity workflow status` as its shared machine handoff. Routine interactive work is owned by `/goal`, which captures and triages the request, projects actionable notes into the private roadmap inbox, binds the exact request to the smallest aligned plan, and starts implementation without separate approval or start pauses. `$continuity-workflow` continues scheduled, resumed, or stricter flows. Both pause only for genuine authority changes or consequential actions.
 
 Shared references explain that machine contract, while each task skill includes a compact applied guide with decision boundaries, examples, anti-examples, quality checks, and stage-specific handoff requirements. The references improve judgment but never override CLI state or create authorization.
 
 Every installed skill separates its protected `SKILL.md` contract from an evolvable `references/learned-playbook.md`. `$continuity-improve` records sanitized private outcomes, discovers recurring successful and adverse patterns, stages bounded playbook candidates, and accepts a candidate only when fixed validation improves, untouched test evidence does not regress, protected invariants pass, and a human reviews the result. It never edits the live skill, auto-adopts guidance, or turns usage into execution authority; an approved package still requires a separately approved suite-source goal and normal release validation.
 
-Notes and feedback are captured first with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata. A pointed-to PRD or feature request remains one source capture with an exact private snapshot, document hash, revision lineage, and structurally anchored atomic items. Official project documents can appear in trusted retrieval as product intent; supplied references stay private. Neither form proves implementation behavior or authorizes work.
+Notes and feedback are captured with time, occurrence, perspective, sentiment, impact, confidence, actionability, stakeholder, and theme metadata, then triaged in the same `/goal` run. Actionable triaged items appear immediately in the private roadmap inbox. A pointed-to PRD or feature request remains one source capture with an exact private snapshot, document hash, revision lineage, and structurally anchored atomic items. Capture and roadmap visibility alone never authorize work; `/goal` authority comes from the exact user request bound to the resulting plan hash.
 
 Projects that need design direction can enable the optional collection with `--collection design`. `$continuity-design` composes one to three directions from project context and reviewed offline references, requires explicit selection or combination, and promotes only an exactly approved private draft to `docs/design/design.md`. React and web work defaults to a complete private prototype that inventories the installed implementation system, maps component reuse and custom expression, plans assets, renders desktop, tablet, and mobile evidence, and closes artifact critique before approval. The prototype remains outside product routes and build inputs. The catalog layers broad foundation packs with independently versioned, evidence-backed category packs and loads only the overlays matching the design input. When `lenses` is omitted, an offline routing table applies a universal UX baseline and context-matched lenses, recording matched terms and reasons in the private draft; an explicit non-empty `lenses` array retains manual selection for bounded specialist or compatibility use. The committed `.continuity/design.json` binds its ID, revision, hash, and all selected catalog-pack versions. Design approval authorizes only that document; implementation still requires a separately approved goal bound to the exact design hash.
 

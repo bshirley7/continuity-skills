@@ -60,4 +60,4 @@ Use `note queue --queue <knowledge|questions|documentation|backlog|planning>` as
 
 ## Handoff
 
-Run `continuity workflow status --note-id <note-id>` before and after changing each item. Report the derived lifecycle, dated timeline, planning disposition, per-goal tracks, and unconfirmed relationship candidates. Knowledge or documentation normally moves to `$continuity-memory`, planning or backlog to `$continuity-plan`, and unresolved questions remain with `$continuity-triage` or `$continuity-report`. Roadmap links are context, not a queue.
+Run `continuity workflow status --note-id <note-id>` before and after changing each item. Every actionable routed or promoted note is projected immediately into `continuity roadmap inbox`; verify that projection in the same run. Report the derived lifecycle, dated timeline, planning disposition, per-goal tracks, and unconfirmed relationship candidates. Under `/goal`, planning or backlog continues directly into the smallest aligned goal. Unresolved questions remain with `$continuity-triage` or `$continuity-report`. Roadmap links and inbox visibility are context, not execution authority.

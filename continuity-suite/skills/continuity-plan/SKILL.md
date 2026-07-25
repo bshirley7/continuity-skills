@@ -32,7 +32,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 9. Give every `source_note_id` exactly one explicit `note_disposition`: `current-goal`, `later`, `context-only`, or `duplicate`. Omission fails closed for new goals and source-changing revisions. Later work requires `review_after` or a roadmap anchor. Map current-goal notes to delivery slices when applicable and state why every disposition was selected.
 10. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `note_dispositions`, `roadmap_ids`, optional `design_ids`, and `roadmap_impact`; the CLI validates them, renders derived source and design references into the plan, and includes them in the approval hash.
 11. Record evidence for `capture-triage`, `memory-retrieval`, `roadmap-retrieval`, and `plan-review` compliance stages.
-12. Leave the goal `awaiting-feedback`.
+12. Leave a separately reviewed goal `awaiting-feedback`. For routine `/goal` work, set `authorization_mode: goal-request`, `risk_level: routine`, and no restricted side effects so the exact user request can activate it immediately.
 
 Only `current-goal` notes adopt the goal's delivery state. Inclusion in a plan means `planned`, never `in progress`; that begins only when the canonical run reaches `running`. Later, context-only, and duplicate notes remain outside approved execution scope. Human merge evidence alone moves current-goal notes to `completed`.
 
@@ -51,4 +51,4 @@ Do not publish decision or delivery tickets externally as a side effect of plann
 
 ## Handoff
 
-Run `continuity workflow status` on entry and `continuity workflow status --goal-id <goal-id>` after creation or revision. Hand off an `awaiting-feedback` goal to `$continuity-dispatch` for one of the machine-listed human actions; never infer approval.
+Run `continuity workflow status` on entry and `continuity workflow status --goal-id <goal-id>` after creation or revision. Under `/goal`, bind the exact request with `goal activate` and continue directly into execution. Other `awaiting-feedback` goals hand off to `$continuity-dispatch` for one of the machine-listed human actions; never infer approval.

@@ -7,7 +7,7 @@ description: Approve, queue, schedule, start, hold, cancel, resume, and inspect 
 
 Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
 
-Keep approval and dispatch as separate recorded transitions. Never infer either from conversational enthusiasm or note capture.
+Keep approval and dispatch as separate recorded transitions. A routine interactive `/goal` request may authorize both through one hash-bound activation command; never infer either from conversational enthusiasm or note capture.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `.continuity/project.json`, and `.continuity/config.json`.
 
@@ -15,7 +15,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 ## Required assurance
 
-- Accept only explicit human approval that names the exact goal and plan version. In signed-approval projects, require the receipt to verify against the project's trusted SSH approver allowlist and require that allowlist to match the fetched integration-branch anchor. Never synthesize an approver, approval text, signing key, or dispatch instruction.
+- Accept either explicit human approval naming the exact goal and plan version, or the exact text of a routine `/goal` invocation bound by `goal activate` to the aligned plan hash. In signed-approval projects, require the receipt to verify against the project's trusted SSH approver allowlist and require that allowlist to match the fetched integration-branch anchor. Never synthesize an approver, approval text, signing key, or dispatch instruction.
 - Fail closed on stale hashes, unsupported assurance versions, disabled execution, illegal states, unresolved decision-map items, invalid delivery-slice graphs, unmet dependencies, active locks, expired runtime, missing authentication, or failed preflight evidence.
 - Audit approval, scheduler dispatch, and execution as separate transitions, including actor, timestamp, plan hash, schedule, idempotency key, one-time claim hash, dependency state, project lock, task ID, heartbeat, and outcome.
 

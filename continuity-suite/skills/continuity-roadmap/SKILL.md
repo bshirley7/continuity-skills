@@ -16,7 +16,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 1. Run `continuity project doctor` and `continuity roadmap audit`.
 2. Run `continuity roadmap brief "<goal or topic>"` before planning or execution. Cite returned roadmap IDs and Markdown paths.
 3. Keep canonical, sanitized records under `docs/project-roadmap/entities/`. Markdown is authoritative; ignored SQLite and JSON projections are derived.
-4. Link private notes with `continuity roadmap link-note`; never place raw note content in committed roadmap records.
+4. Review `continuity roadmap inbox`. Actionable triaged notes appear there automatically in private state so they can be planned immediately. Link a note to an existing committed record with `continuity roadmap link-note`; never place raw note content in committed roadmap records.
 5. Create or revise records only from an approved goal whose hash includes the exact `roadmap_ids` and structured `roadmap_impact` action.
 6. Reconcile the result with source notes, plan, implementation, evidence, and project memory. Complete `roadmap-impact.md` and the `roadmap-impact` compliance gate.
 7. Use `continuity roadmap serve --open` only from a local Git clone. The sidecar is read-only and must never enter application source, packaging inputs, preview, staging, or production artifacts.
@@ -33,4 +33,4 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 ## Handoff
 
-Run `continuity workflow status --roadmap-id <roadmap-id>` for each selected record on entry and exit. A note disposition of `later` may use a roadmap ID as its durable follow-up anchor without entering current execution scope. Planning receives exact roadmap IDs and health evidence. Execution may update roadmap records only when the approved goal hash names the corresponding structured impact.
+Run `continuity workflow status --roadmap-id <roadmap-id>` for each selected committed record on entry and exit. The private inbox is immediate planning visibility and requires no separate promotion pause. A note disposition of `later` may use a roadmap ID as its durable follow-up anchor without entering current execution scope. Planning receives exact roadmap IDs and health evidence. Execution may update committed roadmap records only when the goal hash names the corresponding structured impact.

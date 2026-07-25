@@ -2,7 +2,7 @@
 
 ## Governing rule
 
-Treat notes as project knowledge first. Only a deliberately promoted, decision-complete, explicitly approved, and dispatched goal authorizes execution.
+Treat notes as project knowledge first. Code execution requires a deliberately promoted, decision-complete goal bound to explicit human authority. For routine interactive work, `/goal <request>` is that authority: `goal activate` binds the exact request to the resulting plan hash and records approval plus dispatch without another human pause. Captured notes, inferred intent, and scheduled work never receive that shortcut.
 
 ## Assurance standard
 
@@ -56,7 +56,7 @@ Set `execution_authorized: false` during capture and triage. Classify ambiguity 
 
 Use: `awaiting-feedback`, `queued`, `dispatched`, `running`, `validating`, `review-ready`, `changes-requested`, `completed`, `partially-completed`, `blocked`, `cancelled`, or `held`. `proposed-plan` and `approved` are readable legacy states that require explicit `goal revise` migration; new operations do not emit them.
 
-Approval and dispatch are separate events. Bind approval to the exact plan version, SHA-256 material hash, behavior hash, project, approver identity, timestamp, and nonce. Any plan or machine-goal edit invalidates approval.
+Approval and dispatch remain separate machine events. A routine interactive `/goal` invocation may record both under one request-bound authorization envelope; unattended work and separately prepared plans retain explicit approval and dispatch decisions. Bind approval to the exact plan version, SHA-256 material hash, behavior hash, project, approver identity, timestamp, and nonce. Any plan or machine-goal edit invalidates approval.
 Only the human's explicit approval text and recorded identity may populate a current approval record; an agent must never generate or infer them or select a signing key. In a signed-approval project, the approval must also carry an SSH signature from a project-trusted approver, and in remote production mode the local approver allowlist must match its fetched integration-branch copy byte-for-byte. `approval trust add` prepares a tracked change but grants no authority until protected human review merges it and the integration branch is fetched. Unsigned local approvals remain readable history but cannot authorize execution in a signed-approval project.
 
 State transitions are enforced. Every human disposition and every in-scope resume in a signed-approval project carries an SSH-signed receipt bound to project, goal, plan hash/version, execution attempt, identity, timestamp, nonce, and the applicable evidence or authorization text. `changes-requested`, `blocked`, and `partially-completed` may reopen only through that explicit signed authorization naming the goal and approved plan version. Reopening archives the prior attempt, starts a fresh execution manifest, and invalidates downstream evidence; changed scope requires revision and fresh approval.
@@ -70,7 +70,7 @@ All project-local CLI operations serialize through the project-state lock. Backu
 
 Use `continuity workflow status` as the machine handoff contract. Select an exact capture, note, memory, roadmap, packet, or goal whenever an ID is available; project-wide status is routing context only. Skills must inspect the applicable status on entry and report it on exit. Its stage, subject IDs, inputs, outputs, decisions, blockers, evidence, next skill, human requirements, allowed command templates, and blocked actions do not authorize human-required actions by themselves. An action may appear in `allowed_actions` only when its current state and evidence prerequisites pass; unavailable actions belong in `blocked_actions` with exact reasons.
 
-Manual end-to-end work uses `$continuity-workflow` as a sequential orchestrator. A task skill stopping on a failed gate stops that unsafe stage transition, not the overall workflow: return control to the orchestrator, record the failure, route to the machine-selected remediation skill, and continue after fresh evidence passes. Do not yield between routine skill handoffs or for status alone. Pause only when the current handoff or selected action explicitly sets `human_required: true`, and resume from canonical state after the human records an allowed approval. If a non-human fault has no safe immediate repair, keep the workflow pending at the same stage with a durable diagnostic; never bypass the gate or report false completion.
+Actionable interactive work starts with `/goal`; it captures and triages the request, updates the private roadmap inbox, creates the smallest aligned goal, and continues into code under one request-bound authorization envelope. Other manual end-to-end work uses `$continuity-workflow` as a sequential orchestrator. A task skill stopping on a failed gate stops that unsafe stage transition, not the overall workflow: return control to the orchestrator, record the failure, route to the machine-selected remediation skill, and continue after fresh evidence passes. Do not yield between routine skill handoffs or for status alone. Pause only when the current handoff or selected action explicitly sets `human_required: true`, and resume from canonical state after the human records an allowed approval. If a non-human fault has no safe immediate repair, keep the workflow pending at the same stage with a durable diagnostic; never bypass the gate or report false completion.
 
 ## Planning artifacts
 
@@ -105,6 +105,10 @@ Record evidence for every responsible development stage:
 
 Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` result requires a concrete reason. Do not mark a goal review-ready while any pre-human-review stage is pending or failed, and do not mark it completed without passed human-review and merge evidence.
 
+These stages are internal evidence fields, not seventeen user-visible stops. One current evidence bundle may satisfy several applicable stages, unchanged evidence should be reused, and routine failures should route to automatic remediation. Human interruption is reserved for missing authority, material scope or risk change, destructive or irreversible action, private-data disclosure, new cost, restricted external effects, and final human disposition.
+
+Readiness controls apply when their protected operation is reached. Scheduler registration, remote leases, verified backups, external audit checkpoints, and GitHub authentication remain mandatory for configured unattended or external transitions, but they do not block a request-bound interactive `/goal` from beginning local implementation.
+
 ## Developer and security guardrails
 
 - Read the repository `AGENTS.md`, configured documentation map, and memory brief before planning or changing files.
@@ -133,7 +137,7 @@ Use statuses `current`, `proposed`, `disputed`, `superseded`, or `historical`. S
 
 ## Roadmap and shared-note contract
 
-Committed roadmap Markdown is canonical. A goal must retrieve relevant roadmap context and include exact `roadmap_ids` plus structured `roadmap_impact` in its approval hash. Releases and milestones express commitments; sprints and estimates are optional and never authorize execution. The local admin sidecar is read-only, loopback-only, and excluded from application source and every preview, staging, or production artifact.
+Committed roadmap Markdown is canonical. Actionable triaged notes appear immediately in the ignored private roadmap inbox so they can be planned without waiting for document promotion. Inbox entries are planning visibility only and never execution authority. A goal must retrieve relevant committed roadmap context and include exact `roadmap_ids` plus structured `roadmap_impact` in its approval hash. Releases and milestones express commitments; sprints and estimates are optional and never authorize execution. The local admin sidecar is read-only, loopback-only, and excluded from application source and every preview, staging, or production artifact.
 
 Raw captures remain private. Sharing requires a selected sanitized packet, exact version and target approval, an isolated branch, privacy and secret checks, and a human-reviewed PR. Imported packet items become private atomic captures with stable packet provenance and `execution_authorized: false`; they can be triaged and searched normally but cannot update roadmap, memory, goals, code, systems, or another developer's private state.
 

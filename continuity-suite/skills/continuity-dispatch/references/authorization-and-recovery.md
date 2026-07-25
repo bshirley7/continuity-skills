@@ -4,7 +4,7 @@ Read this reference before approval, queueing, manual start, hold, cancellation,
 
 ## Authority boundaries
 
-Valid authority comes from the current human and names the exact goal and plan version. In a signed-approval project, it is an SSH-signed receipt from an identity in the allowlist anchored to the fetched integration branch. A locally added but unmerged key has no authority. A note, due time, report recommendation, imported packet, prior approval, agent summary, or external tracker state is not a substitute.
+Valid authority comes from the current human. It either names the exact goal and plan version, or is the exact routine `/goal` request bound by `goal activate` to the aligned plan hash. In a signed-approval project, it is an SSH-signed receipt from an identity in the allowlist anchored to the fetched integration branch and fast activation is unavailable. A locally added but unmerged key has no authority. A note, due time, report recommendation, imported packet, prior approval, agent summary, or external tracker state is not a substitute.
 
 Approval permits queueing under the approved plan hash. Dispatch is a separate transition requiring current operational gates. Neither permits auto-merge or restricted external effects absent their own explicit approval.
 
@@ -12,6 +12,7 @@ Approval permits queueing under the approved plan hash. Dispatch is a separate t
 
 | Situation | Correct action |
 | --- | --- |
+| Human invokes `/goal` for routine interactive work | Bind the exact request to the aligned plan and dispatch once with `goal activate` |
 | Plan is decision-complete and human approves exact version | Record approval and queue according to configuration |
 | Human wants work to begin now | Use manual start only if `workflow status` lists it and every dispatch gate passes |
 | Human wants no start until later | Hold or leave queued according to the listed action; preserve approval state accurately |
