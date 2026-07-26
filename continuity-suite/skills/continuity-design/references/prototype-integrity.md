@@ -30,6 +30,8 @@ For React and React-based web work, `complete-prototype` is the default unless t
 
 A complete prototype contains a coherent representative page or smallest complete workflow, representative labeled content, relevant states, an explicit asset strategy, and desktop, tablet, and mobile compositions. It remains under `.continuity/private/`, outside production routes and build inputs. It does not authorize dependency installation or application changes.
 
+For a media-led prototype, record supplied media as an asset with source provenance and actual metadata. Bind observable media beats or loops to standalone chapters, direct navigation, reduced-motion and no-video equivalents, and a credible final action. Identify whether each asset is a looping hero, chapter loop, normally playing film, scroll-linked playhead, or still equivalent and state why that playback grammar serves the story. For loops, demonstrate the seam, first-load poster transition, autoplay rejection, pause or stop, offscreen suspension, repeat burden, mobile crop, and simultaneous-decoder budget. For scroll-linked media, demonstrate bounded seeking, interruption, and reverse navigation. Also show loading, buffering, failure, mobile recomposition, and the quiet static carrier. A polished poster frame, one clean loop, or successful forward scrub does not prove the joined film-and-interface experience.
+
 ## Validation matrix
 
 Choose scenarios from the artifact and its risks. For responsive UI, normally include narrow and wide layouts, visible focus, keyboard-only operation, 200% zoom, long labels, localization expansion, reduced motion, realistic content, and all relevant states. Also test sticky or fixed actions for content obstruction and safe-area conflicts.

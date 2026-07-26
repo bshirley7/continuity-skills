@@ -2,7 +2,7 @@
 
 This guide describes the complete Continuity operating model for projects, campaigns, objectives, and other repository-backed initiatives. It explains what happens during the working day, what may happen during off-hours, what requires human review, and how the next business day begins with a concise decision surface.
 
-Continuity is designed to preserve momentum without transferring business authority to an unattended agent. It can organize context, prepare plans, execute explicitly approved repository work, validate the result, and prepare a draft pull request. It must stop before merge or business completion until a human records the applicable disposition.
+Continuity is designed to preserve momentum without transferring business authority to an unattended agent. For routine interactive work, one explicit `/goal` request authorizes a bounded path through triage, roadmap visibility, planning, and coding. Unattended work retains separate approval and dispatch controls. Both paths stop before merge or business completion until a human records the applicable disposition.
 
 ## Intended Use Case
 
@@ -39,7 +39,7 @@ Off-hours execution is limited to an exact approved goal, an approved plan versi
 
 ### Human authority at consequential boundaries
 
-A human must approve the plan. Continuity may prepare and test a draft pull request, but it does not auto-merge, use administrator bypass, force-push, infer approval, or mark business completion from agent judgment. A project may separately opt in to an interactive, exact SHA-bound direct GitHub CLI merge after every gate passes.
+A human supplies authority. For routine interactive work, the exact `/goal` request is bound to the aligned plan hash and no second approval or start prompt is required. Material scope expansion, elevated risk, destructive or irreversible action, private-data disclosure, new cost, restricted external effects, and merge still require fresh exact authority. Continuity does not auto-merge, use administrator bypass, force-push, infer approval, or mark business completion from agent judgment.
 
 ### Private by default
 
@@ -72,9 +72,11 @@ Continuity separates information, recommendation, authorization, execution, and 
 | Record or action | What it permits |
 | --- | --- |
 | Capture or note | Search, classification, pattern analysis, and later human review. |
+| Triaged roadmap inbox item | Immediate private planning visibility only. |
 | Pattern recommendation | Planning input only. |
 | Roadmap link | Relationship and prioritization context only. |
 | Draft goal | Plan review, revision, hold, or cancellation. |
+| Exact routine `/goal` request bound to an aligned plan hash | One immediate interactive execution attempt inside that request and risk ceiling. |
 | Exact human plan approval | Queue eligibility for that goal and plan version. |
 | Valid dispatch | One bounded execution attempt. |
 | Passed test and merge evidence | Transition to `review-ready`. |
@@ -83,7 +85,7 @@ Continuity separates information, recommendation, authorization, execution, and 
 | Human `merged` disposition with verified merge evidence | Marks the goal `completed`. |
 | Human `closed` disposition | Cancels the goal without claiming delivery. |
 
-No lower row can be inferred from a higher row. In particular, a note is not a plan, a plan is not approval, approval is not dispatch, and a passing test is not permission to merge.
+No lower row can be inferred from a higher row. The `/goal` row is explicit authority, not an inference from capture. A passing test is never permission to merge.
 
 ## Installation And Project Enrollment
 
@@ -124,6 +126,8 @@ After installation, verify the project:
 .agents/continuity/bin/continuity --project-root "$PWD" roadmap audit
 ```
 
+When GitHub is selected as the roadmap tracker, `project doctor` also requires a valid local connection record. Run `roadmap github-projects status` for a live identity and Project-access check. Once connected, sanitized roadmap entries and goal states synchronize automatically to the bound hosted Project, so status remains available without the local roadmap server. Sync failures are advisory to local coding transitions and can be retried with `roadmap github-projects sync`.
+
 Execution should remain disabled until the project commands, security requirements, branch policy, and human review process are correct.
 
 ## Scheduler Activation
@@ -157,6 +161,12 @@ When the scheduler provider is `none`, schedule intent is retained but all revie
 A plain cron or `launchd` process can calculate due actions and detect stale state, but it cannot perform model-driven review or implementation unless it invokes an authenticated, conformant agent surface.
 
 ## The Daily Operating Cycle
+
+### Fast interactive lane
+
+For a routine request that should become code now, invoke `/goal <request>`. The agent runs capture, triage, roadmap-inbox projection, context retrieval, proportional planning, activation, and dispatch as one uninterrupted workflow. `goal activate` binds the captured request hashes to the aligned plan hash and records separate approval and dispatch machine events. It does not require the user to provide an identity, authorization phrase, signing key, approve an agent-generated ID, or repeat “start now.”
+
+This lane is unavailable when another code goal owns the project lock, the request is not decision-complete, risk is elevated or consequential, or a restricted external effect is in scope. Project signing policy continues to protect unattended and action-specific consequential transitions; it does not add a second signature to a routine interactive request. `execution_enabled: false` continues to disable scheduled and unattended dispatch; the exact interactive `/goal` request supplies authority for its own attempt.
 
 ### 1. Capture information during normal work
 
@@ -268,6 +278,13 @@ Deferral requires an explicit review date:
 ```
 
 Current queues are derived from canonical captures. Files in `.continuity/private/queues/` are historical snapshots and must not be treated as current planning truth.
+Actionable routed or promoted notes are also projected immediately into the private roadmap inbox:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap inbox
+```
+
+This makes the work visible for planning without turning the note into a committed roadmap promise or execution authority.
 
 ### 3. Retrieve memory and roadmap context
 
@@ -304,11 +321,19 @@ Create the goal from a reviewed JSON file:
   --goal-file /path/to/reviewed-goal.json
 ```
 
-The new goal remains `awaiting-feedback`. Nightly review may prepare a goal, but it may not approve it.
+The new goal remains `awaiting-feedback`. A routine `/goal` plan exposes `goal activate` as its next action. A separately prepared, decision-complete routine plan exposes `goal proceed`; invoke it when the user says “proceed” and continue directly into coding.
 
 ### 5. Approve the exact plan version
 
-A human reviews the plan, its evidence, its exclusions, and its intended outcome. Approval must name the goal and plan version explicitly.
+A human reviews the plan, its evidence, its exclusions, and its intended outcome. For routine interactive work, “proceed” is the durable approval:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" goal proceed <goal-id>
+```
+
+The command binds approval to the current material plan hash and dispatches immediately without asking the human to restate machine-generated identifiers or sign again.
+
+For unattended scheduling or a policy-controlled separate approval, use the detailed receipt flow:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" goal approve <goal-id> \
@@ -319,7 +344,7 @@ A human reviews the plan, its evidence, its exclusions, and its intended outcome
 
 Approval binds to the material plan hash. Editing the plan, machine goal, planning artifacts, or relevant roadmap context invalidates approval.
 
-Approval normally queues the goal for the configured dispatch time. It does not start implementation by itself.
+The detailed receipt flow queues the goal for the configured dispatch time. Interactive `goal proceed` starts implementation because the user's instruction already includes approval to proceed.
 
 ### 6. Run the nightly review
 

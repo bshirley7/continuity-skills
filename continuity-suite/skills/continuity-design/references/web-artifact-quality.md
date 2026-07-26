@@ -24,3 +24,7 @@ Inventory visible factual, official, final, verified, monetary, identity, warnin
 ## State and asset completion
 
 Render every state required by the component and completion contracts. Listing a state in `design.md` is not evidence that it works. Resolve every material asset as an artifact with bound evidence, a deliberate omission consistent with the approved direction, or a blocker. An unresolved asset blocker prevents implementation-facing maturity.
+
+## Media-led output
+
+For a cinematic media artifact, bind the source media identity, intrinsic metadata, playback grammar, and narrative job. Record evidence for loading, buffering, decode failure, resize, route return, direct chapter access, reduced motion, quiet static, and no-video behavior. For looping hero or chapter media, validate the repeat seam, poster transition, autoplay rejection, pause or stop, offscreen suspension, copy at different loop phases, mobile focal crop, repeat burden, and simultaneous-decoder budget. For scroll-linked playback, additionally validate rapid and reverse scroll, bounded seek work, and keyboard and touch interruption. Capture a journey contact sheet in addition to isolated screenshots. An implementation-facing artifact must demonstrate readable overlays across relevant frames, authored responsive recomposition, reachable controls and final action, and useful content without autoplay or enhanced smoothing.

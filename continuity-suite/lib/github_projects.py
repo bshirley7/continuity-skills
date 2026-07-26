@@ -1,4 +1,4 @@
-"""Approval-bound GitHub Projects projection for canonical roadmap records."""
+"""Durably connected GitHub Projects projection for roadmap and goal status."""
 
 from __future__ import annotations
 
@@ -36,6 +36,40 @@ OPTION_FIELD_KEYS = {"kind", "status", "health", "priority", "phase"}
 SCHEMA_ROOT = Path(__file__).resolve().parents[1] / "schemas"
 TEMPLATE_ROOT = Path(__file__).resolve().parents[1] / "templates"
 OPTION_COLORS = ("GRAY", "BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "PINK")
+REQUIRED_CONNECTION_SCOPES = {"project"}
+CONNECTION_CAPABILITIES = {
+    "read": True,
+    "write": True,
+    "create_project": True,
+    "edit_project": True,
+    "create_item": True,
+    "edit_item": True,
+    "delete_item": False,
+}
+GOAL_STATUS_MAP = {
+    "proposed-plan": "proposed",
+    "awaiting-feedback": "planned",
+    "approved": "planned",
+    "queued": "planned",
+    "held": "paused",
+    "dispatched": "in-progress",
+    "running": "in-progress",
+    "validating": "validating",
+    "review-ready": "validating",
+    "changes-requested": "in-progress",
+    "partially-completed": "at-risk",
+    "blocked": "blocked",
+    "completed": "completed",
+    "cancelled": "cancelled",
+}
+GOAL_HEALTH_MAP = {
+    "held": "unknown",
+    "changes-requested": "at-risk",
+    "partially-completed": "at-risk",
+    "blocked": "blocked",
+    "completed": "complete",
+    "cancelled": "complete",
+}
 
 
 def _canonical_json(value: Any) -> str:
@@ -58,6 +92,23 @@ def _confined(root: Path, value: str, label: str) -> Path:
 
 def _private_root(root: Path, config: dict[str, Any]) -> Path:
     return _confined(root, str(config.get("private_dir", ".continuity/private")), "private_dir")
+
+
+def connection_path(root: Path, config: dict[str, Any]) -> Path:
+    return _private_root(root, config) / "integrations" / "github-projects" / "connection.json"
+
+
+def load_connection(root: Path, config: dict[str, Any], *, required: bool = True) -> dict[str, Any] | None:
+    path = connection_path(root, config)
+    if not path.is_file():
+        if required:
+            raise GitHubProjectsError("GitHub Projects is not connected; run roadmap github-projects connect")
+        return None
+    value = _load_json(path)
+    _validate_schema(value, "github-projects-connection.schema.json", "GitHub Projects connection")
+    if not isinstance(value, dict) or value.get("project_id") != config.get("project_id"):
+        raise GitHubProjectsError("GitHub Projects connection belongs to a different Continuity project")
+    return value
 
 
 def _load_json(path: Path) -> Any:
@@ -191,6 +242,103 @@ def _export_entry(project_id: str, entry: dict[str, Any], settings: dict[str, An
     return {
         "continuity_id": continuity_id,
         "roadmap_id": roadmap_id,
+        "projection_type": "roadmap",
+        "source_revision": revision,
+        "title": selected["title"],
+        "body": "\n".join(body_lines),
+        "fields": fields,
+    }
+
+
+def _goal_records(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+    goals_root = _private_root(root, config) / "goals"
+    records: list[dict[str, Any]] = []
+    if not goals_root.is_dir():
+        return records
+    for path in sorted(goals_root.glob("*/goal.json")):
+        value = _load_json(path)
+        if isinstance(value, dict) and value.get("goal_id") and value.get("title"):
+            records.append(value)
+    return records
+
+
+def _export_goal(project_id: str, goal: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
+    goal_id = str(goal["goal_id"])
+    state = str(goal.get("state", "awaiting-feedback"))
+    status = GOAL_STATUS_MAP.get(state, "at-risk")
+    health = GOAL_HEALTH_MAP.get(state, "on-track")
+    raw_priority = str(goal.get("priority") or "normal").casefold()
+    priority = {
+        "urgent": "high",
+        "critical": "critical",
+        "high": "high",
+        "normal": "medium",
+        "medium": "medium",
+        "low": "low",
+    }.get(raw_priority, "unprioritized")
+    kind = "story"
+    selected = {
+        "goal_id": goal_id,
+        "title": str(goal["title"]),
+        "plan_version": int(goal.get("plan_version", 1)),
+        "plan_hash": str(goal.get("plan_hash") or "unavailable"),
+        "execution_attempt": int(goal.get("execution_attempt", 1)),
+        "kind": kind,
+        "status": status,
+        "health": health,
+        "priority": priority,
+        "roadmap_ids": sorted(str(item) for item in goal.get("roadmap_ids", [])),
+        "depends_on": sorted(str(item) for item in goal.get("depends_on", [])),
+    }
+    for key, source_value in (
+        ("kind", kind),
+        ("status", status),
+        ("health", health),
+        ("priority", priority),
+        ("phase", status),
+    ):
+        if key in settings["fields"] and source_value not in settings[f"{key}_options"]:
+            raise GitHubProjectsError(f"{key}_options does not map {source_value!r} for goal {goal_id}")
+    revision = _hash(selected)
+    continuity_id = f"{project_id}:goal:{goal_id}"
+    body_lines = [
+        "Continuity task status projection.",
+        "",
+        "## Current state",
+        "",
+        f"- Goal: `{goal_id}`",
+        f"- Plan version: `{selected['plan_version']}`",
+        f"- Execution attempt: `{selected['execution_attempt']}`",
+        f"- Status: `{state}`",
+        f"- Roadmap: {', '.join(selected['roadmap_ids']) or 'none'}",
+        f"- Dependencies: {', '.join(selected['depends_on']) or 'none'}",
+        "",
+        "This card contains sanitized operational status only. Captured notes, request text, approval text, and private evidence are not published.",
+        "Remote edits are reconciliation proposals and cannot authorize or complete local work.",
+        "",
+        f"<!-- continuity-project:{project_id};goal:{goal_id};revision:{revision} -->",
+    ]
+    fields: dict[str, str | None] = {"continuity_id": continuity_id}
+    for key, source_value in (
+        ("kind", kind),
+        ("status", status),
+        ("health", health),
+        ("priority", priority),
+        ("phase", status),
+    ):
+        if key in settings["fields"]:
+            fields[key] = settings[f"{key}_options"][source_value]
+    if "parent_ids" in settings["fields"]:
+        fields["parent_ids"] = ", ".join(selected["roadmap_ids"])
+    if "depends_on" in settings["fields"]:
+        fields["depends_on"] = ", ".join(selected["depends_on"])
+    for key in ("start_date", "target_date"):
+        if key in settings["fields"]:
+            fields[key] = None
+    return {
+        "continuity_id": continuity_id,
+        "goal_id": goal_id,
+        "projection_type": "goal",
         "source_revision": revision,
         "title": selected["title"],
         "body": "\n".join(body_lines),
@@ -205,7 +353,27 @@ def plan_material(root: Path, config: dict[str, Any], settings_path: Path, setti
         if item.get("status") in set(settings["publish_statuses"])
     ]
     items = [_export_entry(str(config["project_id"]), item, settings) for item in selected]
-    items.sort(key=lambda item: item["roadmap_id"])
+    connection = load_connection(root, config, required=False)
+    projections = ["roadmap"]
+    connection_id = None
+    if connection is not None:
+        destination = connection["destination"]
+        if (
+            destination["owner_type"] != settings["owner_type"]
+            or destination["owner"].casefold() != str(settings["owner"]).casefold()
+            or destination["project_number"] != settings["project_number"]
+        ):
+            raise GitHubProjectsError("GitHub Projects settings do not match the durable connection destination")
+        projections = list(connection["sync_policy"]["projections"])
+        connection_id = connection["connection_id"]
+        if "goals" in projections:
+            publish_statuses = set(settings["publish_statuses"])
+            items.extend(
+                _export_goal(str(config["project_id"]), goal, settings)
+                for goal in _goal_records(root, config)
+                if GOAL_STATUS_MAP.get(str(goal.get("state")), "at-risk") in publish_statuses
+            )
+    items.sort(key=lambda item: item["continuity_id"])
     return {
         "schema_version": 1,
         "provider": "github-projects",
@@ -220,6 +388,8 @@ def plan_material(root: Path, config: dict[str, Any], settings_path: Path, setti
         "settings_path": str(settings_path.relative_to(root.resolve())),
         "mode": "export-only",
         "item_mode": "draft-issue",
+        "connection_id": connection_id,
+        "projections": projections,
         "publish_statuses": list(settings["publish_statuses"]),
         "field_names": dict(settings["fields"]),
         "items": items,
@@ -482,19 +652,23 @@ def validate_bootstrap_approval(
 
 
 class GitHubClient:
-    def __init__(self, executable: str | None = None) -> None:
+    def __init__(self, executable: str | None = None, *, timeout_seconds: int = 90) -> None:
         self.executable = executable or shutil.which("gh") or ""
         if not self.executable:
             raise GitHubProjectsError("GitHub CLI is required to inspect or apply a GitHub Projects export")
+        self.timeout_seconds = timeout_seconds
 
     def command_json(self, arguments: list[str]) -> dict[str, Any]:
-        result = subprocess.run(
-            [self.executable, *arguments],
-            capture_output=True,
-            text=True,
-            timeout=90,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                [self.executable, *arguments],
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise GitHubProjectsError(f"GitHub CLI request timed out after {self.timeout_seconds} seconds") from exc
         if result.returncode != 0:
             message = result.stderr.strip() or result.stdout.strip() or "unknown GitHub CLI error"
             raise GitHubProjectsError(f"GitHub CLI request failed: {message}")
@@ -505,6 +679,40 @@ class GitHubClient:
         if not isinstance(payload, dict):
             raise GitHubProjectsError("GitHub CLI response must be a JSON object")
         return payload
+
+    def authenticated_identity(self) -> dict[str, Any]:
+        status = self.command_json(["auth", "status", "--hostname", "github.com", "--active", "--json", "hosts"])
+        accounts = (status.get("hosts") or {}).get("github.com")
+        if not isinstance(accounts, list):
+            raise GitHubProjectsError("GitHub CLI did not return an active github.com account")
+        active = next((item for item in accounts if isinstance(item, dict) and item.get("active")), None)
+        if not isinstance(active, dict) or active.get("state") != "success":
+            login = active.get("login") if isinstance(active, dict) else "unknown"
+            raise GitHubProjectsError(
+                f"GitHub CLI account {login} is not authenticated; run `gh auth login --hostname github.com --web --scopes project`"
+            )
+        scopes = sorted(str(item) for item in active.get("scopes", []) if str(item))
+        missing = sorted(REQUIRED_CONNECTION_SCOPES - set(scopes))
+        if missing:
+            raise GitHubProjectsError(
+                "GitHub Projects connection requires the project scope; run `gh auth refresh --hostname github.com --scopes project`"
+            )
+        viewer = self.command_json(["api", "user"])
+        login = str(viewer.get("login") or "")
+        database_id = viewer.get("id")
+        if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})", login):
+            raise GitHubProjectsError("GitHub API did not return a valid authenticated login")
+        if isinstance(database_id, bool) or not isinstance(database_id, int) or database_id < 1:
+            raise GitHubProjectsError("GitHub API did not return a stable authenticated account ID")
+        if login.casefold() != str(active.get("login") or "").casefold():
+            raise GitHubProjectsError("GitHub CLI status and API viewer identities do not match")
+        return {
+            "login": login,
+            "database_id": database_id,
+            "scopes": scopes,
+            "host": "github.com",
+            "credential_source": str(active.get("tokenSource") or "gh-credential-store"),
+        }
 
     def create_project(self, owner: str, title: str) -> dict[str, Any]:
         return self.command_json(["project", "create", "--owner", owner, "--title", title, "--format", "json"])
@@ -534,14 +742,17 @@ class GitHubClient:
         return self.command_json(arguments)
 
     def graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
-        result = subprocess.run(
-            [self.executable, "api", "graphql", "--input", "-"],
-            input=json.dumps({"query": query, "variables": variables}),
-            capture_output=True,
-            text=True,
-            timeout=90,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                [self.executable, "api", "graphql", "--input", "-"],
+                input=json.dumps({"query": query, "variables": variables}),
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise GitHubProjectsError(f"GitHub Projects API request timed out after {self.timeout_seconds} seconds") from exc
         if result.returncode != 0:
             message = result.stderr.strip() or result.stdout.strip() or "unknown GitHub CLI error"
             raise GitHubProjectsError(f"GitHub Projects API request failed: {message}")
@@ -563,7 +774,11 @@ query($login: String!, $number: Int!, $cursor: String) {{
   owner: {owner_field}(login: $login) {{
     project: projectV2(number: $number) {{
       id
+      number
       title
+      url
+      public
+      viewerCanUpdate
       fields(first: 100) {{
         nodes {{
           ... on ProjectV2Field {{ id name dataType }}
@@ -688,6 +903,51 @@ mutation($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]) {
     )
 
 
+def _configure_project_fields(
+    client: GitHubClient,
+    destination: dict[str, Any],
+    desired_fields: list[dict[str, Any]],
+) -> tuple[dict[str, Any], list[str], list[str]]:
+    snapshot = fetch_project(client, destination)
+    fields = _field_index(snapshot)
+    created_fields: list[str] = []
+    updated_fields: list[str] = []
+    for desired in desired_fields:
+        name = str(desired["name"])
+        data_type = str(desired["data_type"])
+        options = [str(option) for option in desired["options"]]
+        current = fields.get(name)
+        if current is None:
+            client.create_project_field(
+                int(destination["project_number"]),
+                str(destination["owner"]),
+                name,
+                data_type,
+                options,
+            )
+            created_fields.append(name)
+            continue
+        if current.get("dataType") != data_type:
+            raise GitHubProjectsError(f"GitHub Project field {name!r} must use type {data_type}")
+        if data_type == "SINGLE_SELECT":
+            current_names = [str(option.get("name")) for option in current.get("options", [])]
+            if current_names != options:
+                _update_single_select_options(client, current, options)
+                updated_fields.append(name)
+
+    snapshot = fetch_project(client, destination)
+    available = _field_index(snapshot)
+    for desired in desired_fields:
+        current = available.get(str(desired["name"]))
+        if not current or current.get("dataType") != desired["data_type"]:
+            raise GitHubProjectsError(f"GitHub Project connection did not create compatible field {desired['name']!r}")
+        if desired["data_type"] == "SINGLE_SELECT":
+            current_names = [str(option.get("name")) for option in current.get("options", [])]
+            if current_names != desired["options"]:
+                raise GitHubProjectsError(f"GitHub Project connection did not configure options for {desired['name']!r}")
+    return snapshot, created_fields, updated_fields
+
+
 def _bootstrap_checkpoint(
     root: Path,
     config: dict[str, Any],
@@ -761,43 +1021,11 @@ def apply_bootstrap(
         "owner": destination["owner"],
         "project_number": project_number,
     }
-    snapshot = fetch_project(client, project_destination)
-    fields = _field_index(snapshot)
-    created_fields: list[str] = []
-    updated_fields: list[str] = []
-    for desired in material["fields"]:
-        name = str(desired["name"])
-        data_type = str(desired["data_type"])
-        options = [str(option) for option in desired["options"]]
-        current = fields.get(name)
-        if current is None:
-            client.create_project_field(
-                project_number,
-                str(destination["owner"]),
-                name,
-                data_type,
-                options,
-            )
-            created_fields.append(name)
-            continue
-        if current.get("dataType") != data_type:
-            raise GitHubProjectsError(f"GitHub Project field {name!r} must use type {data_type}")
-        if data_type == "SINGLE_SELECT":
-            current_names = [str(option.get("name")) for option in current.get("options", [])]
-            if current_names != options:
-                _update_single_select_options(client, current, options)
-                updated_fields.append(name)
-
-    snapshot = fetch_project(client, project_destination)
-    available = _field_index(snapshot)
-    for desired in material["fields"]:
-        current = available.get(str(desired["name"]))
-        if not current or current.get("dataType") != desired["data_type"]:
-            raise GitHubProjectsError(f"GitHub Project bootstrap did not create compatible field {desired['name']!r}")
-        if desired["data_type"] == "SINGLE_SELECT":
-            current_names = [str(option.get("name")) for option in current.get("options", [])]
-            if current_names != desired["options"]:
-                raise GitHubProjectsError(f"GitHub Project bootstrap did not configure options for {desired['name']!r}")
+    _snapshot, created_fields, updated_fields = _configure_project_fields(
+        client,
+        project_destination,
+        material["fields"],
+    )
 
     settings = dict(material["settings"])
     settings["project_number"] = project_number
@@ -824,6 +1052,236 @@ def apply_bootstrap(
     }
     runtime.atomic_write_json(checkpoint_path, result)
     return result
+
+
+def _project_connection_destination(
+    owner_type: str,
+    owner: str,
+    project: dict[str, Any],
+) -> dict[str, Any]:
+    number = project.get("number")
+    node_id = project.get("id")
+    url = project.get("url")
+    if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+        raise GitHubProjectsError("GitHub Project did not return a valid project number")
+    if not isinstance(node_id, str) or not node_id:
+        raise GitHubProjectsError("GitHub Project did not return a stable node ID")
+    if not isinstance(url, str) or not url.startswith("https://github.com/"):
+        raise GitHubProjectsError("GitHub Project did not return a valid GitHub URL")
+    if project.get("viewerCanUpdate") is not True:
+        raise GitHubProjectsError("The authenticated GitHub account cannot edit the selected Project")
+    return {
+        "owner_type": owner_type,
+        "owner": owner,
+        "project_number": number,
+        "project_node_id": node_id,
+        "project_url": url,
+        "visibility": "PUBLIC" if project.get("public") is True else "PRIVATE",
+    }
+
+
+def connection_status(
+    root: Path,
+    config: dict[str, Any],
+    client: GitHubClient | None = None,
+) -> dict[str, Any]:
+    connection = load_connection(root, config)
+    assert connection is not None
+    client = client or GitHubClient()
+    identity = client.authenticated_identity()
+    expected_user = connection["authenticated_user"]
+    if (
+        identity["database_id"] != expected_user["database_id"]
+        or identity["login"].casefold() != str(expected_user["login"]).casefold()
+    ):
+        raise GitHubProjectsError(
+            f"Active GitHub account {identity['login']} does not match connected account {expected_user['login']}"
+        )
+    destination = connection["destination"]
+    project = fetch_project(client, destination)
+    if project.get("id") != destination["project_node_id"]:
+        raise GitHubProjectsError("Connected GitHub Project node ID no longer matches the configured destination")
+    if project.get("viewerCanUpdate") is not True:
+        raise GitHubProjectsError("The connected GitHub account no longer has Project write access")
+    return {
+        "connected": True,
+        "provider": "github-projects",
+        "connection_id": connection["connection_id"],
+        "authenticated_user": expected_user,
+        "destination": destination,
+        "project_title": project.get("title"),
+        "capabilities": connection["capabilities"],
+        "sync_policy": connection["sync_policy"],
+        "identity_verified": True,
+        "project_access_verified": True,
+        "token_stored_by_continuity": False,
+    }
+
+
+def connect(
+    root: Path,
+    config: dict[str, Any],
+    *,
+    owner_type: str,
+    owner: str,
+    project_number: int | None = None,
+    title: str | None = None,
+    visibility: str = "PRIVATE",
+    settings_value: str = ".continuity/github-projects.json",
+    client: GitHubClient | None = None,
+) -> dict[str, Any]:
+    if config.get("planning_patterns", {}).get("tracker_provider") != "github":
+        raise GitHubProjectsError("Project tracker_provider must be github before connecting GitHub Projects")
+    if owner_type not in {"organization", "user"}:
+        raise GitHubProjectsError("owner_type must be organization or user")
+    if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})", owner):
+        raise GitHubProjectsError("owner must be a valid GitHub login")
+    if project_number is not None and (isinstance(project_number, bool) or project_number < 1):
+        raise GitHubProjectsError("project_number must be a positive integer")
+    client = client or GitHubClient()
+    identity = client.authenticated_identity()
+    if owner_type == "user" and identity["login"].casefold() != owner.casefold():
+        raise GitHubProjectsError(
+            f"User-owned Projects must be connected to the authenticated account {identity['login']}"
+        )
+    existing_connection = load_connection(root, config, required=False)
+    if existing_connection is not None:
+        requested_number = project_number or existing_connection["destination"]["project_number"]
+        if (
+            existing_connection["authenticated_user"]["database_id"] == identity["database_id"]
+            and existing_connection["destination"]["owner_type"] == owner_type
+            and existing_connection["destination"]["owner"].casefold() == owner.casefold()
+            and existing_connection["destination"]["project_number"] == requested_number
+        ):
+            return connection_status(root, config, client)
+        raise GitHubProjectsError(
+            "A different GitHub Projects connection already exists; changing account or destination requires an explicit reconnect"
+        )
+
+    settings_path = _confined(root, settings_value, "GitHub Projects settings")
+    created_project = False
+    created_fields: list[str] = []
+    updated_fields: list[str] = []
+    if project_number is None:
+        if settings_path.exists():
+            raise GitHubProjectsError(
+                "GitHub Projects settings already exist; pass their project number to attach the durable connection"
+            )
+        bootstrap = build_bootstrap_plan(
+            root,
+            config,
+            owner_type=owner_type,
+            owner=owner,
+            title=title,
+            visibility=visibility,
+            settings_value=settings_value,
+        )
+        result = apply_bootstrap(root, config, bootstrap, client)
+        project_number = int(result["destination"]["project_number"])
+        created_project = True
+        created_fields = list(result.get("created_fields", []))
+        updated_fields = list(result.get("updated_fields", []))
+        _settings_path, settings = load_settings(root, config, settings_value)
+    else:
+        if settings_path.is_file():
+            _settings_path, settings = load_settings(root, config, settings_value)
+            if (
+                settings["owner_type"] != owner_type
+                or str(settings["owner"]).casefold() != owner.casefold()
+                or settings["project_number"] != project_number
+            ):
+                raise GitHubProjectsError("Existing GitHub Projects settings do not match the requested destination")
+        else:
+            template = _load_json(TEMPLATE_ROOT / "github-projects-settings.json")
+            if not isinstance(template, dict):
+                raise GitHubProjectsError("GitHub Projects settings template is invalid")
+            settings = dict(template)
+            settings.update({"owner_type": owner_type, "owner": owner, "project_number": project_number})
+            _validate_schema(settings, "github-projects-settings.schema.json", "GitHub Projects settings")
+        destination = {"owner_type": owner_type, "owner": owner, "project_number": project_number}
+        project = fetch_project(client, destination)
+        if project.get("viewerCanUpdate") is not True:
+            raise GitHubProjectsError("The authenticated GitHub account cannot edit the selected Project")
+        project, created_fields, updated_fields = _configure_project_fields(
+            client,
+            destination,
+            _bootstrap_field_specs(settings),
+        )
+        runtime.atomic_write_json(settings_path, settings)
+
+    destination = {"owner_type": owner_type, "owner": owner, "project_number": project_number}
+    project = fetch_project(client, destination)
+    connected_destination = _project_connection_destination(owner_type, owner, project)
+    connection_material = {
+        "provider": "github-projects",
+        "project_id": str(config["project_id"]),
+        "authenticated_user": {"login": identity["login"], "database_id": identity["database_id"]},
+        "destination": connected_destination,
+        "capabilities": CONNECTION_CAPABILITIES,
+        "sync_policy": {
+            "automatic": True,
+            "projections": ["roadmap", "goals"],
+            "remote_edits": "proposals-only",
+            "allow_delete": False,
+        },
+    }
+    connection = {
+        "schema_version": 1,
+        **connection_material,
+        "connection_id": _hash(connection_material),
+        "connected_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "credential_source": "gh-credential-store",
+        "authorization": {
+            "mode": "durable-connection",
+            "renew_only_for": [
+                "authenticated account change",
+                "destination Project change",
+                "visibility change",
+                "capability expansion",
+                "enabling deletion",
+            ],
+        },
+    }
+    _validate_schema(connection, "github-projects-connection.schema.json", "GitHub Projects connection")
+    runtime.atomic_write_json(connection_path(root, config), connection)
+    synced = sync(root, config, settings_value=settings_value, client=client)
+    return {
+        **connection_status(root, config, client),
+        "created_project": created_project,
+        "created_fields": sorted(set(created_fields)),
+        "updated_fields": sorted(set(updated_fields)),
+        "initial_sync": synced,
+    }
+
+
+def sync(
+    root: Path,
+    config: dict[str, Any],
+    *,
+    settings_value: str = ".continuity/github-projects.json",
+    client: GitHubClient | None = None,
+) -> dict[str, Any]:
+    client = client or GitHubClient()
+    status = connection_status(root, config, client)
+    plan = build_plan(root, config, settings_value)
+    if plan["material"].get("connection_id") != status["connection_id"]:
+        raise GitHubProjectsError("GitHub Projects export is not bound to the active durable connection")
+    result = apply(plan, client)
+    record = {
+        **result,
+        "connection_id": status["connection_id"],
+        "synced_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "authorization_mode": "durable-connection",
+        "automatic_sync": True,
+        "delete_performed": False,
+    }
+    application = _private_root(root, config) / "integrations" / "github-projects" / "applications" / f"{plan['plan_hash']}.json"
+    runtime.atomic_write_json(application, record)
+    runtime.atomic_write_json(
+        _private_root(root, config) / "integrations" / "github-projects" / "last-sync.json",
+        record,
+    )
+    return record
 
 
 def _resolved_fields(plan: dict[str, Any], project: dict[str, Any]) -> dict[str, dict[str, Any]]:

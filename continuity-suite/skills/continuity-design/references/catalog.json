@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.159.0",
+  "catalog_version": "1.161.0",
   "packs": [
     {
       "applicability": [
@@ -1195,12 +1195,14 @@
       },
       "modality_independent_principles": [
         "Bind every cinematic hero to decision context through identity, source, metadata, suitability, scope, and a concrete action rather than relying on atmosphere alone.",
-        "For consequential or emotional experiences, connect imagery to provenance, measurable state, safeguards, exact commitment, and recovery so emotion cannot substitute for evidence."
+        "For consequential or emotional experiences, connect imagery to provenance, measurable state, safeguards, exact commitment, and recovery so emotion cannot substitute for evidence.",
+        "When continuous media carries the experience, bind observed media beats to standalone narrative chapters, subject-derived interface behavior, direct navigation, equivalent static meaning, and a credible commercial action.",
+        "Treat cinematic quality as authored composition, material specificity, visual continuity, editorial pacing, and meaningful transformation; choose looping hero, chapter loops, normal playback, scroll-linked playback, or still equivalents according to the story job."
       ],
       "pack_id": "theme-cinematic",
       "reference": "theme-cinematic.md",
       "role": "category",
-      "version": "1.0.0"
+      "version": "1.2.0"
     },
     {
       "applicability": [
@@ -2132,12 +2134,14 @@
       },
       "modality_independent_principles": [
         "Make every stage independently useful with a descriptive heading, concise claim, mechanism or example, and optional deeper path so scanning and skipping do not destroy comprehension.",
-        "Place consequential terms, safeguards, uncertainty, eligibility, fees, and limits before the action they govern, even when doing so interrupts the emotional arc."
+        "Place consequential terms, safeguards, uncertainty, eligibility, fees, and limits before the action they govern, even when doing so interrupts the emotional arc.",
+        "For continuous media, map each observable beat to a standalone chapter and meaningful next action while preserving the complete argument under rapid navigation, reduced motion, or media failure.",
+        "Give every hero or chapter loop one complete narrative job and keep its copy meaningful regardless of the loop phase at which a visitor arrives."
       ],
       "pack_id": "message-structure-guided-narrative",
       "reference": "message-structure-guided-narrative.md",
       "role": "category",
-      "version": "1.0.0"
+      "version": "1.2.0"
     },
     {
       "applicability": [
@@ -6296,12 +6300,14 @@
       },
       "modality_independent_principles": [
         "Define the purpose of every motion event before choosing timing or effect: classify it as feedback, state change, spatial continuity, hierarchy, attention guidance, progress, direct manipulation, teaching, or bounded expression; identify the affected object, initiating action, information conveyed, next task, frequency, consequence, cancellation, and non-motion equivalent.",
-        "Reserve expressive motion for low-frequency and meaningful moments whose emotional or brand role is explicit; keep routine, dense, assistive, financial, health, security, permission, error, and irreversible workflows efficient and restrained, and never let celebration overstate completion, safety, value, or user consent."
+        "Reserve expressive motion for low-frequency and meaningful moments whose emotional or brand role is explicit; keep routine, dense, assistive, financial, health, security, permission, error, and irreversible workflows efficient and restrained, and never let celebration overstate completion, safety, value, or user consent.",
+        "For scroll-linked native media, separate progress measurement from decoder work, coalesce pending seeks, coordinate through one animation clock, and preserve keyboard, touch, direct navigation, interruption, and complete non-motion meaning.",
+        "For looping hero and chapter media, define the semantic action, seam, repeat rhythm, focal safe area, offscreen suspension, persistent-motion control, decoder budget, and complete static equivalent."
       ],
       "pack_id": "lens-motion-art-direction",
       "reference": "lens-motion-art-direction.md",
       "role": "category",
-      "version": "1.0.0"
+      "version": "1.2.0"
     },
     {
       "applicability": [

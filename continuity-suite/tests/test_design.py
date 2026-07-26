@@ -714,6 +714,36 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("lens-human-agency-calibrated-reliance-automation-boundaries", packs)
         self.assertIn("lens-identity-assurance-proportional-verification-exclusion-recovery", packs)
 
+    def test_cinematic_media_context_routes_loops_motion_and_equivalence_review(self):
+        value = input_value(
+            design_id="cinematic-loops",
+            title="A material-led commercial journey",
+            intent="Use a looping macro video in the hero and section loops for page storytelling with a credible final action.",
+            interaction_signals=["Full-screen looping hero, section video loops, subtle parallax, and an optional auto tour"],
+        )
+        value.pop("lenses")
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertIn("motion-art-direction", draft["lenses"])
+        self.assertIn("multimodal-equivalence-sensory-agency", draft["lenses"])
+        self.assertIn("attention-interruption", draft["lenses"])
+        rule = next(item for item in draft["lens_routing"] if item["rule_id"] == "cinematic-media-storytelling")
+        self.assertIn("looping hero", rule["matched_terms"])
+        self.assertIn("section video", rule["matched_terms"])
+        packs = {pack["pack_id"]: pack for pack in draft["catalog_packs"]}
+        self.assertEqual(packs["lens-motion-art-direction"]["version"], "1.2.0")
+
+    def test_cinematic_media_method_is_progressively_disclosed(self):
+        skill = (CATALOG.parent.parent / "SKILL.md").read_text(encoding="utf-8")
+        method = (CATALOG.parent / "cinematic-scroll-experiences.md").read_text(encoding="utf-8")
+        self.assertIn("looping-hero, section-loop, scroll-driven", skill)
+        self.assertIn("Define the cinematic outcome", method)
+        self.assertIn("Choose the playback grammar", method)
+        self.assertIn("Looping hero", method)
+        self.assertIn("Chapter loops", method)
+        self.assertIn("Run a private narrative-spine burst", method)
+        self.assertIn("coalesces pending targets", method)
+        self.assertIn("Rejected imports", method)
+
     def test_context_signals_infer_all_psychology_packs_with_versioned_rationale(self):
         value = input_value(
             design_id="psychology-context",
@@ -929,8 +959,8 @@ class DesignLifecycleTests(unittest.TestCase):
     def test_cross_industry_cross_modality_evaluation_is_healthy(self):
         report = EVALUATION.evaluate(CATALOG, SCENARIOS)
         self.assertTrue(report["healthy"], report)
-        self.assertEqual(report["metrics"]["scenario_count"], 20)
-        self.assertEqual(report["metrics"]["passed_scenario_count"], 20)
+        self.assertEqual(report["metrics"]["scenario_count"], 21)
+        self.assertEqual(report["metrics"]["passed_scenario_count"], 21)
         self.assertEqual(report["metrics"]["routing_precision"], 1.0)
         self.assertEqual(report["metrics"]["routing_recall"], 1.0)
         self.assertEqual(report["metrics"]["safeguard_coverage"], 1.0)
@@ -1496,6 +1526,16 @@ class DesignLifecycleTests(unittest.TestCase):
                 self.assertIn(overlay, packs)
                 self.assertEqual(packs[packs.index(overlay) - 1], "design-themes")
 
+    def test_reviewed_cinematic_overlay_uses_media_led_contract(self):
+        draft = design.draft(
+            self.root,
+            self.config,
+            CATALOG,
+            self.write_input(input_value(design_id="cinematic-media", themes=["cinematic"])),
+        )
+        pack = next(pack for pack in draft["catalog_packs"] if pack["pack_id"] == "theme-cinematic")
+        self.assertEqual(pack["version"], "1.2.0")
+
     def test_reviewed_design_tokens_overlay_is_bound(self):
         value = input_value(lenses=["design-tokens"])
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
@@ -1581,6 +1621,8 @@ class DesignLifecycleTests(unittest.TestCase):
         packs = [pack["pack_id"] for pack in draft["catalog_packs"]]
         self.assertIn("message-structure-guided-narrative", packs)
         self.assertEqual(packs[packs.index("message-structure-guided-narrative") - 1], "design-message-structures")
+        guided = next(pack for pack in draft["catalog_packs"] if pack["pack_id"] == "message-structure-guided-narrative")
+        self.assertEqual(guided["version"], "1.2.0")
 
     def test_reviewed_comparison_overlay_is_bound(self):
         value = input_value(message_structures=["comparison"])

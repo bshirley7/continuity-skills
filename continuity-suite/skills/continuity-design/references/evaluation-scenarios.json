@@ -228,6 +228,22 @@
       "required_safeguards": ["accessibility", "usability"]
     },
     {
+      "scenario_id": "cinematic-loop-commercial-story",
+      "industry_group": "cross-industry",
+      "modality": "ui",
+      "input": {
+        "title": "Material-led commercial journey",
+        "intent": "Use a looping macro video in the hero and distinct section loops to create cinematic page storytelling while preserving direct navigation, reduced-motion meaning, and a credible commercial action.",
+        "audiences": ["Prospective customers"],
+        "targets": ["ui"],
+        "interaction_signals": ["A full-screen looping hero, section video loops, scroll-paced chapter transitions, and an optional auto tour"]
+      },
+      "expected_lenses": ["motion-art-direction", "multimodal-equivalence-sensory-agency", "attention-interruption", "context-boundary-identity-orientation"],
+      "forbidden_lenses": [],
+      "required_safeguards": ["accessibility", "behavioral-ethics", "usability"],
+      "expected_conflicts": ["motion-versus-user-control", "persuasion-versus-agency"]
+    },
+    {
       "scenario_id": "project-plan-not-pricing-plan",
       "industry_group": "b2b-saas",
       "modality": "ui",

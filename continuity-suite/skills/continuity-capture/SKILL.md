@@ -70,4 +70,4 @@ Never place raw private content in committed project documentation.
 
 ## Handoff
 
-Run project-level `continuity workflow status` before capture and `continuity workflow status --capture-id <capture-id>` after returning capture and item IDs. Report each item's derived `lifecycle.current_stage`, `stage_entered_at`, and next skill. Capture itself never changes a goal stage or authorizes execution.
+Run project-level `continuity workflow status` before capture and `continuity workflow status --capture-id <capture-id>` after returning capture and item IDs. Report each item's derived `lifecycle.current_stage`, `stage_entered_at`, and next skill. Capture itself never changes a goal stage or authorizes execution. Under `/goal`, continue directly through triage for every item and roadmap-inbox projection; do not return a capture-only stop.

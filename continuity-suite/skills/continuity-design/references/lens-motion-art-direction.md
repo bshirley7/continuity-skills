@@ -10,6 +10,9 @@
 - Reserve expressive motion for low-frequency and meaningful moments whose emotional or brand role is explicit; keep routine, dense, assistive, financial, health, security, permission, error, and irreversible workflows efficient and restrained, and never let celebration overstate completion, safety, value, or user consent.
 - Design reduced- and no-motion behavior as a complete equivalent mode: honor platform preferences, remove unnecessary translation, zoom, parallax, oscillation, autoplay, and large-area movement, preserve information through text, structure, state, focus, opacity, or instant replacement, allow pause or stop for persistent movement, and verify the full task with motion disabled.
 - Validate motion in context and implementation: test realistic content, frame rate, input latency, interruption, repeated exposure, responsive transformation, battery and resource constraints, assistive technology, zoom, reduced motion, flashes, large-area movement, and failure or cancellation; evaluate comprehension, task time, comfort, control, and recovery rather than delight alone.
+- For scroll-linked native video, separate scroll measurement from media seeking: update only a target time from normalized progress, ease one internal playhead with frame-rate-independent damping, retain only the newest target while the decoder is seeking, drain pending work after seek completion, and prevent stale requests from causing unintended reverse movement.
+- For looping hero and chapter media, define the completed action, seam, repeat rhythm, focal safe area, offscreen suspension, preload and poster behavior, persistent-motion control, and reduced-motion equivalent. Keep copy meaningful at every loop phase and prevent multiple decoders from competing without a narrative reason.
+- Coordinate smooth scrolling, media playhead work, chapter timelines, and optional tours through one inspected animation clock. Do not create competing frame loops, repeatedly refresh scroll geometry, or make smoothing a prerequisite for keyboard, anchor, touch, or browser-native navigation.
 
 ## Method
 
@@ -20,6 +23,8 @@
 - Define reduced-motion and no-motion equivalents before approval, including focus and programmatic state behavior.
 - Walk complete high-frequency, consequential, error, recovery, background-update, and responsive flows with motion enabled and disabled.
 - Measure comprehension, orientation, task delay, repeated-exposure burden, discomfort, dropped frames, cancellation, and recovery.
+- Inspect actual media duration, buffering, decode and seek state, Safari and iOS behavior, route cleanup, development-mode cleanup, rapid and reverse scroll, resize, and source stability. Document damping and seek thresholds as bounded implementation constants.
+- For looping media, inspect first load, every repeat seam, autoplay rejection, tab visibility, offscreen suspension, route return, mobile crop, data saving, reduced motion, and simultaneous decoder use.
 
 ## Ethical safeguards
 
@@ -69,6 +74,12 @@
 - Premature celebration.
 - Reduced motion means no feedback.
 - Motion demo instead of task test.
+- Unbounded seek queue.
+- New seek on every scroll callback.
+- Independent smoothing, media, and tour frame loops.
+- Hardcoded duration copied from a generation brief.
+- Visible loop jump, blank repeat frame, or several autoplaying chapter films decoding offscreen.
+- Frame-locked copy that becomes incoherent when a visitor enters halfway through a loop.
 
 ## Acceptance and review questions
 
@@ -80,3 +91,6 @@
 - Is expressive motion limited to explicit low-frequency moments and restrained in routine or consequential work?
 - Does reduced- and no-motion behavior preserve complete information, focus, state, control, and task completion?
 - Have performance, repeated exposure, interruption, cancellation, accessibility, flash safety, comfort, and recovery been tested in context?
+- Does scroll-linked media coalesce seeks, retain the newest target, avoid stale reversal, and remain stable under buffering, rapid input, route changes, Safari, and iOS?
+- Is there one coordinated animation clock, with native scrolling, anchors, keyboard input, touch, and reduced motion preserved?
+- Do loops repeat a meaningful action cleanly, remain controllable and phase-independent, suspend responsibly, and preserve a useful poster or static equivalent?

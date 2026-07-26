@@ -6,7 +6,7 @@ For a first local install path, read [Quickstart](docs/quickstart.md). For the d
 
 ## Operating boundary
 
-Notes are knowledge first. Capture and triage never authorize documentation or code changes. An executable goal requires a decision-complete plan, exact version approval, a valid plan hash, successful preflight, and explicit dispatch.
+Notes are knowledge first. Capture and triage never authorize documentation or code changes. For routine interactive work, `/goal` binds the exact user request to a decision-complete plan hash and records approval plus dispatch atomically. Unattended, elevated-risk, consequential, and separately prepared work retains distinct approval and dispatch decisions.
 
 Every installed skill applies the versioned development assurance standard. The CLI requires the same version in project configuration, enrollment manifests, dispatch records, and compliance ledgers, and blocks incompatible execution or completion.
 
@@ -40,7 +40,7 @@ The installed control directory also includes a provider-neutral portfolio super
 
 See `automation/provider-adapter-contract.md` for the provider conformance requirements and proof checklist.
 
-Installation creates a minimal project-memory index, installs `$continuity` as the guided entry point, installs `$continuity-workflow` as the manual sequential runner, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
+Installation creates a minimal project-memory index, installs `/goal` as the primary action entry point, keeps `$continuity` for configuration and routing, installs `$continuity-workflow` for resumed and scheduled work, generates `$continuity-local`, and leaves product-code execution disabled unless `--enable-execution` is explicitly supplied. An optional `--seed` may point to project-specific memory data outside this distribution.
 
 ## Installation
 
@@ -56,7 +56,7 @@ python3 continuity-suite/installer/install.py \
 
 Add `--collection design` for projects that need the optional offline design workflow. Core and project-management collections remain enabled by default; upgrades preserve the project’s selected collections.
 
-The main skill guides the user through recommended defaults and explicit overrides. For a deterministic initial install, pass `--configuration <answers.json>`; for a terminal questionnaire, pass `--interactive`. After installation, use:
+The main skill guides the user through recommended defaults and explicit overrides. For a deterministic initial install, pass `--configuration <answers.json>`; for a terminal questionnaire, pass `--interactive`. Every applied install or update silently accepts a healthy GitHub CLI session or launches GitHub's browser/device authentication when the account or `project` scope is missing. Continuity never handles the token; unattended runs return an exact next command and may explicitly use `--skip-github-auth`. After installation, use:
 
 ```text
 .agents/continuity/bin/continuity --project-root <repository> --json project recommendations
@@ -66,11 +66,11 @@ The main skill guides the user through recommended defaults and explicit overrid
 
 Customizable settings cover the integration branch, timezone, three schedules, runtime, memory age, product-audit refresh age, validation and security commands, GitHub checks and reviewer threshold, opt-in exact human-authorized GitHub CLI merge, documentation map, visual-evidence mode, branch prefix, reviewed project-specific instructions, agent surfaces, scheduler provider, business days, sweep/retry/stale timing, portfolio concurrency, and execution enrollment. Authorization, security review, product-conformance gating, merge safety, one code-changing goal per project, human merge authority, restricted side effects, no administrator bypass, no force-push, and no auto-merge remain fixed.
 
-Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. External tracker publication remains a separate explicit-human-approval action.
+Planning-pattern settings also control evidence triage, decision mapping, dependency-aware delivery slicing, and the preferred tracker provider. Each pattern defaults to `auto`; `local` is the default tracker. Pattern artifacts are project-local, schema-validated, rendered into the human plan, and bound into its approval hash. Connecting an external tracker is one explicit human action; ongoing sanitized synchronization uses that durable, destination-bound authorization.
 
 Roadmap settings default to full hybrid planning. Canonical Markdown remains committed under `docs/project-roadmap/`; the CLI derives ignored SQLite and JSON projections that can combine roadmap truth with developer-local goals and note links. `continuity roadmap serve --open` launches a read-only loopback companion with timeline, hierarchy, release, milestone, sprint, board, dependency, risk, blocker, and detail views. The companion lives under `.agents/continuity/` and is forbidden from product routes, build inputs, previews, staging, and production packages.
 
-When `tracker_provider` is explicitly configured as `github`, `continuity roadmap github-projects` can approval-bootstrap a Project through GitHub CLI and prepare, inspect, approve, and apply an export-only projection. Bootstrap plans bind the owner, title, visibility, settings destination, and complete field contract; export plans bind the exact Project, selected canonical entries, field mappings, and source revisions. Each remote-write phase requires exact human approval. GitHub edits remain non-authorizing reconciliation proposals, and the adapter does not create repository issues or mutate canonical roadmap files from remote state.
+When `tracker_provider` is explicitly configured as `github`, `continuity roadmap github-projects connect` verifies the active GitHub account, `project` scope, stable account and Project IDs, and read/write/create/edit capabilities before creating or attaching one exact Project. The durable connection authorizes automatic sanitized roadmap and goal-status synchronization without per-update approval. It stores no token and does not enable deletion. GitHub edits remain non-authorizing reconciliation proposals, and the adapter does not create repository issues or mutate canonical roadmap files from remote state. The provider contract keeps identity, capability, projection, sync, and reconciliation semantics reusable for later Notion, Trello, Jira, or other adapters.
 
 Raw captures never travel through Git. `$continuity-share` lets a developer select atomic notes, review a sanitized hash-bound packet, approve its exact version and current-project target, then publish it through an isolated `continuity-notes/...` branch and human-reviewed PR. Merged packets live under `.continuity/shared-notes/packets/`; other developers explicitly import and triage them. Neither a packet nor its merge authorizes execution or canonical changes.
 
@@ -78,6 +78,7 @@ Raw captures never travel through Git. `$continuity-share` lets a developer sele
 
 ```text
 continuity roadmap index
+continuity roadmap inbox
 continuity roadmap list
 continuity roadmap show <roadmap-id>
 continuity roadmap brief "<topic-or-id>"
@@ -87,6 +88,9 @@ continuity roadmap create --entry-file <path> --goal-id <approved-goal>
 continuity roadmap revise <roadmap-id> --entry-file <path> --goal-id <approved-goal>
 continuity roadmap export --scope committed
 continuity roadmap serve --open
+continuity roadmap github-projects connect --owner-type user --owner <authenticated-login> --title <title> --visibility PRIVATE
+continuity roadmap github-projects status
+continuity roadmap github-projects sync
 continuity roadmap github-projects bootstrap plan --owner-type organization --owner <owner> --title <title>
 continuity roadmap github-projects bootstrap approve <plan-hash> --approved-by <identity> --authorization-text <exact-text>
 continuity roadmap github-projects bootstrap apply <plan-hash>
@@ -146,7 +150,7 @@ continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
 continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --disposition <approved|changes-requested|merged|closed> --evidence <text>
 ```
 
-The offline design catalog selects one foundation pack per active axis plus any reviewed category overlays matching the design input. Draft and approved design records preserve every selected pack ID and version.
+The offline design catalog selects one foundation pack per active axis plus any reviewed category overlays matching the design input. Draft and approved design records preserve every selected pack ID and version. Film-led web work conditionally loads the cinematic-media method: define the outcome before the technique; run private multi-concept divergence; map beats or loops to commercial chapters; derive the interface from the subject; choose among looping hero, chapter loops, normal playback, scroll-linked playback, and still equivalents; then validate the joined media, performance, control, and accessibility behavior.
 
 Use `continuity suite update --check`, a dry run, and an explicit tagged update for existing installations. Release artifacts are attested and hash-manifested; modified suite-managed files fail closed, each update creates a rollback snapshot, and project-owned configuration and ignored private state remain outside release replacement. See [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md). Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 
@@ -156,15 +160,15 @@ Use `continuity suite update --check`, a dry run, and an explicit tagged update 
 
 The steps below are the concise reference. [Operating Workflow](docs/operating-workflow.md) explains authority, scheduler activation, commands, failure handling, rework, and morning review in detail.
 
-1. Invoke `$continuity` for setup or routing. For manual end-to-end work, invoke `$continuity-workflow`; it applies `$continuity-local` with each machine-selected task skill, continues through non-human handoffs and remediation, and pauses only at explicit approval boundaries.
-2. Invoke `$continuity-capture` in the active project conversation or point it to a local Markdown/plain-text PRD or feature request. One document revision remains one source capture with multiple atomic items.
-3. Invoke `$continuity-triage`, or allow the nightly review to classify and route items. Refine occurrence dimensions and review recurring patterns when useful.
+1. Invoke `/goal <request>` for routine interactive implementation. It applies `$continuity-local`, captures and triages the request, updates the private roadmap inbox, creates the smallest aligned goal, activates it, and continues into code without routine handoff pauses. Use `$continuity` for setup or routing and `$continuity-workflow` for resumed, scheduled, diagnostic, or separately reviewed work.
+2. For knowledge-only intake, invoke `$continuity-capture` in the active project conversation or point it to a local Markdown/plain-text PRD or feature request. One document revision remains one source capture with multiple atomic items.
+3. Invoke `$continuity-triage`, or allow `/goal` or the nightly review to classify and route items. Actionable triaged notes appear immediately in the private roadmap inbox.
 4. Use `$continuity-memory` and `$continuity-roadmap` to retrieve cited context briefs. Private similarity may inform triage, but only canonical promoted memory is trusted planning evidence. Use the local read-only roadmap sidecar when visual transport helps.
 5. Use `$continuity-share` only for explicitly selected, sanitized, approved developer handoffs.
 6. When material experience decisions are unresolved and the optional collection is enabled, use `$continuity-design` to select and exactly approve `docs/design/design.md`. This approves only the design document.
 7. Use `$continuity-plan` only for selected candidates. Verify action claims, map unresolved decisions for complex work, record `roadmap_ids`, `design_ids` when applicable, and structured `roadmap_impact`, and slice multi-part outcomes into an acyclic end-to-end delivery graph when applicable.
-8. Approve an exact goal version; it queues for the project-configured dispatch time.
-9. Use `$continuity-dispatch` to start an approved goal earlier when needed.
+8. For routine `/goal` work, bind the exact request and activate the aligned plan immediately. For unattended, elevated-risk, consequential, signed-policy, or separately prepared work, approve an exact goal version and use `$continuity-dispatch`.
+9. Continue directly into execution when fast activation succeeds.
 10. Use `$continuity-execute` in the assigned isolated worktree. Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts, then commit them.
 11. Use `$continuity-test` for the final source-bound run on that committed state.
 12. Use `$continuity-product-audit` to reconcile applicable product behavior with approved intent, including any exact approved design, on the same source state, or record explicit not-applicable evidence.
@@ -175,17 +179,19 @@ The steps below are the concise reference. [Operating Workflow](docs/operating-w
 
 ```mermaid
 flowchart LR
-    A["Captured notes"] --> B["Atomic classification"]
+    Z["/goal request"] --> A["Capture and atomic triage"]
+    A --> E["Private roadmap inbox"]
     B --> C["Private project knowledge"]
     B --> D["Questions and deferred items"]
-    B --> E["Planning candidates"]
+    A --> B["Knowledge and questions"]
     C --> F["Approved memory promotion"]
     F --> G["Trusted searchable memory"]
-    E --> H["Versioned plan"]
+    E --> H["Smallest aligned plan"]
     G --> H
-    H --> I{"Explicit plan approval"}
-    I -->|"No"| J["Feedback or hold"]
-    I -->|"Yes"| K["10 PM queue or manual start"]
+    H --> I{"Authority path"}
+    I -->|"Routine interactive"| K["Request-bound activation"]
+    I -->|"Unattended or higher risk"| J["Separate approval and dispatch"]
+    J --> K
     K --> L["Isolated project worktree"]
     L --> M["Testing, code review, validation, and security report"]
     M --> N["Product-conformance audit"]

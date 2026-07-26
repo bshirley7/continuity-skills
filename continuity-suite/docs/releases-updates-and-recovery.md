@@ -47,7 +47,7 @@ python3 /path/to/continuity-skills/installer/install.py \
   --interactive
 ```
 
-The installer records the release and every suite-managed file in `.continuity/install-manifest.json`. It snapshots files before applying them and prints the snapshot identifier. It does not enable execution unless `--enable-execution` is supplied.
+The installer records the release and every suite-managed file in `.continuity/install-manifest.json`. It snapshots files before applying them and prints the snapshot identifier. It does not enable execution unless `--enable-execution` is supplied. After committing the installation transaction, it verifies the active GitHub CLI account and its `project` scope. A terminal launches `gh auth login --web` or `gh auth refresh` only when needed; GitHub CLI retains the credential and Continuity never stores the token. Cancellation or an unavailable terminal leaves the installation intact and returns the exact required command in `github_auth.next_command`.
 
 New releases may add suite-owned skills or opt-in project settings. The installer preserves prior settings and user-owned skills, installs newly added suite skills, regenerates the project-local behavior skill and enabled surface adapters, and applies a safe default for each new setting. This adds `$continuity-workflow` and its slash-command adapters to existing projects without replacing custom skills. For the GitHub CLI merge capability, existing projects receive `github_cli_merge_enabled: false`; no project begins merging through Codex merely because it updated.
 
@@ -83,7 +83,7 @@ Run all update commands from the target project:
 .agents/continuity/bin/continuity --project-root "$PWD" --json suite update --version v0.1.0-rc.1
 ```
 
-The default update path downloads the tagged archive through `gh`, verifies its GitHub build-provenance attestation, verifies every release-manifest hash, stages the installation, snapshots the current managed files, and applies the release.
+The default update path downloads the tagged archive through `gh`, verifies its GitHub build-provenance attestation, verifies every release-manifest hash, stages the installation, snapshots the current managed files, applies the release, and confirms the user-facing GitHub CLI authentication needed by repository and Projects workflows. A healthy authenticated session is silent. Use `--skip-github-auth` for deliberately unattended or offline updates; dry runs never launch authentication.
 
 After an update that adds project settings, confirm that existing skills were preserved and the generated behavior contract is current:
 

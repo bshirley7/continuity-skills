@@ -7,7 +7,7 @@ description: Approve, queue, schedule, start, hold, cancel, resume, and inspect 
 
 Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
 
-Keep approval and dispatch as separate recorded transitions. Never infer either from conversational enthusiasm or note capture.
+Keep approval and dispatch as separate recorded machine transitions, but do not turn them into separate user gates. A routine interactive `/goal` request authorizes both through one hash-bound activation command. When the user approves a reviewed routine plan by saying “proceed,” `goal proceed` records both transitions and starts the work without asking for a restatement, identity, signature, or second start decision.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `.continuity/project.json`, and `.continuity/config.json`.
 
@@ -15,13 +15,21 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 ## Required assurance
 
-- Accept only explicit human approval that names the exact goal and plan version. In signed-approval projects, require the receipt to verify against the project's trusted SSH approver allowlist and require that allowlist to match the fetched integration-branch anchor. Never synthesize an approver, approval text, signing key, or dispatch instruction.
+- Accept a submitted routine `/goal` request through `goal activate`, or the current user's explicit approval of a reviewed routine plan through `goal proceed`. Both create canonical conversation receipts bound to source or plan hashes and dispatch immediately. Do not ask the user to restate an ID, plan version, identity, approval phrase, or signing key. Reserve signed receipts for unattended dispatch and action-specific consequential transitions.
 - Fail closed on stale hashes, unsupported assurance versions, disabled execution, illegal states, unresolved decision-map items, invalid delivery-slice graphs, unmet dependencies, active locks, expired runtime, missing authentication, or failed preflight evidence.
 - Audit approval, scheduler dispatch, and execution as separate transitions, including actor, timestamp, plan hash, schedule, idempotency key, one-time claim hash, dependency state, project lock, task ID, heartbeat, and outcome.
 
 ## Approval
 
-Require explicit approval naming the goal and plan version. Reject stale, modified, superseded, held, incomplete, or compliance-deficient plans.
+For an interactive, decision-complete routine plan, the user's “proceed” is the approval:
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" goal proceed <goal-id>
+```
+
+This records the conversation approval against the current material plan hash and dispatches immediately. Reject stale, modified, superseded, held, incomplete, elevated-risk, restricted-effect, or compliance-deficient plans.
+
+Use the detailed receipt command below for unattended scheduling or a policy-controlled separate approval:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" goal approve <goal-id> --version <version> --approved-by "<human identity>" --authorization-text "<exact user approval naming goal and plan version>"
@@ -29,7 +37,7 @@ Require explicit approval naming the goal and plan version. Reject stale, modifi
 
 Add `--signing-key <ssh-private-key>` only when `.continuity/config.json` sets `require_signed_approvals: true`.
 
-Approval queues the goal for 10:00 PM America/Chicago by default. It does not start execution unless the user explicitly requests dispatch.
+The detailed receipt command queues the goal for 10:00 PM America/Chicago by default. `goal proceed` starts routine interactive work immediately because “proceed” already requests dispatch.
 The approval hash includes any evidence triage brief, decision map, and delivery-slice graph rendered into the plan. Editing any of them requires `goal revise` and a fresh approval.
 Use `goal revise <goal-id> --goal-file <revision.json> --author <identity> --summary <reason>` for changes; this archives the prior version, invalidates approval, and returns the goal to feedback.
 

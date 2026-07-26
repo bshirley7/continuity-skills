@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal"
+  short_description: "Go from request to working code"
+  default_prompt: "Use /goal to triage this request, reflect it in the roadmap, create the smallest safe plan, and start coding without routine approval pauses."

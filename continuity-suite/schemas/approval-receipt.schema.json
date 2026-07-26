@@ -13,6 +13,7 @@
     "approved_at": {"type": "string", "minLength": 1},
     "approved_by": {"type": "string", "minLength": 1},
     "authorization_text": {"type": "string", "minLength": 1},
+    "authorization_source": {"enum": ["explicit-receipt", "goal-request", "plan-proceed"]},
     "nonce": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
     "signature_format": {"enum": ["openssh-sshsig-v1", "legacy-unsigned"]}
   },
