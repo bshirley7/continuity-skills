@@ -2090,7 +2090,7 @@ def select(root: Path, config: dict[str, Any], design_id: str, direction_ids: li
         raise DesignError("Select one or more known direction IDs")
     markdown = _direction_markdown(record, [by_id[item] for item in requested])
     design_hash = hashlib.sha256(markdown.encode()).hexdigest()
-    (design_dir / "design.md").write_text(markdown, encoding="utf-8")
+    (design_dir / "design.md").write_bytes(markdown.encode("utf-8"))
     record.update({"status": "awaiting-approval", "selected_direction_ids": requested, "selected_by": actor, "selected_at": _now(), "design_hash": design_hash})
     _write_json(design_dir / "draft.json", record)
     record["required_authorization_text"] = f"Approve design {design_id} revision {record['revision']} hash {design_hash}"

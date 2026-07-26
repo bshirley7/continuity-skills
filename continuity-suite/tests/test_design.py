@@ -2272,7 +2272,11 @@ class BoundaryTests(unittest.TestCase):
             design_input.write_text(json.dumps(input_value()), encoding="utf-8")
 
             def call(*args):
-                result = subprocess.run([str(cli), "--project-root", str(root), *args], capture_output=True, text=True)
+                result = subprocess.run(
+                    [sys.executable, str(cli), "--project-root", str(root), *args],
+                    capture_output=True,
+                    text=True,
+                )
                 self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
                 return json.loads(result.stdout)
 

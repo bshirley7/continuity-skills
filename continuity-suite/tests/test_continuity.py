@@ -3411,6 +3411,12 @@ unresolved_gaps: []
         manifest["scheduler"] = config["scheduler"]
         manifest["agent_surfaces"] = {"primary": "codex", "enabled": ["codex"]}
         self.write_json(manifest_path, manifest)
+        if os.name == "nt":
+            (self.root / ".continuity" / "private").mkdir(parents=True, exist_ok=True)
+            (self.root / ".continuity" / "private" / "python-interpreter.txt").write_text(
+                sys.executable,
+                encoding="utf-8",
+            )
         special_workspace = self.root.parent / "Portfolio & root (quoted)'"
         special_workspace.mkdir()
         rendered = json.loads(self.cli("scheduler", "adapter", "codex", "render", "--root", str(special_workspace)).stdout)

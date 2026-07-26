@@ -145,14 +145,18 @@ class WindowsInstallTest(unittest.TestCase):
             )
             self.assertEqual(configured.returncode, 0, configured.stderr or configured.stdout)
 
+            configured_collections = json.loads(
+                (root / ".continuity" / "config.json").read_text(encoding="utf-8")
+            )["collections"]
+            expected_names = {"continuity-local"}
+            for collection_id in configured_collections:
+                collection = json.loads(
+                    (SUITE / "collections" / f"{collection_id}.json").read_text(encoding="utf-8")
+                )
+                expected_names.update(collection["skills"])
             canonical_names = {
-                path.name
-                for path in (root / ".agents" / "skills").glob("continuity*")
-                if path.is_dir()
+                path.name for path in (root / ".agents" / "skills").iterdir() if path.is_dir()
             }
-            expected_names = {
-                path.name for path in (SUITE / "skills").iterdir() if path.is_dir()
-            } | {"continuity-local"}
             self.assertEqual(canonical_names, expected_names)
             self.assertEqual(
                 {path.name for path in (root / ".claude" / "skills").iterdir() if path.is_dir()},
