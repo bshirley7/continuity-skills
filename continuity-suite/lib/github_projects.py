@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -72,6 +73,17 @@ GOAL_HEALTH_MAP = {
 }
 
 
+def _github_host(value: Any) -> str:
+    host = str(value or "github.com").strip().lower()
+    labels = host.split(".")
+    if (
+        len(host) > 253
+        or any(not label or len(label) > 63 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label) for label in labels)
+    ):
+        raise GitHubProjectsError("GitHub hostname must be a canonical hostname without a scheme or path")
+    return host
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
@@ -81,9 +93,10 @@ def _hash(value: Any) -> str:
 
 
 def _confined(root: Path, value: str, label: str) -> Path:
-    relative = Path(value)
-    if relative.is_absolute():
-        raise GitHubProjectsError(f"{label} must be project-relative")
+    try:
+        relative = Path(runtime.validate_portable_relative_path(value, label=label))
+    except runtime.RuntimeIntegrityError as exc:
+        raise GitHubProjectsError(str(exc)) from exc
     target = (root / relative).resolve()
     if not target.is_relative_to(root.resolve()):
         raise GitHubProjectsError(f"{label} escapes the project root")
@@ -108,6 +121,7 @@ def load_connection(root: Path, config: dict[str, Any], *, required: bool = True
     _validate_schema(value, "github-projects-connection.schema.json", "GitHub Projects connection")
     if not isinstance(value, dict) or value.get("project_id") != config.get("project_id"):
         raise GitHubProjectsError("GitHub Projects connection belongs to a different Continuity project")
+    _github_host(value.get("destination", {}).get("host", "github.com"))
     return value
 
 
@@ -139,7 +153,7 @@ def load_settings(root: Path, config: dict[str, Any], settings_value: str) -> tu
         raise GitHubProjectsError("Project tracker_provider must be github before preparing a GitHub Projects export")
     path = _confined(root, settings_value, "GitHub Projects settings")
     if not path.is_file():
-        raise GitHubProjectsError(f"GitHub Projects settings are unavailable: {path.relative_to(root.resolve())}")
+        raise GitHubProjectsError(f"GitHub Projects settings are unavailable: {path.relative_to(root.resolve()).as_posix()}")
     value = _load_json(path)
     if not isinstance(value, dict) or value.get("schema_version") != 1:
         raise GitHubProjectsError("GitHub Projects settings require schema_version 1")
@@ -148,6 +162,8 @@ def load_settings(root: Path, config: dict[str, Any], settings_value: str) -> tu
         raise GitHubProjectsError("GitHub Projects settings must use provider github-projects and mode export-only")
     if value.get("item_mode") != "draft-issue":
         raise GitHubProjectsError("The first GitHub Projects adapter supports item_mode draft-issue only")
+    value = dict(value)
+    value["host"] = _github_host(value.get("host"))
     if value.get("owner_type") not in {"organization", "user"}:
         raise GitHubProjectsError("owner_type must be organization or user")
     owner = value.get("owner")
@@ -167,7 +183,6 @@ def load_settings(root: Path, config: dict[str, Any], settings_value: str) -> tu
     unknown = sorted(set(fields) - set(FIELD_TYPES))
     if missing or unknown:
         raise GitHubProjectsError(f"GitHub Projects fields are invalid; missing={missing}, unknown={unknown}")
-    value = dict(value)
     value["fields"] = fields
     value["kind_options"] = _string_map(value.get("kind_options"), "kind_options")
     value["status_options"] = _string_map(value.get("status_options"), "status_options")
@@ -381,11 +396,12 @@ def plan_material(root: Path, config: dict[str, Any], settings_path: Path, setti
         "assurance_standard_version": config.get("assurance_standard_version"),
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "destination": {
+            "host": settings["host"],
             "owner_type": settings["owner_type"],
             "owner": settings["owner"],
             "project_number": settings["project_number"],
         },
-        "settings_path": str(settings_path.relative_to(root.resolve())),
+        "settings_path": runtime.project_relative_posix(settings_path, root),
         "mode": "export-only",
         "item_mode": "draft-issue",
         "connection_id": connection_id,
@@ -399,7 +415,7 @@ def plan_material(root: Path, config: dict[str, Any], settings_path: Path, setti
 def authorization_text(plan_hash: str, destination: dict[str, Any]) -> str:
     return (
         f"Approve GitHub Projects export {plan_hash} to "
-        f"{destination['owner_type']}:{destination['owner']}#{destination['project_number']}"
+        f"{destination['host']}/{destination['owner_type']}:{destination['owner']}#{destination['project_number']}"
     )
 
 
@@ -549,6 +565,7 @@ def build_bootstrap_plan(
     title: str | None = None,
     visibility: str = "PRIVATE",
     settings_value: str = ".continuity/github-projects.json",
+    hostname: str = "github.com",
 ) -> dict[str, Any]:
     if config.get("planning_patterns", {}).get("tracker_provider") != "github":
         raise GitHubProjectsError("Project tracker_provider must be github before preparing a GitHub Projects bootstrap")
@@ -556,17 +573,18 @@ def build_bootstrap_plan(
         raise GitHubProjectsError("owner_type must be organization or user")
     if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})", owner):
         raise GitHubProjectsError("owner must be a valid GitHub login")
+    hostname = _github_host(hostname)
     visibility = visibility.upper()
     if visibility not in {"PRIVATE", "PUBLIC"}:
         raise GitHubProjectsError("visibility must be PRIVATE or PUBLIC")
     settings_path = _confined(root, settings_value, "GitHub Projects settings")
     if settings_path.exists():
-        raise GitHubProjectsError(f"GitHub Projects settings already exist: {settings_path.relative_to(root.resolve())}")
+        raise GitHubProjectsError(f"GitHub Projects settings already exist: {runtime.project_relative_posix(settings_path, root)}")
     template = _load_json(TEMPLATE_ROOT / "github-projects-settings.json")
     if not isinstance(template, dict):
         raise GitHubProjectsError("GitHub Projects settings template is invalid")
     settings = dict(template)
-    settings.update({"owner_type": owner_type, "owner": owner})
+    settings.update({"host": hostname, "owner_type": owner_type, "owner": owner})
     settings.pop("project_number", None)
     project_title = (title or f"{config['project_id']} roadmap").strip()
     if not project_title or len(project_title) > 256:
@@ -576,13 +594,13 @@ def build_bootstrap_plan(
         "provider": "github-projects",
         "operation": "bootstrap",
         "project_id": str(config["project_id"]),
-        "destination": {"owner_type": owner_type, "owner": owner},
+        "destination": {"host": hostname, "owner_type": owner_type, "owner": owner},
         "project": {
             "title": project_title,
             "visibility": visibility,
             "description": f"Continuity operational roadmap projection for {config['project_id']}",
         },
-        "settings_path": str(settings_path.relative_to(root.resolve())),
+        "settings_path": runtime.project_relative_posix(settings_path, root),
         "settings": settings,
         "fields": _bootstrap_field_specs(settings),
     }
@@ -599,7 +617,7 @@ def build_bootstrap_plan(
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "authorization_text": (
             f"Approve GitHub Projects bootstrap {digest} to create {visibility} project "
-            f"{project_title!r} for {owner_type}:{owner}"
+            f"{project_title!r} on {hostname} for {owner_type}:{owner}"
         ),
         "material": material,
     }
@@ -652,13 +670,40 @@ def validate_bootstrap_approval(
 
 
 class GitHubClient:
-    def __init__(self, executable: str | None = None, *, timeout_seconds: int = 90) -> None:
+    def __init__(
+        self,
+        executable: str | None = None,
+        *,
+        host: str = "github.com",
+        timeout_seconds: int = 90,
+    ) -> None:
         self.executable = executable or shutil.which("gh") or ""
         if not self.executable:
             raise GitHubProjectsError("GitHub CLI is required to inspect or apply a GitHub Projects export")
+        self.host = _github_host(host)
         self.timeout_seconds = timeout_seconds
+        self.authenticated_login: str | None = None
 
-    def command_json(self, arguments: list[str]) -> dict[str, Any]:
+    def _environment(self) -> dict[str, str]:
+        return {**os.environ, "GH_HOST": self.host}
+
+    def _verify_identity(self) -> None:
+        if self.authenticated_login is not None:
+            return
+        result = subprocess.run(
+            [self.executable, "api", "user", "--hostname", self.host, "--jq", ".login"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            env=self._environment(),
+        )
+        login = result.stdout.strip()
+        if result.returncode != 0 or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,254}", login):
+            raise GitHubProjectsError(f"GitHub CLI has no valid active account for {self.host}")
+        self.authenticated_login = login
+
+    def _run_json(self, arguments: list[str]) -> dict[str, Any]:
         try:
             result = subprocess.run(
                 [self.executable, *arguments],
@@ -666,6 +711,7 @@ class GitHubClient:
                 text=True,
                 timeout=self.timeout_seconds,
                 check=False,
+                env=self._environment(),
             )
         except subprocess.TimeoutExpired as exc:
             raise GitHubProjectsError(f"GitHub CLI request timed out after {self.timeout_seconds} seconds") from exc
@@ -680,24 +726,28 @@ class GitHubClient:
             raise GitHubProjectsError("GitHub CLI response must be a JSON object")
         return payload
 
+    def command_json(self, arguments: list[str]) -> dict[str, Any]:
+        self._verify_identity()
+        return self._run_json(arguments)
+
     def authenticated_identity(self) -> dict[str, Any]:
-        status = self.command_json(["auth", "status", "--hostname", "github.com", "--active", "--json", "hosts"])
-        accounts = (status.get("hosts") or {}).get("github.com")
+        status = self._run_json(["auth", "status", "--hostname", self.host, "--active", "--json", "hosts"])
+        accounts = (status.get("hosts") or {}).get(self.host)
         if not isinstance(accounts, list):
-            raise GitHubProjectsError("GitHub CLI did not return an active github.com account")
+            raise GitHubProjectsError(f"GitHub CLI did not return an active {self.host} account")
         active = next((item for item in accounts if isinstance(item, dict) and item.get("active")), None)
         if not isinstance(active, dict) or active.get("state") != "success":
             login = active.get("login") if isinstance(active, dict) else "unknown"
             raise GitHubProjectsError(
-                f"GitHub CLI account {login} is not authenticated; run `gh auth login --hostname github.com --web --scopes project`"
+                f"GitHub CLI account {login} is not authenticated; run `gh auth login --hostname {self.host} --web --scopes project`"
             )
         scopes = sorted(str(item) for item in active.get("scopes", []) if str(item))
         missing = sorted(REQUIRED_CONNECTION_SCOPES - set(scopes))
         if missing:
             raise GitHubProjectsError(
-                "GitHub Projects connection requires the project scope; run `gh auth refresh --hostname github.com --scopes project`"
+                f"GitHub Projects connection requires the project scope; run `gh auth refresh --hostname {self.host} --scopes project`"
             )
-        viewer = self.command_json(["api", "user"])
+        viewer = self._run_json(["api", "user"])
         login = str(viewer.get("login") or "")
         database_id = viewer.get("id")
         if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})", login):
@@ -706,11 +756,12 @@ class GitHubClient:
             raise GitHubProjectsError("GitHub API did not return a stable authenticated account ID")
         if login.casefold() != str(active.get("login") or "").casefold():
             raise GitHubProjectsError("GitHub CLI status and API viewer identities do not match")
+        self.authenticated_login = login
         return {
             "login": login,
             "database_id": database_id,
             "scopes": scopes,
-            "host": "github.com",
+            "host": self.host,
             "credential_source": str(active.get("tokenSource") or "gh-credential-store"),
         }
 
@@ -742,14 +793,16 @@ class GitHubClient:
         return self.command_json(arguments)
 
     def graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        self._verify_identity()
         try:
             result = subprocess.run(
-                [self.executable, "api", "graphql", "--input", "-"],
+                [self.executable, "api", "graphql", "--hostname", self.host, "--input", "-"],
                 input=json.dumps({"query": query, "variables": variables}),
                 capture_output=True,
                 text=True,
                 timeout=self.timeout_seconds,
                 check=False,
+                env=self._environment(),
             )
         except subprocess.TimeoutExpired as exc:
             raise GitHubProjectsError(f"GitHub Projects API request timed out after {self.timeout_seconds} seconds") from exc
@@ -973,8 +1026,8 @@ def apply_bootstrap(
     plan: dict[str, Any],
     client: GitHubClient | None = None,
 ) -> dict[str, Any]:
-    client = client or GitHubClient()
     material = plan["material"]
+    client = client or GitHubClient(host=str(material["destination"].get("host", "github.com")))
     target = _confined(root, str(material["settings_path"]), "GitHub Projects settings")
     checkpoint_path = bootstrap_application_path(root, config, plan["plan_hash"])
     checkpoint = _bootstrap_checkpoint(root, config, plan)
@@ -984,7 +1037,7 @@ def apply_bootstrap(
         return checkpoint
     if target.exists():
         if checkpoint.get("status") != "settings-written" or not isinstance(checkpoint.get("project"), dict):
-            raise GitHubProjectsError(f"GitHub Projects settings already exist: {target.relative_to(root.resolve())}")
+            raise GitHubProjectsError(f"GitHub Projects settings already exist: {runtime.project_relative_posix(target, root)}")
         expected_settings = dict(material["settings"])
         expected_settings["project_number"] = int(checkpoint["project"]["number"])
         if _load_json(target) != expected_settings:
@@ -1055,10 +1108,12 @@ def apply_bootstrap(
 
 
 def _project_connection_destination(
+    host: str,
     owner_type: str,
     owner: str,
     project: dict[str, Any],
 ) -> dict[str, Any]:
+    host = _github_host(host)
     number = project.get("number")
     node_id = project.get("id")
     url = project.get("url")
@@ -1066,11 +1121,12 @@ def _project_connection_destination(
         raise GitHubProjectsError("GitHub Project did not return a valid project number")
     if not isinstance(node_id, str) or not node_id:
         raise GitHubProjectsError("GitHub Project did not return a stable node ID")
-    if not isinstance(url, str) or not url.startswith("https://github.com/"):
+    if not isinstance(url, str) or not url.startswith(f"https://{host}/"):
         raise GitHubProjectsError("GitHub Project did not return a valid GitHub URL")
     if project.get("viewerCanUpdate") is not True:
         raise GitHubProjectsError("The authenticated GitHub account cannot edit the selected Project")
     return {
+        "host": host,
         "owner_type": owner_type,
         "owner": owner,
         "project_number": number,
@@ -1087,9 +1143,12 @@ def connection_status(
 ) -> dict[str, Any]:
     connection = load_connection(root, config)
     assert connection is not None
-    client = client or GitHubClient()
+    client = client or GitHubClient(host=str(connection["destination"].get("host", "github.com")))
     identity = client.authenticated_identity()
     expected_user = connection["authenticated_user"]
+    expected_host = _github_host(connection["destination"].get("host", "github.com"))
+    if _github_host(identity.get("host", "github.com")) != expected_host:
+        raise GitHubProjectsError(f"Active GitHub host does not match connected host {expected_host}")
     if (
         identity["database_id"] != expected_user["database_id"]
         or identity["login"].casefold() != str(expected_user["login"]).casefold()
@@ -1128,6 +1187,7 @@ def connect(
     title: str | None = None,
     visibility: str = "PRIVATE",
     settings_value: str = ".continuity/github-projects.json",
+    hostname: str = "github.com",
     client: GitHubClient | None = None,
 ) -> dict[str, Any]:
     if config.get("planning_patterns", {}).get("tracker_provider") != "github":
@@ -1138,8 +1198,11 @@ def connect(
         raise GitHubProjectsError("owner must be a valid GitHub login")
     if project_number is not None and (isinstance(project_number, bool) or project_number < 1):
         raise GitHubProjectsError("project_number must be a positive integer")
-    client = client or GitHubClient()
+    hostname = _github_host(hostname)
+    client = client or GitHubClient(host=hostname)
     identity = client.authenticated_identity()
+    if _github_host(identity.get("host", "github.com")) != hostname:
+        raise GitHubProjectsError(f"Active GitHub host does not match requested host {hostname}")
     if owner_type == "user" and identity["login"].casefold() != owner.casefold():
         raise GitHubProjectsError(
             f"User-owned Projects must be connected to the authenticated account {identity['login']}"
@@ -1149,6 +1212,7 @@ def connect(
         requested_number = project_number or existing_connection["destination"]["project_number"]
         if (
             existing_connection["authenticated_user"]["database_id"] == identity["database_id"]
+            and _github_host(existing_connection["destination"].get("host", "github.com")) == hostname
             and existing_connection["destination"]["owner_type"] == owner_type
             and existing_connection["destination"]["owner"].casefold() == owner.casefold()
             and existing_connection["destination"]["project_number"] == requested_number
@@ -1175,6 +1239,7 @@ def connect(
             title=title,
             visibility=visibility,
             settings_value=settings_value,
+            hostname=hostname,
         )
         result = apply_bootstrap(root, config, bootstrap, client)
         project_number = int(result["destination"]["project_number"])
@@ -1186,7 +1251,8 @@ def connect(
         if settings_path.is_file():
             _settings_path, settings = load_settings(root, config, settings_value)
             if (
-                settings["owner_type"] != owner_type
+                settings["host"] != hostname
+                or settings["owner_type"] != owner_type
                 or str(settings["owner"]).casefold() != owner.casefold()
                 or settings["project_number"] != project_number
             ):
@@ -1196,9 +1262,9 @@ def connect(
             if not isinstance(template, dict):
                 raise GitHubProjectsError("GitHub Projects settings template is invalid")
             settings = dict(template)
-            settings.update({"owner_type": owner_type, "owner": owner, "project_number": project_number})
+            settings.update({"host": hostname, "owner_type": owner_type, "owner": owner, "project_number": project_number})
             _validate_schema(settings, "github-projects-settings.schema.json", "GitHub Projects settings")
-        destination = {"owner_type": owner_type, "owner": owner, "project_number": project_number}
+        destination = {"host": hostname, "owner_type": owner_type, "owner": owner, "project_number": project_number}
         project = fetch_project(client, destination)
         if project.get("viewerCanUpdate") is not True:
             raise GitHubProjectsError("The authenticated GitHub account cannot edit the selected Project")
@@ -1209,9 +1275,9 @@ def connect(
         )
         runtime.atomic_write_json(settings_path, settings)
 
-    destination = {"owner_type": owner_type, "owner": owner, "project_number": project_number}
+    destination = {"host": hostname, "owner_type": owner_type, "owner": owner, "project_number": project_number}
     project = fetch_project(client, destination)
-    connected_destination = _project_connection_destination(owner_type, owner, project)
+    connected_destination = _project_connection_destination(hostname, owner_type, owner, project)
     connection_material = {
         "provider": "github-projects",
         "project_id": str(config["project_id"]),
@@ -1261,7 +1327,9 @@ def sync(
     settings_value: str = ".continuity/github-projects.json",
     client: GitHubClient | None = None,
 ) -> dict[str, Any]:
-    client = client or GitHubClient()
+    connection = load_connection(root, config)
+    assert connection is not None
+    client = client or GitHubClient(host=str(connection["destination"].get("host", "github.com")))
     status = connection_status(root, config, client)
     plan = build_plan(root, config, settings_value)
     if plan["material"].get("connection_id") != status["connection_id"]:
@@ -1324,7 +1392,7 @@ def _managed_items(plan: dict[str, Any], project: dict[str, Any]) -> dict[str, d
 
 
 def inspect(plan: dict[str, Any], client: GitHubClient | None = None) -> dict[str, Any]:
-    client = client or GitHubClient()
+    client = client or GitHubClient(host=str(plan["material"]["destination"].get("host", "github.com")))
     project = fetch_project(client, plan["material"]["destination"])
     _resolved_fields(plan, project)
     managed = _managed_items(plan, project)
@@ -1423,7 +1491,7 @@ mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!) {
 
 
 def apply(plan: dict[str, Any], client: GitHubClient | None = None) -> dict[str, Any]:
-    client = client or GitHubClient()
+    client = client or GitHubClient(host=str(plan["material"]["destination"].get("host", "github.com")))
     project = fetch_project(client, plan["material"]["destination"])
     fields = _resolved_fields(plan, project)
     managed = _managed_items(plan, project)

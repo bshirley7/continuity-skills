@@ -1,20 +1,25 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import datetime as dt
 import json
 import os
 import re
 import runpy
 import shutil
+import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import threading
 import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 
@@ -25,6 +30,31 @@ sys.path.insert(0, str(SUITE / "lib"))
 import roadmap as roadmap_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
+
+
+def remove_tree(path: Path) -> None:
+    def make_writable(function: object, value: str, _error: object) -> None:
+        os.chmod(value, stat.S_IWRITE)
+        function(value)
+
+    shutil.rmtree(path, onerror=make_writable)
+
+
+def installed_cli_args(root: Path) -> list[str]:
+    return [sys.executable, str(root / ".agents" / "continuity" / "bin" / "continuity")]
+
+
+def install_python_tool(directory: Path, name: str, source: str) -> Path:
+    script = directory / f"{name}-fixture.py"
+    script.write_text(source, encoding="utf-8")
+    if os.name == "nt":
+        launcher = directory / f"{name}.cmd"
+        launcher.write_text(f'@echo off\n"{sys.executable}" "{script}" %*\nexit /b %errorlevel%\n', encoding="utf-8")
+    else:
+        launcher = directory / name
+        launcher.write_text(f"#!/usr/bin/env python3\n{source}", encoding="utf-8")
+        launcher.chmod(0o755)
+    return launcher
 
 
 def collection_skills(*collection_ids: str) -> set[str]:
@@ -1055,16 +1085,20 @@ unresolved_gaps: []
         self.assertEqual(compliance["stages"]["security-review"]["status"], "passed")
         fake_bin = self.root.parent / "fake-bin"
         fake_bin.mkdir()
-        fake_gh = fake_bin / "gh"
-        fake_gh.write_text(
-            "#!/bin/sh\nprintf '%s\\n' '{\"state\":\"OPEN\",\"headRefName\":\"continuity/quality-gates\",\"baseRefName\":\"main\",\"headRefOid\":\"deadbeef\"}'\n",
-            encoding="utf-8",
+        install_python_tool(
+            fake_bin,
+            "gh",
+            "import json,sys\n"
+            "args=sys.argv[1:]\n"
+            "if args[:2] == ['api','user']:\n print('fixture-user'); raise SystemExit(0)\n"
+            "if args[:2] == ['pr','view']:\n print(json.dumps({'url':'https://github.com/example/project/pull/1','state':'OPEN','headRefName':'continuity/quality-gates','baseRefName':'main','headRefOid':'deadbeef','isDraft':False,'mergeStateStatus':'CLEAN','reviewDecision':'APPROVED','reviews':[],'statusCheckRollup':[]})); raise SystemExit(0)\n"
+            "raise SystemExit(1)\n",
         )
-        fake_gh.chmod(0o755)
         original_path = os.environ.get("PATH", "")
         pr_config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
         pr_config["require_pr"] = True
         self.write_json(self.root / ".continuity" / "config.json", pr_config)
+        self.git("remote", "add", "origin", "https://github.com/example/project.git")
         os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
         try:
             mismatch = json.loads(
@@ -1441,7 +1475,8 @@ unresolved_gaps: []
         self.write_json(config_path, config)
         self.git("add", ".continuity/config.json")
         self.git("commit", "-m", "require authenticated PR fixture")
-        pr_url = "https://github.com/example/project/pull/42"
+        pr_url = "https://ghe.example.test/example/project/pull/42"
+        self.git("remote", "add", "origin", "git@ghe.example.test:example/project.git")
         self.cli("run", "update", goal["goal_id"], "--state", "running", "--branch", "continuity/guarded-cli-merge")
         self.cli("run", "update", goal["goal_id"], "--state", "validating", "--pr-url", pr_url)
         machine = json.loads(
@@ -1462,30 +1497,20 @@ unresolved_gaps: []
         state_path = self.root.parent / "guarded-merge-state"
         state_path.write_text("open\n", encoding="utf-8")
         log_path = self.root.parent / "guarded-merge-gh.log"
-        fake_gh = fake_bin / "gh"
-        fake_gh.write_text(
-            "#!/bin/sh\n"
-            f"printf '%s\\n' \"$*\" >> '{log_path}'\n"
-            "if [ \"$1\" = \"api\" ] && [ \"$2\" = \"user\" ]; then\n"
-            "  printf '%s\\n' 'fixture-user'\n"
-            "  exit 0\n"
-            "fi\n"
-            "if [ \"$1\" = \"pr\" ] && [ \"$2\" = \"merge\" ]; then\n"
-            f"  printf '%s\\n' 'merged' > '{state_path}'\n"
-            "  exit 0\n"
-            "fi\n"
-            "if [ \"$1\" = \"pr\" ] && [ \"$2\" = \"view\" ]; then\n"
-            f"  if [ \"$(cat '{state_path}')\" = \"merged\" ]; then\n"
-            f"    printf '%s\\n' '{{\"state\":\"MERGED\",\"headRefName\":\"continuity/guarded-cli-merge\",\"baseRefName\":\"main\",\"headRefOid\":\"{head_sha}\",\"isDraft\":false,\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":\"APPROVED\",\"reviews\":[{{\"state\":\"APPROVED\",\"author\":{{\"login\":\"fixture-reviewer\"}}}}],\"statusCheckRollup\":[{{\"name\":\"Continuity CI\",\"conclusion\":\"SUCCESS\"}}],\"mergeCommit\":{{\"oid\":\"{merge_commit}\"}},\"mergedBy\":{{\"login\":\"fixture-user\"}}}}'\n"
-            "  else\n"
-            f"    printf '%s\\n' '{{\"state\":\"OPEN\",\"headRefName\":\"continuity/guarded-cli-merge\",\"baseRefName\":\"main\",\"headRefOid\":\"{head_sha}\",\"isDraft\":false,\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":\"APPROVED\",\"reviews\":[{{\"state\":\"APPROVED\",\"author\":{{\"login\":\"fixture-reviewer\"}}}}],\"statusCheckRollup\":[{{\"name\":\"Continuity CI\",\"conclusion\":\"SUCCESS\"}}],\"mergeCommit\":null,\"mergedBy\":null}}'\n"
-            "  fi\n"
-            "  exit 0\n"
-            "fi\n"
-            "exit 1\n",
-            encoding="utf-8",
+        install_python_tool(
+            fake_bin,
+            "gh",
+            "import json,sys\n"
+            "from pathlib import Path\n"
+            f"state=Path({str(state_path)!r})\nlog=Path({str(log_path)!r})\n"
+            "args=sys.argv[1:]\n"
+            "with log.open('a',encoding='utf-8') as handle: handle.write(' '.join(args)+'\\n')\n"
+            "if args[:2] == ['api','user']:\n print('fixture-user'); raise SystemExit(0)\n"
+            "if args[:2] == ['pr','merge']:\n state.write_text('merged\\n',encoding='utf-8'); raise SystemExit(0)\n"
+            "if args[:2] == ['pr','view']:\n"
+            f" merged=state.read_text(encoding='utf-8').strip()=='merged'\n payload={{'url':{pr_url!r},'state':'MERGED' if merged else 'OPEN','headRefName':'continuity/guarded-cli-merge','baseRefName':'main','headRefOid':{head_sha!r},'isDraft':False,'mergeStateStatus':'CLEAN','reviewDecision':'APPROVED','reviews':[{{'state':'APPROVED','author':{{'login':'fixture-reviewer'}}}}],'statusCheckRollup':[{{'name':'Continuity CI','conclusion':'SUCCESS'}}],'mergeCommit':{{'oid':{merge_commit!r}}} if merged else None,'mergedBy':{{'login':'fixture-user'}} if merged else None}}\n print(json.dumps(payload)); raise SystemExit(0)\n"
+            "raise SystemExit(1)\n",
         )
-        fake_gh.chmod(0o755)
         original_path = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
         try:
@@ -1513,6 +1538,12 @@ unresolved_gaps: []
                 "--authorization-text", "Merge something else", expected=2,
             )
             self.assertEqual(state_path.read_text(encoding="utf-8").strip(), "open")
+            self.cli(
+                "merge", "execute", goal["goal_id"], "--pr-url", pr_url, "--head-sha", head_sha,
+                "--merge-method", "squash", "--authorized-by", "different-active-account",
+                "--authorization-text", authorization_text, expected=2,
+            )
+            self.assertEqual(state_path.read_text(encoding="utf-8").strip(), "open")
             merged = json.loads(
                 self.cli(
                     "merge", "execute", goal["goal_id"], "--pr-url", pr_url, "--head-sha", head_sha,
@@ -1530,9 +1561,119 @@ unresolved_gaps: []
         self.assertEqual(authorization["authorization_text"], authorization_text)
         self.assertEqual(json.loads((goal_dir / "goal.json").read_text(encoding="utf-8"))["state"], "completed")
         gh_log = log_path.read_text(encoding="utf-8")
+        self.assertIn("api user --hostname ghe.example.test", gh_log)
+        self.assertIn("--repo ghe.example.test/example/project", gh_log)
         self.assertIn(f"--match-head-commit {head_sha}", gh_log)
         self.assertNotIn("--admin", gh_log)
         self.assertNotIn("--auto", gh_log)
+
+    def test_github_host_repository_account_and_review_matrix_is_fail_closed(self) -> None:
+        cli_module = runpy.run_path(str(CLI))
+        continuity_error = cli_module["ContinuityError"]
+        self.git("remote", "add", "origin", "https://github.com/Example/Project.git")
+        public = cli_module["github_pr_context"](
+            self.root,
+            "https://github.com/example/project/pull/17",
+        )
+        self.assertEqual(public["spec"], "github.com/example/project")
+        self.assertEqual(public["number"], 17)
+
+        self.git("remote", "set-url", "origin", "git@ghe.example.test:Example/Project.git")
+        enterprise_url = "https://ghe.example.test/example/project/pull/91"
+        enterprise = cli_module["github_pr_context"](self.root, enterprise_url)
+        self.assertEqual(enterprise["host"], "ghe.example.test")
+        self.assertEqual(enterprise["spec"], "ghe.example.test/example/project")
+        self.assertEqual(shared_notes_lib._parse_github_pr_url(enterprise_url)["spec"], enterprise["spec"])
+        with self.assertRaises(shared_notes_lib.SharedNoteError):
+            shared_notes_lib._parse_github_pr_url(
+                "https://user:secret@ghe.example.test/example/project/pull/91"
+            )
+        with self.assertRaisesRegex(continuity_error, "does not match origin repository"):
+            cli_module["github_pr_context"](
+                self.root,
+                "https://ghe.example.test/example/other-project/pull/91",
+            )
+        for unsafe in (
+            "http://ghe.example.test/example/project/pull/91",
+            "https://user:secret@ghe.example.test/example/project/pull/91",
+            "https://ghe.example.test/example/project/pull/91?account=other",
+            "https://ghe.example.test/example/project/pull/0",
+            "https://ghe.example.test/example/project/pull/91/",
+            "https://ghe.example.test/example/project/pull/91/extra",
+        ):
+            with self.assertRaises(continuity_error, msg=unsafe):
+                cli_module["parse_github_pr_url"](unsafe)
+
+        reviews = [
+            {"state": "APPROVED", "author": {"login": "Reviewer-One"}},
+            {"state": "APPROVED", "author": {"login": "reviewer-two"}},
+            {"state": "CHANGES_REQUESTED", "author": {"login": "REVIEWER-ONE"}},
+            {"state": "COMMENTED", "author": {"login": "reviewer-two"}},
+        ]
+        self.assertEqual(cli_module["github_approved_reviewers"](reviews), {"reviewer-two"})
+        check_summary = cli_module["github_check_summary"](
+            [
+                {"name": "Continuity CI", "conclusion": "SUCCESS"},
+                {"name": "Security", "status": "IN_PROGRESS"},
+            ],
+            ["Continuity CI", "Security", "Required Missing"],
+        )
+        self.assertFalse(check_summary["passed"])
+        self.assertIn("Required Missing", check_summary["missing"])
+        self.assertTrue(any("IN_PROGRESS" in failure for failure in check_summary["failures"]))
+
+        fake_bin = self.root.parent / "github-matrix-bin"
+        fake_bin.mkdir()
+        payload_path = self.root.parent / "github-matrix-payload.json"
+        log_path = self.root.parent / "github-matrix-gh.log"
+        payload = {
+            "url": enterprise_url,
+            "state": "OPEN",
+            "headRefName": "continuity/example",
+            "baseRefName": "main",
+            "headRefOid": "a" * 40,
+        }
+        self.write_json(payload_path, payload)
+        install_python_tool(
+            fake_bin,
+            "gh",
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"payload=Path({str(payload_path)!r})\nlog=Path({str(log_path)!r})\n"
+            "args=sys.argv[1:]\n"
+            "with log.open('a',encoding='utf-8') as handle: handle.write(' '.join(args)+'\\n')\n"
+            "if args[:2] == ['api','user']:\n print('enterprise-user'); raise SystemExit(0)\n"
+            "if args[:2] == ['pr','view']:\n print(payload.read_text(encoding='utf-8')); raise SystemExit(0)\n"
+            "raise SystemExit(1)\n",
+        )
+        original_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
+        try:
+            self.assertEqual(
+                cli_module["github_authenticated_login"](self.root, enterprise),
+                "enterprise-user",
+            )
+            details = cli_module["github_pr_details"](
+                self.root,
+                enterprise_url,
+                ["state", "headRefOid"],
+                context=enterprise,
+            )
+            self.assertEqual(details["headRefOid"], "a" * 40)
+            payload["url"] = "https://ghe.example.test/example/other-project/pull/91"
+            self.write_json(payload_path, payload)
+            with self.assertRaisesRegex(continuity_error, "different repository"):
+                cli_module["github_pr_details"](
+                    self.root,
+                    enterprise_url,
+                    ["state"],
+                    context=enterprise,
+                )
+        finally:
+            os.environ["PATH"] = original_path
+        gh_log = log_path.read_text(encoding="utf-8")
+        self.assertIn("api user --hostname ghe.example.test", gh_log)
+        self.assertIn("pr view 91 --repo ghe.example.test/example/project", gh_log)
 
     def test_workflow_status_and_changes_requested_reopen_same_goal(self) -> None:
         capture = self.create_capture()
@@ -2135,6 +2276,7 @@ unresolved_gaps: []
             "stale_after_minutes": 45,
             "portfolio_max_concurrency": 4,
         }
+        config["require_remote_lease"] = True
         config["behavior_configuration_hash"] = "a" * 64
         self.write_json(self.root / ".continuity" / "config.json", config)
         registered = json.loads(
@@ -2213,6 +2355,14 @@ unresolved_gaps: []
             ).stdout
         )
         self.cli("scheduler", "run-finish", review_16["run_id"], "--status", "succeeded", "--summary", "Review completed")
+        scheduler_remote = self.root.parent / "scheduler-remote.git"
+        subprocess.run(["git", "init", "--bare", str(scheduler_remote)], check=True, capture_output=True)
+        self.git("remote", "add", "origin", str(scheduler_remote))
+        self.git("push", "-u", "origin", "main")
+        self.cli(
+            "scheduler", "lease", "acquire", "--owner", "scheduler-fixture", "--goal-id", goal["goal_id"],
+            "--remote", "origin",
+        )
         dispatch_claim = reserve("dispatch", "2026-07-16T22:30:00-05:00", "sweep-dispatch-16")
         execution_run = json.loads(
             self.cli(
@@ -2220,6 +2370,10 @@ unresolved_gaps: []
                 "--claim-token", dispatch_claim["claim_token"], "--task-id", "execution-task", "--goal-id", goal["goal_id"],
             ).stdout
         )
+        bound_lease = json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)["lease"]
+        self.assertEqual(bound_lease["bound_run_id"], execution_run["run_id"])
+        self.assertEqual(bound_lease["bound_task_id"], "execution-task")
+        self.assertEqual(bound_lease["bound_idempotency_key"], dispatch_claim["idempotency_key"])
         self.cli("goal", "start", goal["goal_id"])
         self.cli(
             "run", "update", goal["goal_id"], "--state", "running", "--task-id", "execution-task",
@@ -2235,6 +2389,7 @@ unresolved_gaps: []
             self.cli("scheduler", "recover", "--run-id", execution_run["run_id"], "--actor", "fixture-user").stdout
         )
         self.assertEqual(execution_recovery[0]["goal_recovery"], "blocked-and-lock-released")
+        self.assertEqual(json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)["state"], "available")
         recovered_goal = json.loads(goal_path.read_text())
         self.assertEqual(recovered_goal["state"], "blocked")
         self.assertFalse((self.root / ".continuity" / "private" / "project.lock.json").exists())
@@ -2262,6 +2417,134 @@ unresolved_gaps: []
             "--sweep-id", "sweep-revive",
         )
         self.assertEqual(json.loads(self.cli("scheduler", "status").stdout)["state"], "registered")
+
+    def test_codex_adapter_observes_signed_no_op_replay_staleness_and_remote_contention(self) -> None:
+        key = self.root.parent / "observed-adapter-signer"
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
+        config_path = self.root / ".continuity" / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["scheduler"] = {
+            "provider": "codex",
+            "sweep_minutes": 15,
+            "business_days": [0, 1, 2, 3, 4],
+            "retry_limit": 2,
+            "retry_backoff_minutes": 15,
+            "stale_after_minutes": 45,
+            "portfolio_max_concurrency": 1,
+        }
+        config["behavior_configuration_hash"] = "b" * 64
+        config["require_signed_approvals"] = True
+        config["approval_allowed_signers"] = ".continuity/trusted-approvers"
+        self.write_json(config_path, config)
+        manifest_path = self.root / ".continuity" / "project.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["execution_enabled"] = False
+        manifest["scheduler"] = config["scheduler"]
+        manifest["agent_surfaces"] = {"primary": "codex", "enabled": ["codex", "claude-code"]}
+        self.write_json(manifest_path, manifest)
+        self.cli("approval", "trust", "add", "--identity", "fixture-user", "--public-key", str(key) + ".pub")
+        self.cli(
+            "scheduler", "register", "--task-id", "observed-codex-supervisor",
+            "--root", self.temp.name, "--actor", "fixture-user",
+        )
+
+        def reserve_review(at: str, sweep_id: str) -> dict[str, object]:
+            records = json.loads(
+                self.cli(
+                    "portfolio", "actions", "--root", self.temp.name, "--action", "review",
+                    "--at", at, "--supervisor-task-id", "observed-codex-supervisor", "--sweep-id", sweep_id,
+                ).stdout
+            )
+            claim = next(record for record in records if record.get("project_id") == "test-project" and record.get("status") in {"due", "retry"})
+            claims_path = self.root / ".continuity" / "private" / "scheduler-due-actions.json"
+            claims = json.loads(claims_path.read_text(encoding="utf-8"))
+            claims[claim["claim_token"]]["expires_at"] = "2999-01-01T00:00:00-06:00"
+            self.write_json(claims_path, claims)
+            return claim
+
+        first_claim = reserve_review("2026-07-15T20:30:00-05:00", "observed-sweep-one")
+        no_op = json.loads(
+            self.cli(
+                "scheduler", "run-start", "review", "--idempotency-key", first_claim["idempotency_key"],
+                "--claim-token", first_claim["claim_token"], "--task-id", "observed-child-one",
+                "--summary", "Observed no-op review started.",
+            ).stdout
+        )
+        self.cli(
+            "scheduler", "run-finish", no_op["run_id"], "--status", "succeeded",
+            "--summary", "Observed no-op review: no eligible changes or decisions.",
+        )
+        replay = self.cli(
+            "scheduler", "run-start", "review", "--idempotency-key", first_claim["idempotency_key"],
+            "--claim-token", first_claim["claim_token"], "--task-id", "observed-replay", expected=2,
+        )
+        second_claim = reserve_review("2026-07-16T20:30:00-05:00", "observed-sweep-two")
+        registration_path = self.root / ".continuity" / "private" / "scheduler-registration.json"
+        registration = json.loads(registration_path.read_text(encoding="utf-8"))
+        registration["last_heartbeat_at"] = "2020-01-01T00:00:00-06:00"
+        self.write_json(registration_path, registration)
+        stale = self.cli(
+            "scheduler", "run-start", "review", "--idempotency-key", second_claim["idempotency_key"],
+            "--claim-token", second_claim["claim_token"], "--task-id", "observed-stale", expected=2,
+        )
+        self.cli(
+            "portfolio", "actions", "--root", self.temp.name, "--action", "review",
+            "--at", "2026-07-19T20:30:00-05:00", "--supervisor-task-id", "observed-codex-supervisor",
+            "--sweep-id", "observed-sweep-three",
+        )
+
+        goal = self.create_goal("Observed remote lease contention")
+        remote = self.root.parent / "observed-adapter-remote.git"
+        subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+        self.git("remote", "add", "origin", str(remote))
+        self.git("push", "-u", "origin", "main")
+        self.cli(
+            "scheduler", "lease", "acquire", "--owner", "workstation-one",
+            "--goal-id", goal["goal_id"], "--remote", "origin",
+        )
+        workstation_two = self.root.parent / "observed-workstation-two"
+        subprocess.run(
+            ["git", "clone", "--branch", "main", str(remote), str(workstation_two)],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(["git", "-C", str(workstation_two), "config", "user.email", "tests@example.invalid"], check=True)
+        subprocess.run(["git", "-C", str(workstation_two), "config", "user.name", "Continuity Tests"], check=True)
+        source_goal = self.root / ".continuity" / "private" / "goals" / goal["goal_id"]
+        target_goal = workstation_two / ".continuity" / "private" / "goals" / goal["goal_id"]
+        target_goal.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_goal, target_goal)
+        contention = subprocess.run(
+            [
+                "python3", str(CLI), "--project-root", str(workstation_two), "scheduler", "lease", "acquire",
+                "--owner", "workstation-two", "--goal-id", goal["goal_id"], "--remote", "origin",
+            ],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assertEqual(contention.returncode, 2, contention.stderr)
+        self.assertIn("active remote lease", contention.stderr)
+
+        artifacts = {
+            "claim-replay-rejected": {"returncode": replay.returncode, "stderr": replay.stderr.strip()},
+            "stale-registration-rejected": {"returncode": stale.returncode, "stderr": stale.stderr.strip()},
+            "remote-lease-contention-rejected": {"returncode": contention.returncode, "stderr": contention.stderr.strip()},
+        }
+        artifact_root = self.root / ".continuity" / "private" / "reports" / "conformance-artifacts"
+        for probe, artifact in artifacts.items():
+            artifact_path = artifact_root / f"{probe}.json"
+            self.write_json(artifact_path, artifact)
+            digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+            self.cli(
+                "scheduler", "adapter", "codex", "record-probe", "--probe", probe, "--status", "passed",
+                "--evidence", f"Observed from direct local protocol execution: {artifact_path.relative_to(self.root).as_posix()}",
+                "--artifact-sha256", digest, "--actor", "fixture-user", "--signing-key", str(key),
+            )
+        verified = json.loads(self.cli("scheduler", "adapter", "codex", "verify").stdout)
+        self.assertTrue(verified["healthy"], verified)
+        self.assertGreaterEqual(verified["observed_sweeps"], 2)
+        self.assertEqual(verified["observed_no_op_runs"], 1)
 
     def test_subject_specific_workflow_handoffs_override_project_queue_priority(self) -> None:
         planning_capture = self.create_capture()
@@ -2770,6 +3053,56 @@ unresolved_gaps: []
             self.cli("scheduler", "lease", "acquire", "--owner", "operator-one", "--goal-id", goal["goal_id"], "--remote", "origin").stdout
         )
         self.assertEqual(acquired["status"], "active")
+        self.cli(
+            "scheduler", "lease", "acquire", "--owner", "operator-one", "--goal-id", goal["goal_id"],
+            "--attempt-id", "2", "--remote", "origin", expected=2,
+        )
+        self.cli(
+            "scheduler", "lease", "renew", "--goal-id", goal["goal_id"], "--attempt-id", "2",
+            "--ttl-minutes", "60", expected=2,
+        )
+        renewed = json.loads(
+            self.cli(
+                "scheduler", "lease", "renew", "--goal-id", goal["goal_id"], "--attempt-id", "1",
+                "--ttl-minutes", "60",
+            ).stdout
+        )
+        self.assertNotEqual(renewed["lease_commit"], acquired["lease_commit"])
+        self.assertEqual(renewed["previous_lease_commit"], acquired["lease_commit"])
+        local_lease_path = self.root / ".continuity" / "private" / "remote-lease.json"
+        self.write_json(local_lease_path, acquired)
+        self.cli(
+            "scheduler", "lease", "release", "--reason", "stale replay", "--goal-id", goal["goal_id"],
+            "--attempt-id", "1", expected=2,
+        )
+        self.write_json(local_lease_path, renewed)
+        workstation_two = self.root.parent / "workstation-two"
+        subprocess.run(["git", "clone", "--branch", "main", str(remote), str(workstation_two)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(workstation_two), "config", "user.name", "Continuity Tests"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(workstation_two), "config", "user.email", "tests@example.invalid"],
+            check=True,
+            capture_output=True,
+        )
+        shutil.copy2(self.root / ".continuity" / "config.json", workstation_two / ".continuity" / "config.json")
+        shutil.copy2(self.root / ".continuity" / "project.json", workstation_two / ".continuity" / "project.json")
+        shutil.copytree(self.root / ".continuity" / "private", workstation_two / ".continuity" / "private")
+
+        def second_cli(*arguments: str, expected: int = 0) -> subprocess.CompletedProcess[str]:
+            result = subprocess.run(
+                [sys.executable, str(CLI), "--project-root", str(workstation_two), "--json", *arguments],
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "CONTINUITY_ALLOW_TIME_OVERRIDE": "1"},
+            )
+            self.assertEqual(result.returncode, expected, result.stderr or result.stdout)
+            return result
+
+        second_cli("scheduler", "lease", "acquire", "--owner", "operator-two", "--goal-id", goal["goal_id"], "--remote", "origin", expected=2)
         self.cli("scheduler", "lease", "acquire", "--owner", "operator-two", "--goal-id", goal["goal_id"], "--remote", "origin", expected=2)
         dispatched = json.loads(self.cli("goal", "start", goal["goal_id"]).stdout)
         self.assertEqual(dispatched["remote_lease"]["attempt_id"], "1")
@@ -2786,22 +3119,96 @@ unresolved_gaps: []
         still_active = json.loads((self.root / ".continuity" / "private" / "remote-lease.json").read_text(encoding="utf-8"))
         self.assertEqual(still_active["status"], "active")
         self.cli("scheduler", "lease", "release", "--reason", "wrong binding", "--goal-id", "goal-other", "--attempt-id", "1", expected=2)
+        self.cli("scheduler", "lease", "release", "--reason", "wrong attempt", "--goal-id", goal["goal_id"], "--attempt-id", "2", expected=2)
         active = json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)
         self.assertEqual(active["state"], "active")
         released = json.loads(self.cli("scheduler", "lease", "release", "--reason", "pilot complete", "--goal-id", goal["goal_id"], "--attempt-id", "1").stdout)
         self.assertEqual(released["status"], "released")
+        self.cli("scheduler", "lease", "release", "--reason", "duplicate release", "--goal-id", goal["goal_id"], "--attempt-id", "1", expected=2)
         available = json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)
         self.assertEqual(available["state"], "available")
+        acquired_two = json.loads(second_cli("scheduler", "lease", "acquire", "--owner", "operator-two", "--goal-id", goal["goal_id"], "--remote", "origin").stdout)
+        self.assertEqual(acquired_two["status"], "active")
+        released_two = json.loads(second_cli("scheduler", "lease", "release", "--reason", "second workstation complete", "--goal-id", goal["goal_id"], "--attempt-id", "1").stdout)
+        self.assertEqual(released_two["status"], "released")
+        final = json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)
+        self.assertEqual(final["state"], "available")
+
+        def push_lease_record(record: dict[str, object], parent: str) -> str:
+            blob_result = subprocess.run(
+                ["git", "-C", str(self.root), "hash-object", "-w", "--stdin"],
+                input=(runtime_lib.canonical_json(record) + "\n").encode("utf-8"),
+                capture_output=True,
+                check=True,
+            )
+            blob = blob_result.stdout.decode("utf-8").strip()
+            tree_result = subprocess.run(
+                ["git", "-C", str(self.root), "mktree"],
+                input=f"100644 blob {blob}\tlease.json\n".encode("utf-8"),
+                capture_output=True,
+                check=True,
+            )
+            tree = tree_result.stdout.decode("utf-8").strip()
+            commit_result = subprocess.run(
+                ["git", "-C", str(self.root), "commit-tree", tree, "-p", parent, "-m", "lease edge-case fixture"],
+                input=b"",
+                capture_output=True,
+                check=True,
+            )
+            commit = commit_result.stdout.decode("utf-8").strip()
+            subprocess.run(
+                ["git", "-C", str(self.root), "push", "origin", f"{commit}:refs/continuity/leases/test-project"],
+                capture_output=True,
+                check=True,
+            )
+            return commit
+
+        future_record = {
+            "schema_version": 1,
+            "project_id": "test-project",
+            "goal_id": goal["goal_id"],
+            "attempt_id": "1",
+            "owner_fingerprint": acquired_two["owner_fingerprint"],
+            "status": "active",
+            "acquired_at": "2999-01-01T00:00:00-06:00",
+            "expires_at": "2999-01-01T01:00:00-06:00",
+            "previous_lease_commit": final["commit"],
+        }
+        future_commit = push_lease_record(future_record, final["commit"])
+        self.cli("scheduler", "lease", "status", "--remote", "origin", expected=2)
+        self.cli(
+            "scheduler", "lease", "acquire", "--owner", "clock-skewed", "--goal-id", goal["goal_id"],
+            "--remote", "origin", expected=2,
+        )
+        expired_record = {
+            **future_record,
+            "acquired_at": "2020-01-01T00:00:00-06:00",
+            "expires_at": "2020-01-01T00:01:00-06:00",
+            "previous_lease_commit": future_commit,
+        }
+        push_lease_record(expired_record, future_commit)
+        expired = json.loads(self.cli("scheduler", "lease", "status", "--remote", "origin").stdout)
+        self.assertEqual(expired["state"], "available")
+        stale_recovery = json.loads(
+            self.cli(
+                "scheduler", "lease", "acquire", "--owner", "operator-three", "--goal-id", goal["goal_id"],
+                "--remote", "origin",
+            ).stdout
+        )
+        self.assertEqual(stale_recovery["previous_lease_commit"], expired["commit"])
+        self.cli(
+            "scheduler", "lease", "release", "--reason", "stale recovery complete", "--goal-id", goal["goal_id"],
+            "--attempt-id", "1",
+        )
 
     def test_encrypted_state_backup_verifies_and_restores_through_staging(self) -> None:
         fake_bin = self.root.parent / "fake-age-bin"
         fake_bin.mkdir()
-        fake_age = fake_bin / "age"
-        fake_age.write_text(
-            "#!/usr/bin/env python3\nimport shutil, sys\nout = sys.argv[sys.argv.index('-o') + 1]\nshutil.copyfile(sys.argv[-1], out)\n",
-            encoding="utf-8",
+        install_python_tool(
+            fake_bin,
+            "age",
+            "import os,shutil,sys\nargs=sys.argv[1:]\nout=args[args.index('-o')+1]\nshutil.copyfile(args[-1],out)\nif os.environ.get('CONTINUITY_FAKE_AGE_FAIL') == '1' and '-d' not in args: raise SystemExit(9)\n",
         )
-        fake_age.chmod(0o755)
         identity = self.root.parent / "age-identity.txt"
         identity.write_text("fixture identity\n", encoding="utf-8")
         signer_key = self.root.parent / "backup-signer"
@@ -2810,13 +3217,79 @@ unresolved_gaps: []
         archive = self.root.parent / "state.tar.gz.age"
         original_path = os.environ.get("PATH", "")
         original_home = os.environ.get("HOME")
+        original_userprofile = os.environ.get("USERPROFILE")
         os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
         os.environ["HOME"] = str(self.root.parent)
+        os.environ["USERPROFILE"] = str(self.root.parent)
         try:
             first = self.create_capture()
             backed_up = json.loads(self.cli("state", "backup", "--recipient", "age1fixture", "--signer", "fixture-backup", "--signing-key", str(signer_key), "--verify-identity", str(identity), "--output", str(archive)).stdout)
             self.assertTrue(backed_up["encrypted"])
             self.assertTrue(backed_up["verification"]["verified"])
+            original_archive_hash = runtime_lib.sha256_file(archive)
+            self.cli(
+                "state", "backup", "--recipient", "age1fixture", "--signer", "fixture-backup",
+                "--signing-key", str(signer_key), "--verify-identity", str(identity),
+                "--output", str(archive), expected=2,
+            )
+            self.assertEqual(runtime_lib.sha256_file(archive), original_archive_hash)
+
+            def rewrite_archive(destination: Path, transform: object) -> None:
+                with tarfile.open(archive, "r:gz") as source, tarfile.open(destination, "w:gz") as target:
+                    for member in source.getmembers():
+                        if not member.isfile():
+                            target.addfile(member)
+                            continue
+                        extracted = source.extractfile(member)
+                        self.assertIsNotNone(extracted)
+                        data = extracted.read() if extracted is not None else b""
+                        replacement = transform(member.name, data)
+                        if replacement is None:
+                            continue
+                        item = tarfile.TarInfo(member.name)
+                        item.size = len(replacement)
+                        item.mode = member.mode
+                        target.addfile(item, io.BytesIO(replacement))
+
+            invalid_signature = self.root.parent / "invalid-signature.tar.gz.age"
+            def alter_manifest(name: str, data: bytes) -> bytes:
+                if name != "backup-manifest.json":
+                    return data
+                manifest = json.loads(data)
+                manifest["created_at"] = "2026-07-16T00:00:00-05:00"
+                return (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+            rewrite_archive(invalid_signature, alter_manifest)
+            self.cli("state", "verify", "--archive", str(invalid_signature), "--identity", str(identity), expected=2)
+
+            incomplete = self.root.parent / "incomplete-backup.tar.gz.age"
+            removed_payload = False
+            def remove_payload(name: str, data: bytes) -> bytes | None:
+                nonlocal removed_payload
+                if name.startswith("payload/") and not removed_payload:
+                    removed_payload = True
+                    return None
+                return data
+            rewrite_archive(incomplete, remove_payload)
+            self.assertTrue(removed_payload)
+            self.cli("state", "verify", "--archive", str(incomplete), "--identity", str(identity), expected=2)
+
+            tampered = self.root.parent / "tampered-backup.tar.gz.age"
+            tampered_bytes = bytearray(archive.read_bytes())
+            tampered_bytes[len(tampered_bytes) // 2] ^= 0xFF
+            tampered.write_bytes(tampered_bytes)
+            self.cli("state", "verify", "--archive", str(tampered), "--identity", str(identity), expected=2)
+            interrupted_archive = self.root.parent / "interrupted backup with spaces.tar.gz.age"
+            os.environ["CONTINUITY_FAKE_AGE_FAIL"] = "1"
+            try:
+                self.cli(
+                    "state", "backup", "--recipient", "age1fixture", "--signer", "fixture-backup",
+                    "--signing-key", str(signer_key), "--verify-identity", str(identity),
+                    "--output", str(interrupted_archive), expected=2,
+                )
+            finally:
+                os.environ.pop("CONTINUITY_FAKE_AGE_FAIL", None)
+            self.assertFalse(interrupted_archive.exists())
+            self.assertEqual(list(interrupted_archive.parent.glob(f".{interrupted_archive.name}.*.tmp")), [])
             verified = json.loads(self.cli("state", "verify", "--archive", str(archive), "--identity", str(identity)).stdout)
             self.assertTrue(verified["verified"])
             second = json.loads(self.cli("note", "capture", "--text", "Created after backup.").stdout)
@@ -2827,12 +3300,31 @@ unresolved_gaps: []
             notes = json.loads(self.cli("note", "list").stdout)
             self.assertIn(first["items"][0]["item_id"], {item["item_id"] for item in notes})
             self.assertNotIn(second["items"][0]["item_id"], {item["item_id"] for item in notes})
+            self.cli("note", "capture", "--text", "Audit event created after the archived backup.")
+            checkpoint = self.root.parent / "post-backup-checkpoint.json"
+            self.cli(
+                "state", "checkpoint-create", "--signer", "fixture-backup", "--signing-key", str(signer_key),
+                "--output", str(checkpoint),
+            )
+            config = json.loads((self.root / ".continuity" / "config.json").read_text(encoding="utf-8"))
+            config["require_audit_checkpoints"] = True
+            config["audit_checkpoint_path"] = str(checkpoint)
+            self.write_json(self.root / ".continuity" / "config.json", config)
+            self.cli(
+                "state", "restore", "--archive", str(archive), "--identity", str(identity),
+                "--recipient", "age1fixture", "--signer", "fixture-backup", "--signing-key", str(signer_key),
+                "--dry-run", expected=2,
+            )
         finally:
             os.environ["PATH"] = original_path
             if original_home is None:
                 os.environ.pop("HOME", None)
             else:
                 os.environ["HOME"] = original_home
+            if original_userprofile is None:
+                os.environ.pop("USERPROFILE", None)
+            else:
+                os.environ["USERPROFILE"] = original_userprofile
 
     def test_backup_requires_quiescence_and_external_checkpoint_detects_rewrite(self) -> None:
         goal = self.create_goal("Quiescence guard")
@@ -2866,6 +3358,41 @@ unresolved_gaps: []
         runtime_lib.append_integrity_jsonl(ledger, {"at": "2026-07-15T10:00:00-05:00", "event": "history.rewritten"})
         self.cli("state", "checkpoint-verify", "--checkpoint", str(checkpoint_path), expected=2)
 
+    def test_interrupted_restore_transaction_recovers_original_private_state(self) -> None:
+        private = self.root / ".continuity" / "private"
+        private.mkdir(parents=True, exist_ok=True)
+        sentinel = private / "restore-recovery-sentinel.txt"
+        sentinel.write_text("canonical-before-crash", encoding="utf-8")
+        transaction = self.root / ".continuity-restore"
+        previous = transaction / "previous" / ".continuity" / "private"
+        previous.parent.mkdir(parents=True)
+        os.replace(private, previous)
+        private.mkdir(parents=True)
+        partial = private / "partial-new-state.txt"
+        partial.write_text("partial", encoding="utf-8")
+        self.write_json(
+            transaction / "transaction.json",
+            {
+                "schema_version": 1,
+                "transaction_id": "restore-crash-fixture",
+                "created_at": "2026-07-16T12:00:00Z",
+                "replacements": [
+                    {"path": ".continuity/private", "original_present": True, "restored_present": True},
+                    {"path": ".continuity-portfolio", "original_present": False, "restored_present": False},
+                ],
+            },
+        )
+        doctor = json.loads(self.cli("project", "doctor").stdout)
+        self.assertFalse(doctor["healthy"])
+        self.assertTrue(doctor["restore_transaction"]["pending"])
+        blocked = self.cli("note", "list", expected=2)
+        self.assertIn("interrupted state restore blocks normal operation", blocked.stderr)
+        recovered = json.loads(self.cli("state", "recover-restore").stdout)
+        self.assertTrue(recovered["recovered"])
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "canonical-before-crash")
+        self.assertFalse(partial.exists())
+        self.assertFalse(transaction.exists())
+
     def test_codex_adapter_and_sanitized_portfolio_report_are_machine_bounded(self) -> None:
         key = self.root.parent / "adapter-probe-signer"
         subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
@@ -2884,9 +3411,69 @@ unresolved_gaps: []
         manifest["scheduler"] = config["scheduler"]
         manifest["agent_surfaces"] = {"primary": "codex", "enabled": ["codex"]}
         self.write_json(manifest_path, manifest)
-        rendered = json.loads(self.cli("scheduler", "adapter", "codex", "render", "--root", str(self.root.parent)).stdout)
+        if os.name == "nt":
+            (self.root / ".continuity" / "private").mkdir(parents=True, exist_ok=True)
+            (self.root / ".continuity" / "private" / "python-interpreter.txt").write_text(
+                sys.executable,
+                encoding="utf-8",
+            )
+        special_workspace = self.root.parent / "Portfolio & root (quoted)'"
+        special_workspace.mkdir()
+        rendered = json.loads(self.cli("scheduler", "adapter", "codex", "render", "--root", str(special_workspace)).stdout)
         self.assertEqual(rendered["provider"], "codex")
         self.assertIn("portfolio actions", rendered["prompt"])
+        self.assertEqual(
+            rendered["literal_placeholders"],
+            {
+                "supervisor_task_id": "__CONTINUITY_SUPERVISOR_TASK_ID__",
+                "sweep_id": "__CONTINUITY_SWEEP_ID__",
+                "provider_task_id": "__CONTINUITY_PROVIDER_TASK_ID__",
+                "markdown_escaping_forbidden": True,
+            },
+        )
+        self.assertIn(json.dumps(rendered["supervisor_argv"], ensure_ascii=False, indent=2), rendered["prompt"])
+        self.assertEqual(rendered["prompt"].count(rendered["literal_placeholders"]["supervisor_task_id"]), 1)
+        self.assertEqual(rendered["prompt"].count(rendered["literal_placeholders"]["sweep_id"]), 1)
+        self.assertNotIn("CONTINUITY\\_", rendered["prompt"])
+        self.assertNotIn("**CONTINUITY", rendered["prompt"])
+        self.assertIn("raw saved prompt", rendered["human_action_required"])
+        self.assertFalse(rendered["shell_required"])
+        self.assertTrue(rendered["cwd_independent"])
+        entrypoint = (self.root / ".agents" / "continuity" / "bin" / "continuity").resolve()
+        if os.name == "nt":
+            configured_interpreter = (
+                self.root / ".continuity" / "private" / "python-interpreter.txt"
+            ).read_text(encoding="utf-8").strip()
+            self.assertEqual(rendered["launcher"], str(Path(configured_interpreter).resolve()))
+            self.assertEqual(rendered["supervisor_argv"][:2], [rendered["launcher"], str(entrypoint)])
+        else:
+            self.assertEqual(rendered["launcher"], str(entrypoint))
+        self.assertIn(str(special_workspace.resolve()), rendered["supervisor_argv"])
+        transport_entrypoint = (
+            Path(rendered["supervisor_argv"][1]) if os.name == "nt" else Path(rendered["launcher"])
+        )
+        transport_entrypoint.write_text(
+            ("" if os.name == "nt" else "#!/usr/bin/env python3\n")
+            + "import json,sys\nprint(json.dumps(sys.argv[1:]))\n",
+            encoding="utf-8",
+        )
+        if os.name != "nt":
+            transport_entrypoint.chmod(0o755)
+        unrelated_cwd = self.root.parent / "unrelated cwd"
+        unrelated_cwd.mkdir()
+        transported = subprocess.run(
+            rendered["supervisor_argv"],
+            cwd=unrelated_cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        argument_offset = 2 if os.name == "nt" else 1
+        self.assertEqual(json.loads(transported.stdout), rendered["supervisor_argv"][argument_offset:])
+        self.assertIn("__CONTINUITY_PROVIDER_TASK_ID__", rendered["registration_argv"])
+        if os.name == "nt":
+            self.assertFalse(any(argument.endswith("continuity.cmd") for argument in rendered["supervisor_argv"][:2]))
+            self.assertTrue(rendered["registration_command"].startswith("& '"))
         private = self.root / ".continuity" / "private"
         self.write_json(
             private / "scheduler-registration.json",
@@ -2935,6 +3522,25 @@ unresolved_gaps: []
         self.assertTrue(payload["projects"][0]["product_audit_baseline_required"])
         self.assertNotIn("Private customer", portfolio)
         self.assertNotIn(str(self.root), portfolio)
+
+        config["scheduler"] = {**config["scheduler"], "provider": "claude-code"}
+        self.write_json(self.root / ".continuity" / "config.json", config)
+        manifest["scheduler"] = config["scheduler"]
+        manifest["agent_surfaces"] = {"primary": "claude-code", "enabled": ["claude-code"]}
+        self.write_json(manifest_path, manifest)
+        claude_rendered = json.loads(
+            self.cli("scheduler", "adapter", "claude-code", "render", "--root", str(special_workspace)).stdout
+        )
+        self.assertEqual(claude_rendered["provider"], "claude-code")
+        self.assertEqual(claude_rendered["supervisor_argv"], rendered["supervisor_argv"])
+        self.assertEqual(claude_rendered["literal_placeholders"], rendered["literal_placeholders"])
+        self.assertIn(json.dumps(claude_rendered["supervisor_argv"], ensure_ascii=False, indent=2), claude_rendered["prompt"])
+        self.assertEqual(claude_rendered["prompt"].count(claude_rendered["literal_placeholders"]["sweep_id"]), 1)
+        self.assertIn("Claude Desktop local scheduled task", claude_rendered["human_action_required"])
+        self.assertIn("Do not substitute a cloud routine", claude_rendered["human_action_required"])
+        claude_verify = json.loads(self.cli("scheduler", "adapter", "claude-code", "verify").stdout)
+        self.assertFalse(claude_verify["healthy"])
+        self.assertTrue(any("registration" in problem for problem in claude_verify["problems"]))
 
 
 class ReferenceTest(unittest.TestCase):
@@ -3031,6 +3637,8 @@ class InstallerTest(unittest.TestCase):
             custom_cursor.write_text("user-owned cursor command\n", encoding="utf-8")
             baseline_agents = agents.read_bytes()
             baseline_config = (root / ".continuity" / "config.json").read_bytes()
+            interpreter = root / ".continuity" / "private" / "python-interpreter.txt"
+            baseline_interpreter = interpreter.read_bytes()
             for stage in ("managed-files", "project-contract", "seed-content", "surface-configuration", "install-manifest"):
                 failed = subprocess.run(
                     command,
@@ -3041,6 +3649,7 @@ class InstallerTest(unittest.TestCase):
                 self.assertNotEqual(failed.returncode, 0, stage)
                 self.assertEqual(agents.read_bytes(), baseline_agents, stage)
                 self.assertEqual((root / ".continuity" / "config.json").read_bytes(), baseline_config, stage)
+                self.assertEqual(interpreter.read_bytes(), baseline_interpreter, stage)
                 self.assertEqual(custom_cursor.read_text(encoding="utf-8"), "user-owned cursor command\n", stage)
 
     def test_installer_detects_managed_drift_and_supports_snapshot_rollback(self) -> None:
@@ -3203,7 +3812,7 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue((legacy_root / ".agents" / "continuity" / "bin" / "continuity").is_file())
             self.assertFalse((legacy_root / ".agents" / "project-continuity").exists())
             self.assertTrue((legacy_root / ".agents" / "skills" / "continuity-workflow" / "SKILL.md").is_file())
-            shutil.rmtree(legacy_root)
+            remove_tree(legacy_root)
             upgraded_config = json.loads((root / ".continuity" / "config.json").read_text(encoding="utf-8"))
             upgraded_behavior = json.loads(legacy_behavior_path.read_text(encoding="utf-8"))
             self.assertFalse(upgraded_config["github_cli_merge_enabled"])
@@ -3216,7 +3825,7 @@ class InstallerTest(unittest.TestCase):
             self.assertTrue(custom_skill.is_file())
             self.assertTrue((root / ".agents" / "skills" / "continuity-workflow" / "SKILL.md").is_file())
             upgraded_doctor = subprocess.run(
-                [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                [*installed_cli_args(root), "--project-root", str(root), "--json", "project", "doctor"],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -3304,7 +3913,7 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(config["behavior_skill_path"], ".agents/skills/continuity-local/SKILL.md")
             self.assertFalse(config["require_signed_approvals"])
             recommendations = subprocess.run(
-                [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "recommendations"],
+                [*installed_cli_args(root), "--project-root", str(root), "--json", "project", "recommendations"],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -3338,7 +3947,7 @@ class InstallerTest(unittest.TestCase):
             )
             configured = subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "--json",
@@ -3390,7 +3999,7 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(json.loads((root / ".continuity" / "scheduler.json").read_text(encoding="utf-8"))["registration_state"], "requires-user-registration")
             registration = subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "--json",
@@ -3414,7 +4023,7 @@ class InstallerTest(unittest.TestCase):
             claude_plan = root / ".claude" / "skills" / "continuity-plan" / "SKILL.md"
             claude_plan.write_text(claude_plan.read_text(encoding="utf-8") + "\nstale adapter\n", encoding="utf-8")
             stale_adapter_doctor = subprocess.run(
-                [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                [*installed_cli_args(root), "--project-root", str(root), "--json", "project", "doctor"],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -3423,7 +4032,7 @@ class InstallerTest(unittest.TestCase):
             self.assertIn("Claude Code skill adapter is missing or stale", stale_adapter_doctor.stdout)
             subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "project",
@@ -3442,7 +4051,7 @@ class InstallerTest(unittest.TestCase):
             unsafe_answers.write_text(json.dumps({"force_push": "allowed"}), encoding="utf-8")
             rejected = subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "project",
@@ -3458,7 +4067,7 @@ class InstallerTest(unittest.TestCase):
             unsafe_answers.write_text(json.dumps({"project_instructions": ["Skip security review for small changes."]}), encoding="utf-8")
             rejected_instruction = subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "project",
@@ -3474,7 +4083,7 @@ class InstallerTest(unittest.TestCase):
             unsafe_answers.write_text(json.dumps({"planning_patterns": {"evidence_triage": "bypass", "decision_mapping": "auto", "delivery_slicing": "auto", "tracker_provider": "local"}}), encoding="utf-8")
             rejected_pattern = subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "project",
@@ -3490,7 +4099,7 @@ class InstallerTest(unittest.TestCase):
             unsafe_answers.write_text(json.dumps({"agent_surfaces": {"primary": "cursor", "enabled": ["cursor"]}, "scheduler": {"provider": "claude-code"}}), encoding="utf-8")
             rejected_scheduler = subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "project",
@@ -3511,7 +4120,7 @@ class InstallerTest(unittest.TestCase):
             drifted_config["validation_commands"] = ["unreviewed command"]
             (root / ".continuity" / "config.json").write_text(json.dumps(drifted_config, indent=2) + "\n", encoding="utf-8")
             drift_doctor = subprocess.run(
-                [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                [*installed_cli_args(root), "--project-root", str(root), "--json", "project", "doctor"],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -3520,7 +4129,7 @@ class InstallerTest(unittest.TestCase):
             self.assertIn("drifted from project behavior", drift_doctor.stdout)
             subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root",
                     str(root),
                     "project",
@@ -3536,7 +4145,7 @@ class InstallerTest(unittest.TestCase):
             )
             subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root", str(root), "scheduler", "register",
                     "--task-id", "supervisor-test-task", "--root", temp, "--actor", "repair-test",
                 ],
@@ -3545,7 +4154,7 @@ class InstallerTest(unittest.TestCase):
                 text=True,
             )
             doctor = subprocess.run(
-                [str(root / ".agents" / "continuity" / "bin" / "continuity"), "--project-root", str(root), "--json", "project", "doctor"],
+                [*installed_cli_args(root), "--project-root", str(root), "--json", "project", "doctor"],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -3601,7 +4210,7 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(due_action["action"], "review")
             scheduled_run = subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root", str(root), "--json", "scheduler", "run-start", "review",
                     "--idempotency-key", due_action["idempotency_key"], "--claim-token", due_action["claim_token"],
                     "--task-id", "review-child-task",
@@ -3613,7 +4222,7 @@ class InstallerTest(unittest.TestCase):
             scheduled_run_record = json.loads(scheduled_run.stdout)
             subprocess.run(
                 [
-                    str(root / ".agents" / "continuity" / "bin" / "continuity"),
+                    *installed_cli_args(root),
                     "--project-root", str(root), "scheduler", "run-finish", scheduled_run_record["run_id"],
                     "--status", "succeeded", "--summary", "Nightly review completed",
                 ],
@@ -3689,6 +4298,273 @@ class InstallerTest(unittest.TestCase):
             self.assertFalse((root / ".claude" / "skills" / "continuity").exists())
             self.assertEqual(behavior["settings"]["validation_commands"], [])
             self.assertEqual(behavior["settings"]["project_instructions"], [])
+
+
+class SecurityBoundaryTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api = runpy.run_path(str(CLI))
+        cls.installer_api = runpy.run_path(str(INSTALLER))
+
+    def test_external_selectors_reject_option_injection(self) -> None:
+        error = self.api["ContinuityError"]
+        for value in ("--upload-pack=owned", "https://example.test/repo", "../origin", "."):
+            with self.subTest(remote=value), self.assertRaises(error):
+                self.api["validate_git_remote_name"](value)
+        for value in ("--repo", "latest", "1.2", "1.2.3;owned"):
+            with self.subTest(version=value), self.assertRaises(error):
+                self.api["validate_release_version"](value)
+        self.assertEqual(self.api["validate_release_version"]("v1.2.3-rc.1"), "v1.2.3-rc.1")
+        with self.assertRaises(error):
+            self.api["validate_git_object_id"]("--format=%H")
+        for value in ("--help", "main:owned", "refs/../owned", "branch.lock", "main\\owned"):
+            with self.subTest(branch=value), self.assertRaises(error):
+                self.api["validate_git_branch"](SUITE, value)
+            with self.assertRaises(RuntimeError):
+                self.installer_api["validate_git_branch"](SUITE, value)
+        self.assertEqual(self.api["validate_git_branch"](SUITE, "main"), "main")
+
+    def test_validation_commands_reject_shell_launchers(self) -> None:
+        error = self.api["ContinuityError"]
+        for command in (
+            "cmd.exe /d /c echo owned",
+            "powershell.exe -NoProfile -Command Get-ChildItem",
+            "pwsh -Command Get-ChildItem",
+            "bash -c 'echo owned'",
+            "npm.cmd test",
+            "tool.exe --token inline-secret",
+        ):
+            with self.subTest(command=command), self.assertRaises(error):
+                self.api["command_argv"](command)
+        self.assertEqual(self.api["command_argv"]("python -m unittest"), ["python", "-m", "unittest"])
+        quoted = self.api["command_argv"](r'"C:\Program Files\Python\python.exe" -m unittest')
+        self.assertEqual(quoted[0], r"C:\Program Files\Python\python.exe")
+
+    def test_evidence_commands_filter_environment_and_redact_output(self) -> None:
+        secret = "ghp_012345678901234567890123456789012345"
+        with tempfile.TemporaryDirectory(prefix="continuity evidence ") as directory:
+            root = Path(directory)
+            script = root / "emit secret.py"
+            script.write_text(
+                "import os\nprint(os.environ.get('CONTINUITY_TEST_API_TOKEN', 'missing'))\n"
+                f"print('token={secret}')\n",
+                encoding="utf-8",
+            )
+            command = f'"{Path(sys.executable).as_posix()}" "{script.as_posix()}"'
+            previous = os.environ.get("CONTINUITY_TEST_API_TOKEN")
+            os.environ["CONTINUITY_TEST_API_TOKEN"] = secret
+            try:
+                result = self.api["execute_evidence_command"](command, root, 15)
+            finally:
+                if previous is None:
+                    os.environ.pop("CONTINUITY_TEST_API_TOKEN", None)
+                else:
+                    os.environ["CONTINUITY_TEST_API_TOKEN"] = previous
+            self.assertTrue(result["passed"], result)
+            self.assertIn("missing", result["stdout"])
+            self.assertIn("[REDACTED]", result["stdout"])
+            self.assertNotIn(secret, json.dumps(result))
+
+    def test_archive_extraction_rejects_windows_portability_hazards_and_stops_at_limit(self) -> None:
+        error = self.api["ContinuityError"]
+
+        def write_archive(path: Path, names: list[str]) -> None:
+            with tarfile.open(path, "w") as archive:
+                for name in names:
+                    payload = b"x"
+                    member = tarfile.TarInfo(name)
+                    member.size = len(payload)
+                    archive.addfile(member, io.BytesIO(payload))
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, unsafe in enumerate(("../escape", "folder\\file", "CON.txt", "file.txt:stream", "trail.", "cafe\u0301.txt")):
+                path = root / f"unsafe-{index}.tar"
+                write_archive(path, [unsafe])
+                with tarfile.open(path, "r") as archive, self.subTest(name=unsafe), self.assertRaises(error):
+                    self.api["safe_extract_tar"](archive, root / f"extract-{index}", "Fixture archive")
+
+            limited = root / "limited.tar"
+            write_archive(limited, ["one.txt", "two.txt", "three.txt"])
+            original_limit = self.api["MAX_ARCHIVE_FILES"]
+            self.api["safe_extract_tar"].__globals__["MAX_ARCHIVE_FILES"] = 2
+            try:
+                with tarfile.open(limited, "r") as archive, self.assertRaisesRegex(error, "exceeds extraction limits"):
+                    self.api["safe_extract_tar"](archive, root / "limited-extract", "Fixture archive")
+            finally:
+                self.api["safe_extract_tar"].__globals__["MAX_ARCHIVE_FILES"] = original_limit
+
+            conflict = root / "file-directory-conflict.tar"
+            write_archive(conflict, ["parent", "parent/child.txt"])
+            with tarfile.open(conflict, "r") as archive, self.assertRaisesRegex(
+                error, "uses a file as an archive directory: parent"
+            ):
+                self.api["safe_extract_tar"](archive, root / "conflict-extract", "Fixture archive")
+
+    def test_remote_lease_retry_reconciles_published_acquisition_and_binding(self) -> None:
+        config = {
+            "project_id": "fixture-project",
+            "private_dir": ".continuity/private",
+            "timezone": "UTC",
+            "scheduler": {"stale_after_minutes": 45},
+        }
+        owner_fingerprint = self.api["canonical_hash"]({"owner": "fixture-owner"})[:24]
+        acquired = {
+            "schema_version": 1,
+            "project_id": "fixture-project",
+            "goal_id": "goal-one",
+            "attempt_id": "1",
+            "owner_fingerprint": owner_fingerprint,
+            "status": "active",
+            "acquired_at": "2026-07-25T12:00:00+00:00",
+            "expires_at": "2026-07-25T13:00:00+00:00",
+            "previous_lease_commit": None,
+        }
+        writes: list[dict[str, object]] = []
+        globals_map = self.api["scheduler_lease_acquire"].__globals__
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(
+            globals_map,
+            {
+                "load_context": lambda: (Path(directory), config),
+                "load_goal": lambda _root, _config, _goal_id: (Path(directory), {"execution_attempt": 1}),
+                "remote_lease_record": lambda _root, _config, _remote: ("a" * 40, acquired),
+                "remote_lease_is_protected": lambda _record, _config: True,
+                "json_dump": lambda _path, value: writes.append(value),
+                "append_jsonl": lambda _path, _value: None,
+            },
+        ):
+            reconciled = self.api["scheduler_lease_acquire"](
+                argparse.Namespace(
+                    owner="fixture-owner",
+                    goal_id="goal-one",
+                    attempt_id=None,
+                    remote="origin",
+                    ttl_minutes=None,
+                )
+            )
+        self.assertEqual(reconciled["lease_commit"], "a" * 40)
+        self.assertEqual(writes[-1]["lease_commit"], "a" * 40)
+
+        bound = {
+            **acquired,
+            "bound_run_id": "run-stable",
+            "bound_task_id": "task-one",
+            "bound_idempotency_key": "fixture:dispatch:one",
+            "previous_lease_commit": "a" * 40,
+        }
+        writes.clear()
+        with mock.patch.dict(
+            self.api["bind_remote_lease_to_run"].__globals__,
+            {
+                "remote_lease_record": lambda _root, _config, _remote: ("b" * 40, bound),
+                "json_dump": lambda _path, value: writes.append(value),
+            },
+        ):
+            reconciled = self.api["bind_remote_lease_to_run"](
+                Path("/fixture"),
+                config,
+                {**acquired, "remote": "origin", "lease_commit": "a" * 40},
+                run_id="run-stable",
+                task_id="task-one",
+                idempotency_key="fixture:dispatch:one",
+            )
+        self.assertEqual(reconciled["lease_commit"], "b" * 40)
+        self.assertEqual(writes[-1]["bound_run_id"], "run-stable")
+
+    def test_rollback_validates_all_metadata_before_changing_project_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            victim = root / "victim.txt"
+            victim.write_text("preserve", encoding="utf-8")
+            snapshot = root / ".continuity" / "private" / "upgrades" / "20260717T120000Z"
+            (snapshot / "payload").mkdir(parents=True)
+            (snapshot / "snapshot.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "created_at": "2026-07-17T12:00:00+00:00",
+                        "present": [{"path": "../escape.txt", "type": "file"}],
+                        "absent": ["victim.txt"],
+                        "prior_manifest": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(RuntimeError):
+                self.installer_api["restore_upgrade_snapshot"](root, snapshot)
+            self.assertEqual(victim.read_text(encoding="utf-8"), "preserve")
+
+    def test_rollback_rejects_colliding_overlapping_and_mismatched_snapshot_entries(self) -> None:
+        valid = {"schema_version": 1, "present": [], "absent": [], "prior_manifest": {}}
+        cases = {
+            "mixed": {**valid, "present": ["one.txt", {"path": "two.txt", "type": "file"}]},
+            "duplicate": {**valid, "present": [{"path": "same.txt", "type": "file"}], "absent": ["same.txt"]},
+            "case-collision": {
+                **valid,
+                "present": [{"path": "Name.txt", "type": "file"}, {"path": "name.txt", "type": "file"}],
+            },
+            "overlap": {
+                **valid,
+                "present": [{"path": "parent", "type": "directory"}, {"path": "parent/child.txt", "type": "file"}],
+            },
+            "invalid-type": {**valid, "present": [{"path": "entry", "type": "device"}]},
+        }
+        for label, metadata in cases.items():
+            with self.subTest(label=label), self.assertRaises(RuntimeError):
+                self.installer_api["_validated_snapshot_metadata"](metadata)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            victim = root / "victim.txt"
+            victim.write_text("preserve", encoding="utf-8")
+            snapshot = root / ".continuity" / "private" / "upgrades" / "20260717T130000Z"
+            source = snapshot / "payload" / "expected-file.txt"
+            source.mkdir(parents=True)
+            (snapshot / "snapshot.json").write_text(
+                json.dumps(
+                    {
+                        **valid,
+                        "present": [{"path": "expected-file.txt", "type": "file"}],
+                        "absent": ["victim.txt"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, "Invalid snapshot file source"):
+                self.installer_api["restore_upgrade_snapshot"](root, snapshot)
+            self.assertEqual(victim.read_text(encoding="utf-8"), "preserve")
+
+    def test_windows_dependency_is_exactly_pinned_and_hashed(self) -> None:
+        requirements = (SUITE / "requirements.txt").read_text(encoding="utf-8")
+        self.assertIn("tzdata==2026.3", requirements)
+        self.assertNotIn("tzdata>=", requirements)
+        self.assertEqual(requirements.count("--hash=sha256:"), 2)
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction rollback boundary")
+    def test_rollback_rejects_a_snapshot_junction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside_directory:
+            root = Path(directory)
+            upgrades = root / ".continuity" / "private" / "upgrades"
+            upgrades.mkdir(parents=True)
+            outside = Path(outside_directory)
+            (outside / "payload").mkdir()
+            (outside / "snapshot.json").write_text(
+                json.dumps({"schema_version": 1, "present": [], "absent": [], "prior_manifest": {}}),
+                encoding="utf-8",
+            )
+            junction = upgrades / "20260717T120000Z"
+            result = subprocess.run(
+                ["cmd.exe", "/d", "/c", "mklink", "/J", str(junction), str(outside)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            try:
+                with self.assertRaisesRegex(RuntimeError, "junction"):
+                    self.installer_api["restore_upgrade_snapshot"](root, junction)
+            finally:
+                os.rmdir(junction)
 
 
 if __name__ == "__main__":

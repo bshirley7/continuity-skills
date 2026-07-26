@@ -35,11 +35,12 @@
       "type": "object",
       "required": ["owner_type", "owner", "project_number", "project_node_id", "project_url", "visibility"],
       "properties": {
+        "host": {"type": "string", "pattern": "^[A-Za-z0-9.-]+$"},
         "owner_type": {"enum": ["organization", "user"]},
         "owner": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}$"},
         "project_number": {"type": "integer", "minimum": 1},
         "project_node_id": {"type": "string", "minLength": 1},
-        "project_url": {"type": "string", "pattern": "^https://github\\.com/.+$"},
+        "project_url": {"type": "string", "pattern": "^https://[^/]+/.+$"},
         "visibility": {"enum": ["PRIVATE", "PUBLIC"]}
       },
       "additionalProperties": false

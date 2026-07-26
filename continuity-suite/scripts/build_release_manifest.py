@@ -4,17 +4,48 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import sys
 from pathlib import Path
 
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "lib"))
+import runtime  # noqa: E402
+
+
 INCLUDED_ROOTS = ("automation", "bin", "collections", "docs", "installer", "lib", "references", "roadmap-ui", "schemas", "scripts", "skills", "templates")
-INCLUDED_FILES = ("CONTRIBUTING.md", "README.md", "SUITE.md", "VERSION")
+INCLUDED_FILES = ("CONTRIBUTING.md", "README.md", "SUITE.md", "VERSION", "requirements.txt")
 
 
 def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return runtime.sha256_release_file(path)
+
+
+def build_manifest(root: Path, release_commit: str | None = None) -> dict[str, object]:
+    root = root.resolve()
+    version = (root / "VERSION").read_text(encoding="utf-8").strip()
+    files = {}
+    for name in INCLUDED_FILES:
+        path = root / name
+        files[name] = digest(path)
+    for directory in INCLUDED_ROOTS:
+        for path in sorted((root / directory).rglob("*")):
+            if path.is_file() and "__pycache__" not in path.parts and not path.name.endswith(".pyc"):
+                files[path.relative_to(root).as_posix()] = digest(path)
+    manifest = {
+        "schema_version": 1,
+        "suite": "Continuity",
+        "version": version,
+        "canonical_repository": "https://github.com/bshirley7/continuity-skills",
+        "supported_platforms": ["darwin", "linux", "win32"],
+        "state_schema_versions": [1],
+        "assurance_standard_versions": [2],
+        "files": files,
+    }
+    if release_commit:
+        manifest["release_commit"] = release_commit
+    return manifest
 
 
 def main() -> int:
@@ -24,27 +55,7 @@ def main() -> int:
     parser.add_argument("--release-commit", help="Immutable source commit embedded only in a published artifact")
     args = parser.parse_args()
     root = args.root.resolve()
-    version = (root / "VERSION").read_text(encoding="utf-8").strip()
-    files = {}
-    for name in INCLUDED_FILES:
-        path = root / name
-        files[name] = digest(path)
-    for directory in INCLUDED_ROOTS:
-        for path in sorted((root / directory).rglob("*")):
-            if path.is_file() and "__pycache__" not in path.parts and not path.name.endswith(".pyc"):
-                files[str(path.relative_to(root))] = digest(path)
-    manifest = {
-        "schema_version": 1,
-        "suite": "Continuity",
-        "version": version,
-        "canonical_repository": "https://github.com/bshirley7/continuity-skills",
-        "supported_platforms": ["darwin", "linux"],
-        "state_schema_versions": [1],
-        "assurance_standard_versions": [2],
-        "files": files,
-    }
-    if args.release_commit:
-        manifest["release_commit"] = args.release_commit
+    manifest = build_manifest(root, args.release_commit)
     output = root / args.output
     output.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return 0

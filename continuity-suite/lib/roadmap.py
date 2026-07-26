@@ -42,9 +42,10 @@ def _load(path: Path, default: Any = None) -> Any:
 
 
 def _confined(root: Path, value: str, label: str) -> Path:
-    path = Path(value)
-    if path.is_absolute():
-        raise RoadmapError(f"{label} must be project-relative")
+    try:
+        path = Path(runtime_lib.validate_portable_relative_path(value, label=label))
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise RoadmapError(str(exc)) from exc
     resolved = (root / path).resolve()
     if not resolved.is_relative_to(root.resolve()):
         raise RoadmapError(f"{label} escapes the project root")
@@ -163,7 +164,7 @@ def entries(root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
     for path in sorted((base / "entities").glob("*.md")):
         metadata, body = parse_entry(path)
         metadata["body"] = body
-        metadata["path"] = str(path.relative_to(root))
+        metadata["path"] = path.relative_to(root).as_posix()
         metadata["visibility"] = "committed"
         result.append(metadata)
     return result
@@ -331,7 +332,7 @@ def projection(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     packets = []
     for path in sorted((root / ".continuity" / "shared-notes" / "packets").glob("**/*.md")):
         metadata, _body = parse_entry(path)
-        packets.append({**metadata, "path": str(path.relative_to(root)), "visibility": "committed"})
+        packets.append({**metadata, "path": runtime_lib.project_relative_posix(path, root), "visibility": "committed"})
     value = {
         "schema_version": 1,
         "project_id": config["project_id"],
@@ -420,7 +421,7 @@ def command_index(root: Path, config: dict[str, Any], _args: argparse.Namespace)
         "goals": len(value["goals"]),
         "note_links": len(value["note_links"]),
         "shared_packets": len(value["shared_packets"]),
-        "projection": str((_private(root, config) / "roadmap" / "projection.json").relative_to(root)),
+        "projection": runtime_lib.project_relative_posix(_private(root, config) / "roadmap" / "projection.json", root),
     }
 
 
@@ -528,7 +529,7 @@ def command_create(root: Path, config: dict[str, Any], args: argparse.Namespace)
         raise RoadmapError("Roadmap entry already exists")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(render_entry(item), encoding="utf-8")
-    return {"roadmap_id": item["roadmap_id"], "path": str(target.relative_to(root)), "goal_id": args.goal_id}
+    return {"roadmap_id": item["roadmap_id"], "path": runtime_lib.project_relative_posix(target, root), "goal_id": args.goal_id}
 
 
 def command_revise(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
@@ -538,7 +539,7 @@ def command_revise(root: Path, config: dict[str, Any], args: argparse.Namespace)
     _goal_allows(root, config, args.goal_id, args.roadmap_id, "revise")
     target = root / current["path"]
     target.write_text(render_entry(item), encoding="utf-8")
-    return {"roadmap_id": item["roadmap_id"], "path": str(target.relative_to(root)), "goal_id": args.goal_id}
+    return {"roadmap_id": item["roadmap_id"], "path": runtime_lib.project_relative_posix(target, root), "goal_id": args.goal_id}
 
 
 def command_export(root: Path, config: dict[str, Any], args: argparse.Namespace) -> Any:
@@ -632,7 +633,7 @@ class SidecarHandler(BaseHTTPRequestHandler):
                     self._headers(HTTPStatus.NOT_FOUND)
                     self.wfile.write(b'{"error":"source not found"}')
                     return
-                body = json.dumps({"roadmap_id": identifier, "path": str(target.relative_to(self.server.project_root)), "content": resolved.read_text(encoding="utf-8")}).encode()
+                body = json.dumps({"roadmap_id": identifier, "path": runtime_lib.project_relative_posix(target, self.server.project_root), "content": resolved.read_text(encoding="utf-8")}).encode()
             else:
                 self._headers(HTTPStatus.NOT_FOUND)
                 self.wfile.write(b'{"error":"not found"}')

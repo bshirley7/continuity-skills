@@ -16,26 +16,26 @@ jobs:
       run:
         working-directory: continuity-suite
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.14"
       - name: Validate tag and release
         run: |
           test "${GITHUB_REF_NAME#v}" = "$(cat VERSION)"
-          python -m py_compile bin/continuity installer/install.py lib/*.py scripts/*.py
-          python scripts/validate_skills.py
-          python scripts/build_release_manifest.py
-          git diff --exit-code -- release-manifest.json
+          python -m pip install --require-hashes -r requirements.txt
+          python scripts/validate_distribution.py
           PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v
       - name: Build release archive
         run: |
           python scripts/build_release_manifest.py --release-commit "$GITHUB_SHA"
           mkdir "continuity-$(cat VERSION)"
-          cp -R VERSION release-manifest.json README.md SUITE.md CONTRIBUTING.md automation bin docs installer lib references roadmap-ui schemas scripts skills templates "continuity-$(cat VERSION)/"
+          cp -R VERSION release-manifest.json requirements.txt README.md SUITE.md CONTRIBUTING.md automation bin docs installer lib references roadmap-ui schemas scripts skills templates "continuity-$(cat VERSION)/"
           tar -czf "continuity-$(cat VERSION).tar.gz" "continuity-$(cat VERSION)"
       - name: Attest release archive
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: continuity-suite/continuity-*.tar.gz
       - name: Publish GitHub release

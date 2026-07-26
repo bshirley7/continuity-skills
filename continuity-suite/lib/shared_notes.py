@@ -11,6 +11,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,69 @@ class SharedNoteError(RuntimeError):
     pass
 
 
+def _github_host(parsed: urllib.parse.SplitResult) -> str:
+    if parsed.username is not None or parsed.password is not None or not parsed.hostname:
+        raise SharedNoteError("GitHub URL has an invalid hostname or inline credentials")
+    host = parsed.hostname.lower()
+    labels = host.split(".")
+    if any(not label or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label) for label in labels):
+        raise SharedNoteError("GitHub URL has an invalid hostname")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise SharedNoteError("GitHub URL has an invalid port") from exc
+    return f"{host}:{port}" if port is not None else host
+
+
+def _github_repository_parts(path: str) -> tuple[str, str]:
+    parts = path.strip("/").split("/")
+    if len(parts) != 2:
+        raise SharedNoteError("GitHub repository URL must identify exactly OWNER/REPOSITORY")
+    owner, repository = parts
+    repository = repository[:-4] if repository.endswith(".git") else repository
+    if any(not re.fullmatch(r"[A-Za-z0-9_.-]+", value) or value in {".", ".."} for value in (owner, repository)):
+        raise SharedNoteError("GitHub repository URL has an invalid owner or repository")
+    return owner, repository
+
+
+def _parse_github_pr_url(value: str) -> dict[str, Any]:
+    parsed = urllib.parse.urlsplit(value)
+    if parsed.scheme != "https" or parsed.query or parsed.fragment or parsed.path.endswith("/"):
+        raise SharedNoteError("source_pr must be a canonical HTTPS GitHub pull-request URL")
+    host = _github_host(parsed)
+    parts = parsed.path.strip("/").split("/")
+    if len(parts) != 4 or parts[2] != "pull" or not re.fullmatch(r"[1-9][0-9]*", parts[3]):
+        raise SharedNoteError("source_pr must be a canonical GitHub pull-request URL")
+    owner, repository = _github_repository_parts("/".join(parts[:2]))
+    return {"host": host, "owner": owner, "repository": repository, "number": int(parts[3]), "spec": f"{host}/{owner}/{repository}"}
+
+
+def _github_repository(root: Path) -> dict[str, str]:
+    result = subprocess.run(
+        ["git", "-C", str(root), "config", "--get", "remote.origin.url"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    value = result.stdout.strip() if result.returncode == 0 else ""
+    if not value:
+        raise SharedNoteError("Shared-note publication requires a GitHub origin remote")
+    if "://" in value:
+        parsed = urllib.parse.urlsplit(value)
+        if parsed.scheme not in {"https", "ssh", "git"} or parsed.query or parsed.fragment:
+            raise SharedNoteError("origin must use a canonical GitHub repository URL")
+        host = _github_host(parsed)
+        owner, repository = _github_repository_parts(parsed.path)
+    else:
+        match = re.fullmatch(r"(?:[A-Za-z0-9._-]+@)?(?P<host>[^/:\s]+):(?P<path>[^\s]+)", value)
+        if not match:
+            raise SharedNoteError("origin must use a canonical GitHub repository URL")
+        host = _github_host(urllib.parse.urlsplit(f"ssh://{match.group('host')}"))
+        owner, repository = _github_repository_parts(match.group("path"))
+    return {"host": host, "owner": owner, "repository": repository, "spec": f"{host}/{owner}/{repository}"}
+
+
 def _dump(path: Path, value: Any) -> None:
     runtime_lib.atomic_write_json(path, value)
 
@@ -46,8 +110,11 @@ def _load(path: Path, default: Any = None) -> Any:
 
 
 def _private(root: Path, config: dict[str, Any]) -> Path:
-    value = Path(config.get("private_dir", ".continuity/private"))
-    if value.is_absolute() or not (root / value).resolve().is_relative_to(root.resolve()):
+    try:
+        value = Path(runtime_lib.validate_portable_relative_path(config.get("private_dir", ".continuity/private"), label="private_dir"))
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise SharedNoteError(str(exc)) from exc
+    if not (root / value).resolve().is_relative_to(root.resolve()):
         raise SharedNoteError("private_dir escapes the project root")
     return (root / value).resolve()
 
@@ -95,9 +162,12 @@ def _approval_bytes(approval: dict[str, Any]) -> bytes:
 
 
 def _allowed_signers(root: Path, config: dict[str, Any]) -> Path:
-    relative = Path(config.get("approval_allowed_signers", ".continuity/trusted-approvers"))
+    try:
+        relative = Path(runtime_lib.validate_portable_relative_path(config.get("approval_allowed_signers", ".continuity/trusted-approvers"), label="approval_allowed_signers"))
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise SharedNoteError(str(exc)) from exc
     resolved = (root / relative).resolve()
-    if relative.is_absolute() or not resolved.is_relative_to(root.resolve()):
+    if not resolved.is_relative_to(root.resolve()):
         raise SharedNoteError("approval_allowed_signers escapes the project root")
     return resolved
 
@@ -169,8 +239,8 @@ def prepare(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
             _dump(archive, previous)
     sender = _clean_metadata(args.sender, "sender")
     source_pr = _clean_metadata(args.source_pr, "source_pr", optional=True)
-    if source_pr and not re.fullmatch(r"https://github\.com/[^/\s]+/[^/\s]+/pull/\d+", source_pr):
-        raise SharedNoteError("source_pr must be a canonical GitHub pull-request URL")
+    if source_pr:
+        _parse_github_pr_url(source_pr)
     for roadmap_id in args.roadmap_id or []:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", roadmap_id):
             raise SharedNoteError(f"Invalid roadmap ID: {roadmap_id}")
@@ -200,7 +270,7 @@ def prepare(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
     }
     packet["content_hash"] = _canonical_hash(_payload(packet))
     _dump(path, packet)
-    return {**packet, "private_path": str(path.relative_to(root)), "approved": False}
+    return {**packet, "private_path": runtime_lib.project_relative_posix(path, root), "approved": False}
 
 
 def approve(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
@@ -266,8 +336,11 @@ def publish(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
         return {"dry_run": True, "branch": branch, "path": str(relative), "content_hash": packet["content_hash"], "execution_authorized": False}
     if subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True, check=False).stdout.strip():
         raise SharedNoteError("Source checkout must be clean before publishing a shared-note packet")
+    repository = _github_repository(root)
     _run(root, "git", "fetch", "origin", config["integration_branch"])
-    _run(root, "gh", "auth", "status")
+    github_actor = _run(root, "gh", "api", "user", "--hostname", repository["host"], "--jq", ".login")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,254}", github_actor):
+        raise SharedNoteError("GitHub CLI returned an invalid authenticated login")
     temp = Path(tempfile.mkdtemp(prefix="continuity-note-"))
     worktree = temp / "worktree"
     _run(root, "git", "worktree", "add", "-b", branch, str(worktree), f"origin/{config['integration_branch']}")
@@ -279,7 +352,10 @@ def publish(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
         _run(worktree, "git", "add", str(relative))
         _run(worktree, "git", "commit", "-m", f"Share note packet {packet['packet_id']} v{packet['version']}")
         _run(worktree, "git", "push", "-u", "origin", branch)
-        pr_url = _run(worktree, "gh", "pr", "create", "--base", config["integration_branch"], "--head", branch, "--title", f"Shared note packet: {packet['packet_id']} v{packet['version']}", "--body", "Sanitized project-context packet. Execution is not authorized; human review and merge are required.")
+        pr_url = _run(worktree, "gh", "pr", "create", "--repo", repository["spec"], "--base", config["integration_branch"], "--head", branch, "--title", f"Shared note packet: {packet['packet_id']} v{packet['version']}", "--body", "Sanitized project-context packet. Execution is not authorized; human review and merge are required.")
+        returned_pr = _parse_github_pr_url(pr_url)
+        if returned_pr["spec"].casefold() != repository["spec"].casefold():
+            raise SharedNoteError("GitHub CLI created a PR in a repository other than origin")
     except Exception as exc:
         raise SharedNoteError(f"Publish stopped; inspect retained worktree {worktree}: {exc}") from exc
     _run(root, "git", "worktree", "remove", str(worktree))
@@ -289,6 +365,9 @@ def publish(root: Path, config: dict[str, Any], args: argparse.Namespace) -> dic
         "branch": branch,
         "path": str(relative),
         "pr_url": pr_url,
+        "github_host": repository["host"],
+        "github_repository": repository["spec"],
+        "github_actor": github_actor,
         "version": packet["version"],
         "content_hash": packet["content_hash"],
     }
@@ -322,7 +401,7 @@ def status(root: Path, config: dict[str, Any], packet_id: str) -> dict[str, Any]
         and publication.get("version") == packet.get("version")
     )
     committed_paths = sorted(
-        str(path.relative_to(root))
+        runtime_lib.project_relative_posix(path, root)
         for path in (root / ".continuity" / "shared-notes" / "packets").glob(f"**/{packet_id}-v{packet.get('version')}.md")
     )
     imports: list[dict[str, Any]] = []
@@ -387,22 +466,22 @@ def import_packets(root: Path, config: dict[str, Any], _args: argparse.Namespace
     rejected = []
     for path in sorted((root / ".continuity" / "shared-notes" / "packets").glob("**/*.md")):
         if path.stat().st_size > 1_000_000:
-            rejected.append({"path": str(path.relative_to(root)), "reason": "packet exceeds one megabyte"})
+            rejected.append({"path": runtime_lib.project_relative_posix(path, root), "reason": "packet exceeds one megabyte"})
             continue
         metadata = _metadata(path)
         if metadata.get("target_project_id") != config["project_id"] or metadata.get("execution_authorized") is not False:
-            rejected.append({"path": str(path.relative_to(root)), "reason": "target or authorization boundary"})
+            rejected.append({"path": runtime_lib.project_relative_posix(path, root), "reason": "target or authorization boundary"})
             continue
         content_hash = str(metadata.get("content_hash", ""))
         if not re.fullmatch(r"[a-f0-9]{64}", content_hash):
-            rejected.append({"path": str(path.relative_to(root)), "reason": "invalid content hash"})
+            rejected.append({"path": runtime_lib.project_relative_posix(path, root), "reason": "invalid content hash"})
             continue
         payload = metadata.get("packet_payload")
         if not isinstance(payload, dict) or _canonical_hash(payload) != content_hash:
-            rejected.append({"path": str(path.relative_to(root)), "reason": "packet content hash mismatch"})
+            rejected.append({"path": runtime_lib.project_relative_posix(path, root), "reason": "packet content hash mismatch"})
             continue
         if payload.get("target_project_id") != config["project_id"] or payload.get("execution_authorized") is not False:
-            rejected.append({"path": str(path.relative_to(root)), "reason": "payload target or authorization boundary"})
+            rejected.append({"path": runtime_lib.project_relative_posix(path, root), "reason": "payload target or authorization boundary"})
             continue
         if content_hash in known:
             continue
@@ -447,7 +526,7 @@ def import_packets(root: Path, config: dict[str, Any], _args: argparse.Namespace
             "project_id": config["project_id"],
             "repository": str(root),
             "source_type": "shared-packet",
-            "source_ref": str(path.relative_to(root)),
+            "source_ref": runtime_lib.project_relative_posix(path, root),
             "source_timestamp": metadata.get("created_at"),
             "dedupe_key": content_hash,
             "execution_authorized": False,
@@ -460,7 +539,7 @@ def import_packets(root: Path, config: dict[str, Any], _args: argparse.Namespace
             "packet_id": packet_id,
             "version": metadata.get("version"),
             "content_hash": content_hash,
-            "source_path": str(path.relative_to(root)),
+            "source_path": runtime_lib.project_relative_posix(path, root),
             "capture_id": capture_id,
             "item_ids": [item["item_id"] for item in note_items],
             "execution_authorized": False,

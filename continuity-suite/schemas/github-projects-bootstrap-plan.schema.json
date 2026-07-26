@@ -18,8 +18,9 @@
         "project_id": {"type": "string", "minLength": 1},
         "destination": {
           "type": "object",
-          "required": ["owner_type", "owner"],
+          "required": ["host", "owner_type", "owner"],
           "properties": {
+            "host": {"type": "string", "pattern": "^[A-Za-z0-9.-]+$"},
             "owner_type": {"enum": ["organization", "user"]},
             "owner": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}$"}
           },

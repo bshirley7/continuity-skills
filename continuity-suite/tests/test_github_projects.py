@@ -395,7 +395,9 @@ class GitHubProjectsTest(unittest.TestCase):
             owner_type="organization",
             owner="example-org",
             title="Test project roadmap",
+            hostname="ghe.example.test",
         )
+        self.assertEqual(plan["material"]["destination"]["host"], "ghe.example.test")
         field_names = {field["name"] for field in plan["material"]["fields"]}
         self.assertTrue({"Status", "Priority", "Phase", "Continuity ID"}.issubset(field_names))
         self.write_bootstrap_approval(plan)
@@ -406,6 +408,7 @@ class GitHubProjectsTest(unittest.TestCase):
         self.assertEqual(result["destination"]["project_number"], 12)
         settings = json.loads((self.root / ".continuity" / "github-projects.json").read_text(encoding="utf-8"))
         self.assertEqual(settings["project_number"], 12)
+        self.assertEqual(settings["host"], "ghe.example.test")
         self.assertIn("field-create:Priority", client.calls)
         self.assertIn("field-create:Phase", client.calls)
         self.assertIn("field-options:Status", client.calls)
@@ -463,8 +466,18 @@ class GitHubProjectsTest(unittest.TestCase):
             stdout=json.dumps({"id": "PVT_test", "number": 4}),
             stderr="",
         )
-        with mock.patch.object(subprocess, "run", return_value=completed) as run:
-            client = github_projects.GitHubClient("/usr/local/bin/gh")
+        authenticated = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="enterprise-user\n",
+            stderr="",
+        )
+
+        def fake_run(command: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            return authenticated if command[1:3] == ["api", "user"] else completed
+
+        with mock.patch.object(subprocess, "run", side_effect=fake_run) as run:
+            client = github_projects.GitHubClient("/usr/local/bin/gh", host="ghe.example.test")
             client.create_project("example-org", "Roadmap")
             self.assertEqual(
                 run.call_args.args[0],
@@ -473,6 +486,8 @@ class GitHubProjectsTest(unittest.TestCase):
                     "--title", "Roadmap", "--format", "json",
                 ],
             )
+            self.assertEqual(run.call_args.kwargs["env"]["GH_HOST"], "ghe.example.test")
+            self.assertEqual(client.authenticated_login, "enterprise-user")
             client.create_project_field(4, "example-org", "Priority", "SINGLE_SELECT", ["High", "Low"])
             self.assertEqual(
                 run.call_args.args[0],
@@ -605,6 +620,32 @@ class GitHubProjectsTest(unittest.TestCase):
         self.assertNotIn("project-create:example-org", client.calls)
         self.assertTrue(connected["project_access_verified"])
         self.assertTrue((self.root / ".continuity" / "github-projects.json").is_file())
+
+    def test_connect_preserves_enterprise_host_in_durable_connection(self) -> None:
+        (self.root / ".continuity" / "github-projects.json").unlink()
+        client = FakeGitHubClient()
+        client.project["url"] = "https://ghe.example.test/orgs/example-org/projects/12"
+        client.authenticated_identity = lambda: {
+            "login": "fixture-user",
+            "database_id": 42,
+            "scopes": ["project"],
+            "host": "ghe.example.test",
+            "credential_source": "keyring",
+        }
+        connected = github_projects.connect(
+            self.root,
+            self.config,
+            owner_type="organization",
+            owner="example-org",
+            project_number=12,
+            hostname="ghe.example.test",
+            client=client,
+        )
+        self.assertEqual(connected["destination"]["host"], "ghe.example.test")
+        self.assertEqual(
+            github_projects.load_connection(self.root, self.config)["destination"]["host"],
+            "ghe.example.test",
+        )
 
     def test_connect_rejects_wrong_user_account_and_missing_project_scope(self) -> None:
         (self.root / ".continuity" / "github-projects.json").unlink()

@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "provider": "github-projects",
+  "host": "github.com",
   "owner_type": "organization",
   "owner": "YOUR-ORG",
   "project_number": 1,

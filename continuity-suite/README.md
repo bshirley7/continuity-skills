@@ -19,9 +19,27 @@ Continuity turns one explicit `/goal` request into triaged project context, imme
 - For judgment prompts and measurable output standards, read [Decision Lenses](references/decision-lenses.md) and [Output Quality Rubrics](references/output-quality-rubrics.md).
 - For quality and merge gates, read [Testing and Merge Standard](references/testing-and-merge-standard.md).
 - For Codex, Claude Code, and external scheduler requirements, read [Provider Adapter Contract](automation/provider-adapter-contract.md).
+- For Codex and Claude Code discovery, workspace trust, multi-root windows, reloads, simultaneous agents, and Remote Development, read [VS Code, Codex, and Claude Code](docs/vscode-codex-claude.md).
 - For contribution rules and review expectations, read [Contributing](CONTRIBUTING.md).
+- For native installation, launchers, OneDrive, and PowerShell behavior, read [Native Windows Setup and Operation](docs/windows.md).
+- For assets, trust boundaries, adversaries, controls, and residual risk, read [Security Threat Model](docs/security-threat-model.md).
+- For the current Windows capability reconciliation and remaining external acceptance gates, read [Native Windows Final Capability Audit](docs/windows-port/final-audit.md).
 
 ## Short Answer
+
+On Windows, install the timezone data dependency before running the suite:
+
+```text
+python -m pip install -r continuity-suite/requirements.txt
+```
+
+Continuity uses native Windows file locking when run under Windows and POSIX
+file locking on macOS and Linux.
+
+On Windows, use the installed `continuity.cmd` launcher from PowerShell,
+Command Prompt, or a VS Code terminal. A `continuity.ps1` launcher is also
+installed for environments that permit project scripts. Neither requires
+changing a machine-wide PowerShell execution policy; see the Windows guide.
 
 Initial installation is normally run from the Continuity suite checkout and pointed at a project folder:
 
