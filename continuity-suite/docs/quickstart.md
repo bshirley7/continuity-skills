@@ -104,6 +104,16 @@ Run doctor again after configuration:
 .agents/continuity/bin/continuity --project-root "$PWD" --json project doctor
 ```
 
+If `planning_patterns.tracker_provider` is `github`, connect the intended GitHub account once. This creates or attaches a private hosted roadmap, verifies read/write/create/edit access, and authorizes ongoing sanitized task-status synchronization without per-update approvals:
+
+```text
+gh auth login --hostname github.com --web --scopes project
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects connect \
+  --owner-type user --owner <authenticated-login> --title "<project title>" --visibility PRIVATE
+```
+
+Use `--project-number <number>` to attach an existing Project. Continuity stores only stable account/Project IDs and connection policy; `gh` keeps the credential. Deletion is not enabled.
+
 ## 4. Use The Skills
 
 Continuity installs canonical skills under `.agents/skills/` and project-specific behavior under `.agents/skills/continuity-local/SKILL.md`. Each task-specific skill applies that local behavior automatically.

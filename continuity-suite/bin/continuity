@@ -5081,7 +5081,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "visual_evidence_mode": "Use when-applicable so UI work produces visuals and non-visual work records why they do not apply.",
             "product_audit_stale_after_days": "Use a bounded review interval so baseline and drift audits return to the nightly decision queue.",
             "project_instructions": "Add only reviewed repository-specific refinements; fixed guardrails always take precedence.",
-            "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless external publication is separately approved.",
+            "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless an external provider is explicitly connected.",
             "roadmap": "Use the full hybrid roadmap by default. The sidecar stays read-only, local-clone-only, and excluded from every production distribution.",
             "agent_surfaces": "Choose one primary surface and every surface that should receive a project-local Continuity adapter. AGENTS.md remains canonical.",
             "scheduler": "Choose where persistent scheduled actions will be registered. Configuration records intent; registration remains an explicit user action.",
@@ -6250,6 +6250,38 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     if manifest.get("execution_enabled") and config.get("require_pr", True) and not config.get("github_required_checks"):
         record["healthy"] = False
         record["problems"].append("execution is enabled but no required GitHub checks are configured")
+    if config.get("planning_patterns", {}).get("tracker_provider") == "github":
+        try:
+            _settings_path, settings = github_projects_lib.load_settings(
+                root,
+                config,
+                ".continuity/github-projects.json",
+            )
+            connection = github_projects_lib.load_connection(root, config)
+            assert connection is not None
+            destination = connection["destination"]
+            if (
+                destination["owner_type"] != settings["owner_type"]
+                or destination["owner"].casefold() != str(settings["owner"]).casefold()
+                or destination["project_number"] != settings["project_number"]
+            ):
+                raise github_projects_lib.GitHubProjectsError(
+                    "GitHub Projects settings and durable connection target different Projects"
+                )
+            record["roadmap_connection"] = {
+                "provider": "github-projects",
+                "connected": True,
+                "connection_id": connection["connection_id"],
+                "authenticated_user": connection["authenticated_user"],
+                "destination": destination,
+                "capabilities": connection["capabilities"],
+                "sync_policy": connection["sync_policy"],
+                "live_check": "run roadmap github-projects status",
+            }
+        except github_projects_lib.GitHubProjectsError as exc:
+            record["healthy"] = False
+            record["roadmap_connection"] = {"provider": "github-projects", "connected": False, "problem": str(exc)}
+            record["problems"].append(f"GitHub Projects connection is invalid: {exc}")
     record["platform"] = {"name": sys.platform, "supported": sys.platform.startswith(("darwin", "linux"))}
     if not record["platform"]["supported"]:
         record["healthy"] = False
@@ -10519,6 +10551,21 @@ def skill_improvement_command(args: argparse.Namespace) -> Any:
 def github_projects_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
+        if args.github_projects_command == "connect":
+            return github_projects_lib.connect(
+                root,
+                config,
+                owner_type=args.owner_type,
+                owner=args.owner,
+                project_number=args.project_number,
+                title=args.title,
+                visibility=args.visibility,
+                settings_value=args.settings,
+            )
+        if args.github_projects_command == "status":
+            return github_projects_lib.connection_status(root, config)
+        if args.github_projects_command == "sync":
+            return github_projects_lib.sync(root, config, settings_value=args.settings)
         if args.github_projects_command == "bootstrap":
             if args.bootstrap_command == "plan":
                 return github_projects_lib.build_bootstrap_plan(
@@ -11032,6 +11079,19 @@ def build_parser() -> argparse.ArgumentParser:
     production_audit.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.production_audit)
     github_projects = roadmap_sub.add_parser("github-projects")
     github_projects_sub = github_projects.add_subparsers(dest="github_projects_command", required=True)
+    github_projects_connect = github_projects_sub.add_parser("connect")
+    github_projects_connect.add_argument("--owner-type", choices=["organization", "user"], required=True)
+    github_projects_connect.add_argument("--owner", required=True)
+    github_projects_connect.add_argument("--project-number", type=int, help="Attach an existing Project; omit to create one")
+    github_projects_connect.add_argument("--title", help="Title used when creating a Project")
+    github_projects_connect.add_argument("--visibility", choices=["PRIVATE", "PUBLIC"], default="PRIVATE")
+    github_projects_connect.add_argument("--settings", default=".continuity/github-projects.json")
+    github_projects_connect.set_defaults(handler=github_projects_command)
+    github_projects_status = github_projects_sub.add_parser("status")
+    github_projects_status.set_defaults(handler=github_projects_command)
+    github_projects_sync = github_projects_sub.add_parser("sync")
+    github_projects_sync.add_argument("--settings", default=".continuity/github-projects.json")
+    github_projects_sync.set_defaults(handler=github_projects_command)
     github_projects_bootstrap = github_projects_sub.add_parser("bootstrap")
     github_projects_bootstrap_sub = github_projects_bootstrap.add_subparsers(dest="bootstrap_command", required=True)
     github_projects_bootstrap_plan = github_projects_bootstrap_sub.add_parser("plan")
@@ -11441,6 +11501,59 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def automatic_roadmap_sync(args: argparse.Namespace, value: Any) -> Any:
+    mutating_handlers = {
+        goal_create,
+        goal_revise,
+        goal_approve,
+        goal_activate,
+        goal_proceed,
+        goal_start,
+        goal_transition,
+        run_update,
+        merge_execute,
+        merge_record_human,
+    }
+    roadmap_mutation = args.handler is roadmap_command and getattr(args, "command", None) in {"create", "revise", "link-note"}
+    if args.handler not in mutating_handlers and not roadmap_mutation:
+        return value
+    if args.handler is goal_create and isinstance(value, dict) and value.get("authorization_mode") == "goal-request":
+        # /goal immediately activates after creation; publish the dispatched state once instead of syncing twice.
+        return value
+    root, config = load_context()
+    if config.get("planning_patterns", {}).get("tracker_provider") != "github":
+        return value
+    connection = github_projects_lib.load_connection(root, config, required=False)
+    if connection is None or connection.get("sync_policy", {}).get("automatic") is not True:
+        return value
+    try:
+        sync_result = github_projects_lib.sync(
+            root,
+            config,
+            client=github_projects_lib.GitHubClient(timeout_seconds=5),
+        )
+    except github_projects_lib.GitHubProjectsError as exc:
+        stamp = iso_now(config)
+        sync_result = {
+            "status": "advisory-failed",
+            "provider": "github-projects",
+            "at": stamp,
+            "problem": str(exc),
+            "canonical_transition_preserved": True,
+        }
+        json_dump(
+            private_path(root, config) / "integrations" / "github-projects" / "last-sync.json",
+            sync_result,
+        )
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": stamp, "event": "roadmap.sync-advisory", "provider": "github-projects", "problem": str(exc)},
+        )
+    if isinstance(value, dict):
+        return {**value, "roadmap_sync": sync_result}
+    return value
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
@@ -11455,6 +11568,7 @@ def main() -> int:
                 os.environ["CONTINUITY_STATE_LOCK_HELD"] = "1"
                 try:
                     value = args.handler(args)
+                    value = automatic_roadmap_sync(args, value)
                 finally:
                     os.environ.pop("CONTINUITY_STATE_LOCK_HELD", None)
         output(value, args.json)

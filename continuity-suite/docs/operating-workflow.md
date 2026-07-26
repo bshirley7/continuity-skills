@@ -126,6 +126,8 @@ After installation, verify the project:
 .agents/continuity/bin/continuity --project-root "$PWD" roadmap audit
 ```
 
+When GitHub is selected as the roadmap tracker, `project doctor` also requires a valid local connection record. Run `roadmap github-projects status` for a live identity and Project-access check. Once connected, sanitized roadmap entries and goal states synchronize automatically to the bound hosted Project, so status remains available without the local roadmap server. Sync failures are advisory to local coding transitions and can be retried with `roadmap github-projects sync`.
+
 Execution should remain disabled until the project commands, security requirements, branch policy, and human review process are correct.
 
 ## Scheduler Activation

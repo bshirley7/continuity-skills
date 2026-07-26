@@ -320,30 +320,26 @@ Use the machine handoff before and after any skill:
 
 Use `--capture-id` immediately after capture to receive all per-item handoffs. Use the narrowest available selector after that. Project-wide status prioritizes the current queues for general routing; it does not override the selected subject's stage or next skill.
 
-## Optional GitHub Projects projection
+## Optional GitHub Projects connection
 
-GitHub Projects is an optional operational surface, not a replacement for canonical roadmap Markdown. Configure `planning_patterns.tracker_provider` as `github`. To create a Project for the active Continuity project through GitHub CLI, use the approval-bound bootstrap:
-
-```text
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap plan \
-  --owner-type organization --owner <github-owner> --title "<project title>" --visibility PRIVATE
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap approve <bootstrap-plan-hash> \
-  --approved-by <identity> --authorization-text "<exact text returned by bootstrap plan>"
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap apply <bootstrap-plan-hash>
-```
-
-The apply step creates the Project and fields via `gh`, writes the returned Project number to `.continuity/github-projects.json`, and prepares the first export plan without approving it. For an existing Project, copy `.agents/continuity/templates/github-projects-settings.json` to `.continuity/github-projects.json` and set the exact owner, Project number, published statuses, fields, and option names.
+GitHub Projects is an optional hosted operational surface, not a replacement for canonical roadmap Markdown. It keeps task status accessible when the local roadmap server is not running. Configure `planning_patterns.tracker_provider` as `github`, authenticate the intended account with the `project` scope, and connect once:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects plan
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects inspect <plan-hash>
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects approve <plan-hash> \
-  --approved-by <identity> \
-  --authorization-text "<exact text returned by plan>"
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects apply <plan-hash>
+gh auth login --hostname github.com --web --scopes project
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects connect \
+  --owner-type user --owner <authenticated-login> --title "<project title>" --visibility PRIVATE
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects status
 ```
 
-The plan and approval receipts remain ignored private state. Applying a plan rechecks current canonical roadmap content and configuration, preflights the destination's field types and options, and fails closed before mutation when the Project contract is incompatible. Remote edits discovered by `inspect` are proposals only; they must return through normal Continuity capture, triage, planning, and approved roadmap impact before canonical state changes. See `$continuity-roadmap`'s `github-projects-adapter.md` reference for ownership, permissions, signed approval, polling, and future webhook rules.
+Add `--project-number <number>` to attach an existing Project instead of creating one. The command verifies the active login, stable GitHub account ID, `project` scope, exact owner, stable Project ID, and Project update access. It configures fields, records read/write/create/edit capabilities with deletion disabled, and performs the first sync without reading or storing the token.
+
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects sync
+```
+
+The connection invocation is durable authorization for automatic sanitized roadmap and goal-status updates to that one Project. Goal and approved-roadmap lifecycle transitions trigger best-effort synchronization; a remote failure is recorded as advisory and never rolls back the local transition. Renew only for a different account, destination, visibility, capability set, deletion policy, or published data class. Raw notes, exact requests, approval text, private evidence, memory, and credentials are never projected. Remote edits remain reconciliation proposals and cannot authorize or complete local work.
+
+The older bootstrap and plan/approve/apply commands remain available for unconnected one-off exports. New integrations should follow the provider-neutral tracker contract used by GitHub so Notion, Trello, Jira, or another provider can be added without creating a second planning or authorization workflow.
 
 `workflow status` reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. A submitted `/goal` or the user's “proceed” instruction is the routine interactive approval boundary; the matching `goal activate` or `goal proceed` command records it and continues without another user prompt.
 
