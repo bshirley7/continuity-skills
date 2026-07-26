@@ -163,7 +163,7 @@ class WindowsInstallTest(unittest.TestCase):
                 expected_names,
             )
             self.assertEqual(
-                {path.stem for path in (root / ".claude" / "commands").glob("continuity*.md")},
+                {path.stem for path in (root / ".claude" / "commands").glob("*.md")},
                 expected_names,
             )
             self.assertRegex(

@@ -3449,12 +3449,16 @@ unresolved_gaps: []
         else:
             self.assertEqual(rendered["launcher"], str(entrypoint))
         self.assertIn(str(special_workspace.resolve()), rendered["supervisor_argv"])
-        launcher_root = Path(rendered["launcher"]).parent
-        install_python_tool(
-            launcher_root,
-            "continuity",
-            "import json,sys\nprint(json.dumps(sys.argv[1:]))\n",
+        transport_entrypoint = (
+            Path(rendered["supervisor_argv"][1]) if os.name == "nt" else Path(rendered["launcher"])
         )
+        transport_entrypoint.write_text(
+            ("" if os.name == "nt" else "#!/usr/bin/env python3\n")
+            + "import json,sys\nprint(json.dumps(sys.argv[1:]))\n",
+            encoding="utf-8",
+        )
+        if os.name != "nt":
+            transport_entrypoint.chmod(0o755)
         unrelated_cwd = self.root.parent / "unrelated cwd"
         unrelated_cwd.mkdir()
         transported = subprocess.run(
@@ -3464,7 +3468,8 @@ unresolved_gaps: []
             text=True,
             check=True,
         )
-        self.assertEqual(json.loads(transported.stdout), rendered["supervisor_argv"][1:])
+        argument_offset = 2 if os.name == "nt" else 1
+        self.assertEqual(json.loads(transported.stdout), rendered["supervisor_argv"][argument_offset:])
         self.assertIn("__CONTINUITY_PROVIDER_TASK_ID__", rendered["registration_argv"])
         if os.name == "nt":
             self.assertFalse(any(argument.endswith("continuity.cmd") for argument in rendered["supervisor_argv"][:2]))
