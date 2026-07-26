@@ -150,7 +150,7 @@ continuity merge assess <goal-id> --branch <branch> --pr-url <url> --update-gate
 continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --disposition <approved|changes-requested|merged|closed> --evidence <text>
 ```
 
-The offline design catalog selects one foundation pack per active axis plus any reviewed category overlays matching the design input. Draft and approved design records preserve every selected pack ID and version.
+The offline design catalog selects one foundation pack per active axis plus any reviewed category overlays matching the design input. Draft and approved design records preserve every selected pack ID and version. Film-led and scroll-driven web work conditionally loads the cinematic-scroll method: private multi-concept divergence, beat-to-chapter commercial narrative, subject-derived interface language, stack-grounded decoder-safe motion, direct user control, and joined media/accessibility validation.
 
 Use `continuity suite update --check`, a dry run, and an explicit tagged update for existing installations. Release artifacts are attested and hash-manifested; modified suite-managed files fail closed, each update creates a rollback snapshot, and project-owned configuration and ignored private state remain outside release replacement. See [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md). Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 

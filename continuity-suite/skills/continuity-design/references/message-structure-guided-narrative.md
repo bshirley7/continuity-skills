@@ -8,6 +8,8 @@
 - Bind visuals, examples, and proof to the exact narrative stage and claim they support; preserve equivalent text and controls when motion, stickiness, or scroll effects are unavailable.
 - Place consequential terms, safeguards, uncertainty, eligibility, fees, and limits before the action they govern, even when doing so interrupts the emotional arc.
 - Offer multiple exits matched to reader intent—skip to proof, inspect details, compare approaches, view documentation, begin a bounded task, or contact an expert—without forcing completion of the entire story.
+- For a continuous film or spatial journey, build a beat-to-chapter matrix that binds each observable transition to one standalone heading, claim, mechanism, proof or qualification, interface response, skip path, and next action. Do not let timecode alone become information architecture.
+- Let the media carry continuity and atmosphere while language carries commercial specificity. End the story in a credible offer, reservation, purchase, application, download, or contact path rather than a purely visual climax.
 
 ## Variation levers
 
@@ -16,6 +18,7 @@
 - Let technical readers branch into documentation while preserving a plain-language main path.
 - Bring proof forward at the stage where skepticism naturally arises.
 - Use a persistent or repeated action only when its meaning remains appropriate across stages.
+- Use normalized progress for the durable chapter model and asset timecodes as inspected evidence so media replacement or duration changes do not silently break the narrative.
 
 ## Tensions and tradeoffs
 
@@ -45,6 +48,9 @@
 - Emotional arc that hides limits.
 - Progress indicator with no navigable chapters.
 - Auto-advancing story.
+- Film beat with no narrative job.
+- One sentence serialized across several video frames.
+- Visual climax detached from the actual offer.
 - Repeated identical demo button after every paragraph.
 
 ## Acceptance and review questions
@@ -56,3 +62,5 @@
 - Do terms, safeguards, uncertainty, eligibility, fees, and limits precede commitment?
 - Can readers skip to proof, details, comparison, documentation, a bounded task, or expert contact?
 - Is guidance based on visible narrative behavior rather than claiming unobserved outcomes?
+- Does each observed media beat map to a standalone chapter, meaningful interface response, and credible next action?
+- Can the complete commercial argument survive rapid scroll, direct chapter navigation, media failure, reduced motion, and no video?

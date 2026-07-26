@@ -327,6 +327,28 @@
       ]
     },
     {
+      "rule_id": "cinematic-scroll-media",
+      "reason": "Continuous media, scroll-linked playback, smoothing, parallax, or guided tours require decoder-safe motion, sensory equivalence, user control, and interruption review.",
+      "terms": [
+        "auto tour",
+        "cinematic scroll",
+        "continuous media",
+        "full-screen video",
+        "macro video",
+        "parallax",
+        "scroll-driven",
+        "scroll-linked",
+        "scroll-scrubbed",
+        "smooth scrolling",
+        "video scrub"
+      ],
+      "lenses": [
+        "motion-art-direction",
+        "multimodal-equivalence-sensory-agency",
+        "attention-interruption"
+      ]
+    },
+    {
       "rule_id": "high-consequence-psychology-safeguards",
       "reason": "Material legal, financial, health, safety, privacy, civic, developmental, or irreversible consequences require stronger decision, state, and persuasion safeguards.",
       "terms": [
