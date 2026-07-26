@@ -5,6 +5,8 @@ description: Assess PR readiness, merge safety, base freshness, human-review evi
 
 # Continuity Merge
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Use this skill for merge-safety, exact interactive merge authorization, and human-review records. Continuity must not auto-merge, use administrator bypass, force-push, or infer human approval. A project may opt in to a direct GitHub CLI merge only when a human supplies the exact PR-, head-SHA-, and method-bound authorization in an interactive agent session.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the testing and merge standard](../../references/testing-and-merge-standard.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, the approved plan, latest test report, and compliance ledger before acting.
@@ -13,7 +15,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 ## Required assurance
 
-- Require a passed Continuity test report before recording merge-safety as passed.
+- Require a passed Continuity test report and current passed or explicitly not-applicable product-conformance gate before recording merge-safety as passed.
 - Refresh or verify the integration base before PR handoff according to project policy.
 - Confirm the branch is goal-focused, not the integration branch, and free of unrelated or private-state changes.
 - Keep incomplete or blocked work in a draft PR with explicit blockers.
@@ -23,7 +25,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 ## Workflow
 
 1. Run `continuity project doctor`.
-2. Confirm the latest `$continuity-test` report passed for the current clean local commit, and that the same commit is pushed as the draft PR head.
+2. Confirm the latest `$continuity-test` report and `$continuity-product-audit` candidate record passed for the current clean local commit, or that product conformance is explicitly not applicable. Confirm that the same commit is pushed as the draft PR head.
 3. Assess merge safety after hosted checks finish. The assessment verifies the PR head/base, merge state, unresolved change requests, configured check names, and every observed check result:
 
 ```text

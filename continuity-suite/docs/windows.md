@@ -201,11 +201,13 @@ Render the selected provider definition before creating any provider task:
 & "$Project\.agents\continuity\bin\continuity.cmd" --project-root $Project --json scheduler adapter claude-code render --root C:\path\to\workspace
 ```
 
-The definition contains an absolute `continuity.cmd` launcher and structured
-`supervisor_argv` and `registration_argv` arrays. Provider integrations must
-invoke the array directly with `shell=false`; do not reconstruct it through
-PowerShell, CMD, or string concatenation. This preserves spaces, Unicode, and
-shell metacharacters and makes the task independent of its starting folder.
+The definition contains the installer-bound absolute Python executable plus
+the extensionless Continuity entry point in structured `supervisor_argv` and
+`registration_argv` arrays. Provider integrations must invoke the array
+directly with `shell=false`; do not substitute the interactive `continuity.cmd`
+launcher or reconstruct the command through PowerShell, CMD, or string
+concatenation. This preserves spaces, Unicode, and shell metacharacters and
+makes the task independent of its starting folder.
 
 Use the rendered self-contained `prompt` verbatim. Chat and rich-text surfaces
 can interpret double-underscore placeholder values as Markdown. Keep the task

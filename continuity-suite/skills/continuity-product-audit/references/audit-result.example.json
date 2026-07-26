@@ -1,0 +1,34 @@
+{
+  "audit_id": "audit-replace-with-plan-id",
+  "summary": "The planned guest checkout journey is aligned with the current approved sources.",
+  "coverage": {
+    "planned": 2,
+    "observed": 2,
+    "blocked": 0
+  },
+  "evidence": [
+    {
+      "evidence_id": "checkout-desktop",
+      "kind": "screenshot",
+      "description": "Sanitized desktop confirmation state.",
+      "captured_at": "2026-01-01T12:00:00+00:00",
+      "path": "docs/audit-evidence/checkout-desktop.png"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "guest-checkout-current",
+      "requirement_ref": "guest-checkout",
+      "title": "Guest checkout completes",
+      "status": "aligned",
+      "severity": "info",
+      "confidence": "high",
+      "scope": "current-goal",
+      "gate_impact": "none",
+      "source_refs": ["goal-goal-replace-with-id", "prd-checkout"],
+      "evidence_refs": ["checkout-desktop"],
+      "summary": "The observed journey reaches confirmation and exposes recoverable validation.",
+      "recommendation": "Retain the current behavior and regression coverage."
+    }
+  ]
+}

@@ -5,6 +5,17 @@ Local host: native Windows, OneDrive NTFS workspace, Python 3.13.6
 Execution, provider scheduling, and merging: disabled; source-branch
 publication and draft PR creation were separately authorized
 
+## Post-audit main integration
+
+On 2026-07-25, `origin/main` at `5b75234` was integrated into the compatibility
+candidate. The exact-head native and hosted results below remain evidence for
+the original Windows implementation, not a substitute for validation of the
+new integrated head. The integrated distribution currently validates 17
+skills, 14 Python sources, 264 local Markdown links, one exactly pinned
+dependency, and 400 release-managed files. Draft PR handoff remains conditional
+on the current head passing the complete hosted Windows, macOS, and Linux
+matrix; the PR must remain draft until that result is available.
+
 This audit reconciles the original Windows-port goal with the current local
 evidence. Every functional acceptance gate now has direct evidence. The updated
 placeholder-hardening commit passes final native validation and the complete
@@ -16,11 +27,11 @@ hosted matrix at its exact code-bearing head.
   tests in 491.345 seconds.
 - The security-focused adversarial suite passes without a shell-backed
   validation or security command.
-- Thirteen canonical skills validate; Codex and Claude installed-project tests
+- Seventeen canonical skills validate in the integrated tree; Codex and Claude installed-project tests
   additionally validate the generated `continuity-local` skill and all Claude
   adapters.
-- Nine Python entry points/modules compile, 129 local Markdown links resolve,
-  one Python dependency is exactly pinned with two SHA-256 hashes, and 139
+- Fourteen Python entry points/modules compile, 264 local Markdown links resolve,
+  one Python dependency is exactly pinned with two SHA-256 hashes, and 400
   release-managed files match the deterministic manifest.
 - The release archive now includes `requirements.txt`; the previous workflow
   omitted it even though native Windows requires the timezone database.
@@ -89,12 +100,11 @@ hosted matrix at its exact code-bearing head.
 
 ## Release validation result
 
-No functional, provider-native, or code-bearing release-validation item
-remains. Deterministic manifest/distribution checks pass, the complete native
-Windows suite passes, and the six-cell hosted matrix passes at exact
-code-bearing head `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c`. The final
-evidence-only commit changes this audit, the acceptance matrix, implementation
-log, and the resulting deterministic manifest; it must retain the same green
+No functional or provider-native item remained at the recorded implementation
+head. Deterministic manifest/distribution checks and the complete native Windows
+suite passed there, and the six-cell hosted matrix passed at exact code-bearing
+head `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c`. Because `origin/main` was later
+integrated, the current draft PR head must independently retain the same green
 matrix before handoff.
 
 No live PR merge, force push, administrator bypass, auto-merge, product-code
@@ -112,8 +122,9 @@ execution, cloud routine, or production side effect is needed.
 
 ## Completion decision
 
-Stages 1–10 pass with current evidence, including the provider-native Stage 7
-no-op and the exact-head Stage 10 cross-platform matrix. The Windows
-compatibility implementation is complete. Final handoff remains conditional
-only on the evidence-only head retaining the same green hosted matrix; no
-additional implementation or functional acceptance work is outstanding.
+Stages 1–9 retain their recorded capability evidence, including the
+provider-native Stage 7 no-op. The Windows compatibility implementation is
+complete, while Stage 10 handoff for the integrated candidate remains
+conditional on its current exact head retaining the green hosted matrix. No
+additional functional acceptance work is outstanding unless that matrix
+exposes an integration regression.

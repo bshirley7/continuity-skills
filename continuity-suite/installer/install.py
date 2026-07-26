@@ -50,6 +50,7 @@ USER_DEFAULT_FIELDS = {
     "schedules",
     "max_runtime_minutes",
     "memory_stale_after_days",
+    "product_audit_stale_after_days",
     "visual_evidence_mode",
     "branch_prefix",
     "planning_patterns",
@@ -66,6 +67,8 @@ DEFAULT_SCHEDULER = {
     "stale_after_minutes": 45,
     "portfolio_max_concurrency": 4,
 }
+GITHUB_HOST = "github.com"
+GITHUB_AUTH_SCOPES = {"project"}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -101,12 +104,46 @@ def release_manifest(suite: Path) -> dict[str, Any]:
     return manifest
 
 
-def install_file_map(suite: Path, manifest: dict[str, Any]) -> dict[str, Path]:
+def collection_catalog(suite: Path) -> dict[str, dict[str, Any]]:
+    catalog: dict[str, dict[str, Any]] = {}
+    for path in sorted((suite / "collections").glob("*.json")):
+        value = load_json(path)
+        runtime_lib.validate_schema_file(value, suite / "schemas" / "collection.schema.json", f"collection {path.name}")
+        collection_id = value.get("collection_id")
+        if not isinstance(collection_id, str) or collection_id in catalog:
+            raise RuntimeError(f"Invalid or duplicate collection definition: {path.name}")
+        catalog[collection_id] = value
+    if set(catalog) != {"core", "projects", "design"}:
+        raise RuntimeError("Release must define core, projects, and design collections")
+    return catalog
+
+
+def resolve_collections(suite: Path, requested: list[str], current: list[str] | None = None) -> tuple[list[str], set[str]]:
+    catalog = collection_catalog(suite)
+    enabled = set(current or ["core", "projects"])
+    enabled.update(requested)
+    unknown = enabled - set(catalog)
+    if unknown:
+        raise RuntimeError(f"Unknown Continuity collections: {sorted(unknown)}")
+    pending = list(enabled)
+    while pending:
+        collection_id = pending.pop()
+        for dependency in catalog[collection_id].get("depends_on", []):
+            if dependency not in enabled:
+                enabled.add(dependency)
+                pending.append(dependency)
+    skills = {skill for collection_id in enabled for skill in catalog[collection_id].get("skills", [])}
+    return sorted(enabled), skills
+
+
+def install_file_map(suite: Path, manifest: dict[str, Any], enabled_skills: set[str] | None = None) -> dict[str, Path]:
     mapped: dict[str, Path] = {}
     for relative in manifest["files"]:
         source = suite / relative
         parts = Path(relative).parts
         if parts[0] == "skills":
+            if enabled_skills is not None and len(parts) > 1 and parts[1] not in enabled_skills:
+                continue
             target = Path(".agents") / relative
         elif parts[0] == "references":
             target = Path(".agents") / "continuity" / relative
@@ -445,6 +482,133 @@ def validate_git_branch(root: Path, value: Any) -> str:
     return branch
 
 
+def github_cli_auth_state(executable: str) -> dict[str, Any]:
+    """Read GitHub CLI authentication metadata without exposing its token."""
+    command = [executable, "auth", "status", "--hostname", GITHUB_HOST, "--active", "--json", "hosts"]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"authenticated": False, "login": None, "scopes": [], "problem": str(exc)}
+    try:
+        payload = json.loads(result.stdout) if result.stdout.strip() else {}
+    except json.JSONDecodeError:
+        payload = {}
+    accounts = (payload.get("hosts") or {}).get(GITHUB_HOST) if isinstance(payload, dict) else None
+    active = next(
+        (item for item in accounts or [] if isinstance(item, dict) and item.get("active")),
+        None,
+    )
+    scopes = sorted(str(item) for item in (active or {}).get("scopes", []) if str(item))
+    authenticated = bool(result.returncode == 0 and active and active.get("state") == "success")
+    return {
+        "authenticated": authenticated,
+        "login": str(active.get("login")) if active and active.get("login") else None,
+        "scopes": scopes,
+        "problem": None if authenticated else "GitHub CLI has no healthy active github.com account",
+    }
+
+
+def interactive_terminal_available() -> bool:
+    try:
+        with open("/dev/tty", "r+", encoding="utf-8"):
+            return True
+    except OSError:
+        return False
+
+
+def run_github_auth_interactive(command: list[str]) -> subprocess.CompletedProcess[str]:
+    with open("/dev/tty", "r+", encoding="utf-8", buffering=1) as terminal:
+        terminal.write("\nContinuity needs GitHub CLI authentication for repository and Projects access.\n")
+        terminal.flush()
+        return subprocess.run(
+            command,
+            stdin=terminal,
+            stdout=terminal,
+            stderr=terminal,
+            text=True,
+            timeout=900,
+            check=False,
+        )
+
+
+def ensure_github_cli_authentication(*, prompt: bool = True) -> dict[str, Any]:
+    """Ensure gh owns a user-approved credential; never read or persist the token."""
+    executable = shutil.which("gh")
+    login_command = ["gh", "auth", "login", "--hostname", GITHUB_HOST, "--web", "--scopes", "project"]
+    if not executable:
+        return {
+            "status": "cli-missing",
+            "authenticated": False,
+            "prompted": False,
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(login_command),
+            "credential_storage": "GitHub CLI",
+        }
+
+    before = github_cli_auth_state(executable)
+    missing_scopes = sorted(GITHUB_AUTH_SCOPES - set(before["scopes"]))
+    if before["authenticated"] and not missing_scopes:
+        return {
+            "status": "authenticated",
+            "authenticated": True,
+            "prompted": False,
+            "login": before["login"],
+            "scopes": sorted(GITHUB_AUTH_SCOPES & set(before["scopes"])),
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "credential_storage": "GitHub CLI",
+        }
+
+    refresh_command = ["gh", "auth", "refresh", "--hostname", GITHUB_HOST, "--scopes", "project"]
+    requested_command = refresh_command if before["authenticated"] else login_command
+    if not prompt or not interactive_terminal_available():
+        return {
+            "status": "authentication-required",
+            "authenticated": False,
+            "prompted": False,
+            "login": before["login"],
+            "missing_scopes": missing_scopes,
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(requested_command),
+            "credential_storage": "GitHub CLI",
+        }
+
+    try:
+        result = run_github_auth_interactive([executable, *requested_command[1:]])
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {
+            "status": "authentication-required",
+            "authenticated": False,
+            "prompted": True,
+            "problem": str(exc),
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(requested_command),
+            "credential_storage": "GitHub CLI",
+        }
+    after = github_cli_auth_state(executable)
+    remaining_scopes = sorted(GITHUB_AUTH_SCOPES - set(after["scopes"]))
+    if result.returncode != 0 or not after["authenticated"] or remaining_scopes:
+        return {
+            "status": "authentication-required",
+            "authenticated": False,
+            "prompted": True,
+            "login": after["login"],
+            "missing_scopes": remaining_scopes,
+            "problem": "GitHub CLI authentication did not complete",
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(requested_command),
+            "credential_storage": "GitHub CLI",
+        }
+    return {
+        "status": "authenticated",
+        "authenticated": True,
+        "prompted": True,
+        "login": after["login"],
+        "scopes": sorted(GITHUB_AUTH_SCOPES & set(after["scopes"])),
+        "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+        "credential_storage": "GitHub CLI",
+    }
+
+
 def render_memory(entry: dict[str, Any], stamp: str, commit: str) -> str:
     metadata = {
         "memory_id": entry["memory_id"],
@@ -479,6 +643,7 @@ def main() -> int:
     parser.add_argument("--integration-branch")
     parser.add_argument("--seed", help="Optional project-specific memory seed kept outside this distribution")
     parser.add_argument("--configuration", help="Optional JSON answers for guided project behavior configuration")
+    parser.add_argument("--collection", action="append", choices=["core", "projects", "design"], default=[], help="Enable an optional skill collection; existing selections are preserved on upgrade")
     parser.add_argument("--interactive", action="store_true", help="Ask guided project behavior questions after installation")
     parser.add_argument("--validation", action="append", default=[])
     parser.add_argument("--timezone", help="IANA timezone; overrides a saved user default")
@@ -488,6 +653,7 @@ def main() -> int:
     parser.add_argument("--enable-execution", action="store_true")
     parser.add_argument("--require-signed-approvals", action="store_true", help="Require SSH-signed approval, disposition, resume, and packet receipts for this project")
     parser.add_argument("--overwrite-managed", action="store_true", help="Replace modified suite-managed files after snapshotting them")
+    parser.add_argument("--skip-github-auth", action="store_true", help="Do not launch the default GitHub CLI authentication prompt")
     parser.add_argument("--rollback-snapshot", help="Restore a named snapshot under .continuity/private/upgrades")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -520,7 +686,8 @@ def main() -> int:
         raise RuntimeError("project-id must use 1-128 letters, numbers, dots, underscores, or hyphens")
     args.integration_branch = validate_git_branch(root, args.integration_branch)
     release = release_manifest(suite)
-    file_map = install_file_map(suite, release)
+    enabled_collections, enabled_skills = resolve_collections(suite, args.collection, current_config.get("collections"))
+    file_map = install_file_map(suite, release, enabled_skills)
     prior_install = installed_manifest(root)
     drift = managed_drift(root, prior_install)
     if drift and not args.overwrite_managed:
@@ -563,6 +730,7 @@ def main() -> int:
         "roadmap_docs": "docs/project-roadmap",
         "private_dir": ".continuity/private",
         "memory_stale_after_days": user_defaults.get("memory_stale_after_days", 90),
+        "product_audit_stale_after_days": user_defaults.get("product_audit_stale_after_days", 30),
         "require_remote": True,
         "require_pr": True,
         "require_pr_auth": True,
@@ -602,6 +770,7 @@ def main() -> int:
         "scheduler": scheduler_defaults(user_defaults.get("scheduler")),
         "behavior_config_path": ".continuity/project-behavior.json",
         "behavior_skill_path": ".agents/skills/continuity-local/SKILL.md",
+        "collections": enabled_collections,
     }
     config["documentation_map"].setdefault("project-roadmap", "docs/project-roadmap/INDEX.md")
     project_manifest = {
@@ -616,6 +785,7 @@ def main() -> int:
         "agent_surfaces": user_defaults.get("agent_surfaces", {"primary": "codex", "enabled": ["codex"]}),
         "scheduler": scheduler_defaults(user_defaults.get("scheduler")),
         "max_concurrency": 1,
+        "collections": enabled_collections,
     }
 
     existing_config_path = root / ".continuity" / "config.json"
@@ -640,6 +810,7 @@ def main() -> int:
         config["behavior_config_path"] = ".continuity/project-behavior.json"
         config["behavior_skill_path"] = ".agents/skills/continuity-local/SKILL.md"
         config.setdefault("approval_allowed_signers", ".continuity/trusted-approvers")
+        config.setdefault("product_audit_stale_after_days", user_defaults.get("product_audit_stale_after_days", 30))
         existing_signers = existing_config.get("approval_allowed_signers", ".continuity/trusted-approvers")
         config["require_signed_approvals"] = bool(
             args.require_signed_approvals
@@ -658,6 +829,7 @@ def main() -> int:
         config.setdefault("require_verified_backups", True)
         config.setdefault("require_audit_checkpoints", True)
         config.setdefault("audit_checkpoint_path", f"~/.continuity/audit-checkpoints/{args.project_id}.json")
+        config["collections"] = enabled_collections
     if existing_manifest_path.exists():
         existing_manifest = load_json(existing_manifest_path)
         if existing_manifest.get("project_id") != args.project_id:
@@ -665,6 +837,7 @@ def main() -> int:
         project_manifest.update(existing_manifest)
         project_manifest["schema_version"] = 1
         project_manifest["assurance_standard_version"] = 2
+    project_manifest["collections"] = enabled_collections
 
     agents_block = f"""{AGENTS_START}
 ## Continuity, Memory, and Sequenced Development
@@ -673,14 +846,17 @@ def main() -> int:
 - Integration branch: use the value in `.continuity/project.json`; project configuration may change it through the guided workflow.
 - Enforce development assurance standard version `2` from `.agents/references/development-assurance-standard.md`; stop when configuration, evidence, or an installed skill is incompatible.
 - Start configuration and workflow routing with `$continuity`; apply the generated `$continuity-local` behavior skill with every task-specific continuity skill.
+- Start routine interactive implementation with `/goal`. Treat its exact trailing request as one bounded authorization envelope: capture and triage it, reflect actionable notes in the private roadmap inbox, create the smallest aligned goal, activate it, and continue into code without separate routine approval or start pauses.
 - Run manual end-to-end work through `$continuity-workflow`. Return to it after every task-skill handoff, continue through all machine-selected non-human skills and remediation loops, and pause only when workflow status explicitly declares a human-required approval.
 - Use `continuity workflow status [--goal-id <goal-id>]` before and after every task skill as the machine handoff for stage, blockers, next skill, human requirements, and allowed commands.
 - Invoke installed skills under `.agents/skills/` and the CLI at `.agents/continuity/bin/continuity`.
 - Treat `AGENTS.md` and `.agents/` as the canonical cross-surface contract. Use the generated Claude Code, Cursor, or Windsurf adapters selected in `.continuity/project.json`; do not maintain divergent copies by hand.
 - Treat `.continuity/scheduler.json` as the supervisor handoff. Record the provider task ID and workspace roots with `scheduler register`; every sweep must refresh supervisor liveness, and project doctor must fail on missing, stale, or unhealthy registration.
-- Treat notes as project knowledge first. Capture occurrence time, internal/external perspective, sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes; capture, classification, pattern review, promotion, planning, approval, and dispatch are separate events.
+- Treat notes as project knowledge first. Capture occurrence time, internal/external perspective, sentiment, occurrence type, impact, confidence, actionability, stakeholders, and themes. Triage every `/goal` capture in the same run and project actionable notes immediately into the private roadmap inbox. Machine events remain distinct even when one routine request authorizes planning and interactive dispatch.
 - Never change committed documentation or code from a captured note alone.
 - Before planning or execution, run project-memory and roadmap briefs and cite the memory and roadmap IDs used.
+- When the optional `design` collection is enabled, use `$continuity-design` for exact design-document selection and approval, then bind implementation plans to the approved design ID and hash. Design approval never authorizes implementation.
+- Use `$continuity-product-audit` for baseline, candidate, release, and drift reconciliation against approved goals, project-intent documents, documentation, memory, insights, and roadmap. Audit findings never authorize execution; only current-goal mismatches may block product conformance.
 - Keep sanitized canonical roadmap records under `docs/project-roadmap/`; use `$continuity-roadmap` and the ignored local projection for timeline, hierarchy, release, milestone, sprint, board, dependency, risk, and blocker context.
 - Treat `.agents/continuity/roadmap-ui/` as a local read-only admin companion. It must bind to loopback and remain outside application routes, builds, packages, preview, staging, and production artifacts.
 - Share notes only through `$continuity-share`: prepare a sanitized hash-bound packet, approve its exact version and target project, and use a human-reviewed PR. A packet never authorizes memory, roadmap, goal, code, system, or private-state changes.
@@ -688,10 +864,10 @@ def main() -> int:
 - Keep planning artifacts local by default. Publishing issues to an external tracker requires separate explicit human approval.
 - Permit one code-changing goal at a time in this project; use isolated worktrees and goal-focused branches.
 - Enforce every compliance stage in `.continuity/private/goals/<goal-id>/compliance.json`.
-- Record explicit human approvals with the approving identity and authorization text. When `.continuity/config.json` sets `require_signed_approvals: true`, require SSH-signed receipts and treat `.continuity/trusted-approvers` as pending tracked configuration until protected human review merges it to the integration branch and that branch is fetched.
+- Record explicit human authority with the approving identity and exact text. A routine `/goal` request may bind that exact text to the resulting plan hash; other plans require goal-and-version approval. When `.continuity/config.json` sets `require_signed_approvals: true`, require SSH-signed receipts and disable fast activation.
 - Require the external audit checkpoint and immediately verified encrypted backup configured by the project before enabling production execution. Backup, restore, and checkpoint creation require quiescent project state.
-- Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
-- Complete implementation, candidate checks, documentation, memory, roadmap, and evidence artifacts before committing and running the final source-bound `$continuity-test`. Push that exact tested commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
+- Require plan-hash approval including `roadmap_ids` and structured `roadmap_impact`, dependency and lock checks, current integration base, developer review, project validation, security review, product conformance, merge-safety review, documentation, memory-impact, roadmap-impact, and final-alignment evidence.
+- Complete implementation, candidate checks, documentation, memory, roadmap, and all seven evidence artifacts before committing and running the final source-bound `$continuity-test`. Run the candidate `$continuity-product-audit` against that same source state, then push the exact tested and audited commit to a draft PR before `$continuity-merge` binds local, remote, PR-head, and PR-base evidence.
 - Record human review as `approved`, `changes-requested`, `merged`, or `closed` with explicit evidence. In signed-approval projects, those dispositions and in-scope resume authorizations must carry trusted SSH-signed receipts. Expanded scope requires revision and fresh approval. Overnight delivery stops at `review-ready`; only recorded human merge evidence marks it `completed`. When `github_cli_merge_enabled` is explicitly enabled, an interactive human may authorize the exact PR, head SHA, and merge method for a guarded `gh pr merge`; Continuity never auto-merges, uses admin bypass, or force-pushes.
 - Keep raw captures and generated indexes private and ignored. Keep sanitized, verified memory under `docs/project-memory/`.
 - Create a draft PR for incomplete or blocked work. Never auto-merge or force-push.
@@ -708,7 +884,7 @@ def main() -> int:
 {IGNORE_END}"""
 
     if args.dry_run:
-        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries), "user_defaults": str(user_defaults_path), "user_defaults_loaded": bool(user_defaults), "suite_version": release["version"], "managed_files": len(file_map), "managed_drift": drift, "update_required": prior_install.get("version") != release["version"]}, indent=2))
+        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries), "user_defaults": str(user_defaults_path), "user_defaults_loaded": bool(user_defaults), "suite_version": release["version"], "managed_files": len(file_map), "managed_drift": drift, "update_required": prior_install.get("version") != release["version"], "github_auth": {"status": "planned" if not args.skip_github_auth else "skipped", "required_scopes": sorted(GITHUB_AUTH_SCOPES), "credential_storage": "GitHub CLI"}}, indent=2))
         return 0
 
     skills_target = root / ".agents" / "skills"
@@ -726,6 +902,7 @@ def main() -> int:
         ".continuity/project-behavior.json",
         ".continuity/scheduler.json",
         ".continuity/install-manifest.json",
+        ".continuity/private/python-interpreter.txt",
         ".continuity/trusted-approvers",
         ".continuity/shared-notes",
         config["memory_docs"],
@@ -735,6 +912,7 @@ def main() -> int:
         ".cursor/rules/continuity.mdc",
         ".windsurf/references",
         ".agents/project-continuity",
+        ".agents/skills/continuity-local",
     }
     transaction_paths.update(f".agents/skills/{name}" for name in LEGACY_SKILL_DIRS)
     transaction_paths.update(f".agents/skills/{path.parts[2]}" for path in map(Path, file_map) if len(path.parts) > 2 and path.parts[:2] == (".agents", "skills"))
@@ -875,6 +1053,17 @@ def main() -> int:
         transaction.rollback()
         raise
     transaction.commit()
+    github_auth = (
+        ensure_github_cli_authentication()
+        if not args.skip_github_auth
+        else {
+            "status": "skipped",
+            "authenticated": False,
+            "prompted": False,
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "credential_storage": "GitHub CLI",
+        }
+    )
     user_defaults_problem = None
     user_defaults_saved = False
     if pending_user_defaults is not None:
@@ -884,7 +1073,7 @@ def main() -> int:
         except OSError as exc:
             user_defaults_problem = str(exc)
     installed_skills = sum(1 for path in skills_target.iterdir() if path.is_dir())
-    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": user_defaults_saved, "user_defaults_problem": user_defaults_problem, "suite_version": release["version"], "upgrade_snapshot": snapshot.name}, indent=2))
+    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": user_defaults_saved, "user_defaults_problem": user_defaults_problem, "github_auth": github_auth, "suite_version": release["version"], "upgrade_snapshot": snapshot.name}, indent=2))
     return 0
 
 

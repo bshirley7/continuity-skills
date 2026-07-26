@@ -1,0 +1,22 @@
+{
+  "skill_name": "continuity-report",
+  "skill_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "playbook_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "recorded_at": "2026-07-22T12:00:00-05:00",
+  "task_kind": "morning-report",
+  "outcome": "mixed",
+  "summary": "The report required a correction because review-ready work was described as completed.",
+  "pattern_keys": ["report-false-completion"],
+  "signals": {
+    "user_corrected": true,
+    "retries": 1,
+    "tool_failures": 0,
+    "clarifications": 0,
+    "validation_status": "failed",
+    "workflow_disposition": "review-ready",
+    "turns": 3
+  },
+  "evidence_refs": ["private:workflow-status:goal-example", "private:user-correction:usage-example"],
+  "source_ref": "private:session:opaque-example",
+  "privacy_reviewed": true
+}

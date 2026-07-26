@@ -91,11 +91,19 @@ class ReleasePortabilityTest(unittest.TestCase):
             crlf = root / "crlf.txt"
             binary_one = root / "one.gif"
             binary_two = root / "two.gif"
+            boundary_crlf = root / "boundary-crlf.txt"
+            boundary_lf = root / "boundary-lf.txt"
             lf.write_bytes(b"alpha\nbeta\n")
             crlf.write_bytes(b"alpha\r\nbeta\r\n")
             binary_one.write_bytes(b"GIF89a\r\n")
             binary_two.write_bytes(b"GIF89a\n")
+            boundary_crlf.write_bytes(b"x" * (1024 * 1024 - 1) + b"\r\ny\r")
+            boundary_lf.write_bytes(b"x" * (1024 * 1024 - 1) + b"\ny\n")
             self.assertEqual(runtime_lib.sha256_release_file(lf), runtime_lib.sha256_release_file(crlf))
+            self.assertEqual(
+                runtime_lib.sha256_release_file(boundary_crlf),
+                runtime_lib.sha256_release_file(boundary_lf),
+            )
             self.assertNotEqual(
                 runtime_lib.sha256_release_file(binary_one),
                 runtime_lib.sha256_release_file(binary_two),

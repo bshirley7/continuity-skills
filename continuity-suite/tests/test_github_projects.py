@@ -38,6 +38,17 @@ class FakeGitHubClient:
             "number": 12,
             "title": "Development Portfolio",
             "url": "https://github.com/orgs/example-org/projects/12",
+            "public": False,
+            "viewerCanUpdate": True,
+        }
+
+    def authenticated_identity(self) -> dict[str, Any]:
+        return {
+            "login": "fixture-user",
+            "database_id": 42,
+            "scopes": ["project", "read:org", "repo"],
+            "host": "github.com",
+            "credential_source": "keyring",
         }
 
     def create_project(self, owner: str, title: str) -> dict[str, Any]:
@@ -95,7 +106,11 @@ class FakeGitHubClient:
             )
         return {
             "id": self.project["id"],
+            "number": self.project["number"],
             "title": self.project["title"],
+            "url": self.project["url"],
+            "public": self.project.get("public", False),
+            "viewerCanUpdate": self.project.get("viewerCanUpdate", True),
             "fields": {"nodes": self.fields, "pageInfo": {"hasNextPage": False}},
             "items": {"nodes": nodes, "pageInfo": {"hasNextPage": False, "endCursor": None}},
         }
@@ -230,6 +245,25 @@ class GitHubProjectsTest(unittest.TestCase):
             }
         )
         target.write_text(roadmap.render_entry(entry), encoding="utf-8")
+
+    def write_goal(self, goal_id: str, title: str, state: str = "running") -> None:
+        self.write_json(
+            self.root / ".continuity" / "private" / "goals" / goal_id / "goal.json",
+            {
+                "schema_version": 1,
+                "project_id": "test-project",
+                "goal_id": goal_id,
+                "title": title,
+                "scope": "PRIVATE REQUEST TEXT MUST NOT BE EXPORTED",
+                "plan_version": 1,
+                "plan_hash": "a" * 64,
+                "execution_attempt": 1,
+                "state": state,
+                "priority": "normal",
+                "roadmap_ids": ["RM-1"],
+                "depends_on": [],
+            },
+        )
 
     def build_plan(self) -> dict[str, Any]:
         return github_projects.build_plan(self.root, self.config, ".continuity/github-projects.json")
@@ -464,6 +498,40 @@ class GitHubProjectsTest(unittest.TestCase):
                 ],
             )
 
+    def test_github_client_verifies_identity_and_project_scope_without_reading_token(self) -> None:
+        status = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "hosts": {
+                        "github.com": [
+                            {
+                                "state": "success",
+                                "active": True,
+                                "login": "fixture-user",
+                                "scopes": ["project", "read:org", "repo"],
+                                "tokenSource": "keyring",
+                            }
+                        ]
+                    }
+                }
+            ),
+            stderr="",
+        )
+        viewer = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps({"login": "fixture-user", "id": 42}),
+            stderr="",
+        )
+        with mock.patch.object(subprocess, "run", side_effect=[status, viewer]) as run:
+            identity = github_projects.GitHubClient("/usr/local/bin/gh").authenticated_identity()
+        self.assertEqual(identity["database_id"], 42)
+        self.assertIn("project", identity["scopes"])
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertFalse(any("--show-token" in command for command in commands))
+
     def test_bootstrap_retry_reuses_checkpointed_project(self) -> None:
         (self.root / ".continuity" / "github-projects.json").unlink()
         plan = github_projects.build_bootstrap_plan(
@@ -490,6 +558,154 @@ class GitHubProjectsTest(unittest.TestCase):
         result = github_projects.apply_bootstrap(self.root, self.config, plan, client)
         self.assertEqual(result["status"], "completed")
         self.assertEqual(client.calls.count("project-create:example-org"), 1)
+
+    def test_connect_binds_account_capabilities_and_syncs_sanitized_goals(self) -> None:
+        (self.root / ".continuity" / "github-projects.json").unlink()
+        self.write_goal("goal-live", "Implement remote roadmap visibility")
+        client = FakeGitHubClient()
+        connected = github_projects.connect(
+            self.root,
+            self.config,
+            owner_type="organization",
+            owner="example-org",
+            title="Test project roadmap",
+            client=client,
+        )
+        self.assertTrue(connected["connected"])
+        self.assertTrue(connected["created_project"])
+        self.assertEqual(connected["authenticated_user"], {"login": "fixture-user", "database_id": 42})
+        self.assertEqual(
+            connected["capabilities"],
+            {
+                "read": True,
+                "write": True,
+                "create_project": True,
+                "edit_project": True,
+                "create_item": True,
+                "edit_item": True,
+                "delete_item": False,
+            },
+        )
+        self.assertEqual(connected["sync_policy"]["projections"], ["roadmap", "goals"])
+        self.assertFalse(connected["sync_policy"]["allow_delete"])
+        self.assertEqual(connected["initial_sync"]["created"], 2)
+        goal_item = next(item for item in client.items if item["values"].get("Continuity ID") == "test-project:goal:goal-live")
+        self.assertIn("sanitized operational status only", goal_item["content"]["body"])
+        self.assertNotIn("PRIVATE REQUEST TEXT", goal_item["content"]["body"])
+        self.assertFalse(any("delete" in call for call in client.calls))
+        goal_path = self.root / ".continuity" / "private" / "goals" / "goal-live" / "goal.json"
+        changed_goal = json.loads(goal_path.read_text(encoding="utf-8"))
+        changed_goal["state"] = "blocked"
+        self.write_json(goal_path, changed_goal)
+        synced = github_projects.sync(self.root, self.config, client=client)
+        self.assertGreater(synced["updated_fields"], 0)
+        self.assertEqual(goal_item["values"]["Status"], "Blocked")
+        self.assertFalse(synced["delete_performed"])
+        stored = github_projects.load_connection(self.root, self.config)
+        self.assertEqual(stored["destination"]["project_node_id"], "project-node")
+        self.assertEqual(stored["credential_source"], "gh-credential-store")
+
+    def test_connect_attaches_existing_project_without_creating_another(self) -> None:
+        (self.root / ".continuity" / "github-projects.json").unlink()
+        client = FakeGitHubClient()
+        connected = github_projects.connect(
+            self.root,
+            self.config,
+            owner_type="organization",
+            owner="example-org",
+            project_number=12,
+            client=client,
+        )
+        self.assertFalse(connected["created_project"])
+        self.assertNotIn("project-create:example-org", client.calls)
+        self.assertTrue(connected["project_access_verified"])
+        self.assertTrue((self.root / ".continuity" / "github-projects.json").is_file())
+
+    def test_connect_preserves_enterprise_host_in_durable_connection(self) -> None:
+        (self.root / ".continuity" / "github-projects.json").unlink()
+        client = FakeGitHubClient()
+        client.project["url"] = "https://ghe.example.test/orgs/example-org/projects/12"
+        client.authenticated_identity = lambda: {
+            "login": "fixture-user",
+            "database_id": 42,
+            "scopes": ["project"],
+            "host": "ghe.example.test",
+            "credential_source": "keyring",
+        }
+        connected = github_projects.connect(
+            self.root,
+            self.config,
+            owner_type="organization",
+            owner="example-org",
+            project_number=12,
+            hostname="ghe.example.test",
+            client=client,
+        )
+        self.assertEqual(connected["destination"]["host"], "ghe.example.test")
+        self.assertEqual(
+            github_projects.load_connection(self.root, self.config)["destination"]["host"],
+            "ghe.example.test",
+        )
+
+    def test_connect_rejects_wrong_user_account_and_missing_project_scope(self) -> None:
+        (self.root / ".continuity" / "github-projects.json").unlink()
+        with self.assertRaisesRegex(github_projects.GitHubProjectsError, "authenticated account fixture-user"):
+            github_projects.connect(
+                self.root,
+                self.config,
+                owner_type="user",
+                owner="someone-else",
+                client=FakeGitHubClient(),
+            )
+
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "hosts": {
+                        "github.com": [
+                            {
+                                "state": "success",
+                                "active": True,
+                                "login": "fixture-user",
+                                "scopes": ["repo", "read:org"],
+                                "tokenSource": "keyring",
+                            }
+                        ]
+                    }
+                }
+            ),
+            stderr="",
+        )
+        with mock.patch.object(subprocess, "run", return_value=completed):
+            with self.assertRaisesRegex(github_projects.GitHubProjectsError, "requires the project scope"):
+                github_projects.GitHubClient("/usr/local/bin/gh").authenticated_identity()
+
+    def test_connection_status_rejects_a_different_active_account(self) -> None:
+        (self.root / ".continuity" / "github-projects.json").unlink()
+        client = FakeGitHubClient()
+        github_projects.connect(
+            self.root,
+            self.config,
+            owner_type="organization",
+            owner="example-org",
+            project_number=12,
+            client=client,
+        )
+
+        def changed_identity() -> dict[str, Any]:
+            return {
+                "login": "other-user",
+                "database_id": 99,
+                "scopes": ["project"],
+                "host": "github.com",
+                "credential_source": "keyring",
+            }
+
+        client.authenticated_identity = changed_identity  # type: ignore[method-assign]
+        with self.assertRaisesRegex(github_projects.GitHubProjectsError, "does not match connected account"):
+            github_projects.connection_status(self.root, self.config, client)
 
 
 if __name__ == "__main__":

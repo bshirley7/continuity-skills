@@ -5,6 +5,8 @@ description: Classify, split, deduplicate, relate, defer, archive, reclassify, o
 
 # Continuity Triage
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Route knowledge conservatively. Classification or promotion never authorizes documentation or execution.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$continuity-local`, and `.continuity/config.json` before changing state.
@@ -58,4 +60,4 @@ Use `note queue --queue <knowledge|questions|documentation|backlog|planning>` as
 
 ## Handoff
 
-Run `continuity workflow status --note-id <note-id>` before and after changing each item. Report the derived lifecycle, dated timeline, planning disposition, per-goal tracks, and unconfirmed relationship candidates. Knowledge or documentation normally moves to `$continuity-memory`, planning or backlog to `$continuity-plan`, and unresolved questions remain with `$continuity-triage` or `$continuity-report`. Roadmap links are context, not a queue.
+Run `continuity workflow status --note-id <note-id>` before and after changing each item. Every actionable routed or promoted note is projected immediately into `continuity roadmap inbox`; verify that projection in the same run. Report the derived lifecycle, dated timeline, planning disposition, per-goal tracks, and unconfirmed relationship candidates. Under `/goal`, planning or backlog continues directly into the smallest aligned goal. Unresolved questions remain with `$continuity-triage` or `$continuity-report`. Roadmap links and inbox visibility are context, not execution authority.

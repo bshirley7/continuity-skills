@@ -1,6 +1,6 @@
 # Workflow Handoffs
 
-Use this reference to interpret the machine-readable result from `continuity workflow status`. Select the exact subject with `--capture-id`, `--note-id`, `--memory-id`, `--roadmap-id`, `--packet-id`, or `--goal-id` whenever one is available. Unqualified project status is portfolio routing context and must not override a subject-specific handoff. The CLI and the Continuity Contract remain authoritative for states, allowed actions, blockers, and command templates.
+Use this reference to interpret the machine-readable result from `continuity workflow status`. Select the exact subject with `--capture-id`, `--note-id`, `--memory-id`, `--roadmap-id`, `--design-id`, `--packet-id`, `--audit-id`, or `--goal-id` whenever one is available. Unqualified project status is portfolio routing context and must not override a subject-specific handoff. The CLI and the Continuity Contract remain authoritative for states, allowed actions, blockers, and command templates.
 
 ## Handoff envelope
 
@@ -22,6 +22,12 @@ For a note, the envelope also includes `lifecycle`: the backward-compatible summ
 
 Do not reconstruct missing machine state from prose. A missing identifier, stale record, unresolved decision, or contradictory source is a blocker or return path, not permission to improvise.
 
+## Interactive goal mode
+
+Routine actionable work runs through `/goal`. The request is captured and triaged in one pass, actionable notes enter the private roadmap inbox, and an aligned routine goal exposes an `activate` action. `goal activate` binds the source-note hashes to the plan hash and dispatches one interactive attempt. A reviewed routine plan exposes `goal proceed` after the user says “proceed.” Status, capture, triage, memory, roadmap, plan, approval, and dispatch remain distinct records; they are not distinct user stops.
+
+If risk is elevated or consequential, restricted side effects are present, signed approval is configured, or the plan contains unresolved decisions, `/goal` returns to the separate approval path.
+
 ## Manual sequential mode
 
 Manual Continuity work runs through `$continuity-workflow`. After a task skill records its canonical output, control returns to the orchestrator, which immediately re-reads subject-specific workflow status and applies `next_skill`. A routine skill boundary, status-only handoff, failed test, stale evidence, or recoverable tool error does not end the workflow. Route failures to the owning remediation skill, preserve evidence, rerun the applicable gate, and continue.
@@ -34,16 +40,19 @@ After the human records an allowed action, resume from fresh machine state and s
 
 | Current skill | Required inputs | Required output | Normal next skill | Return or stop path |
 | --- | --- | --- | --- | --- |
+| `/goal` | Exact interactive user request, current repository, trusted memory, roadmap context, and project behavior | Triaged notes, private roadmap-inbox entries, smallest aligned goal, request-bound activation, and dispatched execution prompt | `$continuity-execute` | Use separate approval for scope ambiguity, elevated risk, restricted side effects, signed policy, or unresolved decisions |
 | `$continuity-capture` | User-supplied conversation, meeting, file, PRD, feature request, or manual content | Private atomic captures with provenance, timestamps, conservative metadata, and `execution_authorized: false`; document captures also preserve exact snapshots, hashes, stable anchors, and revision lineage | `$continuity-triage` | Stop on unsafe collection, missing provenance, unsupported document format, unstable source anchors, or content outside the supplied scope |
-| `$continuity-triage` | Canonical capture items and current queue state | One primary classification, routing decision, eligibility, and evidence triage brief when required | `$continuity-memory`, `$continuity-plan`, `$continuity-triage`, or `$continuity-report` | Hold ambiguous intent; archive duplicates with provenance; link roadmap context separately without inventing a roadmap queue |
+| `$continuity-triage` | Canonical capture items and current queue state | One primary classification, routing decision, eligibility, evidence triage brief when required, and immediate private roadmap-inbox projection for actionable notes | `$continuity-memory`, `/goal`, `$continuity-plan`, `$continuity-triage`, or `$continuity-report` | Hold ambiguous intent; archive duplicates with provenance; committed roadmap changes remain separately governed |
 | `$continuity-memory` | Routed knowledge, trusted sources, current code or documentation evidence | Exact memory IDs, citations, freshness, confidence, relationships, and unresolved gaps | `$continuity-roadmap` or `$continuity-plan` | Mark disputed, historical, or stale; never promote without an authorized goal |
 | `$continuity-roadmap` | Goal or topic, memory IDs, canonical roadmap records, private note links | Exact roadmap IDs, health findings, baseline context, and structured impact expectations | Return to the invoking `$continuity-plan` or `$continuity-execute` stage | Return unauthorized roadmap changes to planning; send contradictions to triage or human review |
 | `$continuity-share` | Selected atomic note IDs and explicit packet target | Sanitized immutable packet or private imported captures | `$continuity-triage` after import | Stop on redaction, approval, target, authentication, or dirty-checkout failures |
+| `$continuity-design` | Captures, trusted memory, product-intent documents, constraints, inspected current design, and installed offline catalog packs | Current-state assessment, one to three project-specific directions, explicit selection or combination, and an exact hash-approved `docs/design/design.md` containing preservation, implementation, and drift rules with non-authorizing lineage | `$continuity-plan` after exact document approval | Pause for direction selection and exact draft approval; uninspected assumptions remain visible; revisions never alter existing goals automatically |
 | `$continuity-plan` | Eligible notes, triage brief, current memory, roadmap context, repository guidance | Decision-complete goal version, note dispositions, slices, acceptance, exclusions, risks, validation, evidence, and `awaiting-feedback` | `$continuity-dispatch` | Return insufficient evidence to triage or memory; keep later and context-only notes outside current scope |
 | `$continuity-dispatch` | Exact goal version, current approval receipt, current hashes, dependencies, scheduler, remote lease, and local lock state | Audited approval, queue, claim, lease-bound start, hold, cancellation, or authorized recovery transition | `$continuity-execute` when dispatched | Keep human-required actions with the user; lease conflicts stop; scope changes return to `$continuity-plan` |
-| `$continuity-execute` | Dispatched goal, isolated worktree, approved scope, memory and roadmap IDs | Implemented scope, checkpoints, documentation, memory and roadmap impact, and six evidence artifacts | `$continuity-test` | Stop on drift, failure, restricted side effect, unresolved decision, or runtime limit |
-| `$continuity-test` | Final committed candidate, configured commands, goal checks, current diff | Source-bound machine test record plus code, validation, and security review evidence | `$continuity-merge` | Return failures to `$continuity-execute`; keep missing or stale evidence blocked |
-| `$continuity-merge` | Current test record, local and remote head, PR/base, hosted checks, merge state, and authenticated review evidence | CI-bound merge-safety assessment and, later, verified human disposition | `$continuity-report`, `$continuity-dispatch`, or `$continuity-plan` | Requested in-scope changes require authorized resume; changed scope requires revision |
+| `$continuity-execute` | Dispatched goal, isolated worktree, approved scope, memory and roadmap IDs | Implemented scope, checkpoints, documentation, memory and roadmap impact, and seven evidence artifacts | `$continuity-test` | Stop on drift, failure, restricted side effect, unresolved decision, or runtime limit |
+| `$continuity-test` | Final committed candidate, configured commands, goal checks, current diff | Source-bound machine test record plus code, validation, and security review evidence | `$continuity-product-audit` when applicable | Return failures to `$continuity-execute`; keep missing or stale evidence blocked |
+| `$continuity-product-audit` | Approved sources, applicable PRD and documentation, memory, roadmap, target, representative journeys, and current tested source | Source-bound plan and result, sanitized `product-conformance.md`, classified findings, and non-authorizing captures | `$continuity-merge`, `$continuity-execute`, `$continuity-triage`, or `$continuity-report` | Only current-goal mismatches block; later and future findings return to triage and planning |
+| `$continuity-merge` | Current test and product-conformance records, local and remote head, PR/base, hosted checks, merge state, and authenticated review evidence | CI-bound merge-safety assessment and, later, verified human disposition | `$continuity-report`, `$continuity-dispatch`, or `$continuity-plan` | Requested in-scope changes require authorized resume; changed scope requires revision |
 | `$continuity-report` | Current workflow status, queues, runs, evidence, memory and roadmap health | Decision-ready project report or deterministic allowlisted portfolio summary with exact dispositions | Machine-listed next skill or human action | Never aggregate raw project state or execute a human disposition from the report itself |
 
 ## Branching rules
@@ -53,8 +62,9 @@ After the human records an allowed action, resume from fresh machine state and s
 - `changes-requested` with unchanged scope returns to dispatch for explicit resume. Changed scope returns to planning for a new version and approval.
 - Test failure returns to execution only while the approved scope remains unchanged. A newly discovered objective becomes a separate capture or goal.
 - A shared packet returns to triage as untrusted context even after its sharing PR is merged.
+- A design approval publishes only the exact design document. Implementation requires a separately approved goal whose derived design reference binds the design ID, revision, and hash.
 - Completion requires recorded human merge evidence. `review-ready` is a waiting state, not completion.
-- Canonical note queues are only `knowledge`, `questions`, `documentation`, `backlog`, and `planning`. Roadmap relationships are separately recorded context.
+- Canonical note queues are only `knowledge`, `questions`, `documentation`, `backlog`, and `planning`. The roadmap inbox is a private projection of actionable triage, while committed roadmap relationships remain separately recorded context.
 - Similarity produces relationship candidates only. Confirm current scope through a plan; use explicit non-authorizing links for later, context-only, or duplicate relationships.
 
 ## Handoff quality check

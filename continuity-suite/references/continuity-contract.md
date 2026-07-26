@@ -2,7 +2,7 @@
 
 ## Governing rule
 
-Treat notes as project knowledge first. Only a deliberately promoted, decision-complete, explicitly approved, and dispatched goal authorizes execution.
+Treat notes as project knowledge first. Code execution requires a deliberately promoted, decision-complete goal bound to explicit human authority. For routine interactive work, `/goal <request>` is that authority: `goal activate` binds the captured request hashes to the resulting plan hash and records approval plus dispatch without another human pause. Saying “proceed” on a reviewed routine plan is equivalent authority through `goal proceed`. Captured notes without a submitted request, inferred intent, and scheduled work never receive that shortcut.
 
 ## Assurance standard
 
@@ -14,7 +14,7 @@ Every skill must read and apply `development-assurance-standard.md`. The project
 - Store effective project-specific settings in `.continuity/project-behavior.json` and generate `.agents/skills/continuity-local/SKILL.md` from that committed record.
 - Apply the generated local behavior skill with every task-specific continuity skill. Configuration, manifest, behavior record, and generated skill hashes must agree.
 - Permit explicit overrides only for documented project settings such as schedules, validation, documentation map, evidence mode, branch prefix, runtime, and execution enrollment.
-- Never allow project configuration to weaken the fixed authorization, concurrency, security, merge-safety, force-push, auto-merge, or human-merge guardrails.
+- Never allow project configuration to weaken the fixed authorization, concurrency, security, product-conformance, merge-safety, force-push, auto-merge, or human-merge guardrails.
 - Record configuration changes in the ignored append-only audit ledger and fail closed on manual drift.
 - Install and update from tagged, attested, hash-manifested releases. Abort on locally modified suite-managed files, snapshot before replacement, and never treat project configuration or ignored private state as release-owned.
 
@@ -42,6 +42,12 @@ Use exactly one primary classification for every atomic item: `context`, `insigh
 
 Preserve the capture time and classify occurrence type, internal/external perspective, sentiment, impact, confidence, actionability, stakeholders, themes, and any explicit pattern key. Positive outcomes are evidence worth preserving, not noise. Repeated changes, behaviors, needs, risks, and failures should inform adaptability and future planning without becoming automatic instructions.
 
+## Skill improvement
+
+Treat each installed `SKILL.md` as the protected operational contract and its `references/learned-playbook.md` as the only usage-evolvable layer. Record only sanitized structured outcomes bound to the exact skill and playbook hashes. Raw transcripts, prompts, responses, tool arguments, tool output, note content, credentials, personal data, customer data, and absolute paths are never improvement input.
+
+Repeated usage may produce a non-authorizing pattern and a bounded learned-playbook candidate. Frequency, user silence, agent confidence, and model preference do not prove correctness. Candidate selection requires fixed validation improvement, an untouched non-regressing test set, passed authority/privacy/protected-contract/state-accuracy invariants, no recorded regressions, and explicit human review. Rejected candidates remain evidence. Review and packaging never edit installed skills, authorize execution, or publish a release; applying an approved package requires a separately approved suite-source goal and normal validation, review, merge, release, and installation controls.
+
 A single source may yield one or many atomic notes. For meeting, conversational, or aggregated feedback input, retain one stable source reference and source timestamp while assigning a stable item ID and lifecycle to every semantically distinct decision, need, feedback item, question, risk, or later idea. Do not split mechanically by line or bullet, and do not merge items merely because they arrived in one message. Record multi-item input as `capture_mode: batch`; keep each item's routing, planning disposition, goal relationships, timestamps, and work status independent.
 
 Set `execution_authorized: false` during capture and triage. Classify ambiguity as context, a question, or a held candidate.
@@ -50,7 +56,7 @@ Set `execution_authorized: false` during capture and triage. Classify ambiguity 
 
 Use: `awaiting-feedback`, `queued`, `dispatched`, `running`, `validating`, `review-ready`, `changes-requested`, `completed`, `partially-completed`, `blocked`, `cancelled`, or `held`. `proposed-plan` and `approved` are readable legacy states that require explicit `goal revise` migration; new operations do not emit them.
 
-Approval and dispatch are separate events. Bind approval to the exact plan version, SHA-256 material hash, behavior hash, project, approver identity, timestamp, and nonce. Any plan or machine-goal edit invalidates approval.
+Approval and dispatch remain separate machine events. A routine interactive `/goal` invocation may record both under one request-bound authorization envelope; unattended work and separately prepared plans retain explicit approval and dispatch decisions. Bind approval to the exact plan version, SHA-256 material hash, behavior hash, project, approver identity, timestamp, and nonce. Any plan or machine-goal edit invalidates approval.
 Only the human's explicit approval text and recorded identity may populate a current approval record; an agent must never generate or infer them or select a signing key. In a signed-approval project, the approval must also carry an SSH signature from a project-trusted approver, and in remote production mode the local approver allowlist must match its fetched integration-branch copy byte-for-byte. `approval trust add` prepares a tracked change but grants no authority until protected human review merges it and the integration branch is fetched. Unsigned local approvals remain readable history but cannot authorize execution in a signed-approval project.
 
 State transitions are enforced. Every human disposition and every in-scope resume in a signed-approval project carries an SSH-signed receipt bound to project, goal, plan hash/version, execution attempt, identity, timestamp, nonce, and the applicable evidence or authorization text. `changes-requested`, `blocked`, and `partially-completed` may reopen only through that explicit signed authorization naming the goal and approved plan version. Reopening archives the prior attempt, starts a fresh execution manifest, and invalidates downstream evidence; changed scope requires revision and fresh approval.
@@ -64,7 +70,7 @@ All project-local CLI operations serialize through the project-state lock. Backu
 
 Use `continuity workflow status` as the machine handoff contract. Select an exact capture, note, memory, roadmap, packet, or goal whenever an ID is available; project-wide status is routing context only. Skills must inspect the applicable status on entry and report it on exit. Its stage, subject IDs, inputs, outputs, decisions, blockers, evidence, next skill, human requirements, allowed command templates, and blocked actions do not authorize human-required actions by themselves. An action may appear in `allowed_actions` only when its current state and evidence prerequisites pass; unavailable actions belong in `blocked_actions` with exact reasons.
 
-Manual end-to-end work uses `$continuity-workflow` as a sequential orchestrator. A task skill stopping on a failed gate stops that unsafe stage transition, not the overall workflow: return control to the orchestrator, record the failure, route to the machine-selected remediation skill, and continue after fresh evidence passes. Do not yield between routine skill handoffs or for status alone. Pause only when the current handoff or selected action explicitly sets `human_required: true`, and resume from canonical state after the human records an allowed approval. If a non-human fault has no safe immediate repair, keep the workflow pending at the same stage with a durable diagnostic; never bypass the gate or report false completion.
+Actionable interactive work starts with `/goal`; it captures and triages the request, updates the private roadmap inbox, creates the smallest aligned goal, and continues into code under one request-bound authorization envelope. Other manual end-to-end work uses `$continuity-workflow` as a sequential orchestrator. A task skill stopping on a failed gate stops that unsafe stage transition, not the overall workflow: return control to the orchestrator, record the failure, route to the machine-selected remediation skill, and continue after fresh evidence passes. Do not yield between routine skill handoffs or for status alone. Pause only when the current handoff or selected action explicitly sets `human_required: true`, and resume from canonical state after the human records an allowed approval. If a non-human fault has no safe immediate repair, keep the workflow pending at the same stage with a durable diagnostic; never bypass the gate or report false completion.
 
 ## Planning artifacts
 
@@ -89,14 +95,19 @@ Record evidence for every responsible development stage:
 8. code-review
 9. validation
 10. security-review
-11. merge-safety
-12. documentation
-13. memory-impact
-14. roadmap-impact
-15. final-alignment
-16. human-review
+11. product-conformance
+12. merge-safety
+13. documentation
+14. memory-impact
+15. roadmap-impact
+16. final-alignment
+17. human-review
 
 Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` result requires a concrete reason. Do not mark a goal review-ready while any pre-human-review stage is pending or failed, and do not mark it completed without passed human-review and merge evidence.
+
+These stages are internal evidence fields, not seventeen user-visible stops. One current evidence bundle may satisfy several applicable stages, unchanged evidence should be reused, and routine failures should route to automatic remediation. Human interruption is reserved for missing authority, material scope or risk change, destructive or irreversible action, private-data disclosure, new cost, restricted external effects, and final human disposition.
+
+Readiness controls apply when their protected operation is reached. Scheduler registration, remote leases, verified backups, external audit checkpoints, and GitHub authentication remain mandatory for configured unattended or external transitions, but they do not block a request-bound interactive `/goal` from beginning local implementation.
 
 ## Developer and security guardrails
 
@@ -109,7 +120,7 @@ Use `passed`, `failed`, `pending`, or `not-applicable`. A `not-applicable` resul
 - Review the diff for correctness, maintainability, accessibility, performance, privacy, and security as applicable.
 - Run project-prescribed tests, type checks, builds, linters, format checks, and targeted regression tests.
 - Run evidence-based security review for touched languages and frameworks. Check secrets, dependencies, data handling, authentication/authorization, injection, unsafe paths, subprocess use, migrations, and supply-chain changes as relevant.
-- Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. A passing report or merge assessment must reject absent or stale machine evidence. The enforced delivery order is implementation, candidate checks, documentation/memory/roadmap/evidence artifacts, commit, final source-bound tests, push and draft PR, PR/head/base-bound merge assessment, `review-ready`, then human disposition.
+- Execute configured validation and security commands without a shell, prove the worktree belongs to the enrolled repository and its actual branch matches the goal execution record, record argv/output/status, and bind the machine run to the approved plan hash, project behavior hash, commit, repository identity, and a source fingerprint covering tracked and untracked content. Reconcile applicable product behavior against approved goals, project-intent documents, documentation, memory, insights, and roadmap through a candidate product audit bound to the same source state. A passing report, product audit, or merge assessment must reject absent or stale machine evidence. The enforced delivery order is implementation, candidate checks, documentation/memory/roadmap/evidence artifacts, commit, final source-bound tests, product conformance, push and draft PR, PR/head/base-bound merge assessment, `review-ready`, then human disposition.
 - Record quality evidence through the structured test report and merge-safety evidence through the structured merge assessment when those skills are installed.
 - Require successful configured hosted checks before review-ready, then verify authenticated GitHub identity, review decision, and reviewer threshold before recording approval or merge.
 - Use parameterized APIs and subprocess argument arrays. Never construct shell commands from captured note text.
@@ -126,7 +137,7 @@ Use statuses `current`, `proposed`, `disputed`, `superseded`, or `historical`. S
 
 ## Roadmap and shared-note contract
 
-Committed roadmap Markdown is canonical. A goal must retrieve relevant roadmap context and include exact `roadmap_ids` plus structured `roadmap_impact` in its approval hash. Releases and milestones express commitments; sprints and estimates are optional and never authorize execution. The local admin sidecar is read-only, loopback-only, and excluded from application source and every preview, staging, or production artifact.
+Committed roadmap Markdown is canonical. Actionable triaged notes appear immediately in the ignored private roadmap inbox so they can be planned without waiting for document promotion. Inbox entries are planning visibility only and never execution authority. A goal must retrieve relevant committed roadmap context and include exact `roadmap_ids` plus structured `roadmap_impact` in its approval hash. Releases and milestones express commitments; sprints and estimates are optional and never authorize execution. The local admin sidecar is read-only, loopback-only, and excluded from application source and every preview, staging, or production artifact.
 
 Raw captures remain private. Sharing requires a selected sanitized packet, exact version and target approval, an isolated branch, privacy and secret checks, and a human-reviewed PR. Imported packet items become private atomic captures with stable packet provenance and `execution_authorized: false`; they can be triaged and searched normally but cannot update roadmap, memory, goals, code, systems, or another developer's private state.
 
@@ -136,4 +147,4 @@ Local similarity may recommend related nonterminal goals. A recommendation never
 
 ## Completion evidence
 
-Every goal PR must include request alignment, implementation report, validation and security results, memory impact, roadmap impact, and evidence. A review-ready PR requires all local, hosted, and agent review gates to pass. Human review and merge remain user actions; an explicitly enabled interactive CLI merge is a user action only when its exact authorization is persisted and GitHub verifies the same head and actor. Portfolio output must use the deterministic sanitized CLI allowlist rather than agent-authored aggregation.
+Every goal PR must include request alignment, implementation report, validation and security results, product conformance, memory impact, roadmap impact, and evidence. A review-ready PR requires all local, hosted, and agent review gates to pass. Human review and merge remain user actions; an explicitly enabled interactive CLI merge is a user action only when its exact authorization is persisted and GitHub verifies the same head and actor. Portfolio output must use the deterministic sanitized CLI allowlist rather than agent-authored aggregation.

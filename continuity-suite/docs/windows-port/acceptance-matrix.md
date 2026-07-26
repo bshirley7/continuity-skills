@@ -4,6 +4,13 @@ Status values: `not-started`, `in-progress`, `passing`, `blocked`, `not-applicab
 Every `passing` row must cite direct current evidence. The overall port is not
 complete while any required row lacks passing evidence.
 
+Exact-head qualification: the native and hosted evidence below was recorded for
+the Windows implementation head `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c`.
+After integrating `origin/main` at `5b75234`, those links remain historical
+capability evidence, but they do not qualify a newer PR head for handoff. The
+draft PR must retain a green six-cell Windows/macOS/Linux matrix at its current
+head before the Stage 10 handoff gate is satisfied.
+
 | ID | Requirement | Status | Required evidence |
 | --- | --- | --- | --- |
 | 1.1 | Native Windows process locking | passing | `test_runtime`: separate-process exclusion, termination release, concurrent append |
@@ -62,6 +69,6 @@ complete while any required row lacks passing evidence.
 | 10.1 | Complete native Windows suite | passing | final native audit after scheduler placeholder hardening: 119 tests passed in 491.345 seconds on Python 3.13.6 with the updated acceptance documentation and release manifest |
 | 10.2 | Linux and macOS suites | passing | Ubuntu and macOS pass on Python 3.11 and 3.14 at exact code-bearing head `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c` in [run 29609171121](https://github.com/bshirley7/continuity-skills/actions/runs/29609171121) |
 | 10.3 | CI matrix and no safety skips | passing | all six Windows/macOS/Ubuntu × Python 3.11/3.14 jobs pass distribution validation, the complete suite, and diff hygiene at exact code-bearing head `e4ad8ff1786ad459533e4ca0de9a2173da4ef03c` in [run 29609171121](https://github.com/bshirley7/continuity-skills/actions/runs/29609171121); the hosted-only OneDrive environmental smoke is separately covered by the real native OneDrive run |
-| 10.4 | Skill, compile, manifest, docs, dependency checks | passing | 13 skills, 9 Python sources, 129 local Markdown links, one two-hash exact dependency, and 139 release files validate |
+| 10.4 | Skill, compile, manifest, docs, dependency checks | passing | current integrated tree validates 17 skills, 14 Python sources, 264 local Markdown links, one two-hash exact dependency, and 400 release files |
 | 10.5 | Requirement-by-requirement completion audit | passing | `final-audit.md` reconciles every documented capability with native Windows, provider-native, VS Code, security, release-integrity, and cross-platform evidence; no required row remains incomplete |
-| 10.G | Stage 10 completion gate | passing | 119 native Windows tests pass after placeholder hardening, all static/release checks pass, and the exact code-bearing head passes the complete six-cell hosted matrix; the final evidence-only commit is subject to the same matrix before handoff |
+| 10.G | Stage 10 completion gate | passing | 119 native Windows tests pass for the recorded implementation head and all static/release checks pass; any newer integrated PR head remains conditional on the complete six-cell hosted matrix before handoff |

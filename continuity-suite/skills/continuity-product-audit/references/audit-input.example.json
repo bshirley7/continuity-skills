@@ -1,0 +1,35 @@
+{
+  "title": "Checkout candidate conformance",
+  "profile": "candidate",
+  "purpose": "Verify the approved checkout goal against current product intent and representative user journeys.",
+  "target": {
+    "environment": "local",
+    "reference": "goal execution worktree"
+  },
+  "sources": [
+    {
+      "source_id": "prd-checkout",
+      "source_type": "project-intent",
+      "authority": "canonical",
+      "applicability": "Current checkout requirements not superseded by the approved goal.",
+      "time_horizon": "current",
+      "reference": "docs/prd/checkout.md"
+    }
+  ],
+  "journeys": [
+    {
+      "journey_id": "guest-checkout",
+      "title": "Guest completes checkout",
+      "requirements": [
+        "Guest can review the cart, provide required details, and reach confirmation.",
+        "Validation errors are understandable and recoverable."
+      ],
+      "viewports": ["desktop", "mobile"]
+    }
+  ],
+  "capture_adapter": "available-browser-and-accessibility-tools",
+  "constraints": [
+    "Use synthetic test data only.",
+    "Do not persist credentials or private URLs."
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuity Product Audit"
+  short_description: "Audit product behavior against project intent"
+  default_prompt: "Use $continuity-product-audit to compare the current product against approved intent and record evidence-backed findings."

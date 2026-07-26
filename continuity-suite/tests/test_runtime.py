@@ -233,6 +233,7 @@ class RuntimePortabilityTest(unittest.TestCase):
             root = Path(directory)
             lock = root / "state.lock"
             ready = root / "ready"
+            attempting = root / "attempting"
             acquired = root / "acquired"
             holder_source = (
                 "import sys,time; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
@@ -242,13 +243,14 @@ class RuntimePortabilityTest(unittest.TestCase):
             )
             waiter_source = (
                 "import sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
-                "import runtime; lock=Path(sys.argv[2]); acquired=Path(sys.argv[3]); "
+                "import runtime; lock=Path(sys.argv[2]); attempting=Path(sys.argv[3]); acquired=Path(sys.argv[4]); "
+                "attempting.write_text('attempting',encoding='utf-8'); "
                 "\nwith runtime.exclusive_file_lock(lock): acquired.write_text('acquired',encoding='utf-8')"
             )
             holder = python_process(holder_source, lock, ready)
             self._wait_for_path(ready, holder)
-            waiter = python_process(waiter_source, lock, acquired)
-            time.sleep(0.3)
+            waiter = python_process(waiter_source, lock, attempting, acquired)
+            self._wait_for_path(attempting, waiter)
             self.assertFalse(acquired.exists(), "the waiter acquired an already-held process lock")
             holder_stdout, holder_stderr = holder.communicate(timeout=5)
             waiter_stdout, waiter_stderr = waiter.communicate(timeout=5)
@@ -306,29 +308,57 @@ class RuntimePortabilityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             survived = Path(directory) / "grandchild-survived.txt"
             started = Path(directory) / "grandchild-started.txt"
+            release = Path(directory) / "release-grandchild.txt"
             grandchild = (
                 "import sys,time; from pathlib import Path; "
                 "Path(sys.argv[1]).write_text('started',encoding='utf-8'); "
-                "time.sleep(2); Path(sys.argv[2]).write_text('survived',encoding='utf-8')"
+                "deadline=time.monotonic()+30; release=Path(sys.argv[2]); "
+                "\nwhile not release.exists() and time.monotonic()<deadline: time.sleep(0.01)\n"
+                "\nif release.exists(): Path(sys.argv[3]).write_text('survived',encoding='utf-8')"
             )
             parent = (
                 "import subprocess,sys,time; "
-                "subprocess.Popen([sys.executable,'-c',sys.argv[1],sys.argv[2],sys.argv[3]]); "
+                "subprocess.Popen([sys.executable,'-c',sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4]]); "
                 "time.sleep(30)"
             )
             with self.assertRaises(subprocess.TimeoutExpired):
                 runtime.run_process_tree(
-                    [sys.executable, "-c", parent, grandchild, str(started), str(survived)],
+                    [sys.executable, "-c", parent, grandchild, str(started), str(release), str(survived)],
                     capture_output=True,
                     text=True,
-                    timeout=0.75,
+                    timeout=5,
                 )
-            deadline = time.monotonic() + 1
-            while time.monotonic() < deadline and not started.exists():
-                time.sleep(0.02)
             self.assertTrue(started.exists(), "the grandchild did not start before cancellation")
-            time.sleep(2.25)
+            release.write_text("release", encoding="utf-8")
+            time.sleep(0.5)
             self.assertFalse(survived.exists(), "a timed-out validation command left a grandchild running")
+
+    def test_sensitive_temporary_directory_rejects_broad_acl(self) -> None:
+        with mock.patch.object(
+            runtime,
+            "windows_acl_profile",
+            return_value={"healthy": False, "broad_write_principals": ["fixture"]},
+        ):
+            with self.assertRaisesRegex(runtime.RuntimeIntegrityError, "Sensitive temporary directory"):
+                with runtime.secure_temporary_directory(prefix="continuity-acl-rejection-"):
+                    self.fail("an unsafe temporary directory must not be yielded")
+
+    def test_windows_job_setup_failure_terminates_and_reaps_wrapper(self) -> None:
+        process = mock.Mock()
+        process.communicate.return_value = ("", "")
+        windows_os = mock.Mock(wraps=os)
+        windows_os.name = "nt"
+        with (
+            mock.patch.object(runtime, "os", windows_os),
+            mock.patch.object(runtime.shutil, "which", return_value=r"C:\Python\python.exe"),
+            mock.patch.object(runtime.subprocess, "Popen", return_value=process),
+            mock.patch.object(runtime, "_create_windows_kill_job", side_effect=OSError("assignment denied")),
+            mock.patch.object(runtime, "_terminate_process_tree") as terminate,
+            self.assertRaisesRegex(OSError, "assignment denied"),
+        ):
+            runtime.run_process_tree([r"C:\Python\python.exe", "-c", "pass"])
+        terminate.assert_called_once_with(process)
+        process.communicate.assert_called_once_with()
 
     def test_concurrent_processes_append_one_integrity_chain(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

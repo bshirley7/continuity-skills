@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity skill improvement evaluation",
+  "type": "object",
+  "required": [
+    "proposal_id",
+    "candidate_playbook_sha256",
+    "evaluated_at",
+    "metric",
+    "validation",
+    "test",
+    "invariants",
+    "regressions",
+    "evidence_refs"
+  ],
+  "properties": {
+    "proposal_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "candidate_playbook_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "evaluated_at": {"type": "string", "minLength": 1},
+    "metric": {"type": "string", "minLength": 1, "maxLength": 128},
+    "validation": {
+      "type": "object",
+      "required": ["baseline_score", "candidate_score", "case_refs", "evidence_refs"],
+      "properties": {
+        "baseline_score": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "candidate_score": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "case_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+      },
+      "additionalProperties": false
+    },
+    "test": {
+      "type": "object",
+      "required": ["baseline_score", "candidate_score", "case_refs", "evidence_refs"],
+      "properties": {
+        "baseline_score": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "candidate_score": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "case_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+      },
+      "additionalProperties": false
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["invariant_id", "status", "evidence_refs"],
+        "properties": {
+          "invariant_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "status": {"enum": ["passed", "failed"]},
+          "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "regressions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 1000}},
+    "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+    "accepted": {"type": "boolean"},
+    "gate": {
+      "type": "object",
+      "properties": {
+        "validation_gain": {"type": "integer"},
+        "minimum_validation_gain": {"type": "integer", "minimum": 1},
+        "validation_passed": {"type": "boolean"},
+        "test_passed": {"type": "boolean"},
+        "invariants_passed": {"type": "boolean"},
+        "regressions_absent": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

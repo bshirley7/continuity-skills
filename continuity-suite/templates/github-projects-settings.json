@@ -13,9 +13,11 @@
     "active",
     "in-progress",
     "validating",
+    "paused",
     "at-risk",
     "blocked",
-    "completed"
+    "completed",
+    "cancelled"
   ],
   "fields": {
     "continuity_id": "Continuity ID",

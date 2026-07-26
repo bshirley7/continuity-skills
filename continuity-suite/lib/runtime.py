@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import codecs
 import contextlib
 import errno
 import hashlib
@@ -219,7 +220,12 @@ def run_process_tree(
     job_handle: int | None = None
     try:
         if os.name == "nt":
-            job_handle = _create_windows_kill_job(process)
+            try:
+                job_handle = _create_windows_kill_job(process)
+            except BaseException:
+                _terminate_process_tree(process)
+                process.communicate()
+                raise
             assert ready_path is not None
             ready_path.touch()
         try:
@@ -589,15 +595,45 @@ _RELEASE_BINARY_SUFFIXES = frozenset({".gif", ".gz", ".ico", ".jpeg", ".jpg", ".
 
 def sha256_release_file(path: Path) -> str:
     """Hash UTF-8 release text with LF endings and declared binary files byte-for-byte."""
-    payload = path.read_bytes()
     if path.suffix.casefold() in _RELEASE_BINARY_SUFFIXES:
-        return sha256_bytes(payload)
-    try:
-        text = payload.decode("utf-8")
-    except UnicodeDecodeError:
-        return sha256_bytes(payload)
-    canonical = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
-    return sha256_bytes(canonical)
+        return sha256_file(path)
+    raw_digest = hashlib.sha256()
+    canonical_digest = hashlib.sha256()
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    valid_utf8 = True
+    pending_cr = False
+
+    def update_canonical(text: str) -> None:
+        nonlocal pending_cr
+        if pending_cr:
+            canonical_digest.update(b"\n")
+            if text.startswith("\n"):
+                text = text[1:]
+            pending_cr = False
+        if text.endswith("\r"):
+            text = text[:-1]
+            pending_cr = True
+        canonical_digest.update(text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8"))
+
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            raw_digest.update(block)
+            if not valid_utf8:
+                continue
+            try:
+                update_canonical(decoder.decode(block))
+            except UnicodeDecodeError:
+                valid_utf8 = False
+        if valid_utf8:
+            try:
+                update_canonical(decoder.decode(b"", final=True))
+            except UnicodeDecodeError:
+                valid_utf8 = False
+    if not valid_utf8:
+        return raw_digest.hexdigest()
+    if pending_cr:
+        canonical_digest.update(b"\n")
+    return canonical_digest.hexdigest()
 
 
 def _private_root(path: Path) -> Path | None:

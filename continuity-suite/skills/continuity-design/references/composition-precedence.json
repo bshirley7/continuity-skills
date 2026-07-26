@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "precedence": [
+    {
+      "precedence_id": "safety-accessibility-agency",
+      "priority": 100,
+      "rule": "Protect safety, accessibility, informed agency, privacy, legal rights, and truthful state before optimizing completion, engagement, expression, or organizational preference."
+    },
+    {
+      "precedence_id": "explicit-preservation-and-constraints",
+      "priority": 90,
+      "rule": "Honor explicit constraints and favorable behavior that must be preserved unless they conflict with a higher-order safeguard."
+    },
+    {
+      "precedence_id": "verified-intent-audience-consequence",
+      "priority": 80,
+      "rule": "Use verified project intent, affected audiences, and real consequence to choose among otherwise valid approaches."
+    },
+    {
+      "precedence_id": "workflow-state-and-evidence-integrity",
+      "priority": 70,
+      "rule": "Preserve workflow truth, state semantics, provenance, reversibility, and recovery before aesthetic simplification."
+    },
+    {
+      "precedence_id": "industry-and-flow-specificity",
+      "priority": 60,
+      "rule": "Apply relevant industry and flow evidence before generic design guidance without weakening higher-order safeguards."
+    },
+    {
+      "precedence_id": "explicit-expression-and-message",
+      "priority": 50,
+      "rule": "Honor explicitly requested expression and message direction within the operational and ethical boundaries above."
+    },
+    {
+      "precedence_id": "inferred-creative-preference",
+      "priority": 40,
+      "rule": "Use inferred stylistic and compositional preferences as creative freedom only after stronger evidence and constraints are satisfied."
+    }
+  ],
+  "conflicts": [
+    {
+      "conflict_id": "persuasion-versus-agency",
+      "all_lenses": ["behavioral-ethics"],
+      "any_lenses": ["attention-interruption", "motivation-progress-temporal-agency", "social-influence-persuasion-integrity", "sustainable-engagement-wellbeing-autonomy"],
+      "any_input_fields": [],
+      "dominant_precedence_id": "safety-accessibility-agency",
+      "resolution": "Present evidence, timing, popularity, progress, and reminders without coercion; preserve refusal, pause, exit, correction, and an equally direct path away from commitment."
+    },
+    {
+      "conflict_id": "density-versus-comprehension",
+      "all_lenses": ["comprehension", "perception-salience-affordance"],
+      "any_lenses": [],
+      "any_input_fields": [],
+      "dominant_precedence_id": "verified-intent-audience-consequence",
+      "resolution": "Keep the information required for the current comparison or task visible, then use hierarchy, grouping, progressive detail, and alternate views instead of either indiscriminate density or destructive simplification."
+    },
+    {
+      "conflict_id": "automation-versus-human-authority",
+      "all_lenses": ["human-agency-calibrated-reliance-automation-boundaries", "trust"],
+      "any_lenses": [],
+      "any_input_fields": [],
+      "dominant_precedence_id": "workflow-state-and-evidence-integrity",
+      "resolution": "Expose source, uncertainty, scope, and system state; keep consequential review, correction, refusal, escalation, and authorization attributable to the appropriate human."
+    },
+    {
+      "conflict_id": "expression-versus-accessibility",
+      "all_lenses": ["accessibility"],
+      "any_lenses": [],
+      "any_input_fields": ["themes"],
+      "dominant_precedence_id": "safety-accessibility-agency",
+      "resolution": "Preserve the requested character through composition, typography, imagery, and bounded accents while maintaining legibility, contrast, redundant meaning, focus, motion control, and reflow."
+    },
+    {
+      "conflict_id": "motion-versus-user-control",
+      "all_lenses": ["accessibility"],
+      "any_lenses": ["motion-art-direction", "motion-feedback"],
+      "any_input_fields": [],
+      "dominant_precedence_id": "safety-accessibility-agency",
+      "resolution": "Use motion only to clarify continuity or state, provide equivalent static meaning, respect reduced-motion preferences, and avoid blocking timing or input."
+    },
+    {
+      "conflict_id": "novelty-versus-convention",
+      "all_lenses": ["usability"],
+      "any_lenses": ["brand-expression-visual-identity", "differentiation"],
+      "any_input_fields": [],
+      "dominant_precedence_id": "verified-intent-audience-consequence",
+      "resolution": "Concentrate distinctiveness in expression, content treatment, composition, and signature moments while keeping navigation, controls, state, warnings, and recovery recognizable."
+    }
+  ]
+}

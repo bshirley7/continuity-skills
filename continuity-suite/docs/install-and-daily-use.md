@@ -18,6 +18,18 @@ python3 continuity-suite/installer/install.py \
   --validation "pnpm test"
 ```
 
+Enable the optional design collection when the project needs reviewed design directions before implementation planning:
+
+```text
+python3 continuity-suite/installer/install.py \
+  --project-root /path/to/project \
+  --project-id example-project \
+  --integration-branch main \
+  --collection design
+```
+
+The design workflow uses installed offline references, keeps drafts private, and publishes only an exact hash-approved `docs/design/design.md`. For React and web work it defaults to a complete private prototype: Continuity inspects the installed framework, UI libraries, components, tokens, and assets; maps reuse, composition, extension, and custom work; renders representative desktop, tablet, and mobile output; completes artifact critique; and validates the candidate before approval. For cinematic media storytelling, it identifies the intended outcome before the playback technique, expands creative search through a private narrative-spine burst, binds actual media beats or loops to standalone commercial chapters, derives interface language from the subject, and chooses among looping hero, chapter loops, normal playback, scroll-linked playback, and still equivalents. Validation covers loop seams, posters, autoplay rejection, persistent-motion control, decoder and resource behavior, reduced-motion and no-video modes, plus bounded seeking when scroll-linked playback is actually used. The private prototype stays outside product routes and build inputs. Neither the prototype nor design approval authorizes implementation.
+
 If your terminal is already inside the target project, you can still run the installer by using the absolute path to the suite:
 
 ```text
@@ -30,6 +42,15 @@ python3 /path/to/continuity-checkout/continuity-suite/installer/install.py \
 ```
 
 So the answer is: initial install comes from the main Continuity suite checkout, pointed at the project folder. After installation, daily use happens inside the project.
+
+Every applied install and update checks GitHub CLI authentication after the project files are safely installed. If the active `github.com` account is already healthy and has the `project` scope, nothing interrupts the install. Otherwise, an attached terminal automatically receives GitHub's browser/device login or scope-refresh flow:
+
+```text
+gh auth login --hostname github.com --web --scopes project
+gh auth refresh --hostname github.com --scopes project
+```
+
+GitHub CLI owns the credential and Continuity never reads, prints, or stores the token. If no interactive terminal is available, the install completes and its JSON result reports `authentication-required` with the exact command to run; it never waits indefinitely. Use `--skip-github-auth` only for an intentionally unattended or offline installation. The same option is available on `suite update` and `portfolio update`.
 
 ## What Gets Installed
 
@@ -56,9 +77,10 @@ Continuity writes project-local control files into the target project:
 docs/project-memory/                    committed searchable memory
 docs/project-roadmap/                   committed roadmap records
 .continuity/shared-notes/packets/       reviewed shared-note packets
+docs/design/design.md                   exact approved design document when Design is enabled
 ```
 
-The installer also updates managed blocks in `AGENTS.md` and `.gitignore`.
+The installer also updates managed blocks in `AGENTS.md` and `.gitignore` and returns a `github_auth` result describing the authenticated login or required next action.
 
 The shared references define suite-wide contracts, handoffs, lenses, and quality standards. Skill-local references provide applied decision tables and examples for only that stage. Codex and Claude Code adapters receive both sets; Cursor, Windsurf, and generic surfaces route through the same canonical project-local files.
 
@@ -119,7 +141,7 @@ Keep execution disabled unless you intentionally want approved goals to be eligi
 
 The local first-run prerequisite is `git` on macOS or Linux. The installer creates project configuration and leaves execution disabled unless `--enable-execution` is supplied. Daily local use records explicit human approvals with the approving identity and authorization text; terminal commands still run through the host's normal user approval flow.
 
-SSH-signed approvals are optional hardening, not a universal install requirement. Use `--require-signed-approvals` only when the project should cryptographically enforce approver identity for approvals, dispositions, resume authorizations, and shared-packet approvals. In that mode, configure a trusted approver before enabling execution:
+SSH-signed approvals are optional hardening for unattended scheduling and action-specific consequential transitions, not a universal interactive requirement. Routine `/goal` and `goal proceed` work records a hash-bound conversation receipt without asking the human to sign again. Use `--require-signed-approvals` when the project should cryptographically enforce approver identity for unattended approvals, dispositions, resume authorizations, and shared-packet approvals. In that mode, configure a trusted approver before enabling unattended execution:
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" approval trust add --identity <github-login> --public-key <ssh-public-key>
@@ -275,9 +297,11 @@ When a plan is explicitly approved:
 When an approved dispatched goal is assigned:
   $continuity-execute
   $continuity-test
+  $continuity-product-audit
   $continuity-merge
   /continuity-execute
   /continuity-test
+  /continuity-product-audit
   /continuity-merge
 ```
 
@@ -299,37 +323,34 @@ Use the machine handoff before and after any skill:
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --memory-id <memory-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --roadmap-id <roadmap-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --packet-id <packet-id>
+.agents/continuity/bin/continuity --project-root "$PWD" workflow status --audit-id <audit-id>
 .agents/continuity/bin/continuity --project-root "$PWD" workflow status --goal-id <goal-id>
 ```
 
 Use `--capture-id` immediately after capture to receive all per-item handoffs. Use the narrowest available selector after that. Project-wide status prioritizes the current queues for general routing; it does not override the selected subject's stage or next skill.
 
-## Optional GitHub Projects projection
+## Optional GitHub Projects connection
 
-GitHub Projects is an optional operational surface, not a replacement for canonical roadmap Markdown. Configure `planning_patterns.tracker_provider` as `github`. To create a Project for the active Continuity project through GitHub CLI, use the approval-bound bootstrap:
-
-```text
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap plan \
-  --owner-type organization --owner <github-owner> --title "<project title>" --visibility PRIVATE
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap approve <bootstrap-plan-hash> \
-  --approved-by <identity> --authorization-text "<exact text returned by bootstrap plan>"
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects bootstrap apply <bootstrap-plan-hash>
-```
-
-The apply step creates the Project and fields via `gh`, writes the returned Project number to `.continuity/github-projects.json`, and prepares the first export plan without approving it. For an existing Project, copy `.agents/continuity/templates/github-projects-settings.json` to `.continuity/github-projects.json` and set the exact owner, Project number, published statuses, fields, and option names.
+GitHub Projects is an optional hosted operational surface, not a replacement for canonical roadmap Markdown. It keeps task status accessible when the local roadmap server is not running. Configure `planning_patterns.tracker_provider` as `github`, authenticate the intended account with the `project` scope, and connect once:
 
 ```text
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects plan
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects inspect <plan-hash>
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects approve <plan-hash> \
-  --approved-by <identity> \
-  --authorization-text "<exact text returned by plan>"
-.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects apply <plan-hash>
+gh auth login --hostname github.com --web --scopes project
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects connect \
+  --owner-type user --owner <authenticated-login> --title "<project title>" --visibility PRIVATE
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects status
 ```
 
-The plan and approval receipts remain ignored private state. Applying a plan rechecks current canonical roadmap content and configuration, preflights the destination's field types and options, and fails closed before mutation when the Project contract is incompatible. Remote edits discovered by `inspect` are proposals only; they must return through normal Continuity capture, triage, planning, and approved roadmap impact before canonical state changes. See `$continuity-roadmap`'s `github-projects-adapter.md` reference for ownership, permissions, signed approval, polling, and future webhook rules.
+Add `--project-number <number>` to attach an existing Project instead of creating one. The command verifies the active login, stable GitHub account ID, `project` scope, exact owner, stable Project ID, and Project update access. It configures fields, records read/write/create/edit capabilities with deletion disabled, and performs the first sync without reading or storing the token.
 
-`workflow status` reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. It never crosses an approval or review boundary automatically.
+```text
+.agents/continuity/bin/continuity --project-root "$PWD" roadmap github-projects sync
+```
+
+The connection invocation is durable authorization for automatic sanitized roadmap and goal-status updates to that one Project. Goal and approved-roadmap lifecycle transitions trigger best-effort synchronization; a remote failure is recorded as advisory and never rolls back the local transition. Renew only for a different account, destination, visibility, capability set, deletion policy, or published data class. Raw notes, exact requests, approval text, private evidence, memory, and credentials are never projected. Remote edits remain reconciliation proposals and cannot authorize or complete local work.
+
+The older bootstrap and plan/approve/apply commands remain available for unconnected one-off exports. New integrations should follow the provider-neutral tracker contract used by GitHub so Notion, Trello, Jira, or another provider can be added without creating a second planning or authorization workflow.
+
+`workflow status` reports the current stage, completed evidence, blockers, next skill, human requirements, and exact allowed command templates. A submitted `/goal` or the user's “proceed” instruction is the routine interactive approval boundary; the matching `goal activate` or `goal proceed` command records it and continues without another user prompt.
 
 For a manual end-to-end run, invoke `$continuity-workflow` or `/continuity-workflow` with the request and any known subject ID. The runner re-reads this handoff after every task skill and immediately continues through `next_skill`. A failed test, stale artifact, merge-safety finding, or recoverable tool error routes into remediation and does not end the workflow. The run pauses only when workflow status explicitly sets `human_required: true`; after the recorded approval, invoke the same workflow again and it resumes from canonical state without replaying completed stages.
 
@@ -517,10 +538,11 @@ and the goal is explicitly approved, due or manually started, dependency-satisfi
 
 ## Quality And Merge Gates
 
-Continuity has two explicit post-implementation skills:
+Continuity has three explicit post-implementation skills:
 
 ```text
 $continuity-test
+$continuity-product-audit
 $continuity-merge
 ```
 
@@ -534,7 +556,13 @@ $continuity-merge
 
 `test run` executes configured validation, goal-specific, and security commands directly without shell syntax. It verifies that the worktree belongs to the enrolled repository and is on the branch recorded for the goal, then records argv, output, exit status, approved plan hash, behavior hash, commit, repository identity, and a source fingerprint that includes tracked diffs and untracked-file content. `test record --status passed` and merge assessment fail when that evidence is absent or any binding has changed.
 
-The enforced delivery order is: preflight; isolated worktree; implementation; candidate checks; documentation, memory, roadmap, and evidence artifacts; commit; final source-bound test run; push and draft PR; PR/head/base-bound merge assessment; `review-ready`; human disposition. Any source or branch change after the final run makes its evidence stale.
+The enforced delivery order is: preflight; isolated worktree; implementation; candidate checks; documentation, memory, roadmap, and evidence artifacts; commit; final source-bound test run; source-bound product-conformance audit or explicit not-applicable evidence; push and draft PR; PR/head/base-bound merge assessment; `review-ready`; human disposition. Any source or branch change after the final run makes its evidence stale.
+
+`$continuity-product-audit` compares a baseline, candidate, release, or drift
+target with applicable approved goals, PRDs, documentation, memory, insights,
+and roadmap sources. It records portable evidence, source authority and time
+horizon, classified findings, coverage, hashes, and non-authorizing finding
+captures. Only current-goal mismatches can block the product-conformance gate.
 
 `$continuity-merge` assesses PR readiness and merge safety only after the final tested commit is pushed to a draft PR. It checks branch focus, base freshness, working tree cleanliness, remote and PR head identity, PR base, evidence, and compliance status:
 

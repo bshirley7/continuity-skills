@@ -4,13 +4,13 @@
   "type": "object",
   "required": ["schema_version", "assurance_standard_version", "project_id", "recommendation_profile", "settings", "overrides", "fixed_guardrails", "configuration_hash"],
   "properties": {
-    "schema_version": {"const": 3},
+    "schema_version": {"const": 4},
     "assurance_standard_version": {"const": 2},
     "project_id": {"type": "string", "minLength": 1},
-    "recommendation_profile": {"const": "responsible-defaults-v3"},
+    "recommendation_profile": {"const": "responsible-defaults-v4"},
     "settings": {
       "type": "object",
-      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "validation_commands", "security_commands", "github_required_checks", "github_required_reviewers", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "execution_enabled"],
+      "required": ["integration_branch", "timezone", "schedules", "max_runtime_minutes", "memory_stale_after_days", "product_audit_stale_after_days", "validation_commands", "security_commands", "github_required_checks", "github_required_reviewers", "documentation_map", "visual_evidence_mode", "branch_prefix", "project_instructions", "planning_patterns", "roadmap", "agent_surfaces", "scheduler", "execution_enabled"],
       "properties": {
         "integration_branch": {"type": "string", "minLength": 1},
         "timezone": {"type": "string", "minLength": 1},
@@ -26,6 +26,7 @@
         },
         "max_runtime_minutes": {"type": "integer", "minimum": 1, "maximum": 360},
         "memory_stale_after_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+        "product_audit_stale_after_days": {"type": "integer", "minimum": 1, "maximum": 3650},
         "validation_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "security_commands": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "github_required_checks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
@@ -79,6 +80,7 @@
         "external_tracker_publish": "explicit-human-approval-required",
         "raw_note_transport": "forbidden",
         "shared_notes_authorize_execution": false,
+        "product_audit_findings_authorize_execution": false,
         "roadmap_ui_write_methods": "forbidden",
         "hosted_roadmap_surface": "forbidden"
       }

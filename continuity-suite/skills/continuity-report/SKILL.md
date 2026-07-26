@@ -5,6 +5,8 @@ description: Generate evidence-backed completion reports, active-run updates, mo
 
 # Continuity Report
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Report recorded state without converting notes, feedback, or pending plans into implied commitments.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, project manifests, feedback, evidence, compliance ledgers, and `.continuity/config.json`.
@@ -16,16 +18,18 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 - Derive every status, completion, validation, security, mergeability, and memory claim from recorded evidence; distinguish passed, pending, failed, blocked, partial, and not-applicable states precisely.
 - Redact secrets, personal data, raw captures, private ledger content, credentials, and sensitive operational details from project and portfolio reports.
 - Audit report completeness against notes, memory IDs, plan hash, feedback, acceptance criteria, exclusions, changed files, validation, security review, merge safety, documentation, and memory impact. Surface stale or contradictory evidence.
+- For design-bound goals, report the exact design revision, affected surfaces or artifacts, verified alignment, approved deviations, unresolved drift, and design debt without presenting subjective claims as machine-verified.
 
 ```text
 .agents/continuity/bin/continuity --project-root "$PWD" report project
 .agents/continuity/bin/continuity --project-root "$PWD" --json report morning
 .agents/continuity/bin/continuity --project-root "$PWD" memory audit
+.agents/continuity/bin/continuity --project-root "$PWD" audit due
 .agents/continuity/bin/continuity --project-root "$PWD" note patterns --min-count 2
 .agents/continuity/bin/continuity --json portfolio report --sanitized --root <workspace-root>
 ```
 
-The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal or note, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Include note counts by exact lifecycle stage, stage-entry dates, later-work anchors, blocked or remediation tracks, and confidence-qualified unconfirmed relationship suggestions alongside configuration, scheduler, memory, roadmap, test, security, merge, and compliance health. Cap relationship decisions at the suite limit; broader low-confidence results belong in explicit triage. Suggestions never authorize execution.
+The morning report is mandatory even when no goal ran. Lead with `decisions_needed`, `completed_overnight`, and `blocked_or_at_risk`. Every decision must name its goal, note, or audit, recommendation, evidence or PR, and human disposition. Treat `review-ready` as awaiting human review, not completion. Include note counts by exact lifecycle stage, stage-entry dates, later-work anchors, blocked or remediation tracks, and confidence-qualified unconfirmed relationship suggestions alongside configuration, scheduler, memory, roadmap, product-audit freshness and findings, test, security, merge, and compliance health. Cap relationship decisions at the suite limit; broader low-confidence results belong in explicit triage. Suggestions never authorize execution.
 
 For a portfolio report, use `portfolio report --sanitized`. Its deterministic allowlist emits counts and health states only; it cannot emit raw captures, note text, local paths, private ledgers, approval text, task IDs, claims, evidence links, credentials, or locks. Do not replace that command with agent-authored aggregation.
 

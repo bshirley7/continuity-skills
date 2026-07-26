@@ -33,11 +33,14 @@ import roadmap as roadmap_lib  # noqa: E402
 import github_projects as github_projects_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
+import design as design_lib  # noqa: E402
+import product_audit as product_audit_lib  # noqa: E402
+import skill_improvement as skill_improvement_lib  # noqa: E402
 
 SCHEMA_VERSION = 1
 ASSURANCE_STANDARD_VERSION = 2
-BEHAVIOR_SCHEMA_VERSION = 3
-BEHAVIOR_PROFILE = "responsible-defaults-v3"
+BEHAVIOR_SCHEMA_VERSION = 4
+BEHAVIOR_PROFILE = "responsible-defaults-v4"
 BEHAVIOR_CONFIG_PATH = ".continuity/project-behavior.json"
 BEHAVIOR_SKILL_PATH = ".agents/skills/continuity-local/SKILL.md"
 AGENT_SURFACES = {"codex", "claude-code", "cursor", "windsurf", "generic"}
@@ -92,6 +95,7 @@ FIXED_GUARDRAILS = {
     "external_tracker_publish": "explicit-human-approval-required",
     "raw_note_transport": "forbidden",
     "shared_notes_authorize_execution": False,
+    "product_audit_findings_authorize_execution": False,
     "roadmap_ui_write_methods": "forbidden",
     "hosted_roadmap_surface": "forbidden",
 }
@@ -194,6 +198,7 @@ DOWNSTREAM_COMPLIANCE_STAGES = [
     "code-review",
     "validation",
     "security-review",
+    "product-conformance",
     "merge-safety",
     "documentation",
     "memory-impact",
@@ -227,6 +232,7 @@ COMPLIANCE_STAGES = [
     "code-review",
     "validation",
     "security-review",
+    "product-conformance",
     "merge-safety",
     "documentation",
     "memory-impact",
@@ -871,6 +877,15 @@ def render_planning_artifacts(goal: dict[str, Any]) -> str:
                 )
         else:
             lines.append("- No PRD or feature-request source document is attached to this goal.")
+    if "design_refs" in goal:
+        lines.extend(["", "### Approved design", ""])
+        design_refs = goal.get("design_refs", [])
+        if design_refs:
+            for item in design_refs:
+                packs = ", ".join(f"{pack['pack_id']}@{pack['version']}" for pack in item.get("catalog_packs", []))
+                lines.append(f"- `{item['design_id']}` revision {item['revision']}; design hash `{item['design_hash']}`; catalog packs: {packs or 'none'}")
+        else:
+            lines.append("- No approved design document is attached to this goal.")
     brief = goal.get("triage_brief")
     if brief:
         lines.extend([
@@ -999,15 +1014,19 @@ def continuity_skill_names(root: Path) -> list[str]:
     skills_root = root / ".agents" / "skills"
     return sorted(
         path.name
-        for path in skills_root.glob("continuity*")
-        if path.is_dir() and (path / "SKILL.md").is_file()
+        for path in skills_root.iterdir()
+        if (path.name == "goal" or path.name.startswith("continuity"))
+        and path.is_dir()
+        and (path / "SKILL.md").is_file()
     )
 
 
 def remove_owned_skill_adapters(target: Path) -> None:
     if not target.exists():
         return
-    for path in target.glob("continuity*"):
+    for path in target.iterdir():
+        if path.name != "goal" and not path.name.startswith("continuity"):
+            continue
         if path.is_dir() and not path.is_symlink():
             shutil.rmtree(path)
         elif path.exists() or path.is_symlink():
@@ -1055,6 +1074,18 @@ def sync_skill_adapter(root: Path, surface_root: Path) -> None:
 
 
 def render_surface_command(skill_name: str) -> str:
+    if skill_name == "goal":
+        return (
+            "# goal\n\n"
+            "Slash command: `/goal`\n\n"
+            "Read and follow `AGENTS.md`, then read `.agents/skills/goal/SKILL.md` and "
+            "`.agents/skills/continuity-local/SKILL.md`. Treat trailing user text as the exact "
+            "interactive goal request. Capture and triage it, project actionable notes into the "
+            "private roadmap inbox, create the smallest aligned routine goal, bind the exact request "
+            "with `goal activate`, and continue into coding without separate approval or start pauses. "
+            "Stop for material scope or risk expansion, destructive or irreversible action, private-data "
+            "disclosure, new cost, restricted external effects, or final merge authority.\n"
+        )
     return (
         f"# {skill_name}\n\n"
         f"Slash command: `/{skill_name}`\n\n"
@@ -1216,6 +1247,7 @@ def validate_project_behavior(root: Path, config: dict[str, Any]) -> dict[str, A
         "default_start_time": settings["schedules"]["dispatch"],
         "max_runtime_minutes": settings["max_runtime_minutes"],
         "memory_stale_after_days": settings["memory_stale_after_days"],
+        "product_audit_stale_after_days": settings["product_audit_stale_after_days"],
         "validation_commands": settings["validation_commands"],
         "security_commands": settings["security_commands"],
         "github_cli_merge_enabled": settings["github_cli_merge_enabled"],
@@ -1486,7 +1518,7 @@ def note_capture(args: argparse.Namespace) -> dict[str, Any]:
         document_duplicate["path"] = runtime_lib.project_relative_posix(duplicate_path, root)
         return document_duplicate
     source_type = payload.get("source_type", args.source_type or "conversation")
-    if source_type not in {"conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet"}:
+    if source_type not in {"conversation", "meeting", "manual", "file", "notion", "linear", "goal-feedback", "shared-packet", "product-audit"}:
         raise ContinuityError(f"Unsupported source_type: {source_type}")
     raw_items = list(payload["items"])
     if document:
@@ -2128,6 +2160,10 @@ def note_triage(args: argparse.Namespace) -> dict[str, Any]:
         "work_status": selected.get("work_status"),
     }
     append_jsonl(private_path(root, config) / "events.jsonl", event)
+    try:
+        roadmap_lib.projection(root, config)
+    except roadmap_lib.RoadmapError as exc:
+        raise ContinuityError(f"Note was triaged but roadmap projection failed: {exc}") from exc
     return selected
 
 
@@ -3131,6 +3167,9 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
         "acceptance_criteria",
         "documentation_updates",
         "required_checks",
+        "authorization_mode",
+        "risk_level",
+        "restricted_side_effects",
         "runtime_limit_minutes",
         "triage_brief",
         "decision_map",
@@ -3139,6 +3178,8 @@ def goal_material_hash(directory: Path, goal: dict[str, Any]) -> str:
     machine = {key: goal.get(key) for key in sorted(immutable_keys)}
     if "source_capture_refs" in goal:
         machine["source_capture_refs"] = goal.get("source_capture_refs", [])
+    if "design_refs" in goal:
+        machine["design_refs"] = goal.get("design_refs", [])
     plan = (directory / "plan.md").read_text(encoding="utf-8")
     return hashlib.sha256((json.dumps(machine, sort_keys=True) + "\n" + plan).encode()).hexdigest()
 
@@ -3157,10 +3198,12 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "depends_on",
         "source_note_ids",
         "memory_ids",
+        "design_ids",
         "roadmap_ids",
         "exclusions",
         "documentation_updates",
         "required_checks",
+        "restricted_side_effects",
     ):
         value = payload.get(key, [])
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
@@ -3175,6 +3218,12 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError("runtime_limit_minutes must be an integer of at least 1")
     if runtime_limit > int(config.get("max_runtime_minutes", 360)):
         raise ContinuityError("runtime_limit_minutes exceeds the configured project maximum")
+    authorization_mode = payload.get("authorization_mode", "separate-approval")
+    if authorization_mode not in {"separate-approval", "goal-request"}:
+        raise ContinuityError("authorization_mode must be separate-approval or goal-request")
+    risk_level = payload.get("risk_level", "routine")
+    if risk_level not in {"routine", "elevated", "consequential"}:
+        raise ContinuityError("risk_level must be routine, elevated, or consequential")
     stamp = iso_now(config)
     goal_id = validate_identifier(payload.get("goal_id") or stable_id("goal", config["project_id"], stamp, payload["title"]), "goal ID")
     directory = goal_dir(root, config, goal_id)
@@ -3204,6 +3253,7 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "source_note_ids": payload.get("source_note_ids", []),
         "note_dispositions": note_dispositions,
         "memory_ids": payload.get("memory_ids", []),
+        "design_ids": payload.get("design_ids", []),
         "roadmap_ids": roadmap_ids,
         "roadmap_impact": validate_roadmap_impact(payload.get("roadmap_impact"), roadmap_ids),
         "scope": payload["scope"],
@@ -3211,6 +3261,9 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "acceptance_criteria": payload["acceptance_criteria"],
         "documentation_updates": payload.get("documentation_updates", []),
         "required_checks": payload.get("required_checks", []),
+        "authorization_mode": authorization_mode,
+        "risk_level": risk_level,
+        "restricted_side_effects": payload.get("restricted_side_effects", []),
         "runtime_limit_minutes": runtime_limit,
         "triage_brief": validate_triage_brief(payload.get("triage_brief")),
         "decision_map": validate_decision_map(payload.get("decision_map")),
@@ -3221,11 +3274,16 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
     validate_goal_roadmap_targets(root, config, goal["roadmap_ids"], goal["roadmap_impact"])
     goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal["roadmap_ids"])
     goal["source_capture_refs"] = source_capture_refs_for_notes(root, config, goal["source_note_ids"])
+    try:
+        goal["design_refs"] = design_lib.bind_approved(root, config, goal["design_ids"])
+    except design_lib.DesignError as exc:
+        raise ContinuityError(str(exc)) from exc
     plan = payload.get("plan_markdown") or (
         f"# {goal_id}: {goal['title']}\n\n"
         f"## Context and memory\n\nNotes: {', '.join(goal['source_note_ids']) or 'None'}  \n"
         f"Source documents: {', '.join(item['document_id'] + '@' + item['source_hash'][:12] for item in goal['source_capture_refs']) or 'None'}  \n"
         f"Memory: {', '.join(goal['memory_ids']) or 'None'}\n\n"
+        f"Approved design: {', '.join(item['design_id'] + '@' + item['design_hash'][:12] for item in goal['design_refs']) or 'None'}\n\n"
         f"Roadmap: {', '.join(goal['roadmap_ids']) or 'None'}\n\n"
         f"## Proposed execution scope\n\n{goal['scope']}\n\n"
         f"## Exclusions\n\n" + "\n".join(f"- {item}" for item in goal["exclusions"]) + "\n\n"
@@ -3253,8 +3311,9 @@ def goal_create(args: argparse.Namespace) -> dict[str, Any]:
         "updated_at": stamp,
     }
     compliance["stages"]["memory-retrieval"] = {
-        "status": "passed" if goal["memory_ids"] else "pending",
-        "evidence": goal["memory_ids"],
+        "status": "passed" if goal["memory_ids"] else "not-applicable" if payload.get("memory_reviewed") else "pending",
+        "evidence": goal["memory_ids"]
+        or ([str(payload.get("memory_review_evidence", "Relevant project memory was reviewed; no matching trusted record was found"))] if payload.get("memory_reviewed") else []),
         "updated_at": stamp,
     }
     compliance["stages"]["roadmap-retrieval"] = {
@@ -3319,8 +3378,14 @@ def validate_approval(root: Path, config: dict[str, Any], goal_id: str) -> tuple
         except runtime_lib.RuntimeIntegrityError as exc:
             raise ContinuityError(str(exc)) from exc
         verify_approval_signature(root, config, directory, approval)
-    elif config.get("require_signed_approvals", False):
+    elif (
+        config.get("require_signed_approvals", False)
+        and approval.get("authorization_source") not in {"goal-request", "plan-proceed"}
+    ):
         raise ContinuityError("This project requires an SSH-signed approval receipt")
+    if approval.get("authorization_source") in {"goal-request", "plan-proceed"}:
+        if goal.get("risk_level") != "routine" or goal.get("restricted_side_effects"):
+            raise ContinuityError("Conversation approval is valid only for routine work without restricted side effects")
     validate_goal_planning_artifacts(goal, require_resolved=True)
     validate_planning_artifact_parity(directory, goal)
     current_hash = goal_material_hash(directory, goal)
@@ -3378,6 +3443,7 @@ def approval_receipt_payload(approval: dict[str, Any]) -> dict[str, Any]:
             "approved_at",
             "approved_by",
             "authorization_text",
+            "authorization_source",
             "nonce",
         )
         if key in approval
@@ -3641,6 +3707,7 @@ def archive_execution_attempt(directory: Path, goal: dict[str, Any], reason: str
         "preflight.json",
         "machine-test-run.json",
         "test-report.json",
+        "product-audit.json",
         "merge-assessment.json",
         "human-review.json",
         "human-review.sig",
@@ -3691,6 +3758,7 @@ def reset_execution_evidence(
         "preflight.json",
         "machine-test-run.json",
         "test-report.json",
+        "product-audit.json",
         "merge-assessment.json",
         "human-review.json",
         "human-review.sig",
@@ -3725,6 +3793,10 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     payload = json_load(Path(args.goal_file).expanduser())
     if not isinstance(payload, dict):
         raise ContinuityError("Revision file must be a JSON object")
+    goal.setdefault("design_ids", [])
+    goal.setdefault("authorization_mode", "separate-approval")
+    goal.setdefault("risk_level", "routine")
+    goal.setdefault("restricted_side_effects", [])
     allowed = {
         "title",
         "priority",
@@ -3732,6 +3804,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "source_note_ids",
         "note_dispositions",
         "memory_ids",
+        "design_ids",
         "roadmap_ids",
         "roadmap_impact",
         "scope",
@@ -3739,6 +3812,8 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         "acceptance_criteria",
         "documentation_updates",
         "required_checks",
+        "risk_level",
+        "restricted_side_effects",
         "runtime_limit_minutes",
         "triage_brief",
         "decision_map",
@@ -3749,7 +3824,7 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
             goal[key] = value
     if "source_note_ids" in payload and "note_dispositions" not in payload:
         goal["note_dispositions"] = None
-    for key in ("depends_on", "source_note_ids", "memory_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks"):
+    for key in ("depends_on", "source_note_ids", "memory_ids", "design_ids", "roadmap_ids", "exclusions", "acceptance_criteria", "documentation_updates", "required_checks", "restricted_side_effects"):
         value = goal.get(key)
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
             raise ContinuityError(f"Goal field {key} must be an array of non-empty strings")
@@ -3761,6 +3836,9 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError("runtime_limit_minutes must be an integer of at least 1")
     if goal["runtime_limit_minutes"] > int(config.get("max_runtime_minutes", 360)):
         raise ContinuityError("runtime_limit_minutes exceeds the configured project maximum")
+    if goal.get("risk_level") not in {"routine", "elevated", "consequential"}:
+        raise ContinuityError("risk_level must be routine, elevated, or consequential")
+    goal["authorization_mode"] = "separate-approval"
     goal["triage_brief"] = validate_triage_brief(goal.get("triage_brief"))
     goal["decision_map"] = validate_decision_map(goal.get("decision_map"))
     goal["delivery_slices"] = validate_delivery_slices(goal.get("delivery_slices"))
@@ -3778,6 +3856,10 @@ def goal_revise(args: argparse.Namespace) -> dict[str, Any]:
     validate_goal_roadmap_targets(root, config, goal.get("roadmap_ids", []), goal["roadmap_impact"])
     goal["roadmap_fingerprint"] = roadmap_fingerprint(root, config, goal.get("roadmap_ids", []))
     goal["source_capture_refs"] = source_capture_refs_for_notes(root, config, goal.get("source_note_ids", []))
+    try:
+        goal["design_refs"] = design_lib.bind_approved(root, config, goal.get("design_ids", []))
+    except design_lib.DesignError as exc:
+        raise ContinuityError(str(exc)) from exc
     plan = payload.get("plan_markdown")
     if plan is not None:
         if not isinstance(plan, str) or not plan.strip():
@@ -3888,6 +3970,7 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
         "approved_at": stamp,
         "approved_by": args.approved_by,
         "authorization_text": args.authorization_text,
+        "authorization_source": "explicit-receipt",
         "nonce": secrets.token_hex(16),
         "signature_format": "openssh-sshsig-v1" if args.signing_key else "legacy-unsigned",
     }
@@ -3928,6 +4011,198 @@ def goal_approve(args: argparse.Namespace) -> dict[str, Any]:
         },
     )
     return {"goal": goal, "approval": approval}
+
+
+def validate_conversation_scope(goal: dict[str, Any]) -> None:
+    if goal.get("risk_level") != "routine":
+        raise ContinuityError("Elevated or consequential goals require separate action-specific approval")
+    if goal.get("restricted_side_effects"):
+        raise ContinuityError("Goals with restricted side effects require separate action-specific approval")
+
+
+def record_conversation_approval(
+    root: Path,
+    config: dict[str, Any],
+    directory: Path,
+    goal: dict[str, Any],
+    source: str,
+    authority_hash: str,
+    required_stages: tuple[str, ...],
+) -> tuple[dict[str, Any], str]:
+    """Record a bounded interactive approval without asking the user to restate or sign it."""
+    validate_conversation_scope(goal)
+    validate_goal_planning_artifacts(goal, require_resolved=True)
+    validate_planning_artifact_parity(directory, goal)
+    if goal.get("roadmap_fingerprint") != roadmap_fingerprint(root, config, goal.get("roadmap_ids", [])):
+        raise ContinuityError("Roadmap context changed after planning; revise the goal before proceeding")
+    compliance = json_load(directory / "compliance.json", {})
+    if compliance.get("assurance_standard_version") != ASSURANCE_STANDARD_VERSION:
+        raise ContinuityError("Goal compliance ledger uses a missing or unsupported assurance standard")
+    for stage in required_stages:
+        state = compliance.get("stages", {}).get(stage, {}).get("status")
+        if state not in {"passed", "not-applicable"}:
+            raise ContinuityError(f"Compliance stage {stage} must pass before proceeding")
+    plan_hash = goal_material_hash(directory, goal)
+    stamp = iso_now(config)
+    approval = {
+        "schema_version": SCHEMA_VERSION,
+        "project_id": config["project_id"],
+        "goal_id": goal["goal_id"],
+        "plan_version": goal["plan_version"],
+        "plan_hash": plan_hash,
+        "behavior_configuration_hash": config.get("behavior_configuration_hash"),
+        "approved_at": stamp,
+        "approved_by": "interactive-user",
+        "authorization_text": (
+            f"Conversation {source} bound to {goal['goal_id']} plan "
+            f"v{goal['plan_version']} ({authority_hash})"
+        ),
+        "authorization_source": source,
+        "nonce": secrets.token_hex(16),
+        "signature_format": "legacy-unsigned",
+    }
+    if not approval["behavior_configuration_hash"]:
+        approval.pop("behavior_configuration_hash")
+    try:
+        runtime_lib.validate_schema_file(
+            approval,
+            CONTROL_ROOT / "schemas" / "approval-receipt.schema.json",
+            "approval receipt",
+        )
+    except runtime_lib.RuntimeIntegrityError as exc:
+        raise ContinuityError(str(exc)) from exc
+    json_dump(directory / "approval.json", approval)
+    compliance["stages"]["approval"] = {
+        "status": "passed",
+        "evidence": [f"interactive conversation: {source}", authority_hash, plan_hash],
+        "updated_at": stamp,
+    }
+    compliance["updated_at"] = stamp
+    json_dump(directory / "compliance.json", compliance)
+    goal["plan_hash"] = plan_hash
+    goal["state"] = "queued"
+    goal["scheduled_for"] = stamp
+    goal["updated_at"] = stamp
+    json_dump(directory / "goal.json", goal)
+    update_note_goal_links(root, config, goal.get("source_note_ids", []), goal["goal_id"], "queued")
+    append_jsonl(
+        directory / "feedback.jsonl",
+        {
+            "at": stamp,
+            "author": "interactive-user",
+            "type": f"{source}-authorization",
+            "text": approval["authorization_text"],
+        },
+    )
+    append_jsonl(
+        private_path(root, config) / "events.jsonl",
+        {
+            "at": stamp,
+            "event": "goal.conversation-approved",
+            "goal_id": goal["goal_id"],
+            "plan_version": goal["plan_version"],
+            "authorization_source": source,
+            "authority_hash": authority_hash,
+        },
+    )
+    return approval, plan_hash
+
+
+def goal_activate(args: argparse.Namespace) -> dict[str, Any]:
+    """Bind one explicit /goal request to a routine interactive implementation run."""
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") != "awaiting-feedback":
+        raise ContinuityError(f"Only an awaiting-feedback goal can be activated; current state is {goal.get('state')}")
+    if goal.get("authorization_mode") != "goal-request":
+        raise ContinuityError("Fast activation requires authorization_mode goal-request")
+    validate_conversation_scope(goal)
+    source_note_ids = goal.get("source_note_ids", [])
+    if not source_note_ids:
+        raise ContinuityError("Fast activation requires the /goal request to be captured and triaged")
+    actionable_current_goal = False
+    request_material: list[dict[str, str]] = []
+    dispositions = {item.get("note_id"): item for item in goal.get("note_dispositions", [])}
+    for note_id in source_note_ids:
+        _capture_path, _capture, item = find_note_item(root, config, note_id)
+        request_material.append(
+            {
+                "note_id": note_id,
+                "text_sha256": hashlib.sha256(str(item.get("text", "")).encode()).hexdigest(),
+            }
+        )
+        if item.get("routing_status") not in {"route", "promote", "defer", "archive"}:
+            raise ContinuityError(f"Fast activation requires triage before planning: {note_id}")
+        disposition = dispositions.get(note_id, {})
+        if (
+            disposition.get("disposition") == "current-goal"
+            and item.get("kind") in {"documentation-candidate", "backlog-candidate", "execution-candidate", "explicit-instruction"}
+            and item.get("routing_status") in {"route", "promote"}
+        ):
+            actionable_current_goal = True
+    if not actionable_current_goal:
+        raise ContinuityError("Fast activation requires a triaged actionable current-goal note")
+    request_hash = canonical_hash({"source_notes": request_material})
+    approval, plan_hash = record_conversation_approval(
+        root,
+        config,
+        directory,
+        goal,
+        "goal-request",
+        request_hash,
+        ("capture-triage", "memory-retrieval", "roadmap-retrieval", "plan-review"),
+    )
+    dispatch = goal_start(argparse.Namespace(goal_id=goal["goal_id"], fast_interactive=True))
+    return {
+        "goal": json_load(directory / "goal.json", {}),
+        "approval": approval,
+        "dispatch": dispatch,
+        "authorization_envelope": {
+            "mode": "interactive-goal-request",
+            "request_hash": request_hash,
+            "plan_hash": plan_hash,
+            "renew_only_for": [
+                "material scope expansion",
+                "elevated or consequential risk",
+                "restricted external side effect",
+                "destructive or irreversible action",
+            ],
+        },
+    }
+
+
+def goal_proceed(args: argparse.Namespace) -> dict[str, Any]:
+    """Treat the current user's proceed instruction as one bounded interactive authorization."""
+    root, config = load_context()
+    directory, goal = load_goal(root, config, args.goal_id)
+    if goal.get("state") != "awaiting-feedback":
+        raise ContinuityError(f"Only an awaiting-feedback plan can proceed; current state is {goal.get('state')}")
+    authority_hash = goal_material_hash(directory, goal)
+    approval, plan_hash = record_conversation_approval(
+        root,
+        config,
+        directory,
+        goal,
+        "plan-proceed",
+        authority_hash,
+        ("memory-retrieval", "roadmap-retrieval", "plan-review"),
+    )
+    dispatch = goal_start(argparse.Namespace(goal_id=goal["goal_id"], fast_interactive=True))
+    return {
+        "goal": json_load(directory / "goal.json", {}),
+        "approval": approval,
+        "dispatch": dispatch,
+        "authorization_envelope": {
+            "mode": "interactive-plan-proceed",
+            "plan_hash": plan_hash,
+            "renew_only_for": [
+                "material scope expansion",
+                "elevated or consequential risk",
+                "restricted external side effect",
+                "destructive or irreversible action",
+            ],
+        },
+    }
 
 
 def requested_workspace_roots(values: Iterable[str] = ()) -> list[Path]:
@@ -4451,6 +4726,7 @@ def source_installer_json(
     *,
     dry_run: bool,
     overwrite_managed: bool,
+    skip_github_auth: bool,
 ) -> dict[str, Any]:
     installer = source / "installer" / "install.py"
     if not installer.is_file():
@@ -4470,8 +4746,10 @@ def source_installer_json(
         command.append("--dry-run")
     if overwrite_managed:
         command.append("--overwrite-managed")
+    if skip_github_auth:
+        command.append("--skip-github-auth")
     try:
-        result = runtime_lib.run_process_tree(command, capture_output=True, text=True, timeout=360, check=False)
+        result = runtime_lib.run_process_tree(command, capture_output=True, text=True, timeout=930, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ContinuityError(f"Release installer failed for {project_root}: {exc}") from exc
     if result.returncode != 0:
@@ -4552,7 +4830,9 @@ def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
                     update_arguments.append("--dry-run")
                 if args.overwrite_managed:
                     update_arguments.append("--overwrite-managed")
-                update = project_cli_json(project_root, *update_arguments)
+                if args.skip_github_auth:
+                    update_arguments.append("--skip-github-auth")
+                update = project_cli_json(project_root, *update_arguments, timeout=930)
             else:
                 manifest = project.get("manifest", {})
                 project_id = str(project.get("project_id") or "")
@@ -4566,6 +4846,7 @@ def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
                     integration_branch,
                     dry_run=not args.apply,
                     overwrite_managed=args.overwrite_managed,
+                    skip_github_auth=args.skip_github_auth,
                 )
                 update = {
                     "updated": bool(args.apply),
@@ -4671,7 +4952,15 @@ def portfolio_sanitized_report(args: argparse.Namespace) -> dict[str, Any]:
             for goal in goals:
                 state = str(goal.get("state", "unknown"))
                 goal_counts[state] = goal_counts.get(state, 0) + 1
-            morning = morning_decision_report(root, config)
+            previous_project_root = os.environ.get("CONTINUITY_PROJECT_ROOT")
+            os.environ["CONTINUITY_PROJECT_ROOT"] = str(root)
+            try:
+                morning = morning_decision_report(root, config)
+            finally:
+                if previous_project_root is None:
+                    os.environ.pop("CONTINUITY_PROJECT_ROOT", None)
+                else:
+                    os.environ["CONTINUITY_PROJECT_ROOT"] = previous_project_root
             records.append(
                 {
                     "project_id": config["project_id"],
@@ -4682,6 +4971,11 @@ def portfolio_sanitized_report(args: argparse.Namespace) -> dict[str, Any]:
                     "decisions_required": len(morning.get("decisions_needed", [])),
                     "blocked_or_at_risk": len(morning.get("blocked_or_at_risk", [])),
                     "risk_types": sorted({str(item.get("type") or item.get("state") or "goal") for item in morning.get("blocked_or_at_risk", [])}),
+                    "product_audit_status": morning.get("product_audit_health", {}).get("status"),
+                    "product_audits_due": len(morning.get("product_audit_health", {}).get("due", [])),
+                    "product_audit_baseline_required": bool(
+                        morning.get("product_audit_health", {}).get("baseline_required")
+                    ),
                     "scheduler_state": morning.get("scheduler", {}).get("state"),
                     "no_action_required": bool(morning.get("no_action_required")),
                 }
@@ -4845,6 +5139,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
     existing = json_load(existing_path, {})
     if isinstance(existing, dict) and isinstance(existing.get("settings"), dict):
         settings = dict(existing["settings"])
+        settings.setdefault("product_audit_stale_after_days", config.get("product_audit_stale_after_days", 30))
         settings.setdefault("planning_patterns", dict(DEFAULT_PLANNING_PATTERNS))
         settings.setdefault("roadmap", dict(DEFAULT_ROADMAP_SETTINGS))
         settings.setdefault("agent_surfaces", dict(DEFAULT_AGENT_SURFACES))
@@ -4870,6 +5165,7 @@ def current_behavior_settings(root: Path, config: dict[str, Any], manifest: dict
         },
         "max_runtime_minutes": config.get("max_runtime_minutes", 360),
         "memory_stale_after_days": config.get("memory_stale_after_days", 90),
+        "product_audit_stale_after_days": config.get("product_audit_stale_after_days", 30),
         "validation_commands": config.get("validation_commands", []),
         "security_commands": config.get("security_commands", []),
         "github_required_checks": config.get("github_required_checks", []),
@@ -4896,6 +5192,7 @@ def recommended_behavior_settings(root: Path, config: dict[str, Any], manifest: 
         "schedules": current["schedules"],
         "max_runtime_minutes": current["max_runtime_minutes"],
         "memory_stale_after_days": current["memory_stale_after_days"],
+        "product_audit_stale_after_days": current["product_audit_stale_after_days"],
         "validation_commands": detected or current.get("validation_commands", []),
         "security_commands": current.get("security_commands", []),
         "github_required_checks": current.get("github_required_checks", []),
@@ -4928,6 +5225,7 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "schedules.report",
             "max_runtime_minutes",
             "memory_stale_after_days",
+            "product_audit_stale_after_days",
             "validation_commands",
             "security_commands",
             "github_required_checks",
@@ -4962,8 +5260,9 @@ def project_recommendations(args: argparse.Namespace) -> dict[str, Any]:
             "validation_commands": "Use deterministic repository-prescribed checks; keep credentials out of committed commands.",
             "security_commands": "Add project-native scanners when available; the evidence-based security review remains mandatory either way.",
             "visual_evidence_mode": "Use when-applicable so UI work produces visuals and non-visual work records why they do not apply.",
+            "product_audit_stale_after_days": "Use a bounded review interval so baseline and drift audits return to the nightly decision queue.",
             "project_instructions": "Add only reviewed repository-specific refinements; fixed guardrails always take precedence.",
-            "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless external publication is separately approved.",
+            "planning_patterns": "Use auto by default. Require a pattern when every goal needs it, disable only when another reviewed project process replaces it, and keep local tracking unless an external provider is explicitly connected.",
             "roadmap": "Use the full hybrid roadmap by default. The sidecar stays read-only, local-clone-only, and excluded from every production distribution.",
             "agent_surfaces": "Choose one primary surface and every surface that should receive a project-local Continuity adapter. AGENTS.md remains canonical.",
             "scheduler": "Choose where persistent scheduled actions will be registered. Configuration records intent; registration remains an explicit user action.",
@@ -4983,6 +5282,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
         "schedules",
         "max_runtime_minutes",
         "memory_stale_after_days",
+        "product_audit_stale_after_days",
         "validation_commands",
         "security_commands",
         "github_required_checks",
@@ -5015,7 +5315,7 @@ def validate_behavior_settings(root: Path, value: Any) -> dict[str, Any]:
     for label, scheduled in schedules.items():
         if not isinstance(scheduled, str) or not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", scheduled):
             raise ContinuityError(f"Invalid {label} schedule; use HH:MM in 24-hour time")
-    for label, maximum in (("max_runtime_minutes", 360), ("memory_stale_after_days", 3650)):
+    for label, maximum in (("max_runtime_minutes", 360), ("memory_stale_after_days", 3650), ("product_audit_stale_after_days", 3650)):
         number = settings.get(label)
         if isinstance(number, bool) or not isinstance(number, int) or not 1 <= number <= maximum:
             raise ContinuityError(f"{label} must be between 1 and {maximum}")
@@ -5185,6 +5485,7 @@ def interactive_behavior_answers(recommended: dict[str, Any]) -> dict[str, Any]:
         },
         "max_runtime_minutes": int_answer("Maximum unattended runtime in minutes", recommended["max_runtime_minutes"]),
         "memory_stale_after_days": int_answer("Memory verification age in days", recommended["memory_stale_after_days"]),
+        "product_audit_stale_after_days": int_answer("Product audit refresh age in days", recommended["product_audit_stale_after_days"]),
         "validation_commands": json_answer("Validation commands", recommended["validation_commands"]),
         "security_commands": json_answer("Security commands", recommended["security_commands"]),
         "github_required_checks": json_answer("Required GitHub check names", recommended["github_required_checks"]),
@@ -5256,6 +5557,7 @@ def project_configure(args: argparse.Namespace) -> dict[str, Any]:
             "default_start_time": settings["schedules"]["dispatch"],
             "max_runtime_minutes": settings["max_runtime_minutes"],
             "memory_stale_after_days": settings["memory_stale_after_days"],
+            "product_audit_stale_after_days": settings["product_audit_stale_after_days"],
             "validation_commands": settings["validation_commands"],
             "security_commands": settings["security_commands"],
             "github_required_checks": settings["github_required_checks"],
@@ -5530,10 +5832,12 @@ def safe_extract_tar(archive: tarfile.TarFile, destination: Path, label: str) ->
     collisions = runtime_lib.casefold_path_collisions([name for _member, name in members])
     if collisions:
         raise ContinuityError(f"{label} contains case-insensitive path collisions: {collisions}")
-    for file_name in file_names:
-        prefix = file_name + "/"
-        if any(name.startswith(prefix) for _member, name in members):
-            raise ContinuityError(f"{label} uses a file as an archive directory: {file_name}")
+    for _member, name in members:
+        parts = name.split("/")
+        for depth in range(1, len(parts)):
+            parent = "/".join(parts[:depth])
+            if parent in file_names:
+                raise ContinuityError(f"{label} uses a file as an archive directory: {parent}")
     for member, normalized in members:
         target = (destination / normalized).resolve()
         if not target.is_relative_to(destination):
@@ -5660,7 +5964,9 @@ def suite_update(args: argparse.Namespace) -> dict[str, Any]:
             command.append("--dry-run")
         if args.overwrite_managed:
             command.append("--overwrite-managed")
-        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+        if args.skip_github_auth:
+            command.append("--skip-github-auth")
+        result = subprocess.run(command, capture_output=True, text=True, timeout=930, check=False)
         if result.returncode != 0:
             raise ContinuityError(f"Continuity update failed: {result.stderr.strip() or result.stdout.strip()}")
         payload = json.loads(result.stdout)
@@ -6338,6 +6644,44 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     if not installation["healthy"]:
         record["healthy"] = False
         record["problems"].extend(installation["problems"])
+    collection_checks = {"enabled": config.get("collections", []), "missing_skills": [], "unexpected_collection_skills": []}
+    try:
+        definitions = [json_load(path, {}) for path in sorted((CONTROL_ROOT / "collections").glob("*.json"))]
+        by_collection = {item.get("collection_id"): set(item.get("skills", [])) for item in definitions}
+        enabled = set(config.get("collections", []))
+        expected = set().union(*(by_collection.get(item, set()) for item in enabled)) if enabled else set()
+        all_collection_skills = set().union(*by_collection.values()) if by_collection else set()
+        installed = {
+            path.name
+            for path in (root / ".agents" / "skills").iterdir()
+            if (path.name == "goal" or path.name.startswith("continuity")) and path.is_dir()
+        }
+        collection_checks["missing_skills"] = sorted(expected - installed)
+        collection_checks["unexpected_collection_skills"] = sorted((installed & all_collection_skills) - expected)
+        if collection_checks["missing_skills"] or collection_checks["unexpected_collection_skills"]:
+            record["healthy"] = False
+            record["problems"].append(f"collection skill mismatch: {collection_checks}")
+    except (OSError, json.JSONDecodeError) as exc:
+        record["healthy"] = False
+        record["problems"].append(f"collection definitions are invalid: {exc}")
+    record["collections"] = collection_checks
+    if "design" in set(config.get("collections", [])):
+        installed_catalog = root / ".agents" / "skills" / "continuity-design" / "references" / "catalog.json"
+        try:
+            catalog = design_lib.load_catalog(installed_catalog)
+            record["design_catalog"] = {"healthy": True, "catalog_version": catalog["catalog_version"], "packs": [{"pack_id": item["pack_id"], "version": item["version"]} for item in catalog["packs"]]}
+            approved_path = root / ".continuity" / "design.json"
+            if approved_path.exists():
+                approved = json_load(approved_path, {})
+                runtime_lib.validate_schema_file(approved, CONTROL_ROOT / "schemas" / "design-record.schema.json", "approved design")
+                document = root / str(approved.get("document_path", ""))
+                if not document.is_file() or hashlib.sha256(document.read_bytes()).hexdigest() != approved.get("design_hash"):
+                    raise ContinuityError("approved design document does not match .continuity/design.json")
+                record["design_catalog"]["approved_design"] = {"design_id": approved["design_id"], "revision": approved["revision"], "design_hash": approved["design_hash"]}
+        except (design_lib.DesignError, runtime_lib.RuntimeIntegrityError, OSError, json.JSONDecodeError, ContinuityError) as exc:
+            record["healthy"] = False
+            record["design_catalog"] = {"healthy": False, "problem": str(exc)}
+            record["problems"].append(f"design catalog or approved design is invalid: {exc}")
     schema_checks: list[dict[str, Any]] = []
     for value, schema_name, label in (
         (config, "project-config.schema.json", "project config"),
@@ -6385,6 +6729,38 @@ def project_doctor(args: argparse.Namespace) -> dict[str, Any]:
     if manifest.get("execution_enabled") and config.get("require_pr", True) and not config.get("github_required_checks"):
         record["healthy"] = False
         record["problems"].append("execution is enabled but no required GitHub checks are configured")
+    if config.get("planning_patterns", {}).get("tracker_provider") == "github":
+        try:
+            _settings_path, settings = github_projects_lib.load_settings(
+                root,
+                config,
+                ".continuity/github-projects.json",
+            )
+            connection = github_projects_lib.load_connection(root, config)
+            assert connection is not None
+            destination = connection["destination"]
+            if (
+                destination["owner_type"] != settings["owner_type"]
+                or destination["owner"].casefold() != str(settings["owner"]).casefold()
+                or destination["project_number"] != settings["project_number"]
+            ):
+                raise github_projects_lib.GitHubProjectsError(
+                    "GitHub Projects settings and durable connection target different Projects"
+                )
+            record["roadmap_connection"] = {
+                "provider": "github-projects",
+                "connected": True,
+                "connection_id": connection["connection_id"],
+                "authenticated_user": connection["authenticated_user"],
+                "destination": destination,
+                "capabilities": connection["capabilities"],
+                "sync_policy": connection["sync_policy"],
+                "live_check": "run roadmap github-projects status",
+            }
+        except github_projects_lib.GitHubProjectsError as exc:
+            record["healthy"] = False
+            record["roadmap_connection"] = {"provider": "github-projects", "connected": False, "problem": str(exc)}
+            record["problems"].append(f"GitHub Projects connection is invalid: {exc}")
     record["platform"] = {"name": sys.platform, "supported": sys.platform.startswith(("darwin", "linux", "win32"))}
     record["filesystem"] = runtime_lib.project_filesystem_profile(root)
     restore_transaction_root = root / ".continuity-restore"
@@ -6642,6 +7018,24 @@ def scheduler_lease_acquire(args: argparse.Namespace) -> dict[str, Any]:
     owner_fingerprint = canonical_hash({"owner": args.owner})[:24]
     current_commit, current = remote_lease_record(root, config, args.remote)
     if current and remote_lease_is_protected(current, config):
+        if (
+            current.get("goal_id") == args.goal_id
+            and str(current.get("attempt_id")) == expected_attempt
+            and current.get("owner_fingerprint") == owner_fingerprint
+        ):
+            local = {**current, "remote": args.remote, "lease_commit": current_commit}
+            json_dump(private_path(root, config) / "remote-lease.json", local)
+            append_jsonl(
+                private_path(root, config) / "events.jsonl",
+                {
+                    "at": iso_now(config),
+                    "event": "scheduler.lease-reconciled",
+                    "goal_id": args.goal_id,
+                    "attempt_id": expected_attempt,
+                    "lease_commit": current_commit,
+                },
+            )
+            return local
         raise ContinuityError(f"Project already has an active remote lease through {current['expires_at']}")
     acquired = now(config)
     ttl = remote_lease_ttl(args, config)
@@ -6683,6 +7077,28 @@ def scheduler_lease_renew(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError("An expired remote lease cannot be renewed; acquire a new lease after clock-skew grace")
     remote = local.get("remote", "origin")
     current_commit, current = remote_lease_record(root, config, remote)
+    if (
+        current
+        and current.get("status") == "active"
+        and current_commit != local.get("lease_commit")
+        and current.get("previous_lease_commit") == local.get("lease_commit")
+        and current.get("goal_id") == args.goal_id
+        and str(current.get("attempt_id")) == str(args.attempt_id)
+        and current.get("owner_fingerprint") == local.get("owner_fingerprint")
+    ):
+        reconciled = {**current, "remote": remote, "lease_commit": current_commit}
+        json_dump(local_path, reconciled)
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {
+                "at": iso_now(config),
+                "event": "scheduler.lease-reconciled",
+                "goal_id": args.goal_id,
+                "attempt_id": str(args.attempt_id),
+                "lease_commit": current_commit,
+            },
+        )
+        return reconciled
     if not current or current_commit != local.get("lease_commit") or current.get("status") != "active":
         raise ContinuityError("Remote lease changed since acquisition; refusing to renew a stale or replayed receipt")
     if current.get("goal_id") != args.goal_id or str(current.get("attempt_id")) != str(args.attempt_id):
@@ -6723,7 +7139,7 @@ def bind_remote_lease_to_run(
 ) -> dict[str, Any]:
     remote = local.get("remote", "origin")
     current_commit, current = remote_lease_record(root, config, remote)
-    if not current or current_commit != local.get("lease_commit") or current.get("status") != "active":
+    if not current or current.get("status") != "active":
         raise ContinuityError("Remote lease changed before scheduler binding; no run may start")
     existing_binding = {
         "bound_run_id": current.get("bound_run_id"),
@@ -6735,10 +7151,20 @@ def bind_remote_lease_to_run(
         "bound_task_id": task_id,
         "bound_idempotency_key": idempotency_key,
     }
+    if current_commit != local.get("lease_commit") and not (
+        current.get("previous_lease_commit") == local.get("lease_commit")
+        and current.get("goal_id") == local.get("goal_id")
+        and str(current.get("attempt_id")) == str(local.get("attempt_id"))
+        and current.get("owner_fingerprint") == local.get("owner_fingerprint")
+        and existing_binding == requested_binding
+    ):
+        raise ContinuityError("Remote lease changed before scheduler binding; no run may start")
     if any(existing_binding.values()) and existing_binding != requested_binding:
         raise ContinuityError("Remote lease is already bound to another scheduler run")
     if existing_binding == requested_binding:
-        return local
+        reconciled = {**current, "remote": remote, "lease_commit": current_commit}
+        json_dump(private_path(root, config) / "remote-lease.json", reconciled)
+        return reconciled
     bound = {**current, **requested_binding, "previous_lease_commit": current_commit}
     try:
         runtime_lib.validate_schema_file(bound, CONTROL_ROOT / "schemas" / "remote-lease.schema.json", "remote execution lease")
@@ -6807,6 +7233,27 @@ def release_active_remote_lease(
         raise ContinuityError("Refusing to release a lease bound to another scheduler task")
     remote = local.get("remote", "origin")
     current_commit, current = remote_lease_record(root, config, remote)
+    if (
+        current
+        and current.get("status") == "released"
+        and current.get("previous_lease_commit") == local.get("lease_commit")
+        and current.get("goal_id") == expected_goal_id
+        and str(current.get("attempt_id")) == str(expected_attempt_id)
+        and (expected_run_id is None or current.get("bound_run_id") == expected_run_id)
+        and (expected_task_id is None or current.get("bound_task_id") == expected_task_id)
+    ):
+        reconciled = {**current, "remote": remote, "lease_commit": current_commit}
+        json_dump(local_path, reconciled)
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {
+                "at": iso_now(config),
+                "event": "scheduler.lease-reconciled",
+                "goal_id": expected_goal_id,
+                "lease_commit": current_commit,
+            },
+        )
+        return reconciled
     if not current or current_commit != local.get("lease_commit"):
         raise ContinuityError("Remote lease changed since acquisition; refusing to release another operator's lease")
     stamp = iso_now(config)
@@ -6852,9 +7299,22 @@ def scheduler_adapter_render(args: argparse.Namespace, provider: str) -> dict[st
     if scheduler["provider"] != provider:
         raise ContinuityError(f"{provider} adapter rendering requires scheduler.provider={provider}")
     roots = requested_workspace_roots(args.root or [])
-    launcher = root / ".agents" / "continuity" / "bin" / ("continuity.cmd" if os.name == "nt" else "continuity")
+    entrypoint = root / ".agents" / "continuity" / "bin" / "continuity"
+    launcher_argv = [str(entrypoint)]
+    if os.name == "nt":
+        interpreter_record = private_path(root, config) / "python-interpreter.txt"
+        configured_interpreter = (
+            interpreter_record.read_text(encoding="utf-8").strip()
+            if interpreter_record.is_file()
+            else ""
+        )
+        if not configured_interpreter or not Path(configured_interpreter).is_file():
+            raise ContinuityError(
+                "Scheduler adapter rendering requires the installer-bound Python interpreter; reinstall Continuity"
+            )
+        launcher_argv = [str(Path(configured_interpreter).resolve()), str(entrypoint)]
     supervisor_argv = [
-        str(launcher),
+        *launcher_argv,
         "--json",
         "portfolio",
         "actions",
@@ -6865,7 +7325,7 @@ def scheduler_adapter_render(args: argparse.Namespace, provider: str) -> dict[st
         "__CONTINUITY_SWEEP_ID__",
     ]
     registration_argv = [
-        str(launcher),
+        *launcher_argv,
         "--project-root",
         str(root),
         "scheduler",
@@ -6896,7 +7356,7 @@ def scheduler_adapter_render(args: argparse.Namespace, provider: str) -> dict[st
         "workspace_roots": [str(path) for path in roots],
         "prompt": prompt,
         "literal_placeholders": literal_placeholders,
-        "launcher": str(launcher),
+        "launcher": launcher_argv[0],
         "supervisor_argv": supervisor_argv,
         "registration_argv": registration_argv,
         "shell_required": False,
@@ -7141,7 +7601,9 @@ def scheduler_run_start(args: argparse.Namespace) -> dict[str, Any]:
                 if latest_at is not None and latest.get("status") in SCHEDULER_FINAL_STATES and current - latest_at < dt.timedelta(minutes=scheduler["retry_backoff_minutes"]):
                     raise ContinuityError("Scheduled action is still in retry backoff")
             attempt = attempts + 1
-            run_id = f"run-{secrets.token_hex(8)}"
+            run_id = "run-" + hashlib.sha256(
+                f"{config['project_id']}\0{args.idempotency_key}\0{args.claim_token}\0{attempt}".encode()
+            ).hexdigest()[:16]
             if dispatch_lease is not None:
                 dispatch_lease = bind_remote_lease_to_run(
                     root,
@@ -7319,6 +7781,7 @@ def git_result(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
 def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     directory, goal = load_goal(root, config, args.goal_id)
+    fast_interactive = bool(getattr(args, "fast_interactive", False))
     failures: list[str] = []
     evidence: list[str] = []
     try:
@@ -7326,7 +7789,10 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
         if not manifest.get("continuity_enabled"):
             failures.append("Continuity is disabled")
         if not manifest.get("execution_enabled"):
-            failures.append("project product-code execution is disabled")
+            if fast_interactive:
+                evidence.append("interactive-goal-request:execution-authorized; unattended-execution-disabled")
+            else:
+                failures.append("project product-code execution is disabled")
         if manifest.get("project_id") != config.get("project_id"):
             failures.append("project manifest and configuration IDs differ")
         if manifest.get("integration_branch") != config.get("integration_branch"):
@@ -7339,7 +7805,7 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
         evidence.append(f"approval:{approval['plan_hash']}")
     except ContinuityError as exc:
         failures.append(str(exc))
-    if config.get("require_audit_checkpoints", False):
+    if config.get("require_audit_checkpoints", False) and not fast_interactive:
         try:
             checkpoint = verify_audit_checkpoint(root, config)
             evidence.append(f"audit-checkpoint:{checkpoint['created_at']}")
@@ -7362,7 +7828,11 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
         if config.get("refresh_base_on_preflight", False):
             fetched = git_result(root, "fetch", "origin", base)
             if fetched.returncode != 0:
-                failures.append(f"failed to fetch origin/{base}: {fetched.stderr.strip()}")
+                message = f"failed to fetch origin/{base}: {fetched.stderr.strip()}"
+                if fast_interactive:
+                    evidence.append(f"advisory:{message}")
+                else:
+                    failures.append(message)
             else:
                 evidence.append(f"fetched:origin/{base}")
         local = git_result(root, "show-ref", "--verify", f"refs/heads/{base}")
@@ -7377,7 +7847,7 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
             failures.append("origin remote is unavailable")
         else:
             evidence.append("origin:configured")
-    if config.get("require_pr_auth", False):
+    if config.get("require_pr_auth", False) and not fast_interactive:
         try:
             repository = github_repository_from_remote(root)
             authenticated_login = github_authenticated_login(root, repository)
@@ -7403,7 +7873,13 @@ def execution_preflight(args: argparse.Namespace) -> dict[str, Any]:
     }
     compliance["updated_at"] = stamp
     json_dump(directory / "compliance.json", compliance)
-    report = {"goal_id": args.goal_id, "passed": not failures, "failures": failures, "evidence": evidence}
+    report = {
+        "goal_id": args.goal_id,
+        "mode": "interactive-fast" if fast_interactive else "standard",
+        "passed": not failures,
+        "failures": failures,
+        "evidence": evidence,
+    }
     json_dump(directory / "preflight.json", report)
     return report
 
@@ -7425,10 +7901,11 @@ def execution_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
 def goal_start(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     goal, approval = validate_approval(root, config, args.goal_id)
+    fast_interactive = bool(getattr(args, "fast_interactive", False))
     if goal.get("state") != "queued":
         raise ContinuityError(f"Only a queued goal can be dispatched; current state is {goal.get('state')}")
     active_lease = None
-    if config.get("require_remote_lease", False):
+    if config.get("require_remote_lease", False) and not fast_interactive:
         active_lease = validate_active_remote_lease(
             root,
             config,
@@ -7436,7 +7913,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
             str(int(goal.get("execution_attempt", 1))),
         )
     directory = goal_dir(root, config, args.goal_id)
-    preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id))
+    preflight = execution_preflight(argparse.Namespace(goal_id=args.goal_id, fast_interactive=fast_interactive))
     if not preflight["passed"]:
         raise ContinuityError(f"Execution preflight failed: {preflight['failures']}")
     lock_path = private_path(root, config) / "project.lock.json"
@@ -7493,6 +7970,7 @@ def goal_start(args: argparse.Namespace) -> dict[str, Any]:
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "behavior_skill_path": config.get("behavior_skill_path", BEHAVIOR_SKILL_PATH),
         "assurance_standard_version": ASSURANCE_STANDARD_VERSION,
+        "execution_mode": "interactive-fast" if fast_interactive else "standard",
         "remote_lease": {
             key: active_lease.get(key)
             for key in ("goal_id", "attempt_id", "owner_fingerprint", "lease_commit", "bound_run_id", "bound_task_id")
@@ -7520,6 +7998,11 @@ def goal_gate(args: argparse.Namespace) -> dict[str, Any]:
         raise ContinuityError(f"Invalid compliance status: {args.status}")
     if args.status in {"passed", "failed", "not-applicable"} and not args.evidence:
         raise ContinuityError("Non-pending compliance states require evidence")
+    if args.stage == "product-conformance" and args.status == "passed":
+        raise ContinuityError(
+            "Pass product-conformance only through `continuity audit record --update-gate`; "
+            "use not-applicable with evidence for a genuinely non-product goal"
+        )
     if goal.get("state") in TERMINAL_STATES and args.stage != "human-review":
         raise ContinuityError("Only human-review evidence may be added after a goal becomes terminal")
     stamp = iso_now(config)
@@ -8341,15 +8824,40 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         actions.append(workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True))
     elif state == "awaiting-feedback":
         current_stage = "plan-review"
-        next_skill = "continuity-dispatch"
-        actions.extend(
-            [
-                workflow_action("approve", "continuity-dispatch", f'{prefix} goal approve {goal_id} --version {goal["plan_version"]} --approved-by <human> --authorization-text "Approve {goal_id} plan v{goal["plan_version"]}"' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""), human_required=True, requirements=["decision-complete plan", "trusted SSH approver" if config.get("require_signed_approvals", False) else "recorded human identity"]),
-                workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True),
-                workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
-                workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
-            ]
+        fast_eligible = (
+            goal.get("authorization_mode") == "goal-request"
+            and goal.get("risk_level") == "routine"
+            and not goal.get("restricted_side_effects")
         )
+        proceed_eligible = goal.get("risk_level") == "routine" and not goal.get("restricted_side_effects")
+        next_skill = "goal" if proceed_eligible else "continuity-dispatch"
+        if fast_eligible:
+            actions.append(
+                workflow_action(
+                    "activate",
+                    "goal",
+                    f"{prefix} goal activate {goal_id}",
+                    requirements=["submitted /goal request", "decision-complete aligned plan", "routine interactive scope"],
+                )
+            )
+        elif proceed_eligible:
+            actions.append(
+                workflow_action(
+                    "proceed",
+                    "goal",
+                    f"{prefix} goal proceed {goal_id}",
+                    requirements=["current user said proceed", "decision-complete aligned plan", "routine interactive scope"],
+                )
+            )
+        else:
+            actions.extend(
+                [
+                    workflow_action("approve", "continuity-dispatch", f'{prefix} goal approve {goal_id} --version {goal["plan_version"]} --approved-by <human> --authorization-text "Approve {goal_id} plan v{goal["plan_version"]}"' + (" --signing-key <ssh-private-key>" if config.get("require_signed_approvals", False) else ""), human_required=True, requirements=["decision-complete plan", "trusted SSH approver" if config.get("require_signed_approvals", False) else "recorded human identity"]),
+                    workflow_action("revise", "continuity-plan", f"{prefix} goal revise {goal_id} --goal-file <revision.json> --author <human> --summary <reason>", human_required=True),
+                    workflow_action("hold", "continuity-dispatch", f"{prefix} goal hold {goal_id}", human_required=True),
+                    workflow_action("cancel", "continuity-dispatch", f"{prefix} goal cancel {goal_id}", human_required=True),
+                ]
+            )
     elif state == "held":
         current_stage = "held"
         next_skill = "continuity-dispatch"
@@ -8404,6 +8912,40 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
             next_skill = "continuity-test"
             blockers.extend(test_failures)
             actions.append(workflow_action("rerun-tests", "continuity-test", f"{prefix} test run {goal_id} --worktree <worktree> --branch <branch>"))
+        elif stages.get("product-conformance", {}).get("status") not in {"passed", "not-applicable"}:
+            current_stage = "product-conformance"
+            next_skill = "continuity-product-audit"
+            product_status = stages.get("product-conformance", {}).get("status", "missing")
+            if product_status == "failed":
+                blockers.append("product-conformance has current-goal mismatches")
+            actions.extend(
+                [
+                    workflow_action(
+                        "plan-product-audit",
+                        "continuity-product-audit",
+                        f"{prefix} audit plan --input <audit-input.json> --goal-id {goal_id}",
+                        requirements=["candidate profile", "current approved sources", "representative journeys"],
+                    ),
+                    workflow_action(
+                        "mark-not-applicable",
+                        "continuity-product-audit",
+                        f"{prefix} goal gate {goal_id} product-conformance --status not-applicable --evidence <reason>",
+                        requirements=["goal has no user-observable product or documentation conformance impact"],
+                    ),
+                ]
+            )
+        elif (audit_failures := current_product_audit_evidence_failures(root, config, directory, goal)):
+            current_stage = "product-conformance"
+            next_skill = "continuity-product-audit"
+            blockers.extend(audit_failures)
+            actions.append(
+                workflow_action(
+                    "rerun-product-audit",
+                    "continuity-product-audit",
+                    f"{prefix} audit plan --input <audit-input.json> --goal-id {goal_id}",
+                    requirements=["audit current source fingerprint"],
+                )
+            )
         elif merge_report.get("status") != "passed":
             current_stage = "merge-safety"
             next_skill = "continuity-merge"
@@ -8492,6 +9034,7 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
         "source_capture_refs": goal.get("source_capture_refs", []),
         "test_status": test_report.get("status") if isinstance(test_report, dict) else None,
         "test_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
+        "product_audit": json_load(directory / "product-audit.json", {}),
         "merge_status": merge_report.get("status") if isinstance(merge_report, dict) else None,
         "pr_url": execution.get("pr_url") if isinstance(execution, dict) else None,
         "prior_attempts": prior_attempts,
@@ -8536,6 +9079,48 @@ def workflow_status_for_goal(root: Path, config: dict[str, Any], goal: dict[str,
 def workflow_status(args: argparse.Namespace) -> dict[str, Any]:
     root, config = load_context()
     goals = goal_list(argparse.Namespace(state=None))
+    if args.design_id:
+        try:
+            status = design_lib.workflow(root, config, args.design_id)
+        except design_lib.DesignError as exc:
+            raise ContinuityError(str(exc)) from exc
+        return {"schema_version": 1, "project_id": config["project_id"], "generated_at": iso_now(config), "design": status}
+    if args.audit_id:
+        try:
+            audit = product_audit_lib.workflow(root, config, args.audit_id)
+        except product_audit_lib.ProductAuditError as exc:
+            raise ContinuityError(str(exc)) from exc
+        prefix = '.agents/continuity/bin/continuity --project-root "$PWD"'
+        commands = {
+            "start-audit": f"{prefix} audit start {args.audit_id} --worktree <worktree> --branch <branch>",
+            "record-audit": f"{prefix} audit record {args.audit_id} --result-file <audit-result.json> --worktree <worktree> --branch <branch> --artifact <product-conformance.md> --update-gate",
+            "capture-findings": f"{prefix} audit capture-findings {args.audit_id}",
+            "triage-captured-findings": f"{prefix} workflow status",
+            "compare-audits": f"{prefix} audit compare {args.audit_id} --against <prior-audit-id>",
+            "report-audit": f"{prefix} audit show {args.audit_id}",
+        }
+        actions = [
+            workflow_action(name, audit["next_skill"], commands[name])
+            for name in audit["allowed_actions"]
+        ]
+        handoff = workflow_handoff_envelope(
+            stage=f"product-audit-{audit['status']}",
+            subject_ids={"audit_id": args.audit_id, "goal_id": audit.get("goal_id")},
+            inputs_used=[f"audit:{args.audit_id}"],
+            outputs_created=[f"result-hash:{audit['result_hash']}"] if audit.get("result_hash") else [],
+            decisions=[{"type": "product-audit-status", "value": audit["status"]}],
+            evidence={"finding_counts": audit["finding_counts"], "findings_capture": audit["findings_capture"]},
+            blockers=[],
+            next_skill=audit["next_skill"],
+            allowed_actions=actions,
+            execution_authorized=False,
+        )
+        return {
+            "schema_version": 1,
+            "project_id": config["project_id"],
+            "generated_at": iso_now(config),
+            "audit": {**audit, "allowed_actions": actions, "handoff": handoff},
+        }
     if args.goal_id:
         matches = [goal for goal in goals if goal.get("goal_id") == args.goal_id]
         if len(matches) != 1:
@@ -9258,6 +9843,81 @@ def current_test_evidence_failures(
     return failures
 
 
+def current_product_audit_evidence_failures(
+    root: Path,
+    config: dict[str, Any],
+    directory: Path,
+    goal: dict[str, Any],
+) -> list[str]:
+    compliance = json_load(directory / "compliance.json", {})
+    stage = compliance.get("stages", {}).get("product-conformance", {})
+    if stage.get("status") == "not-applicable":
+        return []
+    if stage.get("status") != "passed":
+        return [f"compliance stage product-conformance is {stage.get('status') or 'missing'}"]
+    record = json_load(directory / "product-audit.json", {})
+    if not isinstance(record, dict) or record.get("status") != "passed":
+        return ["current passed candidate product audit is missing"]
+    failures: list[str] = []
+    if record.get("profile") != "candidate":
+        failures.append("product audit is not a candidate audit")
+    if record.get("goal_id") != goal.get("goal_id"):
+        failures.append("product audit goal binding is stale")
+    goal_binding = record.get("goal_binding", {})
+    if not isinstance(goal_binding, dict) or goal_binding.get("plan_hash") != goal.get("plan_hash"):
+        failures.append("product audit plan evidence is stale")
+    execution = json_load(directory / "execution.json", {})
+    if not isinstance(execution, dict):
+        execution = {}
+    worktree = Path(execution.get("worktree") or root).expanduser().resolve()
+    try:
+        snapshot = worktree_source_snapshot(worktree)
+    except ContinuityError as exc:
+        return [*failures, str(exc)]
+    binding = record.get("target_binding", {})
+    if not isinstance(binding, dict):
+        binding = {}
+    bindings = {
+        "product audit source fingerprint": (
+            binding.get("source_fingerprint"),
+            snapshot["source_fingerprint"],
+        ),
+        "product audit repository": (
+            binding.get("repository_fingerprint"),
+            snapshot["repository_fingerprint"],
+        ),
+        "product audit commit": (binding.get("commit_sha"), snapshot["commit_sha"]),
+        "product audit branch": (binding.get("branch"), snapshot["branch"]),
+        "product audit behavior": (
+            binding.get("behavior_configuration_hash"),
+            config.get("behavior_configuration_hash"),
+        ),
+    }
+    for label, (recorded, current) in bindings.items():
+        if recorded != current:
+            failures.append(f"{label} evidence is stale")
+    artifact = record.get("sanitized_artifact")
+    if config.get("require_execution_artifacts", False):
+        if not isinstance(artifact, dict) or artifact.get("path") != "product-conformance.md":
+            failures.append("product-conformance.md audit artifact is missing")
+        else:
+            artifact_path = (worktree / str(artifact["path"])).resolve()
+            if (
+                not artifact_path.is_file()
+                or not artifact_path.is_relative_to(worktree)
+                or hashlib.sha256(artifact_path.read_bytes()).hexdigest() != artifact.get("sha256")
+            ):
+                failures.append("product-conformance.md audit artifact is stale")
+    try:
+        latest = product_audit_lib.latest_for_goal(root, config, str(goal["goal_id"]))
+    except product_audit_lib.ProductAuditError as exc:
+        failures.append(str(exc))
+    else:
+        if not latest or latest.get("result_hash") != record.get("result_hash"):
+            failures.append("a newer candidate product audit exists")
+    return failures
+
+
 def current_review_evidence_failures(
     root: Path,
     config: dict[str, Any],
@@ -9265,6 +9925,7 @@ def current_review_evidence_failures(
     goal: dict[str, Any],
 ) -> list[str]:
     failures = current_test_evidence_failures(root, config, directory, goal)
+    failures.extend(current_product_audit_evidence_failures(root, config, directory, goal))
     merge_report = json_load(directory / "merge-assessment.json", {})
     if not isinstance(merge_report, dict) or merge_report.get("status") != "passed":
         failures.append("current passed merge assessment is missing")
@@ -9481,10 +10142,15 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
             if test_report.get("commit_sha") != current_snapshot["commit_sha"]:
                 failures.append("latest test report does not match the current commit")
     compliance = json_load(directory / "compliance.json", {})
-    for stage in ("code-review", "validation", "security-review"):
+    for stage in ("code-review", "validation", "security-review", "product-conformance"):
         status = compliance.get("stages", {}).get(stage, {}).get("status")
         if status not in {"passed", "not-applicable"}:
             failures.append(f"compliance stage {stage} is {status or 'missing'}")
+    if compliance.get("stages", {}).get("product-conformance", {}).get("status") in {
+        "passed",
+        "not-applicable",
+    }:
+        failures.extend(current_product_audit_evidence_failures(root, config, directory, goal))
     computed_status = "failed" if failures else "passed"
     if args.status and args.status != computed_status:
         if args.status == "passed":
@@ -10102,6 +10768,7 @@ def run_update(args: argparse.Namespace) -> dict[str, Any]:
                 "request-alignment.md",
                 "implementation-report.md",
                 "validation-and-security.md",
+                "product-conformance.md",
                 "memory-impact.md",
                 "roadmap-impact.md",
                 "evidence.md",
@@ -10142,6 +10809,10 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
     queue_counts = {name: len(note_queue(argparse.Namespace(queue=name, status="eligible"))) for name in queue_names}
     memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
     roadmap_report = json_load(private_path(root, config) / "reports" / "roadmap-health.json", {})
+    product_audits = product_audit_lib.show(root, config)
+    product_audit_due = product_audit_lib.due(
+        root, config, int(config.get("product_audit_stale_after_days", 30))
+    )
     active_runs = [
         run for run in scheduler_run_snapshots(root, config).values()
         if run.get("status") in SCHEDULER_ACTIVE_STATES
@@ -10170,10 +10841,11 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
         machine_run = json_load(directory / "machine-test-run.json", {})
         merge_report = json_load(directory / "merge-assessment.json", {})
         human_review = json_load(directory / "human-review.json", {})
+        product_audit = json_load(directory / "product-audit.json", {})
         evidence_files = [
             name for name in (
                 "goal.json", "plan.md", "approval.json", "dispatch.json", "execution.json", "preflight.json",
-                "machine-test-run.json", "test-report.json", "merge-assessment.json", "human-review.json", "compliance.json",
+                "machine-test-run.json", "test-report.json", "product-audit.json", "merge-assessment.json", "human-review.json", "compliance.json",
             )
             if (directory / name).exists()
         ]
@@ -10207,6 +10879,12 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                     "machine_evidence_hash": test_report.get("machine_evidence_hash") if isinstance(test_report, dict) else None,
                 },
                 "security": stages.get("security-review", {"status": "pending", "evidence": []}),
+                "product_conformance": {
+                    "gate": stages.get("product-conformance", {"status": "pending", "evidence": []}),
+                    "audit_id": product_audit.get("audit_id") if isinstance(product_audit, dict) else None,
+                    "status": product_audit.get("status") if isinstance(product_audit, dict) else None,
+                    "result_hash": product_audit.get("result_hash") if isinstance(product_audit, dict) else None,
+                },
                 "merge": {
                     "status": merge_report.get("status") if isinstance(merge_report, dict) else None,
                     "head_sha": merge_report.get("head_sha") if isinstance(merge_report, dict) else None,
@@ -10361,6 +11039,58 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
                 ],
             }
         )
+    for audit in product_audits:
+        if audit.get("status") in {"failed", "partial", "blocked"}:
+            blocked_or_at_risk.append(
+                {
+                    "type": "product-audit",
+                    **audit,
+                    "recommendation": "Review current-goal mismatches and capture later-work findings without expanding scope.",
+                }
+            )
+        record = product_audit_lib.load_record(root, config, str(audit["audit_id"]))
+        mismatch = [
+            item
+            for item in (record or {}).get("findings", [])
+            if item.get("status") in product_audit_lib.MISMATCH_STATUSES
+        ]
+        if mismatch and not (record or {}).get("findings_capture"):
+            decisions_needed.append(
+                {
+                    "type": "product-audit-findings",
+                    "audit_id": audit["audit_id"],
+                    "title": audit["title"],
+                    "state": audit["status"],
+                    "decision": "Capture product-conformance mismatches for triage.",
+                    "recommendation": "Capture findings as non-authorizing project signals, then disposition them through planning.",
+                    "finding_count": len(mismatch),
+                    "allowed_dispositions": [
+                        workflow_action(
+                            "capture-findings",
+                            "continuity-product-audit",
+                            f'.agents/continuity/bin/continuity --project-root "$PWD" audit capture-findings {audit["audit_id"]}',
+                        )
+                    ],
+                }
+            )
+    if product_audit_due["baseline_required"]:
+        decisions_needed.append(
+            {
+                "type": "product-audit-baseline",
+                "title": "Product-conformance baseline is not established",
+                "state": "baseline-required",
+                "decision": "Choose whether to plan a baseline product audit for the current production surface.",
+                "recommendation": "Plan representative journeys when a safe target is available; record explicit constraints instead of inventing access.",
+                "allowed_dispositions": [
+                    workflow_action(
+                        "plan-baseline-audit",
+                        "continuity-product-audit",
+                        '.agents/continuity/bin/continuity --project-root "$PWD" audit plan --input <baseline-audit-input.json>',
+                        human_required=True,
+                    )
+                ],
+            }
+        )
     scheduler_health = scheduler_registration_status_for(root, config)
     if scheduler_health["state"] in {"requires-user-registration", "stale"} or scheduler_health["stale_runs"]:
         blocked_or_at_risk.append({"type": "scheduler", "state": scheduler_health["state"], "stale_runs": scheduler_health["stale_runs"], "problems": scheduler_health["problems"]})
@@ -10403,6 +11133,14 @@ def morning_decision_report(root: Path, config: dict[str, Any]) -> dict[str, Any
             "status": "healthy" if roadmap_report.get("healthy") else ("unhealthy" if roadmap_report else "not-audited"),
             "report": roadmap_report,
         },
+        "product_audit_health": {
+            "status": "attention" if product_audit_due["due"] or product_audit_due["baseline_required"] else "healthy",
+            "audit_count": len(product_audits),
+            "stale_after_days": product_audit_due["stale_after_days"],
+            "baseline_required": product_audit_due["baseline_required"],
+            "due": product_audit_due["due"],
+            "latest": max(product_audits, key=lambda value: value.get("updated_at", ""), default=None),
+        },
         "active_runs": active_runs,
         "behavior_configuration_hash": config.get("behavior_configuration_hash"),
         "no_action_required": not decisions_needed and not blocked_or_at_risk,
@@ -10435,6 +11173,7 @@ def report_project(args: argparse.Namespace) -> str:
         counts[goal["state"]] = counts.get(goal["state"], 0) + 1
     memory_report = json_load(private_path(root, config) / "reports" / "memory-health.json", {})
     roadmap_report = json_load(private_path(root, config) / "reports" / "roadmap-health.json", {})
+    product_audits = product_audit_lib.show(root, config)
     shared_inbox = list(iter_jsonl(private_path(root, config) / "queues" / "shared-notes.jsonl"))
     test_reports = list(iter_jsonl(private_path(root, config) / "reports" / "test-reports.jsonl"))
     merge_reports = list(iter_jsonl(private_path(root, config) / "reports" / "merge-assessments.jsonl"))
@@ -10450,7 +11189,7 @@ def report_project(args: argparse.Namespace) -> str:
     if not decision_report["decisions_needed"]:
         lines.append("- No decisions are required.")
     for item in decision_report["decisions_needed"]:
-        identifier = item.get("goal_id") or item.get("note_id") or "project"
+        identifier = item.get("goal_id") or item.get("note_id") or item.get("audit_id") or item.get("type") or "project"
         lines.append(f"- **{identifier}** — {item.get('title', 'Operational decision')} — {item['decision']} Recommendation: {item['recommendation']}")
         for action in item.get("allowed_dispositions", []):
             lines.append(f"  - `{action.get('disposition')}`: `{action.get('command')}`")
@@ -10517,6 +11256,18 @@ def report_project(args: argparse.Namespace) -> str:
     else:
         lines.append("- Roadmap health has not been audited.")
     lines.append(f"- Imported shared-note packets awaiting triage: {len(shared_inbox)}")
+    lines.extend(["", "## Product conformance", ""])
+    if product_audits:
+        latest_audit = max(product_audits, key=lambda value: value.get("updated_at", ""))
+        lines.extend(
+            [
+                f"- Audits recorded or in progress: {len(product_audits)}",
+                f"- Latest audit: `{latest_audit['audit_id']}` — `{latest_audit['status']}` — {latest_audit['title']}",
+                f"- Refresh interval: {config.get('product_audit_stale_after_days', 30)} days",
+            ]
+        )
+    else:
+        lines.append("- No product-conformance audit has been planned.")
     lines.extend(["", "## Testing and merge readiness", ""])
     if test_reports:
         latest_test = test_reports[-1]
@@ -10532,6 +11283,295 @@ def report_project(args: argparse.Namespace) -> str:
     return "\n".join(lines) + "\n"
 
 
+def product_audit_goal_context(
+    root: Path,
+    config: dict[str, Any],
+    goal_id: str,
+) -> tuple[Path, dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    directory, goal = load_goal(root, config, goal_id)
+    binding = {
+        "goal_id": goal_id,
+        "plan_version": goal.get("plan_version"),
+        "plan_hash": goal.get("plan_hash"),
+        "source_capture_refs": goal.get("source_capture_refs", []),
+        "memory_ids": goal.get("memory_ids", []),
+        "roadmap_ids": goal.get("roadmap_ids", []),
+    }
+    sources: list[dict[str, Any]] = [
+        {
+            "source_id": f"goal-{goal_id}",
+            "source_type": "approved-goal",
+            "authority": "current-approved",
+            "applicability": "Current approved scope, exclusions, and acceptance criteria.",
+            "time_horizon": "current",
+            "reference": f".continuity/private/goals/{goal_id}/plan.md",
+            "content_hash": str(goal.get("plan_hash")),
+            "revision": str(goal.get("plan_version")),
+        }
+    ]
+    for capture in goal.get("source_capture_refs", []):
+        capture_id = str(capture.get("capture_id"))
+        sources.append(
+            {
+                "source_id": f"capture-{capture_id}",
+                "source_type": "project-intent",
+                "authority": "canonical" if capture.get("source_authority") == "project-intent" else "advisory",
+                "applicability": "Captured source document associated with the approved goal.",
+                "time_horizon": "current",
+                "reference": f"capture:{capture_id}",
+                "content_hash": capture.get("source_hash"),
+                "revision": str(capture.get("document_revision", "unknown")),
+            }
+        )
+    for memory_id in goal.get("memory_ids", []):
+        sources.append(
+            {
+                "source_id": f"memory-{memory_id}",
+                "source_type": "memory",
+                "authority": "canonical",
+                "applicability": "Current project-memory context named by the approved goal.",
+                "time_horizon": "current",
+                "reference": f"memory:{memory_id}",
+            }
+        )
+    for roadmap_id in goal.get("roadmap_ids", []):
+        sources.append(
+            {
+                "source_id": f"roadmap-{roadmap_id}",
+                "source_type": "roadmap",
+                "authority": "canonical",
+                "applicability": "Roadmap context; future intent is advisory unless included in current acceptance criteria.",
+                "time_horizon": "future",
+                "reference": f"roadmap:{roadmap_id}",
+            }
+        )
+    return directory, goal, binding, sources
+
+
+def product_audit_target_binding(
+    root: Path,
+    config: dict[str, Any],
+    goal: dict[str, Any] | None,
+    worktree_value: str | None,
+    branch_value: str | None,
+) -> tuple[Path, dict[str, Any]]:
+    execution: dict[str, Any] = {}
+    if goal is not None:
+        execution = json_load(goal_dir(root, config, str(goal["goal_id"])) / "execution.json", {})
+        if not isinstance(execution, dict):
+            execution = {}
+    worktree = Path(worktree_value or execution.get("worktree") or root).expanduser().resolve()
+    snapshot = worktree_source_snapshot(worktree)
+    enrolled = worktree_source_snapshot(root)
+    if snapshot["repository_fingerprint"] != enrolled["repository_fingerprint"]:
+        raise ContinuityError("Product audit worktree does not belong to the enrolled repository")
+    expected_branch = branch_value or execution.get("branch")
+    if expected_branch and snapshot["branch"] != expected_branch:
+        raise ContinuityError(
+            f"Product audit worktree is on {snapshot['branch']}, not {expected_branch}"
+        )
+    if goal is not None and execution.get("branch") and snapshot["branch"] != execution.get("branch"):
+        raise ContinuityError("Product audit does not match the goal execution branch")
+    snapshot["worktree"] = str(worktree)
+    snapshot["plan_hash"] = goal.get("plan_hash") if goal else None
+    snapshot["behavior_configuration_hash"] = config.get("behavior_configuration_hash")
+    return worktree, snapshot
+
+
+def product_audit_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    try:
+        if args.command == "plan":
+            payload = json_load(Path(args.input).expanduser().resolve(), {})
+            if not isinstance(payload, dict):
+                raise ContinuityError("Product audit input must be a JSON object")
+            goal_id = args.goal_id or payload.get("goal_id")
+            binding = None
+            sources: list[dict[str, Any]] = []
+            if goal_id:
+                _directory, _goal, binding, sources = product_audit_goal_context(
+                    root, config, str(goal_id)
+                )
+            return product_audit_lib.create_plan(
+                root,
+                config,
+                Path(args.input).expanduser().resolve(),
+                goal_binding=binding,
+                additional_sources=sources,
+            )
+        if args.command == "start":
+            plan = product_audit_lib.load_plan(root, config, args.audit_id)
+            goal = None
+            if plan.get("goal_id"):
+                _directory, goal = load_goal(root, config, str(plan["goal_id"]))
+            _worktree, binding = product_audit_target_binding(
+                root, config, goal, args.worktree, args.branch
+            )
+            return product_audit_lib.start(
+                root, config, args.audit_id, actor=args.actor, target_binding=binding
+            )
+        if args.command == "record":
+            plan = product_audit_lib.load_plan(root, config, args.audit_id)
+            directory = None
+            goal = None
+            if plan.get("goal_id"):
+                directory, goal = load_goal(root, config, str(plan["goal_id"]))
+            worktree, binding = product_audit_target_binding(
+                root, config, goal, args.worktree, args.branch
+            )
+            artifact = None
+            if args.artifact:
+                artifact_path = Path(args.artifact).expanduser()
+                if not artifact_path.is_absolute():
+                    artifact_path = worktree / artifact_path
+                artifact_path = artifact_path.resolve()
+                if (
+                    not artifact_path.is_file()
+                    or artifact_path.name != "product-conformance.md"
+                    or not artifact_path.is_relative_to(worktree)
+                ):
+                    raise ContinuityError(
+                        "Product conformance artifact must be product-conformance.md inside the audited worktree"
+                    )
+                artifact = {
+                    "path": str(artifact_path.relative_to(worktree)),
+                    "sha256": hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
+                }
+            if (
+                plan.get("profile") == "candidate"
+                and config.get("require_execution_artifacts", False)
+                and artifact is None
+            ):
+                raise ContinuityError("Candidate product audits require product-conformance.md")
+            if (
+                plan.get("profile") == "candidate"
+                and directory is not None
+                and goal is not None
+                and args.update_gate
+            ):
+                test_failures = current_test_evidence_failures(root, config, directory, goal)
+                if test_failures:
+                    raise ContinuityError(
+                        f"Candidate product audit requires current passed test evidence: {test_failures}"
+                    )
+            record = product_audit_lib.record(
+                root,
+                config,
+                args.audit_id,
+                Path(args.result_file).expanduser().resolve(),
+                actor=args.actor,
+                current_binding=binding,
+                sanitized_artifact=artifact,
+                evidence_root=worktree,
+            )
+            if directory is not None and goal is not None:
+                json_dump(directory / "product-audit.json", record)
+                if args.update_gate:
+                    gate_status = "passed" if record["status"] == "passed" else "failed"
+                    record_compliance_stage(
+                        root,
+                        config,
+                        directory,
+                        goal,
+                        "product-conformance",
+                        gate_status,
+                        [
+                            f"audit:{record['audit_id']}",
+                            f"result-hash:{record['result_hash']}",
+                            f"source-set-hash:{record['source_set_hash']}",
+                            f"source-fingerprint:{binding['source_fingerprint']}",
+                        ],
+                        args.actor,
+                    )
+            return record
+        if args.command == "capture-findings":
+            record = product_audit_lib.load_record(root, config, args.audit_id)
+            if record is None:
+                raise ContinuityError("Product audit has no recorded findings")
+            if record.get("findings_capture"):
+                return {
+                    "audit_id": args.audit_id,
+                    "deduplicated": True,
+                    "findings_capture": record["findings_capture"],
+                    "execution_authorized": False,
+                }
+            mismatch = [
+                item
+                for item in record.get("findings", [])
+                if item.get("status") in product_audit_lib.MISMATCH_STATUSES
+            ]
+            if not mismatch:
+                return {
+                    "audit_id": args.audit_id,
+                    "captured": False,
+                    "reason": "No mismatch findings require capture",
+                    "execution_authorized": False,
+                }
+            items = []
+            for item in mismatch:
+                severity = str(item.get("severity", "medium"))
+                items.append(
+                    {
+                        "kind": "execution-candidate" if severity in {"high", "critical"} else "backlog-candidate",
+                        "text": f"{item['title']}: {item['summary']} Recommendation: {item['recommendation']}",
+                        "perspective": "internal",
+                        "sentiment": "negative",
+                        "occurrence_type": "failure" if item.get("status") in {"missing", "contradicted", "regressed"} else "observation",
+                        "impact": severity if severity in NOTE_IMPACTS else "unknown",
+                        "confidence": item.get("confidence", "unknown"),
+                        "actionability": "urgent-review" if severity == "critical" else ("plan" if severity in {"high", "medium"} else "monitor"),
+                        "themes": ["product-conformance", str(item.get("status"))],
+                    }
+                )
+            capture_input = private_path(root, config) / "audits" / args.audit_id / "findings-capture-input.json"
+            json_dump(
+                capture_input,
+                {
+                    "source_type": "product-audit",
+                    "source_ref": f"product-audit:{args.audit_id}",
+                    "dedupe_key": record["result_hash"],
+                    "items": items,
+                },
+            )
+            capture = note_capture(
+                argparse.Namespace(
+                    items_file=str(capture_input),
+                    text=None,
+                    file=None,
+                    source_type="product-audit",
+                    source_ref=f"product-audit:{args.audit_id}",
+                    document_type=None,
+                    document_id=None,
+                    document_version=None,
+                    source_authority=None,
+                )
+            )
+            binding = product_audit_lib.attach_capture(
+                root,
+                config,
+                args.audit_id,
+                capture_id=str(capture["capture_id"]),
+                note_ids=[str(item["item_id"]) for item in capture.get("items", [])],
+            )
+            return {
+                "audit_id": args.audit_id,
+                "captured": True,
+                "findings_capture": binding,
+                "execution_authorized": False,
+            }
+        if args.command == "show":
+            return product_audit_lib.show(root, config, args.audit_id)
+        if args.command == "compare":
+            return product_audit_lib.compare(root, config, args.audit_id, args.against)
+        if args.command == "due":
+            return product_audit_lib.due(
+                root, config, int(config.get("product_audit_stale_after_days", 30))
+            )
+    except product_audit_lib.ProductAuditError as exc:
+        raise ContinuityError(str(exc)) from exc
+    raise ContinuityError(f"Unsupported product audit command: {args.command}")
+
+
 def roadmap_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
@@ -10540,9 +11580,33 @@ def roadmap_command(args: argparse.Namespace) -> Any:
         raise ContinuityError(str(exc)) from exc
 
 
+def skill_improvement_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    try:
+        return skill_improvement_lib.command(root, config, args, CONTROL_ROOT / "schemas")
+    except skill_improvement_lib.SkillImprovementError as exc:
+        raise ContinuityError(str(exc)) from exc
+
+
 def github_projects_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
+        if args.github_projects_command == "connect":
+            return github_projects_lib.connect(
+                root,
+                config,
+                owner_type=args.owner_type,
+                owner=args.owner,
+                project_number=args.project_number,
+                title=args.title,
+                visibility=args.visibility,
+                settings_value=args.settings,
+                hostname=args.hostname,
+            )
+        if args.github_projects_command == "status":
+            return github_projects_lib.connection_status(root, config)
+        if args.github_projects_command == "sync":
+            return github_projects_lib.sync(root, config, settings_value=args.settings)
         if args.github_projects_command == "bootstrap":
             if args.bootstrap_command == "plan":
                 return github_projects_lib.build_bootstrap_plan(
@@ -10734,6 +11798,30 @@ def github_projects_command(args: argparse.Namespace) -> Any:
         raise ContinuityError(str(exc)) from exc
 
 
+def design_command(args: argparse.Namespace) -> Any:
+    root, config = load_context()
+    installed_catalog = root / ".agents" / "skills" / "continuity-design" / "references" / "catalog.json"
+    catalog_path = installed_catalog if installed_catalog.is_file() else CONTROL_ROOT / "skills" / "continuity-design" / "references" / "catalog.json"
+    try:
+        if args.command == "catalog":
+            return design_lib.catalog_summary(config, catalog_path, args.axis)
+        if args.command == "draft":
+            return design_lib.draft(root, config, catalog_path, Path(args.input).expanduser().resolve())
+        if args.command == "select":
+            return design_lib.select(root, config, args.design_id, [args.direction, *(args.combine or [])], args.actor)
+        if args.command == "approve":
+            return design_lib.approve(root, config, args.design_id, args.revision, args.approved_by, args.authorization_text)
+        if args.command == "show":
+            return design_lib.show(root, config, args.design_id)
+        if args.command == "artifact-validate":
+            return design_lib.validate_artifact(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "prototype-validate":
+            return design_lib.validate_candidate_artifact(root, config, Path(args.manifest).expanduser().resolve())
+        raise ContinuityError(f"Unknown design command {args.command}")
+    except design_lib.DesignError as exc:
+        raise ContinuityError(str(exc)) from exc
+
+
 def shared_note_command(args: argparse.Namespace) -> Any:
     root, config = load_context()
     try:
@@ -10911,6 +11999,76 @@ def build_parser() -> argparse.ArgumentParser:
     supersede.add_argument("--goal-id", required=True)
     supersede.set_defaults(handler=memory_supersede)
 
+    audit = top.add_parser("audit")
+    audit_sub = audit.add_subparsers(dest="command", required=True)
+    audit_plan = audit_sub.add_parser("plan")
+    audit_plan.add_argument("--input", required=True)
+    audit_plan.add_argument("--goal-id")
+    audit_plan.set_defaults(handler=product_audit_command)
+    audit_start = audit_sub.add_parser("start")
+    audit_start.add_argument("audit_id")
+    audit_start.add_argument("--actor", default="agent")
+    audit_start.add_argument("--worktree")
+    audit_start.add_argument("--branch")
+    audit_start.set_defaults(handler=product_audit_command)
+    audit_record = audit_sub.add_parser("record")
+    audit_record.add_argument("audit_id")
+    audit_record.add_argument("--result-file", required=True)
+    audit_record.add_argument("--actor", default="agent")
+    audit_record.add_argument("--worktree")
+    audit_record.add_argument("--branch")
+    audit_record.add_argument("--artifact")
+    audit_record.add_argument("--update-gate", action="store_true")
+    audit_record.set_defaults(handler=product_audit_command)
+    audit_capture = audit_sub.add_parser("capture-findings")
+    audit_capture.add_argument("audit_id")
+    audit_capture.add_argument("--actor", default="agent")
+    audit_capture.set_defaults(handler=product_audit_command)
+    audit_show = audit_sub.add_parser("show")
+    audit_show.add_argument("audit_id", nargs="?")
+    audit_show.set_defaults(handler=product_audit_command)
+    audit_compare = audit_sub.add_parser("compare")
+    audit_compare.add_argument("audit_id")
+    audit_compare.add_argument("--against", required=True)
+    audit_compare.set_defaults(handler=product_audit_command)
+    audit_due = audit_sub.add_parser("due")
+    audit_due.set_defaults(handler=product_audit_command)
+
+    improve = top.add_parser("improve")
+    improve_sub = improve.add_subparsers(dest="command", required=True)
+    improve_baseline = improve_sub.add_parser("baseline")
+    improve_baseline.add_argument("skill_name")
+    improve_baseline.set_defaults(handler=skill_improvement_command)
+    improve_usage = improve_sub.add_parser("usage-record")
+    improve_usage.add_argument("--input", required=True)
+    improve_usage.set_defaults(handler=skill_improvement_command)
+    improve_patterns = improve_sub.add_parser("patterns")
+    improve_patterns.add_argument("skill_name")
+    improve_patterns.add_argument("--min-count", type=int, default=2)
+    improve_patterns.set_defaults(handler=skill_improvement_command)
+    improve_propose = improve_sub.add_parser("propose")
+    improve_propose.add_argument("--input", required=True)
+    improve_propose.add_argument("--candidate", required=True)
+    improve_propose.set_defaults(handler=skill_improvement_command)
+    improve_evaluate = improve_sub.add_parser("evaluate")
+    improve_evaluate.add_argument("proposal_id")
+    improve_evaluate.add_argument("--result-file", required=True)
+    improve_evaluate.set_defaults(handler=skill_improvement_command)
+    improve_review = improve_sub.add_parser("review")
+    improve_review.add_argument("proposal_id")
+    improve_review.add_argument("--disposition", choices=sorted(skill_improvement_lib.REVIEW_DISPOSITIONS), required=True)
+    improve_review.add_argument("--actor", required=True)
+    improve_review.add_argument("--authorization-text", required=True)
+    improve_review.add_argument("--evidence", action="append", required=True)
+    improve_review.set_defaults(handler=skill_improvement_command)
+    improve_show = improve_sub.add_parser("show")
+    improve_show.add_argument("proposal_id", nargs="?")
+    improve_show.set_defaults(handler=skill_improvement_command)
+    improve_package = improve_sub.add_parser("package")
+    improve_package.add_argument("proposal_id")
+    improve_package.add_argument("--output", required=True)
+    improve_package.set_defaults(handler=skill_improvement_command)
+
     roadmap = top.add_parser("roadmap")
     roadmap_sub = roadmap.add_subparsers(dest="command", required=True)
     roadmap_index = roadmap_sub.add_parser("index")
@@ -10923,6 +12081,10 @@ def build_parser() -> argparse.ArgumentParser:
     roadmap_list.add_argument("--tag")
     roadmap_list.add_argument("--sprint")
     roadmap_list.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_list)
+    roadmap_inbox = roadmap_sub.add_parser("inbox")
+    roadmap_inbox.add_argument("--kind", choices=sorted(roadmap_lib.ROADMAP_KINDS))
+    roadmap_inbox.add_argument("--status", choices=["inbox", "triaged", "planned"])
+    roadmap_inbox.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_inbox)
     roadmap_show = roadmap_sub.add_parser("show")
     roadmap_show.add_argument("roadmap_id")
     roadmap_show.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.command_show)
@@ -10959,6 +12121,20 @@ def build_parser() -> argparse.ArgumentParser:
     production_audit.set_defaults(handler=roadmap_command, roadmap_handler=roadmap_lib.production_audit)
     github_projects = roadmap_sub.add_parser("github-projects")
     github_projects_sub = github_projects.add_subparsers(dest="github_projects_command", required=True)
+    github_projects_connect = github_projects_sub.add_parser("connect")
+    github_projects_connect.add_argument("--owner-type", choices=["organization", "user"], required=True)
+    github_projects_connect.add_argument("--owner", required=True)
+    github_projects_connect.add_argument("--project-number", type=int, help="Attach an existing Project; omit to create one")
+    github_projects_connect.add_argument("--title", help="Title used when creating a Project")
+    github_projects_connect.add_argument("--visibility", choices=["PRIVATE", "PUBLIC"], default="PRIVATE")
+    github_projects_connect.add_argument("--settings", default=".continuity/github-projects.json")
+    github_projects_connect.add_argument("--hostname", default="github.com")
+    github_projects_connect.set_defaults(handler=github_projects_command)
+    github_projects_status = github_projects_sub.add_parser("status")
+    github_projects_status.set_defaults(handler=github_projects_command)
+    github_projects_sync = github_projects_sub.add_parser("sync")
+    github_projects_sync.add_argument("--settings", default=".continuity/github-projects.json")
+    github_projects_sync.set_defaults(handler=github_projects_command)
     github_projects_bootstrap = github_projects_sub.add_parser("bootstrap")
     github_projects_bootstrap_sub = github_projects_bootstrap.add_subparsers(dest="bootstrap_command", required=True)
     github_projects_bootstrap_plan = github_projects_bootstrap_sub.add_parser("plan")
@@ -10994,6 +12170,35 @@ def build_parser() -> argparse.ArgumentParser:
     github_projects_apply.add_argument("plan_hash")
     github_projects_apply.set_defaults(handler=github_projects_command)
 
+    design = top.add_parser("design")
+    design_sub = design.add_subparsers(dest="command", required=True)
+    design_catalog = design_sub.add_parser("catalog")
+    design_catalog.add_argument("--axis", choices=["industry", "section-flow", "theme", "message-structure", "lens"])
+    design_catalog.set_defaults(handler=design_command)
+    design_draft = design_sub.add_parser("draft")
+    design_draft.add_argument("--input", required=True)
+    design_draft.set_defaults(handler=design_command)
+    design_select = design_sub.add_parser("select")
+    design_select.add_argument("design_id")
+    design_select.add_argument("--direction", required=True)
+    design_select.add_argument("--combine", action="append")
+    design_select.add_argument("--actor", required=True)
+    design_select.set_defaults(handler=design_command)
+    design_approve = design_sub.add_parser("approve")
+    design_approve.add_argument("design_id")
+    design_approve.add_argument("--revision", type=int, required=True)
+    design_approve.add_argument("--approved-by", required=True)
+    design_approve.add_argument("--authorization-text", required=True)
+    design_approve.set_defaults(handler=design_command)
+    design_show = design_sub.add_parser("show")
+    design_show.add_argument("design_id", nargs="?")
+    design_show.set_defaults(handler=design_command)
+    design_artifact_validate = design_sub.add_parser("artifact-validate")
+    design_artifact_validate.add_argument("--manifest", required=True)
+    design_artifact_validate.set_defaults(handler=design_command)
+    design_prototype_validate = design_sub.add_parser("prototype-validate")
+    design_prototype_validate.add_argument("--manifest", required=True)
+    design_prototype_validate.set_defaults(handler=design_command)
 
     goal = top.add_parser("goal")
     goal_sub = goal.add_subparsers(dest="command", required=True)
@@ -11014,6 +12219,12 @@ def build_parser() -> argparse.ArgumentParser:
     approve.add_argument("--signing-key", help="SSH private key used to sign the canonical approval receipt")
     approve.add_argument("--schedule")
     approve.set_defaults(handler=goal_approve)
+    activate = goal_sub.add_parser("activate")
+    activate.add_argument("goal_id")
+    activate.set_defaults(handler=goal_activate)
+    proceed = goal_sub.add_parser("proceed")
+    proceed.add_argument("goal_id")
+    proceed.set_defaults(handler=goal_proceed)
     start = goal_sub.add_parser("start")
     start.add_argument("goal_id")
     start.set_defaults(handler=goal_start)
@@ -11149,11 +12360,13 @@ def build_parser() -> argparse.ArgumentParser:
     workflow_status_command = workflow_sub.add_parser("status")
     workflow_subject = workflow_status_command.add_mutually_exclusive_group()
     workflow_subject.add_argument("--goal-id")
+    workflow_subject.add_argument("--audit-id")
     workflow_subject.add_argument("--capture-id")
     workflow_subject.add_argument("--note-id")
     workflow_subject.add_argument("--packet-id")
     workflow_subject.add_argument("--memory-id")
     workflow_subject.add_argument("--roadmap-id")
+    workflow_subject.add_argument("--design-id")
     workflow_status_command.set_defaults(handler=workflow_status)
 
     project_admin = top.add_parser("project")
@@ -11193,6 +12406,7 @@ def build_parser() -> argparse.ArgumentParser:
     suite_update_command.add_argument("--source", help="Local verified Continuity release source; primarily for development and offline updates")
     suite_update_command.add_argument("--dry-run", action="store_true")
     suite_update_command.add_argument("--overwrite-managed", action="store_true")
+    suite_update_command.add_argument("--skip-github-auth", action="store_true", help="Do not launch the default GitHub CLI authentication prompt")
     suite_update_command.set_defaults(handler=suite_update)
     suite_rollback_command = suite_sub.add_parser("rollback")
     suite_rollback_command.add_argument("--snapshot", required=True)
@@ -11354,8 +12568,65 @@ def build_parser() -> argparse.ArgumentParser:
     portfolio_update_command.add_argument("--project-id", action="append", help="Update only this discovered project ID; repeat as needed")
     portfolio_update_command.add_argument("--apply", action="store_true", help="Apply updates; without this flag the command is a dry-run")
     portfolio_update_command.add_argument("--overwrite-managed", action="store_true", help="Replace reviewed suite-managed drift in every selected project")
+    portfolio_update_command.add_argument("--skip-github-auth", action="store_true", help="Do not launch GitHub CLI authentication during applied updates")
     portfolio_update_command.set_defaults(handler=portfolio_update)
     return parser
+
+
+def automatic_roadmap_sync(args: argparse.Namespace, value: Any) -> Any:
+    mutating_handlers = {
+        goal_create,
+        goal_revise,
+        goal_approve,
+        goal_activate,
+        goal_proceed,
+        goal_start,
+        goal_transition,
+        run_update,
+        merge_execute,
+        merge_record_human,
+    }
+    roadmap_mutation = args.handler is roadmap_command and getattr(args, "command", None) in {"create", "revise", "link-note"}
+    if args.handler not in mutating_handlers and not roadmap_mutation:
+        return value
+    if args.handler is goal_create and isinstance(value, dict) and value.get("authorization_mode") == "goal-request":
+        # /goal immediately activates after creation; publish the dispatched state once instead of syncing twice.
+        return value
+    root, config = load_context()
+    if config.get("planning_patterns", {}).get("tracker_provider") != "github":
+        return value
+    connection = github_projects_lib.load_connection(root, config, required=False)
+    if connection is None or connection.get("sync_policy", {}).get("automatic") is not True:
+        return value
+    try:
+        sync_result = github_projects_lib.sync(
+            root,
+            config,
+            client=github_projects_lib.GitHubClient(
+                host=str(connection["destination"].get("host", "github.com")),
+                timeout_seconds=5,
+            ),
+        )
+    except github_projects_lib.GitHubProjectsError as exc:
+        stamp = iso_now(config)
+        sync_result = {
+            "status": "advisory-failed",
+            "provider": "github-projects",
+            "at": stamp,
+            "problem": str(exc),
+            "canonical_transition_preserved": True,
+        }
+        json_dump(
+            private_path(root, config) / "integrations" / "github-projects" / "last-sync.json",
+            sync_result,
+        )
+        append_jsonl(
+            private_path(root, config) / "events.jsonl",
+            {"at": stamp, "event": "roadmap.sync-advisory", "provider": "github-projects", "problem": str(exc)},
+        )
+    if isinstance(value, dict):
+        return {**value, "roadmap_sync": sync_result}
+    return value
 
 
 def main() -> int:
@@ -11380,6 +12651,7 @@ def main() -> int:
                 os.environ["CONTINUITY_STATE_LOCK_HELD"] = "1"
                 try:
                     value = args.handler(args)
+                    value = automatic_roadmap_sync(args, value)
                 finally:
                     os.environ.pop("CONTINUITY_STATE_LOCK_HELD", None)
         output(value, args.json)

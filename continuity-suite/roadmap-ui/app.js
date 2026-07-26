@@ -118,8 +118,14 @@ function showDetail(item) {
 
 function render() {
   const canvas = document.querySelector("#canvas"); canvas.replaceChildren();
-  const items = state.data.entities || [];
-  if (!items.length) { canvas.append(sectionTitle("Project roadmap", "no committed records"), el("p", "empty", "Create roadmap records through an approved documentation goal.")); return; }
+  const committed = state.data.entities || [];
+  const inbox = state.data.roadmap_inbox || [];
+  const items = state.view === "board" ? [...inbox, ...committed] : committed;
+  if (!items.length) {
+    const detail = state.view === "board" ? "no committed records or triaged candidates" : "no committed records";
+    canvas.append(sectionTitle("Project roadmap", detail), el("p", "empty", "Use /goal to capture, triage, and place actionable work in the roadmap inbox."));
+    return;
+  }
   const renderers = { timeline: renderTimeline, hierarchy: renderHierarchy, board: renderBoard, dependencies: renderDependencies, sprints: renderSprints, risks: renderRisks };
   renderers[state.view](items, canvas);
 }
@@ -134,8 +140,11 @@ async function start() {
   if (!response.ok) throw new Error(`Roadmap authorization failed (${response.status})`);
   state.data = await response.json();
   document.querySelector("#project-name").textContent = state.data.project_id || "Local project";
-  const items = state.data.entities || []; document.querySelector("#entity-count").textContent = items.length;
-  document.querySelector("#active-count").textContent = items.filter((item) => ["active", "in-progress", "validating", "planned"].includes(item.status)).length;
+  const committed = state.data.entities || [];
+  const inbox = state.data.roadmap_inbox || [];
+  if (state.view === "timeline" && !committed.length && inbox.length) state.view = "board";
+  const items = [...inbox, ...committed]; document.querySelector("#entity-count").textContent = items.length;
+  document.querySelector("#active-count").textContent = items.filter((item) => ["active", "in-progress", "validating", "planned", "triaged"].includes(item.status)).length;
   document.querySelector("#risk-count").textContent = items.filter((item) => list(item.risks).length || ["blocked", "at-risk"].includes(item.status) || ["blocked", "at-risk", "off-track"].includes(item.health)).length;
   document.querySelectorAll("[data-view]").forEach((button) => { if (button.dataset.view === state.view) button.classList.add("active"); else button.classList.remove("active"); button.addEventListener("click", () => { document.querySelectorAll("[data-view]").forEach((candidate) => candidate.classList.remove("active")); button.classList.add("active"); state.view = button.dataset.view; render(); }); });
   render();

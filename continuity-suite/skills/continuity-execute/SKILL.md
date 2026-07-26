@@ -5,6 +5,8 @@ description: Execute one explicitly approved and dispatched project goal in an i
 
 # Continuity Execute
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Never execute a captured note, planning candidate, unapproved plan, or merely queued goal. Require a valid dispatch and matching approval hash.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$continuity-local`, `.continuity/project.json`, `.continuity/config.json`, `AGENTS.md`, the approved plan, goal record, approval, cited memory and roadmap briefs, and compliance ledger.
@@ -30,24 +32,26 @@ Verify the isolated worktree, integration branch and remote base, scope, current
 
 ## Responsible execution stages
 
-1. Implement only approved scope using project architecture and developer best practices.
+1. Implement only approved scope using project architecture and developer best practices. When the goal binds an approved design, verify its exact hash before editing and use its preservation rules, visual and interaction grammar, component direction, prohibited patterns, and drift checks as implementation constraints. Do not invent a new design direction inside execution.
+   When the approved design includes `implementation_context`, `component_map`, `asset_strategy`, or a complete-prototype contract, reinspect their evidence before editing. Reuse, compose, extend, or create components according to the recorded strategy; preserve the signature expression; do not add an overlapping UI library or new dependency without approved-plan authority. Compare representative production captures with the approved prototype and record justified deviations. The private prototype is evidence, not code that may be copied into production without review.
    Follow the approved delivery frontier: start only slices whose blockers are complete, and never interpret an unresolved decision-map item as implementation discretion.
 2. Add focused tests and keep types, interfaces, migrations, compatibility, accessibility, performance, and privacy correct as applicable.
 3. Record alignment checkpoints after major phases. Route discoveries into feedback or new candidates.
 4. Run candidate tests while implementation is still changing; fix findings and rerun focused checks.
-5. Update approved documentation, roadmap, project memory, and the six execution evidence artifacts. Audit for drift and contradictions.
-6. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, and exclusions. Scan product artifacts to prove the roadmap sidecar remains excluded.
+5. Update approved documentation, roadmap, project memory, and the seven execution evidence artifacts. Audit for drift and contradictions.
+6. Reconcile the final result against notes, memory, roadmap, plan, acceptance criteria, exclusions, and any bound design document. Record which design rules were implemented, preserved, intentionally not applicable, or require an approved design revision. Scan product artifacts to prove the roadmap sidecar remains excluded.
 7. Commit every implementation and evidence artifact. The worktree must be clean before final evidence is enrolled.
 8. Apply `$continuity-test` for the final source-bound test run and evidence record. Any tracked or untracked change, commit, branch change, plan change, behavior change, or configured-command change makes it stale.
-9. Push the exact tested commit and create or update the draft PR.
-10. Apply `$continuity-merge` against the tested local head, remote branch, PR head, and configured base.
-11. Record evidence in every compliance stage and mark `review-ready`. A failed or pending gate prevents review handoff.
+9. Apply `$continuity-product-audit` to reconcile the final product against the approved goal, applicable PRD and documentation, memory, insights, and roadmap. Record a source-bound candidate audit or explicit not-applicable evidence.
+10. Push the exact tested and audited commit and create or update the draft PR.
+11. Apply `$continuity-merge` against the tested and audited local head, remote branch, PR head, and configured base.
+12. Record evidence in every compliance stage and mark `review-ready`. A failed or pending gate prevents review handoff.
 
 Use `goal gate`, `execution checkpoint`, and `run update` to record evidence. When recording `running`, provide the actual isolated `--worktree` and `--branch`. When completing, provide the PR URL, summary, and each report with `--artifact <absolute-path>`. Stop safely at the runtime limit.
 
 ## Delivery
 
-Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark `review-ready` only after `$continuity-test`, `$continuity-merge`, and all pre-human-review compliance stages pass. Stop there for next-business-day human disposition; only recorded human merge evidence may mark the goal `completed`. Never auto-merge or force-push.
+Create `request-alignment.md`, `implementation-report.md`, `validation-and-security.md`, `product-conformance.md`, `memory-impact.md`, `roadmap-impact.md`, and `evidence.md`. Keep incomplete work in a draft PR. Mark `review-ready` only after `$continuity-test`, `$continuity-product-audit`, `$continuity-merge`, and all pre-human-review compliance stages pass. Stop there for next-business-day human disposition; only recorded human merge evidence may mark the goal `completed`. Never auto-merge or force-push.
 
 ## Handoff
 

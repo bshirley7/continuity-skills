@@ -1,0 +1,82 @@
+{
+  "title": "A clearer first experience",
+  "intent": "Help new customers understand what the product can do, reach a useful result quickly, and return later without losing their place.",
+  "audiences": ["People using the product for the first time", "Experienced customers returning to unfinished work"],
+  "targets": ["ui"],
+  "consequence_level": "moderate",
+  "modality_assessment": {
+    "observed_signals": ["The request concerns interactive first-session and returning-user application screens"],
+    "selected_targets": ["ui"],
+    "rationale": "The primary output is an interactive product workflow; screenshots are review evidence rather than the target modality.",
+    "conflicts": []
+  },
+  "direction_count": 2,
+  "direction_count_basis": "One material tradeoff remains between a faster first outcome and more guided orientation",
+  "direction_assessment": {
+    "material_ambiguities": ["Whether the first session prioritizes immediate outcome or guided orientation"],
+    "resolved_by_evidence": []
+  },
+  "insight_decisions": [
+    {
+      "insight_id": "returning-users-resume",
+      "insight": "Returning users can already resume unfinished work and should not lose that favorable behavior.",
+      "status": "decided",
+      "source_refs": ["Existing returning-user screen"],
+      "design_response": "Create a direct returning-user route that exposes the saved object, last meaningful state, and one primary continuation action before onboarding guidance.",
+      "affected_surfaces": ["Returning-user resume"],
+      "affected_states": ["saved work available", "saved work stale"],
+      "observable_evidence": "The returning-user artifact shows saved-work identity, freshness, and a direct resume action without replaying first-session steps."
+    }
+  ],
+  "working_assumptions": ["The first useful result is more important than exposing the complete product during the initial session"],
+  "source_uncertainties": [
+    {
+      "question": "Which existing shortcut do experienced users rely on most?",
+      "disposition": "open",
+      "response": "",
+      "source_refs": ["Existing returning-user screen"]
+    }
+  ],
+  "evidence_inspected": ["docs/product/overview.md", "src/components", "Existing onboarding and returning-user screens"],
+  "current_strengths": ["Returning users can resume unfinished work", "Experienced users have a fast keyboard path"],
+  "current_gaps": ["New users cannot identify the first useful outcome", "Visual hierarchy changes between onboarding steps"],
+  "content_provenance": [
+    {"content_id": "resume-message", "classification": "inspected", "statement": "Returning users can resume unfinished work", "source_refs": ["Existing returning-user screen"], "required_qualification": "", "allowed_uses": ["design direction", "prototype copy"]},
+    {"content_id": "example-progress", "classification": "illustrative", "statement": "Three steps remain", "source_refs": [], "required_qualification": "Illustrative progress value; replace with product data", "allowed_uses": ["prototype"]}
+  ],
+  "audience_architecture": {
+    "mode": "differentiated",
+    "shared_core": ["Understand current work and resume safely"],
+    "routes": [
+      {"audience": "People using the product for the first time", "route": "guided first outcome", "needs": ["Orientation and a useful first result"]},
+      {"audience": "Experienced customers returning to unfinished work", "route": "direct resumption", "needs": ["Current state and fast continuation"]}
+    ],
+    "unresolved_conflicts": []
+  },
+  "prototype_scope": {
+    "maturity": "behavioral",
+    "artifact_type": "responsive HTML",
+    "demonstrated_surfaces": ["First-session start", "Returning-user resume"],
+    "demonstrated_states": ["default", "saved work available"],
+    "omitted_surfaces": ["Account administration"],
+    "omitted_states": ["offline synchronization failure"],
+    "fixture_data": "present"
+  },
+  "validation_matrix": [
+    {"scenario": "keyboard-only operation", "status": "required", "evidence": ""},
+    {"scenario": "localization expansion", "status": "required", "evidence": ""},
+    {"scenario": "representative long content", "status": "required", "evidence": ""}
+  ],
+  "design_debt": ["Spacing and state treatments are implemented locally instead of through shared tokens"],
+  "constraints": ["Preserve existing keyboard workflows"],
+  "preserve": ["Current fast path for experienced users"],
+  "non_goals": ["Do not redesign unrelated account administration"],
+  "validation_criteria": ["A first-time user can identify the primary action", "The existing keyboard path remains available without additional steps"],
+  "open_questions": ["Which existing shortcut do experienced users rely on most?"],
+  "consequences": [],
+  "workflow_signals": [],
+  "interaction_signals": [],
+  "risk_signals": [],
+  "source_note_ids": [],
+  "memory_ids": []
+}

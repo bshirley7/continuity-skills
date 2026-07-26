@@ -5,6 +5,8 @@ description: Capture singular callouts or batches of manual, meeting, file, PRD,
 
 # Continuity Capture
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Treat every note as project knowledge first. Never interpret capture as approval, dispatch, or permission to modify documentation, code, Git state, or external systems.
 
 ## Contract
@@ -68,4 +70,4 @@ Never place raw private content in committed project documentation.
 
 ## Handoff
 
-Run project-level `continuity workflow status` before capture and `continuity workflow status --capture-id <capture-id>` after returning capture and item IDs. Report each item's derived `lifecycle.current_stage`, `stage_entered_at`, and next skill. Capture itself never changes a goal stage or authorizes execution.
+Run project-level `continuity workflow status` before capture and `continuity workflow status --capture-id <capture-id>` after returning capture and item IDs. Report each item's derived `lifecycle.current_stage`, `stage_entered_at`, and next skill. Capture itself never changes a goal stage or authorizes execution. Under `/goal`, continue directly through triage for every item and roadmap-inbox projection; do not return a capture-only stop.

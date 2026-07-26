@@ -5,7 +5,9 @@ description: Run a manual Continuity request as one sequential, state-driven wor
 
 # Continuity Workflow
 
-Use this as the manual entry point for end-to-end Continuity work. A manual invocation is one workflow run, not a request to execute one skill and return a status-only handoff.
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
+Use this for resumed, scheduled, strict-policy, or non-actionable end-to-end Continuity work. Use `/goal` as the primary entry point when a user explicitly requests routine interactive implementation now. A manual invocation is one workflow run, not a request to execute one skill and return a status-only handoff.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), `$continuity-local`, `AGENTS.md`, `.continuity/project.json`, and `.continuity/config.json` before advancing state.
 
@@ -21,7 +23,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 6. On a recoverable failure, preserve the finding, route to the machine-selected remediation skill, repair only approved scope, rerun the failed check, and continue. Never mark a failed gate passed or weaken a guardrail to keep moving.
 7. Finish only when the subject reaches `completed`, `cancelled`, `archived`, `not-applicable`, a successful no-work/reporting terminal, or another machine-declared terminal state with no next skill.
 
-The normal delivery path is `$continuity-capture` -> `$continuity-triage` -> `$continuity-memory` and `$continuity-roadmap` as applicable -> `$continuity-plan` -> approval pause -> `$continuity-dispatch` -> `$continuity-execute` -> `$continuity-test` -> `$continuity-merge` -> approval pause -> `$continuity-report`. Always follow `next_skill` instead of forcing an inapplicable stage.
+The routine interactive delivery path is `/goal`: capture and triage, roadmap-inbox projection, proportionate memory and roadmap retrieval, smallest aligned plan, atomic request-bound activation, execution, validation, and merge readiness. The granular path remains available for scheduled, resumed, elevated-risk, or separately reviewed work. Always follow `next_skill` instead of forcing an inapplicable stage. Design approval is a document-publication boundary and never substitutes for goal authority.
 
 ## Approval-only pause rule
 

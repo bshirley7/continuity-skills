@@ -21,6 +21,9 @@
           "decisions_required": {"type": "integer", "minimum": 0},
           "blocked_or_at_risk": {"type": "integer", "minimum": 0},
           "risk_types": {"type": "array", "items": {"type": "string"}},
+          "product_audit_status": {"enum": ["healthy", "attention"]},
+          "product_audits_due": {"type": "integer", "minimum": 0},
+          "product_audit_baseline_required": {"type": "boolean"},
           "scheduler_state": {},
           "no_action_required": {"type": "boolean"},
           "error_class": {"type": "string", "minLength": 1}

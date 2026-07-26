@@ -5,6 +5,8 @@ description: Convert selected documentation, research, backlog, or execution can
 
 # Continuity Plan
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Planning does not authorize work. Create a decision-complete proposal and leave it awaiting explicit approval.
 
 Read [the continuity contract](../../references/continuity-contract.md), [the development assurance standard](../../references/development-assurance-standard.md), [the planning patterns](../../references/planning-patterns.md), `$continuity-local`, `.continuity/config.json`, `AGENTS.md`, and the documentation map.
@@ -20,17 +22,17 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 ## Workflow
 
 1. Confirm every source item is eligible for planning.
-2. Run `memory brief` and `roadmap brief` for the goal and record every memory and roadmap ID used.
+2. Run `memory brief`, `roadmap brief`, and `audit due`. Retrieve relevant baseline, release, drift, or captured product-audit findings when available; record their IDs and freshness without treating findings as authority. When an approved design applies, retrieve `.continuity/design.json`, verify `docs/design/design.md`, and include its ID in `design_ids`; the CLI derives the exact revision, hash, catalog pack versions, and alignment contract. Map the applicable design thesis, preservation rules, prohibited patterns, implementation guidance, and drift checks into delivery slices and observable acceptance criteria. Do not turn stylistic guidance into unrelated scope.
 3. Apply the configured planning patterns. Use the evidence triage brief for verified action context. For complex or uncertain work, create a decision map with one destination, explicit decisions, dependency edges, unresolved territory, and out-of-scope boundaries. Do not plan execution across unresolved or human-required decisions.
 4. Group only work supporting one cohesive outcome. Split unrelated intents.
 5. For a multi-part outcome, create dependency-aware end-to-end delivery slices. Each slice must be independently verifiable, small enough for one focused run, and blocked only by genuine prerequisites. Use an expand-migrate-contract sequence for wide changes that cannot remain valid as vertical slices.
-6. Distinguish context, trusted memory, roadmap context, new insights, proposed instructions, scope, exclusions, dependencies, decisions, documentation impact, structured roadmap impact, acceptance, validation, security, merge-safety, and evidence.
+6. Distinguish context, trusted memory, roadmap context, product-audit evidence, new insights, proposed instructions, scope, exclusions, dependencies, decisions, documentation impact, structured roadmap impact, acceptance, product conformance, validation, security, merge-safety, and evidence.
 7. Apply repository architecture and developer best practices. Review the plan for correctness, maintainability, privacy, security, testing, rollout, and rollback implications.
 8. Set unattended suitability and runtime, defaulting to six hours.
 9. Give every `source_note_id` exactly one explicit `note_disposition`: `current-goal`, `later`, `context-only`, or `duplicate`. Omission fails closed for new goals and source-changing revisions. Later work requires `review_after` or a roadmap anchor. Map current-goal notes to delivery slices when applicable and state why every disposition was selected.
-10. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `note_dispositions`, `roadmap_ids`, and `roadmap_impact`; the CLI validates them, renders them into the plan, and includes them in the approval hash.
+10. Create synchronized Markdown and machine-readable goal records with a feedback ledger. Include `triage_brief`, `decision_map`, `delivery_slices`, `note_dispositions`, `roadmap_ids`, optional `design_ids`, and `roadmap_impact`; the CLI validates them, renders derived source and design references into the plan, and includes them in the approval hash.
 11. Record evidence for `capture-triage`, `memory-retrieval`, `roadmap-retrieval`, and `plan-review` compliance stages.
-12. Leave the goal `awaiting-feedback`.
+12. Leave a separately reviewed goal `awaiting-feedback`. For routine `/goal` work, set `authorization_mode: goal-request`, `risk_level: routine`, and no restricted side effects so the exact user request can activate it immediately.
 
 Only `current-goal` notes adopt the goal's delivery state. Inclusion in a plan means `planned`, never `in progress`; that begins only when the canonical run reaches `running`. Later, context-only, and duplicate notes remain outside approved execution scope. Human merge evidence alone moves current-goal notes to `completed`.
 
@@ -49,4 +51,4 @@ Do not publish decision or delivery tickets externally as a side effect of plann
 
 ## Handoff
 
-Run `continuity workflow status` on entry and `continuity workflow status --goal-id <goal-id>` after creation or revision. Hand off an `awaiting-feedback` goal to `$continuity-dispatch` for one of the machine-listed human actions; never infer approval.
+Run `continuity workflow status` on entry and `continuity workflow status --goal-id <goal-id>` after creation or revision. Under `/goal`, bind the submitted request with `goal activate` and continue directly into execution. If the user has said “proceed” on another decision-complete routine plan, run the listed `goal proceed` action and continue without another approval or start prompt. Higher-risk, restricted-effect, and unattended goals hand off to `$continuity-dispatch` for the specific authority they require.

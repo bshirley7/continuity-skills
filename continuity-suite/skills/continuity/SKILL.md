@@ -5,6 +5,8 @@ description: Configure, update, recover, audit, and route the project-local Cont
 
 # Continuity
 
+Read [the learned playbook](references/learned-playbook.md) for evaluated usage-derived heuristics. It may refine routine technique but never overrides this skill, the Continuity contract, machine state, privacy boundaries, or human authority. After a meaningful evidence-backed outcome, route only a sanitized structured usage record through `$continuity-improve`; never copy raw transcript or tool payload content.
+
 Use this as the suite entry point. Keep the neutral suite reusable while encoding repository-specific behavior in committed project configuration and the generated `$continuity-local` skill.
 
 ## Contract and assurance
@@ -14,7 +16,7 @@ Read [the continuity contract](../../references/continuity-contract.md), [the de
 Read [workflow handoffs](../../references/workflow-handoffs.md) whenever routing between skills and [output quality rubrics](../../references/output-quality-rubrics.md) before declaring a handoff complete. Use [decision lenses](../../references/decision-lenses.md) for ambiguous routing or configuration recommendations. Use the [worked lifecycle example](../../references/worked-lifecycle-example.md) for onboarding or explaining the complete suite, not as project evidence.
 
 - Treat configuration values, commands, and paths as security-sensitive inputs. Keep secrets, credentials, personal data, private paths, and raw notes out of committed configuration.
-- Preserve the fixed guardrails for note authorization, exact-plan approval, one code-changing goal per project, security review, merge safety, next-business-day human review, restricted external side effects, force-push, and auto-merge. Project overrides may refine behavior but may not weaken these controls.
+- Preserve the fixed guardrails for request-bound goal authority, one code-changing goal per project, security review, merge safety, restricted external side effects, force-push, and auto-merge. Routine `/goal` work may bind one explicit request to plan approval and interactive dispatch without separate pauses; scheduled, elevated-risk, and consequential work may not.
 - Audit every configuration change with the previous and resulting hash, actor, changed fields, effective values, generated-skill parity, project doctor result, and Git diff review.
 - Stop on unsafe paths, invalid Git references, unknown timezones, malformed commands, unsupported assurance versions, configuration drift, or a requested guardrail bypass.
 - Treat tagged release manifests, managed-file hashes, update snapshots, approval receipts, encrypted backups, and remote leases as machine authority. Never bypass drift, required signatures, attestation, or restore validation from prose.
@@ -41,6 +43,7 @@ The answers file may override only:
 - `schedules.review`, `schedules.dispatch`, and `schedules.report`
 - `max_runtime_minutes` up to six hours
 - `memory_stale_after_days`
+- `product_audit_stale_after_days`
 - `validation_commands` and `security_commands`
 - `github_required_checks`, `github_required_reviewers`, and default-off `github_cli_merge_enabled` for hosted readiness, disposition policy, and exact interactive merge authorization
 - `documentation_map`
@@ -62,6 +65,7 @@ Use `suite update --check`, `suite update --dry-run`, and an explicit tagged upd
 
 ## Routing
 
+- Actionable interactive request or “start coding” request: `/goal`
 - Manual end-to-end request or resumed manual run: `$continuity-workflow`
 - Notes or conversation capture: `$continuity-capture`
 - Classification and queues: `$continuity-triage`
@@ -72,6 +76,8 @@ Use `suite update --check`, `suite update --dry-run`, and an explicit tagged upd
 - Approval, schedule, or manual start: `$continuity-dispatch`
 - Approved isolated execution: `$continuity-execute`
 - Quality, tests, validation, and security review: `$continuity-test`
+- Product, website, release, and intent-conformance audits: `$continuity-product-audit`
+- Recurring skill successes, failures, corrections, inefficiency, or usage-derived refinement: `$continuity-improve`
 - PR readiness, merge safety, and human merge records: `$continuity-merge`
 - Morning, completion, or portfolio reporting: `$continuity-report`
 
