@@ -228,15 +228,15 @@
       "required_safeguards": ["accessibility", "usability"]
     },
     {
-      "scenario_id": "cinematic-scroll-commercial-story",
+      "scenario_id": "cinematic-loop-commercial-story",
       "industry_group": "cross-industry",
       "modality": "ui",
       "input": {
         "title": "Material-led commercial journey",
-        "intent": "Use a continuous macro video as a scroll-driven story while preserving direct navigation, reduced-motion meaning, and a credible commercial action.",
+        "intent": "Use a looping macro video in the hero and distinct section loops to create cinematic page storytelling while preserving direct navigation, reduced-motion meaning, and a credible commercial action.",
         "audiences": ["Prospective customers"],
         "targets": ["ui"],
-        "interaction_signals": ["Full-screen video, scroll-linked playback, subtle parallax, and an optional auto tour"]
+        "interaction_signals": ["A full-screen looping hero, section video loops, scroll-paced chapter transitions, and an optional auto tour"]
       },
       "expected_lenses": ["motion-art-direction", "multimodal-equivalence-sensory-agency", "attention-interruption", "context-boundary-identity-orientation"],
       "forbidden_lenses": [],

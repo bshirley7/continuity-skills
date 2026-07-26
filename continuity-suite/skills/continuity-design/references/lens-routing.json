@@ -327,19 +327,28 @@
       ]
     },
     {
-      "rule_id": "cinematic-scroll-media",
-      "reason": "Continuous media, scroll-linked playback, smoothing, parallax, or guided tours require decoder-safe motion, sensory equivalence, user control, and interruption review.",
+      "rule_id": "cinematic-media-storytelling",
+      "reason": "Looping or continuous media, scroll-linked playback, smoothing, parallax, or guided tours require purposeful motion, decoder-safe behavior, sensory equivalence, user control, and interruption review.",
       "terms": [
         "auto tour",
+        "background video",
         "cinematic scroll",
         "continuous media",
         "full-screen video",
+        "hero loop",
+        "hero video",
+        "looping hero",
+        "looping video",
         "macro video",
         "parallax",
+        "section loop",
+        "section video",
         "scroll-driven",
         "scroll-linked",
         "scroll-scrubbed",
         "smooth scrolling",
+        "video background",
+        "video storytelling",
         "video scrub"
       ],
       "lenses": [
