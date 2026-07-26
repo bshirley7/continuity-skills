@@ -17,6 +17,8 @@ python3 continuity-suite/installer/install.py \
   --validation "pnpm typecheck"
 ```
 
+On an attached terminal, the applied install automatically opens GitHub CLI authentication when the active account or `project` scope is missing. Existing healthy authentication is reused silently, and the token remains exclusively under GitHub CLI's configured credential storage. Use `--skip-github-auth` only for an intentionally unattended or offline install.
+
 For a project that needs the offline design workflow, add `--collection design`. This installs `$continuity-design`; the default install remains the core and project workflow collections.
 
 Add more `--validation` flags for commands that should always be run before delivery:

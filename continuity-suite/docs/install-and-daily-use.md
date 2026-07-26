@@ -43,6 +43,15 @@ python3 /path/to/continuity-checkout/continuity-suite/installer/install.py \
 
 So the answer is: initial install comes from the main Continuity suite checkout, pointed at the project folder. After installation, daily use happens inside the project.
 
+Every applied install and update checks GitHub CLI authentication after the project files are safely installed. If the active `github.com` account is already healthy and has the `project` scope, nothing interrupts the install. Otherwise, an attached terminal automatically receives GitHub's browser/device login or scope-refresh flow:
+
+```text
+gh auth login --hostname github.com --web --scopes project
+gh auth refresh --hostname github.com --scopes project
+```
+
+GitHub CLI owns the credential and Continuity never reads, prints, or stores the token. If no interactive terminal is available, the install completes and its JSON result reports `authentication-required` with the exact command to run; it never waits indefinitely. Use `--skip-github-auth` only for an intentionally unattended or offline installation. The same option is available on `suite update` and `portfolio update`.
+
 ## What Gets Installed
 
 Continuity writes project-local control files into the target project:
@@ -71,7 +80,7 @@ docs/project-roadmap/                   committed roadmap records
 docs/design/design.md                   exact approved design document when Design is enabled
 ```
 
-The installer also updates managed blocks in `AGENTS.md` and `.gitignore`.
+The installer also updates managed blocks in `AGENTS.md` and `.gitignore` and returns a `github_auth` result describing the authenticated login or required next action.
 
 The shared references define suite-wide contracts, handoffs, lenses, and quality standards. Skill-local references provide applied decision tables and examples for only that stage. Codex and Claude Code adapters receive both sets; Cursor, Windsurf, and generic surfaces route through the same canonical project-local files.
 

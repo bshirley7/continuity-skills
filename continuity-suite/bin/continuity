@@ -4553,6 +4553,7 @@ def source_installer_json(
     *,
     dry_run: bool,
     overwrite_managed: bool,
+    skip_github_auth: bool,
 ) -> dict[str, Any]:
     installer = source / "installer" / "install.py"
     if not installer.is_file():
@@ -4572,8 +4573,10 @@ def source_installer_json(
         command.append("--dry-run")
     if overwrite_managed:
         command.append("--overwrite-managed")
+    if skip_github_auth:
+        command.append("--skip-github-auth")
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=360, check=False)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=930, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ContinuityError(f"Release installer failed for {project_root}: {exc}") from exc
     if result.returncode != 0:
@@ -4652,7 +4655,9 @@ def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
                     update_arguments.append("--dry-run")
                 if args.overwrite_managed:
                     update_arguments.append("--overwrite-managed")
-                update = project_cli_json(project_root, *update_arguments)
+                if args.skip_github_auth:
+                    update_arguments.append("--skip-github-auth")
+                update = project_cli_json(project_root, *update_arguments, timeout=930)
             else:
                 manifest = project.get("manifest", {})
                 project_id = str(project.get("project_id") or "")
@@ -4666,6 +4671,7 @@ def portfolio_update(args: argparse.Namespace) -> dict[str, Any]:
                     integration_branch,
                     dry_run=not args.apply,
                     overwrite_managed=args.overwrite_managed,
+                    skip_github_auth=args.skip_github_auth,
                 )
                 update = {
                     "updated": bool(args.apply),
@@ -5725,7 +5731,9 @@ def suite_update(args: argparse.Namespace) -> dict[str, Any]:
             command.append("--dry-run")
         if args.overwrite_managed:
             command.append("--overwrite-managed")
-        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+        if args.skip_github_auth:
+            command.append("--skip-github-auth")
+        result = subprocess.run(command, capture_output=True, text=True, timeout=930, check=False)
         if result.returncode != 0:
             raise ContinuityError(f"Continuity update failed: {result.stderr.strip() or result.stdout.strip()}")
         payload = json.loads(result.stdout)
@@ -11362,6 +11370,7 @@ def build_parser() -> argparse.ArgumentParser:
     suite_update_command.add_argument("--source", help="Local verified Continuity release source; primarily for development and offline updates")
     suite_update_command.add_argument("--dry-run", action="store_true")
     suite_update_command.add_argument("--overwrite-managed", action="store_true")
+    suite_update_command.add_argument("--skip-github-auth", action="store_true", help="Do not launch the default GitHub CLI authentication prompt")
     suite_update_command.set_defaults(handler=suite_update)
     suite_rollback_command = suite_sub.add_parser("rollback")
     suite_rollback_command.add_argument("--snapshot", required=True)
@@ -11497,6 +11506,7 @@ def build_parser() -> argparse.ArgumentParser:
     portfolio_update_command.add_argument("--project-id", action="append", help="Update only this discovered project ID; repeat as needed")
     portfolio_update_command.add_argument("--apply", action="store_true", help="Apply updates; without this flag the command is a dry-run")
     portfolio_update_command.add_argument("--overwrite-managed", action="store_true", help="Replace reviewed suite-managed drift in every selected project")
+    portfolio_update_command.add_argument("--skip-github-auth", action="store_true", help="Do not launch GitHub CLI authentication during applied updates")
     portfolio_update_command.set_defaults(handler=portfolio_update)
     return parser
 

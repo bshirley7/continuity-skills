@@ -56,7 +56,7 @@ python3 continuity-suite/installer/install.py \
 
 Add `--collection design` for projects that need the optional offline design workflow. Core and project-management collections remain enabled by default; upgrades preserve the project’s selected collections.
 
-The main skill guides the user through recommended defaults and explicit overrides. For a deterministic initial install, pass `--configuration <answers.json>`; for a terminal questionnaire, pass `--interactive`. After installation, use:
+The main skill guides the user through recommended defaults and explicit overrides. For a deterministic initial install, pass `--configuration <answers.json>`; for a terminal questionnaire, pass `--interactive`. Every applied install or update silently accepts a healthy GitHub CLI session or launches GitHub's browser/device authentication when the account or `project` scope is missing. Continuity never handles the token; unattended runs return an exact next command and may explicitly use `--skip-github-auth`. After installation, use:
 
 ```text
 .agents/continuity/bin/continuity --project-root <repository> --json project recommendations

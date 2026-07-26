@@ -67,6 +67,8 @@ DEFAULT_SCHEDULER = {
     "stale_after_minutes": 45,
     "portfolio_max_concurrency": 4,
 }
+GITHUB_HOST = "github.com"
+GITHUB_AUTH_SCOPES = {"project"}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -353,6 +355,133 @@ def git(root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def github_cli_auth_state(executable: str) -> dict[str, Any]:
+    """Read GitHub CLI authentication metadata without exposing its token."""
+    command = [executable, "auth", "status", "--hostname", GITHUB_HOST, "--active", "--json", "hosts"]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"authenticated": False, "login": None, "scopes": [], "problem": str(exc)}
+    try:
+        payload = json.loads(result.stdout) if result.stdout.strip() else {}
+    except json.JSONDecodeError:
+        payload = {}
+    accounts = (payload.get("hosts") or {}).get(GITHUB_HOST) if isinstance(payload, dict) else None
+    active = next(
+        (item for item in accounts or [] if isinstance(item, dict) and item.get("active")),
+        None,
+    )
+    scopes = sorted(str(item) for item in (active or {}).get("scopes", []) if str(item))
+    authenticated = bool(result.returncode == 0 and active and active.get("state") == "success")
+    return {
+        "authenticated": authenticated,
+        "login": str(active.get("login")) if active and active.get("login") else None,
+        "scopes": scopes,
+        "problem": None if authenticated else "GitHub CLI has no healthy active github.com account",
+    }
+
+
+def interactive_terminal_available() -> bool:
+    try:
+        with open("/dev/tty", "r+", encoding="utf-8"):
+            return True
+    except OSError:
+        return False
+
+
+def run_github_auth_interactive(command: list[str]) -> subprocess.CompletedProcess[str]:
+    with open("/dev/tty", "r+", encoding="utf-8", buffering=1) as terminal:
+        terminal.write("\nContinuity needs GitHub CLI authentication for repository and Projects access.\n")
+        terminal.flush()
+        return subprocess.run(
+            command,
+            stdin=terminal,
+            stdout=terminal,
+            stderr=terminal,
+            text=True,
+            timeout=900,
+            check=False,
+        )
+
+
+def ensure_github_cli_authentication(*, prompt: bool = True) -> dict[str, Any]:
+    """Ensure gh owns a user-approved credential; never read or persist the token."""
+    executable = shutil.which("gh")
+    login_command = ["gh", "auth", "login", "--hostname", GITHUB_HOST, "--web", "--scopes", "project"]
+    if not executable:
+        return {
+            "status": "cli-missing",
+            "authenticated": False,
+            "prompted": False,
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(login_command),
+            "credential_storage": "GitHub CLI",
+        }
+
+    before = github_cli_auth_state(executable)
+    missing_scopes = sorted(GITHUB_AUTH_SCOPES - set(before["scopes"]))
+    if before["authenticated"] and not missing_scopes:
+        return {
+            "status": "authenticated",
+            "authenticated": True,
+            "prompted": False,
+            "login": before["login"],
+            "scopes": sorted(GITHUB_AUTH_SCOPES & set(before["scopes"])),
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "credential_storage": "GitHub CLI",
+        }
+
+    refresh_command = ["gh", "auth", "refresh", "--hostname", GITHUB_HOST, "--scopes", "project"]
+    requested_command = refresh_command if before["authenticated"] else login_command
+    if not prompt or not interactive_terminal_available():
+        return {
+            "status": "authentication-required",
+            "authenticated": False,
+            "prompted": False,
+            "login": before["login"],
+            "missing_scopes": missing_scopes,
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(requested_command),
+            "credential_storage": "GitHub CLI",
+        }
+
+    try:
+        result = run_github_auth_interactive([executable, *requested_command[1:]])
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {
+            "status": "authentication-required",
+            "authenticated": False,
+            "prompted": True,
+            "problem": str(exc),
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(requested_command),
+            "credential_storage": "GitHub CLI",
+        }
+    after = github_cli_auth_state(executable)
+    remaining_scopes = sorted(GITHUB_AUTH_SCOPES - set(after["scopes"]))
+    if result.returncode != 0 or not after["authenticated"] or remaining_scopes:
+        return {
+            "status": "authentication-required",
+            "authenticated": False,
+            "prompted": True,
+            "login": after["login"],
+            "missing_scopes": remaining_scopes,
+            "problem": "GitHub CLI authentication did not complete",
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "next_command": " ".join(requested_command),
+            "credential_storage": "GitHub CLI",
+        }
+    return {
+        "status": "authenticated",
+        "authenticated": True,
+        "prompted": True,
+        "login": after["login"],
+        "scopes": sorted(GITHUB_AUTH_SCOPES & set(after["scopes"])),
+        "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+        "credential_storage": "GitHub CLI",
+    }
+
+
 def render_memory(entry: dict[str, Any], stamp: str, commit: str) -> str:
     metadata = {
         "memory_id": entry["memory_id"],
@@ -397,6 +526,7 @@ def main() -> int:
     parser.add_argument("--enable-execution", action="store_true")
     parser.add_argument("--require-signed-approvals", action="store_true", help="Require SSH-signed approval, disposition, resume, and packet receipts for this project")
     parser.add_argument("--overwrite-managed", action="store_true", help="Replace modified suite-managed files after snapshotting them")
+    parser.add_argument("--skip-github-auth", action="store_true", help="Do not launch the default GitHub CLI authentication prompt")
     parser.add_argument("--rollback-snapshot", help="Restore a named snapshot under .continuity/private/upgrades")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -624,7 +754,7 @@ def main() -> int:
 {IGNORE_END}"""
 
     if args.dry_run:
-        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries), "user_defaults": str(user_defaults_path), "user_defaults_loaded": bool(user_defaults), "suite_version": release["version"], "managed_files": len(file_map), "managed_drift": drift, "update_required": prior_install.get("version") != release["version"]}, indent=2))
+        print(json.dumps({"project": str(root), "config": config, "manifest": project_manifest, "configuration": args.configuration, "interactive": args.interactive, "memory_entries": len(entries), "user_defaults": str(user_defaults_path), "user_defaults_loaded": bool(user_defaults), "suite_version": release["version"], "managed_files": len(file_map), "managed_drift": drift, "update_required": prior_install.get("version") != release["version"], "github_auth": {"status": "planned" if not args.skip_github_auth else "skipped", "required_scopes": sorted(GITHUB_AUTH_SCOPES), "credential_storage": "GitHub CLI"}}, indent=2))
         return 0
 
     skills_target = root / ".agents" / "skills"
@@ -781,6 +911,17 @@ def main() -> int:
     write_json(root / ".continuity" / "install-manifest.json", installation)
     install_fault("install-manifest")
     transaction.commit()
+    github_auth = (
+        ensure_github_cli_authentication()
+        if not args.skip_github_auth
+        else {
+            "status": "skipped",
+            "authenticated": False,
+            "prompted": False,
+            "required_scopes": sorted(GITHUB_AUTH_SCOPES),
+            "credential_storage": "GitHub CLI",
+        }
+    )
     user_defaults_problem = None
     user_defaults_saved = False
     if pending_user_defaults is not None:
@@ -790,7 +931,7 @@ def main() -> int:
         except OSError as exc:
             user_defaults_problem = str(exc)
     installed_skills = sum(1 for path in skills_target.iterdir() if path.is_dir())
-    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": user_defaults_saved, "user_defaults_problem": user_defaults_problem, "suite_version": release["version"], "upgrade_snapshot": snapshot.name}, indent=2))
+    print(json.dumps({"installed": True, "project": str(root), "skills": installed_skills, "memory_entries": len(entries), "execution_enabled": manifest["execution_enabled"], "behavior_skill": ".agents/skills/continuity-local/SKILL.md", "agent_surfaces": manifest["agent_surfaces"], "scheduler": manifest["scheduler"], "scheduler_registration_required": manifest["scheduler"].get("provider") != "none", "supervisor_prompt": ".agents/continuity/automation/portfolio-supervisor.md", "user_defaults": str(user_defaults_path), "user_defaults_saved": user_defaults_saved, "user_defaults_problem": user_defaults_problem, "github_auth": github_auth, "suite_version": release["version"], "upgrade_snapshot": snapshot.name}, indent=2))
     return 0
 
 
