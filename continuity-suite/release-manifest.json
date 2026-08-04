@@ -7,7 +7,7 @@
     "CONTRIBUTING.md": "259668d84f9c29a798161a799287575333c8fedf68d0e5b10d3367c0401bc688",
     "README.md": "5e900eef7212b3789fcac5b1acd94e37908744b64ce074752e80c59c21d76185",
     "SUITE.md": "b3f7422204f4939e2d8f8bb2b9ae0d06b68bfba4f598ff0f146697f2a3372de3",
-    "VERSION": "93f893b9b51cd2ee055332a64d4656e5bbbb652788acbaeaa7d1a6b32099d23f",
+    "VERSION": "11923af84d69a31cc3fce3596cde030a55c88e9ff3da059e9a19b28880f1b8fd",
     "automation/default-dispatch.md": "fd857f09e54ad406538db5478164965414cfbbb33e36c996a843f5057308d3de",
     "automation/morning-report.md": "15c8fb17520f819474f7af008c880a993ed0181641c6bebf4051e96be6cb0315",
     "automation/nightly-review.md": "df0951faa60a02eb9c1c278e1228e68d2f4015cf87ce5546b138f302d35f93b9",
@@ -415,5 +415,5 @@
     "linux",
     "win32"
   ],
-  "version": "0.1.0-rc.3"
+  "version": "0.1.0-rc.6"
 }

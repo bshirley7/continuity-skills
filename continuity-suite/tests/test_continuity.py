@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 SUITE = Path(__file__).resolve().parents[1]
 CLI = SUITE / "bin" / "continuity"
 INSTALLER = SUITE / "installer" / "install.py"
+SUITE_VERSION = (SUITE / "VERSION").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(SUITE / "lib"))
 import roadmap as roadmap_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
@@ -3745,7 +3746,7 @@ class InstallerTest(unittest.TestCase):
                 "--integration-branch", "main", "--ignore-user-defaults",
             ]
             first = json.loads(subprocess.run(command, check=True, capture_output=True, text=True).stdout)
-            self.assertEqual(first["suite_version"], "0.1.0-rc.3")
+            self.assertEqual(first["suite_version"], SUITE_VERSION)
             install_manifest = json.loads((root / ".continuity" / "install-manifest.json").read_text(encoding="utf-8"))
             self.assertTrue(install_manifest["installed_files"])
             installed_cli = root / ".agents" / "continuity" / "bin" / "continuity"
