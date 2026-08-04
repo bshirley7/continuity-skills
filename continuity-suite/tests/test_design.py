@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 
 SUITE = Path(__file__).resolve().parents[1]
+SUITE_VERSION = (SUITE / "VERSION").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(SUITE / "lib"))
 import design
 
@@ -2235,7 +2236,7 @@ class BoundaryTests(unittest.TestCase):
                 "--project-id", "design-project", "--integration-branch", "main", "--collection", "design",
                 "--ignore-user-defaults",
             ], check=True, capture_output=True, text=True).stdout)
-            self.assertEqual(installed["suite_version"], "0.1.0-rc.3")
+            self.assertEqual(installed["suite_version"], SUITE_VERSION)
             self.assertTrue((root / ".agents/skills/continuity-design/SKILL.md").is_file())
             self.assertTrue(
                 (
