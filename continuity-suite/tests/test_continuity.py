@@ -1449,6 +1449,84 @@ unresolved_gaps: []
         )
         self.assertEqual(capture_record["source_type"], "product-audit")
 
+    def test_already_merged_pr_can_reconcile_to_completed(self) -> None:
+        goal = self.create_goal("Reconcile merged PR")
+        payload = self.root / "goal-Reconcile-merged-PR.json"
+        if payload.exists():
+            payload.unlink()
+        self.approve(goal)
+        self.cli("goal", "start", goal["goal_id"])
+        self.git("checkout", "-b", "continuity/reconcile-merged-pr")
+        pr_url = "https://github.com/example/project/pull/19"
+        config_path = self.root / ".continuity" / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config.update({"require_pr": True, "require_pr_auth": True, "github_required_reviewers": 0})
+        self.write_json(config_path, config)
+        self.git("add", ".continuity/config.json")
+        self.git("commit", "-m", "require authenticated PR fixture")
+        self.git("remote", "add", "origin", "https://github.com/example/project.git")
+        self.cli(
+            "run", "update", goal["goal_id"], "--state", "running",
+            "--branch", "continuity/reconcile-merged-pr",
+        )
+        self.cli("run", "update", goal["goal_id"], "--state", "validating", "--pr-url", pr_url)
+        self.cli(
+            "test", "run", goal["goal_id"], "--worktree", str(self.root),
+            "--branch", "continuity/reconcile-merged-pr",
+        )
+        self.cli(
+            "test", "record", goal["goal_id"], "--status", "passed", "--summary", "Current evidence",
+            "--worktree", str(self.root), "--branch", "continuity/reconcile-merged-pr",
+            "--code-review-evidence", "complete diff reviewed",
+            "--security-evidence", "merge reconciliation boundary reviewed", "--update-gates",
+        )
+        self.mark_product_audit_not_applicable(goal["goal_id"])
+        for stage in ("implementation", "documentation", "memory-impact", "roadmap-impact", "final-alignment"):
+            self.cli("goal", "gate", goal["goal_id"], stage, "--status", "passed", "--evidence", f"fixture:{stage}")
+
+        head_sha = self.git("rev-parse", "HEAD")
+        merge_commit = "c" * 40
+        fake_bin = self.root.parent / "reconcile-merged-bin"
+        fake_bin.mkdir()
+        install_python_tool(
+            fake_bin,
+            "gh",
+            "import json,sys\n"
+            "args=sys.argv[1:]\n"
+            "if args[:2] == ['api','user']:\n print('fixture-user'); raise SystemExit(0)\n"
+            "if args[:2] == ['pr','view']:\n"
+            f" print(json.dumps({{'url':{pr_url!r},'state':'MERGED','headRefName':'continuity/reconcile-merged-pr','baseRefName':'main','headRefOid':{head_sha!r},'isDraft':False,'mergeStateStatus':'UNKNOWN','reviewDecision':'','reviews':[],'statusCheckRollup':[],'mergeCommit':{{'oid':{merge_commit!r}}},'mergedBy':{{'login':'fixture-user'}}}})); raise SystemExit(0)\n"
+            "raise SystemExit(1)\n",
+        )
+        original_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = f"{fake_bin}{os.pathsep}{original_path}"
+        try:
+            assessment = json.loads(
+                self.cli(
+                    "merge", "assess", goal["goal_id"], "--worktree", str(self.root),
+                    "--branch", "continuity/reconcile-merged-pr", "--pr-url", pr_url, "--update-gate",
+                ).stdout
+            )
+            self.assertEqual(assessment["status"], "passed", assessment)
+            self.assertTrue(assessment["github"]["reconciled_after_merge"])
+            self.assertEqual(assessment["github"]["merge_commit"], merge_commit)
+            self.cli(
+                "run", "update", goal["goal_id"], "--state", "review-ready",
+                "--summary", "Reconciled after verified GitHub merge", "--pr-url", pr_url,
+            )
+            disposition = json.loads(
+                self.cli(
+                    "merge", "record-human", goal["goal_id"], "--pr-url", pr_url,
+                    "--merged-by", "fixture-user", "--disposition", "merged",
+                    "--merge-commit", merge_commit, "--evidence", "GitHub verified the prior merge.",
+                ).stdout
+            )
+        finally:
+            os.environ["PATH"] = original_path
+        self.assertEqual(disposition["status"], "merged")
+        goal_path = self.root / ".continuity" / "private" / "goals" / goal["goal_id"] / "goal.json"
+        self.assertEqual(json.loads(goal_path.read_text(encoding="utf-8"))["state"], "completed")
+
     def test_human_authorized_github_cli_merge_is_sha_bound_and_opt_in(self) -> None:
         config_path = self.root / ".continuity" / "config.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
