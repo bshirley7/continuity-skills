@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,14 @@ import runtime as runtime_lib  # noqa: E402
 
 
 class ReleasePortabilityTest(unittest.TestCase):
+    def test_release_workflow_packages_every_manifest_root(self) -> None:
+        manifest = json.loads((SUITE / "release-manifest.json").read_text(encoding="utf-8"))
+        required_roots = {Path(path).parts[0] for path in manifest["files"]}
+        workflow = (REPOSITORY / ".github" / "workflows" / "continuity-release.yml").read_text(encoding="utf-8")
+        copy_line = next(line.strip() for line in workflow.splitlines() if line.strip().startswith("cp -R "))
+        packaged = set(shlex.split(copy_line)[2:-1])
+        self.assertEqual(required_roots - packaged, set())
+
     def test_gitattributes_enforces_lf_for_managed_text(self) -> None:
         attributes = (REPOSITORY / ".gitattributes").read_text(encoding="utf-8")
         self.assertIn("* text=auto eol=lf", attributes)
