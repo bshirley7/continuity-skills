@@ -10071,6 +10071,8 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
                         "reviewDecision",
                         "reviews",
                         "statusCheckRollup",
+                        "mergeCommit",
+                        "mergedBy",
                     ],
                     context=github_context,
                 )
@@ -10079,8 +10081,11 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
             else:
                 pr_head_sha = pr_details.get("headRefOid")
                 pr_base = pr_details.get("baseRefName")
-                if pr_details.get("state") != "OPEN":
-                    failures.append("PR must be open during merge-safety assessment")
+                pr_state = pr_details.get("state")
+                reconciled_after_merge = pr_state == "MERGED"
+                merge_commit = (pr_details.get("mergeCommit") or {}).get("oid")
+                if pr_state not in {"OPEN", "MERGED"}:
+                    failures.append("PR must be open or verifiably merged during merge-safety assessment")
                 if pr_details.get("headRefName") != branch:
                     failures.append("PR head branch does not match the goal branch")
                 if pr_details.get("baseRefName") != base:
@@ -10091,12 +10096,20 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
                     failures.append("PR head commit does not match the tested local commit")
                 check_summary = github_check_summary(pr_details.get("statusCheckRollup"), config.get("github_required_checks", []))
                 failures.extend(check_summary["failures"])
-                if pr_details.get("isDraft"):
+                if pr_details.get("isDraft") and not reconciled_after_merge:
                     failures.append("PR must be ready for review, not draft")
                 if pr_details.get("reviewDecision") == "CHANGES_REQUESTED":
                     failures.append("PR has an unresolved changes-requested review")
-                if pr_details.get("mergeStateStatus") not in {"CLEAN", "HAS_HOOKS"}:
+                if not reconciled_after_merge and pr_details.get("mergeStateStatus") not in {"CLEAN", "HAS_HOOKS"}:
                     failures.append(f"PR merge state is not immediately mergeable: {pr_details.get('mergeStateStatus') or 'UNKNOWN'}")
+                if reconciled_after_merge:
+                    if not isinstance(merge_commit, str) or not re.fullmatch(r"[a-f0-9]{40}", merge_commit):
+                        failures.append("merged PR does not expose a full lowercase 40-character merge commit SHA")
+                    elif base and config.get("require_remote", True):
+                        remote_base = f"origin/{base}"
+                        merged_on_base = git_result(worktree, "merge-base", "--is-ancestor", merge_commit, remote_base)
+                        if merged_on_base.returncode != 0:
+                            failures.append("verified PR merge commit is not reachable from the remote integration branch")
                 approved_reviewers = github_approved_reviewers(pr_details.get("reviews"))
                 required_reviewers = int(config.get("github_required_reviewers", 0))
                 if len(approved_reviewers) < required_reviewers:
@@ -10114,12 +10127,19 @@ def merge_assess(args: argparse.Namespace) -> dict[str, Any]:
                     "approved_reviewers": sorted(approved_reviewers, key=str.casefold),
                     "required_reviewers": required_reviewers,
                     "checks": check_summary,
+                    "state": pr_state,
+                    "merge_commit": merge_commit,
+                    "merged_by": (pr_details.get("mergedBy") or {}).get("login"),
+                    "reconciled_after_merge": reconciled_after_merge,
                 }
                 if not failures:
                     evidence.append(f"github-repository:{github_context['spec']}")
                     evidence.append(f"github-pr:{github_context['number']}")
                     evidence.append(f"github-identity:{github_login}")
                     evidence.append(f"pr-head:{pr_details.get('headRefOid')}")
+                    if reconciled_after_merge:
+                        evidence.append(f"pr-state:MERGED")
+                        evidence.append(f"merge-commit:{merge_commit}")
     test_report = json_load(directory / "test-report.json", {})
     if not isinstance(test_report, dict) or test_report.get("status") != "passed":
         failures.append("latest test report is not passed")

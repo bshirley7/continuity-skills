@@ -37,7 +37,7 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
   --update-gate
 ```
 
-4. If the assessment fails, keep the PR draft or blocked and route unrelated follow-up into notes, roadmap, or a later goal.
+4. If GitHub already reports the exact tested PR head as merged, the assessment may reconcile the missed lifecycle transition only after it verifies the merge commit on the remote integration branch, hosted checks, reviewer policy, branch, base, and all current source-bound evidence. Otherwise, if the assessment fails, keep the PR draft or blocked and route unrelated follow-up into notes, roadmap, or a later goal.
 5. If the assessment passes, hand off for human PR review. Completion may be review-ready, but merge remains a human action.
 6. When `.continuity/config.json` has `github_cli_merge_enabled: true`, an interactive human may authorize and execute the exact assessed PR head without opening GitHub. Copy the full head SHA and use authorization text that exactly matches the command contract:
 

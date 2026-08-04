@@ -570,6 +570,8 @@ captures. Only current-goal mismatches can block the product-conformance gate.
 .agents/continuity/bin/continuity --project-root "$PWD" merge assess <goal-id> --branch <branch> --pr-url <pull-request-url> --update-gate
 ```
 
+If the PR was merged before Continuity recorded `review-ready`, rerun the same assessment. It accepts that recovery path only when GitHub verifies the exact tested head and merge commit, the merge commit is reachable from the remote integration branch, and every current local, hosted, reviewer, and conformance gate passes. Then record `review-ready` and the verified `merged` human disposition normally; do not cancel delivered work or edit private state.
+
 After overnight delivery passes every gate, record `review-ready` and stop. After a human reviews or merges the PR, record that fact separately:
 
 ```text
