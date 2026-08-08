@@ -4,14 +4,14 @@
   "design_id": "example-direction",
   "revision": 1,
   "visual_review": {
-    "signature_identifiable": "Yes; the proof rail is visible immediately.",
-    "identity_specific": "The structure depends on this product's evidence model.",
-    "not_category_reflex": "It is neither a generic SaaS grid nor a terminal counter-default.",
-    "directions_structurally_distinct": "The alternatives change hierarchy and interaction, not only styling.",
-    "not_library_default": "Library behavior is retained but its default composition is not visible.",
-    "signature_survives_states": "The proof rail becomes an inline evidence seam on mobile and quiet states.",
-    "reference_transformed": "Only the recorded density relationship is adapted.",
-    "decoration_has_job": "Every non-content element communicates evidence state or grouping."
+    "signature_identifiable": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "proof-rail"}]},
+    "identity_specific": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]},
+    "not_category_reflex": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]},
+    "directions_structurally_distinct": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-comparison.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "all-concepts"}]},
+    "not_library_default": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "composition"}]},
+    "signature_survives_states": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "inline-proof-seam"}]},
+    "reference_transformed": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "evidence-relationship"}]},
+    "decoration_has_job": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]}
   },
   "visual_findings": [],
   "context_findings": [],

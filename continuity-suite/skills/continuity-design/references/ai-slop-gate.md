@@ -4,13 +4,13 @@ Run `continuity design slop-check --target <file-or-directory> --manifest <manif
 
 ## Decision model
 
-- Hard failures and project drift block the stage.
-- Every default-risk warning must be resolved with evidence, marked not applicable, or accepted as intentional.
+- Hard failures and project drift block the stage until the detected condition is absent. They cannot be accepted or marked not applicable.
+- Every default-risk warning must be resolved by changing the artifact, marked not applicable with rationale and evidence, or accepted as intentional.
 - Intentional acceptance must use the hash-bound `craft_findings` shape with a project rationale and design-contract reference.
 - Inline comments and free-form suppression markers have no authority.
 - Patterns are not universal bans. The gate detects unexplained defaults; evidenced, approved use remains possible.
 
-Findings emit a stable rule ID, class, severity, location, evidence, and remediation. The report binds its ruleset, scanned file hashes, finding dispositions, visual-review answers, stage, and final status.
+Findings emit a stable rule ID, class, severity, location, evidence, and remediation. The report binds its ruleset, scanned file hashes, finding dispositions, structured visual-review answers, hashed PNG evidence regions, stage, and final status.
 
 ## Hard failures
 
@@ -34,13 +34,13 @@ Supply deterministic context markers in `project_context`: `unapproved_markers`,
 
 ## Required visual review
 
-Answer all eight questions in `visual_review`:
+Answer all eight questions in `visual_review`. Each answer requires `result`, `reviewer`, `reviewed_at`, and one or more hashed PNG evidence objects with a named region. A failed answer requires a finding and automatically creates the mapped slop finding. An unsupported prose assertion is invalid.
 
 1. Can the signature be identified within five seconds?
-2. Would changing the product name make the design fit an unrelated company?
-3. Is it the category default or its fashionable opposite?
+2. Does the identity remain project-specific when the product name is removed?
+3. Does it avoid both the category default and its fashionable opposite?
 4. Are concepts structurally distinct rather than cosmetically varied?
-5. Did implementation retreat to library defaults?
+5. Does implementation avoid retreating to library defaults?
 6. Does the signature survive mobile, quiet, error, and reduced-motion states?
 7. Is a reference mechanic transformed rather than its identity copied?
 8. Does every decorative choice perform a necessary job?

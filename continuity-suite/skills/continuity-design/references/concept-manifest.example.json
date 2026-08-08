@@ -2,16 +2,25 @@
   "design_id": "example-direction",
   "revision": 1,
   "presentation_mode": "director-led",
+  "collaboration_delivery": {
+    "profile": "guided",
+    "recommendation_posture": "decisive",
+    "explanation_depth": "plain-language",
+    "feedback_scope": "three-to-five-numbered-elements",
+    "challenge_posture": "translate-design-language",
+    "feedback_prompt": "React to the numbered elements: what should we keep, change, avoid, or explore?"
+  },
   "concepts": [
     {
+      "role": "direction",
       "direction_id": "direction-1",
       "recommended": true,
       "thesis": "Evidence becomes the visual identity.",
       "signature_move": "Attach a proof rail to every consequential claim.",
       "palette": ["Paper", "Carbon", "Signal oxide"],
       "type_specimen": {"copy": "Inspect the source before approval."},
-      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-a.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
-      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-a-mobile.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-a-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
       "imagery_treatment": "Owned operational material with visible provenance.",
       "motion_decision": "State-led continuity only, with a static equivalent.",
       "preservation_promise": "Keep the expert path direct.",
@@ -21,14 +30,16 @@
       "slop_report": {"path": ".continuity/private/design/slop/concept-a.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.0.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
     },
     {
-      "direction_id": "direction-2",
+      "role": "contrast-study",
+      "study_id": "study-material-seam",
+      "tests_uncertainty": "Whether spatial inspection is more useful than a persistent proof rail.",
       "recommended": false,
       "thesis": "Inspection creates confidence.",
       "signature_move": "Use a spatial field-note seam from material to outcome.",
       "palette": ["Field", "Graphite", "Safety amber"],
       "type_specimen": {"copy": "Trace the system from source to consequence."},
-      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-b.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
-      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-b-mobile.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-b-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-b-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
       "imagery_treatment": "Owned infrastructure detail with annotated scale.",
       "motion_decision": "One spatial transition with reduced-motion replacement.",
       "preservation_promise": "Keep the expert path direct.",
@@ -44,9 +55,13 @@
     {"viewport": "desktop", "path": ".continuity/private/designs/example/1/concepts-desktop.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
   ],
   "browser_probes": [
-    {"viewport": "mobile", "status": "passed", "evidence": "No overflow, obstruction, clipping, or inaccessible control."},
-    {"viewport": "tablet", "status": "passed", "evidence": "No overflow, obstruction, clipping, or inaccessible control."},
-    {"viewport": "desktop", "status": "passed", "evidence": "No overflow, obstruction, clipping, or inaccessible control."}
+    {"viewport": "mobile", "path": ".continuity/private/designs/example/1/probe-mobile.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "tablet", "path": ".continuity/private/designs/example/1/probe-tablet.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "desktop", "path": ".continuity/private/designs/example/1/probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+  ],
+  "research_links": [
+    {"tile": 1, "disposition": "transformed", "rationale": "Adapt the relationship between claim and evidence, not the reference identity.", "concept_ids": ["direction-1"]},
+    {"tile": 2, "disposition": "rejected", "rationale": "The lighting treatment obscures operational content.", "concept_ids": []}
   ],
   "visual_references": []
 }

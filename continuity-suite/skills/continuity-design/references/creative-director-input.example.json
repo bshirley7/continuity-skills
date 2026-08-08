@@ -1,4 +1,5 @@
 {
+  "workflow_version": 2,
   "design_id": "example-direction",
   "title": "Example direction",
   "intent": "Give operators a distinctive evidence-first review experience.",
@@ -21,5 +22,53 @@
   "sections": ["review-approval-lifecycle"],
   "themes": ["calm"],
   "message_structures": ["proof-first"],
-  "constraints": [], "preserve": [], "open_questions": [], "rejected_decisions": []
+  "constraints": [],
+  "preserve": ["Keep the operator review path direct and evidence-led."],
+  "open_questions": [],
+  "rejected_decisions": [],
+  "direction_count": 1,
+  "direction_count_basis": "The evidence-first intent is clear enough for one selectable recommendation; uncertainties move into contrast studies.",
+  "directions": [
+    {
+      "direction_id": "direction-1",
+      "name": "Proof Rail",
+      "summary": "Make the relationship between every consequential claim and its evidence the organizing visual system.",
+      "creative_signature": "A persistent, numbered proof rail intersects the content exactly where an operator must verify a claim.",
+      "creative_provenance": [
+        {
+          "provenance_id": "intent-evidence-first",
+          "classification": "supplied",
+          "observation": "The brief asks for a distinctive evidence-first review experience.",
+          "source_refs": ["design-input:intent"],
+          "design_implication": "Evidence should shape composition and navigation instead of appearing as a generic card or footer."
+        }
+      ],
+      "design_grammar": {
+        "composition": ["Use an asymmetric work surface intersected by a numbered proof rail; do not center the primary claim."],
+        "spacing_density": ["Keep the inspection field compact and make the evidence seam the dominant spacing break."],
+        "typography": ["Use a readable editorial text role for claims and a compact tabular utility role for provenance."],
+        "color": ["Use carbon and paper as the working field; reserve signal oxide for provenance state, never decoration."],
+        "shape_form": ["Use square evidence anchors and open content regions rather than a field of rounded cards."],
+        "surface_depth": ["Express hierarchy through seams, rules, and overlap; avoid decorative glass or glow."],
+        "imagery": ["Use owned operational detail only when it proves context; annotate crop and source."],
+        "iconography": ["Use restrained functional symbols paired with explicit evidence labels."],
+        "motion": ["Move the proof rail only to preserve claim-to-source continuity; provide static and reduced-motion equivalents."],
+        "voice": ["Use concrete operator verbs: inspect, compare, resolve, approve."],
+        "state_language": ["Name evidence state directly: inspected, missing, changed, or disputed."],
+        "responsive_behavior": ["Transform the side rail into an inline evidence seam immediately after each claim on narrow screens."]
+      },
+      "principles": ["Evidence is structure, not ornament."],
+      "experience_principles": ["Let an operator verify a claim without losing its context."],
+      "experience_architecture": ["Move from claim, to adjacent proof, to decision, while preserving unresolved evidence in place."],
+      "component_patterns": ["Compose installed controls into a claim-and-proof relationship rather than repeating generic containers."],
+      "implementation_guidance": ["Encode claim, proof, and disposition as semantic roles that survive every viewport and state."],
+      "validation_criteria": ["An operator can identify the project-specific signature and trace a consequential claim to its source within five seconds."],
+      "prohibited_patterns": ["Do not replace the proof rail with a generic bento grid, hero metric, glow, or card stack."],
+      "variation_levers": ["Increase rail prominence for review moments and reduce it to an inline seam for quiet utility states."],
+      "tradeoffs": ["The proof rail reduces simultaneous overview in exchange for stronger claim-to-source continuity."],
+      "content_rules": ["Distinguish inspected, supplied, inferred, and illustrative content and visibly qualify anything not evidenced."],
+      "audience_strategy": ["Explain the evidence relationship in plain language for guided users without slowing expert operators."],
+      "prototype_boundaries": ["Do not imply that unrendered states or unavailable sources were inspected."]
+    }
+  ]
 }

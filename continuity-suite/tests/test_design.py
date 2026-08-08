@@ -5,9 +5,11 @@ import json
 import runpy
 import shutil
 import subprocess
+import struct
 import sys
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 SUITE = Path(__file__).resolve().parents[1]
@@ -31,8 +33,22 @@ EVALUATION_SPEC = importlib.util.spec_from_file_location(
 EVALUATION = importlib.util.module_from_spec(EVALUATION_SPEC)
 assert EVALUATION_SPEC.loader
 EVALUATION_SPEC.loader.exec_module(EVALUATION)
+OUTPUT_EVALUATION_SPEC = importlib.util.spec_from_file_location(
+    "evaluate_design_outputs",
+    SUITE / "scripts" / "evaluate_design_outputs.py",
+)
+OUTPUT_EVALUATION = importlib.util.module_from_spec(OUTPUT_EVALUATION_SPEC)
+assert OUTPUT_EVALUATION_SPEC.loader
+OUTPUT_EVALUATION_SPEC.loader.exec_module(OUTPUT_EVALUATION)
 CATALOG = SUITE / "skills" / "continuity-design" / "references" / "catalog.json"
 SCENARIOS = SUITE / "skills" / "continuity-design" / "references" / "evaluation-scenarios.json"
+
+
+def png_bytes(width, height, color=(238, 240, 234, 255)):
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+    row = b"\x00" + bytes(color) * width
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row * height)) + chunk(b"IEND", b"")
 
 
 def input_value(**overrides):
@@ -82,7 +98,41 @@ class DesignLifecycleTests(unittest.TestCase):
         return path
 
     def visual_review(self):
-        return {key: "Reviewed against the numbered rendered evidence." for key in design.VISUAL_REVIEW_QUESTIONS}
+        screenshot = self.root / "visual-review.png"
+        if not screenshot.exists():
+            screenshot.write_bytes(png_bytes(1440, 900))
+        return self.visual_review_for([screenshot])
+
+    def visual_review_for(self, screenshots):
+        evidence = [
+            {"path": path.relative_to(self.root).as_posix(), "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest(), "region": "full-frame"}
+            for path in screenshots
+        ]
+        return {
+            key: {
+                "result": "pass", "finding": "", "rationale": "",
+                "reviewer": "test-visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z",
+                "evidence": evidence,
+            }
+            for key in design.VISUAL_REVIEW_QUESTIONS
+        }
+
+    def creative_input(self, **overrides):
+        desired_id = overrides.get("design_id", "creative-design")
+        seed = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id=f"{desired_id}-seed")),
+        )
+        value = input_value(
+            workflow_version=2,
+            direction_count=1,
+            directions=[seed["directions"][0]],
+            collaboration_profile="guided",
+            concept_presentation_mode="director-led",
+            research={"mode": "offline", "status": "not-started", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )
+        value.update(overrides)
+        return value
 
     def write_slop_manifest(self, stage="concept", **overrides):
         value = {"stage": stage, "ruleset_version": design_slop.RULESET_VERSION, "visual_review": self.visual_review()}
@@ -101,7 +151,7 @@ class DesignLifecycleTests(unittest.TestCase):
         }
 
     def test_creative_director_input_infers_profile_and_specialization(self):
-        value = input_value(
+        value = self.creative_input(
             design_id="creative-peer", intent="A creative director will co-create a launch system.",
             collaboration_profile="creative-peer", concept_presentation_mode="director-led",
             research={"mode": "declined", "status": "declined", "announced": True, "opt_out_offered": True, "moodboard": []},
@@ -110,23 +160,62 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(draft["schema_version"], 2)
         self.assertEqual(draft["collaboration_profile"], "creative-peer")
         self.assertEqual(draft["specialization"], "brand-marketing")
-        self.assertEqual(len(draft["directions"]), 2)
+        self.assertEqual(len(draft["directions"]), 1)
         self.assertEqual(draft["slop_ruleset_hash"], design_slop.ruleset_hash())
 
+    def test_creative_director_workflow_is_explicit_and_rejects_generic_recovery(self):
+        with self.assertRaisesRegex(design.DesignError, "explicit workflow_version 2"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(input_value(collaboration_profile="guided")))
+        value = self.creative_input(design_id="missing-authored-direction")
+        value.pop("directions")
+        with self.assertRaisesRegex(design.DesignError, "agent-authored"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
     def test_completed_live_research_requires_numbered_provenance_tiles(self):
-        value = input_value(
+        value = self.creative_input(
             design_id="bad-research", collaboration_profile="guided",
             research={"mode": "adaptive-live", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
         )
         with self.assertRaisesRegex(design.DesignError, "12 to 20"):
             design.draft(self.root, self.config, CATALOG, self.write_input(value))
 
+    def test_completed_live_research_binds_unique_local_captures_axes_and_sources(self):
+        moodboard = []
+        for index in range(1, 13):
+            image = self.root / f"mood-{index}.png"
+            image.write_bytes(png_bytes(320, 200, (180 + index, 190, 200, 255)))
+            moodboard.append({
+                "tile": index,
+                "source": f"https://source-{(index % 3) + 1}.example/reference-{index}",
+                "captured_at": "2026-08-08T12:00:00Z",
+                "intended_lesson": f"Study project-relevant relationship {index}.",
+                "axis": "subject-material" if index % 2 else "graphic-spatial",
+                "project_mechanic": f"Translate relationship {index} into the project evidence system.",
+                "ownership": "third-party", "prohibited_copying": True, "publishable": False,
+                "local_path": image.name,
+                "sha256": __import__("hashlib").sha256(image.read_bytes()).hexdigest(),
+            })
+        value = self.creative_input(
+            design_id="complete-live-research",
+            research={"mode": "adaptive-live", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": moodboard},
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(len(draft["research"]["moodboard"]), 12)
+        self.assertEqual(len({item["sha256"] for item in draft["research"]["moodboard"]}), 12)
+
+        duplicate = json.loads(json.dumps(value))
+        duplicate["design_id"] = "duplicate-live-research"
+        duplicate["research"]["moodboard"][1]["local_path"] = duplicate["research"]["moodboard"][0]["local_path"]
+        duplicate["research"]["moodboard"][1]["sha256"] = duplicate["research"]["moodboard"][0]["sha256"]
+        with self.assertRaisesRegex(design.DesignError, "same captured visual"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(duplicate))
+
     def test_third_party_moodboard_tile_cannot_be_marked_publishable(self):
-        value = input_value(
+        value = self.creative_input(
             design_id="third-party-promotion", collaboration_profile="guided",
             research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": [{
                 "tile": 1, "source": "https://example.com/reference", "captured_at": "2026-08-08T12:00:00Z",
-                "intended_lesson": "Observe the relationship between scale and whitespace.", "axis": "graphic/spatial",
+                "intended_lesson": "Observe the relationship between scale and whitespace.", "axis": "graphic-spatial", "project_mechanic": "Use scale to distinguish source from consequence.",
                 "ownership": "third-party", "prohibited_copying": True, "publishable": True,
             }]},
         )
@@ -135,27 +224,41 @@ class DesignLifecycleTests(unittest.TestCase):
 
     def test_visual_atlas_is_private_self_contained_and_network_free(self):
         request = self.root / "atlas.json"
-        request.write_text(json.dumps({"title": "Material contrasts", "contrasts": ["quiet / expressive", "flat / tactile"]}), encoding="utf-8")
+        request.write_text(json.dumps({"title": "Material contrasts", "project_copy": "Inspect the source before approval.", "contrasts": ["editorial evidence", "technical index"]}), encoding="utf-8")
         result = design.visual_atlas(self.root, self.config, CATALOG, request)
         text = (self.root / result["path"]).read_text(encoding="utf-8")
         self.assertTrue(result["private"])
         self.assertFalse(result["network_used"])
         self.assertEqual(result["plate_count"], 2)
-        self.assertIn("<svg", text)
+        self.assertIn('data-system="editorial-asymmetry"', text)
+        self.assertIn('data-system="technical-index"', text)
         self.assertNotIn("http://", text)
         self.assertNotIn("https://", text)
 
     def test_private_renderer_supports_moodboards_concepts_and_visual_deltas(self):
+        wide = self.root / "render-wide.png"
+        narrow = self.root / "render-narrow.png"
+        changed = self.root / "render-changed.png"
+        wide.write_bytes(png_bytes(1200, 800, (238, 240, 234, 255)))
+        narrow.write_bytes(png_bytes(390, 800, (219, 226, 221, 255)))
+        changed.write_bytes(png_bytes(1200, 800, (225, 231, 235, 255)))
         for kind in ("moodboard", "concept-comparison", "visual-delta"):
             with self.subTest(kind=kind):
                 request = self.root / f"{kind}.json"
-                request.write_text(json.dumps({"kind": kind, "title": f"{kind} evidence", "items": [{"number": 1, "title": "Evidence rail", "summary": "A structural study", "lesson": "Keep proof attached", "source": "project-owned study"}]}), encoding="utf-8")
+                item = {"number": 1, "title": "Evidence rail", "summary": "A structural study", "lesson": "Keep proof attached", "source": "project-owned study"}
+                if kind == "moodboard":
+                    item["image_path"] = wide.name
+                elif kind == "concept-comparison":
+                    item.update({"wide_image_path": wide.name, "narrow_image_path": narrow.name})
+                else:
+                    item.update({"before_image_path": wide.name, "after_image_path": changed.name})
+                request.write_text(json.dumps({"kind": kind, "title": f"{kind} evidence", "items": [item]}), encoding="utf-8")
                 result = design.visual_render(self.root, self.config, request)
                 rendered = (self.root / result["path"]).read_text(encoding="utf-8")
                 self.assertTrue(result["private"])
                 self.assertFalse(result["network_used"])
                 self.assertIn("Evidence rail", rendered)
-                self.assertIn("@media(max-width:820px)", rendered)
+                self.assertIn("Neutral comparison chrome", rendered)
 
     def test_slop_check_detects_hard_and_default_risks(self):
         source = self.root / "risk.css"
@@ -262,6 +365,52 @@ class DesignLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(design.DesignError, "cannot be accepted"):
             design.slop_check(self.root, self.config, source, manifest)
 
+    def test_hard_failure_cannot_be_marked_not_applicable(self):
+        source = self.root / "unsafe-not-applicable.css"
+        source.write_text(".thing { transition: all .3s; }", encoding="utf-8")
+        manifest = self.write_slop_manifest(dispositions=[{
+            "rule_id": "CDS-H004", "status": "not-applicable", "rationale": "Claimed false positive", "evidence": "No exception is valid.",
+        }])
+        with self.assertRaisesRegex(design.DesignError, "cannot be accepted or marked not applicable"):
+            design.slop_check(self.root, self.config, source, manifest)
+
+    def test_visual_review_requires_hash_bound_structured_evidence(self):
+        source = self.root / "clean-review.html"
+        source.write_text("<main><h1>Project-specific evidence</h1></main>", encoding="utf-8")
+        manifest = self.write_slop_manifest(visual_review={key: "not actually reviewed" for key in design.VISUAL_REVIEW_QUESTIONS})
+        with self.assertRaisesRegex(design.DesignError, "requires pass, fail, or not-applicable"):
+            design.slop_check(self.root, self.config, source, manifest)
+
+    def test_failed_visual_review_becomes_a_blocking_finding(self):
+        source = self.root / "visual-failure.html"
+        source.write_text("<main><h1>Project evidence</h1></main>", encoding="utf-8")
+        review = self.visual_review()
+        review["directions_structurally_distinct"] = {
+            **review["directions_structurally_distinct"],
+            "result": "fail",
+            "finding": "The alternatives share the same hierarchy and differ only by palette.",
+        }
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(visual_review=review))
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("CDS-D019", {item["rule_id"] for item in result["findings"]})
+
+    def test_visual_slop_questions_cover_identity_category_and_decorative_work(self):
+        mappings = {
+            "identity_specific": "CDS-D018",
+            "not_category_reflex": "CDS-D017",
+            "directions_structurally_distinct": "CDS-D019",
+            "decoration_has_job": "CDS-D020",
+        }
+        for question, rule_id in mappings.items():
+            with self.subTest(question=question):
+                source = self.root / f"{question}.html"
+                source.write_text("<main><h1>Project evidence</h1></main>", encoding="utf-8")
+                review = self.visual_review()
+                review[question] = {**review[question], "result": "fail", "finding": f"Failed review question: {question}"}
+                result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(visual_review=review))
+                self.assertEqual(result["status"], "failed")
+                self.assertIn(rule_id, {item["rule_id"] for item in result["findings"]})
+
     def test_third_party_reference_promotion_is_a_hard_failure(self):
         source = self.root / "clean.html"
         source.write_text("<main><h1>Project evidence</h1></main>", encoding="utf-8")
@@ -279,46 +428,76 @@ class DesignLifecycleTests(unittest.TestCase):
                 self.assertEqual(sorted({item["rule_id"] for item in findings}), sorted(expected))
 
     def test_concept_feedback_gates_selection_and_invalidates_changed_revision(self):
-        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(self.creative_input(
             design_id="concept-loop", collaboration_profile="guided", concept_presentation_mode="director-led",
             research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
         )))
+        concept_visuals = {}
+        concept_visual_paths = {}
+        for name, width, color in (
+            ("direction-wide", 1440, (238, 240, 234, 255)),
+            ("direction-narrow", 390, (221, 229, 224, 255)),
+            ("study-wide", 1440, (231, 226, 216, 255)),
+            ("study-narrow", 390, (215, 221, 229, 255)),
+        ):
+            visual = self.root / f"{name}.png"
+            visual.write_bytes(png_bytes(width, 900, color))
+            concept_visual_paths[name] = visual
+            concept_visuals[name] = {"path": visual.name, "sha256": __import__("hashlib").sha256(visual.read_bytes()).hexdigest()}
         source = self.root / "concept.html"
         source.write_text("<main><h1>Operational evidence</h1><p>A calm direct path.</p></main>", encoding="utf-8")
-        slop = design.slop_check(self.root, self.config, source, self.write_slop_manifest(design_id=draft["design_id"], revision=draft["revision"]))
+        slop = design.slop_check(self.root, self.config, source, self.write_slop_manifest(
+            design_id=draft["design_id"], revision=draft["revision"],
+            visual_review=self.visual_review_for([concept_visual_paths["direction-wide"], concept_visual_paths["direction-narrow"]]),
+        ))
         file_hash = __import__("hashlib").sha256(source.read_bytes()).hexdigest()
         contrast = self.root / "contrast.html"
         contrast.write_text("<main><h1>Infrastructure field notes</h1><p>A spatial inspection path.</p></main>", encoding="utf-8")
-        contrast_slop = design.slop_check(self.root, self.config, contrast, self.write_slop_manifest(design_id=draft["design_id"], revision=draft["revision"]))
-        contrast_hash = __import__("hashlib").sha256(contrast.read_bytes()).hexdigest()
+        contrast_slop = design.slop_check(self.root, self.config, contrast, self.write_slop_manifest(
+            design_id=draft["design_id"], revision=draft["revision"],
+            visual_review=self.visual_review_for([concept_visual_paths["study-wide"], concept_visual_paths["study-narrow"]]),
+        ))
         browser_snapshots = []
+        browser_probes = []
         for viewport, width in (("mobile", 390), ("tablet", 768), ("desktop", 1440)):
             snapshot = self.root / f"concept-{viewport}.png"
-            snapshot.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + (900).to_bytes(4, "big"))
+            snapshot.write_bytes(png_bytes(width, 900, (235, 237, 234, 255)))
             browser_snapshots.append({"viewport": viewport, "path": snapshot.name, "sha256": __import__("hashlib").sha256(snapshot.read_bytes()).hexdigest()})
+            probe = self.root / f"concept-{viewport}-probe.json"
+            probe.write_text(json.dumps({"schema_version": 2, "viewport": {"width": width, "height": 900}, "horizontal_overflow": False, "sticky_or_fixed_obstructions": [], "craft_findings": [], "passed": True}), encoding="utf-8")
+            browser_probes.append({"viewport": viewport, "path": probe.name, "sha256": __import__("hashlib").sha256(probe.read_bytes()).hexdigest()})
         concept_manifest = self.root / "concept.json"
         concept_manifest.write_text(json.dumps({
             "design_id": draft["design_id"], "revision": draft["revision"], "presentation_mode": "director-led",
+            "collaboration_delivery": {"profile": draft["collaboration_profile"], **draft["collaboration_contract"], "feedback_prompt": "React to elements 1 through 5 in plain language."},
             "concepts": [{
-                "direction_id": "direction-1", "recommended": True, "thesis": "Evidence before ornament.",
+                "role": "direction", "direction_id": "direction-1", "recommended": True, "thesis": "Evidence before ornament.",
                 "signature_move": "A proof rail attached to each decision.", "palette": ["paper", "carbon", "signal"],
-                "type_specimen": {"copy": "Review the source before approval."}, "wide_composition": {"path": "concept.html", "sha256": file_hash},
-                "narrow_transformation": {"path": "concept.html", "sha256": file_hash}, "imagery_treatment": "Owned working evidence only.",
+                "type_specimen": {"copy": "Review the source before approval."}, "wide_composition": concept_visuals["direction-wide"],
+                "narrow_transformation": concept_visuals["direction-narrow"], "imagery_treatment": "Owned working evidence only.",
                 "motion_decision": "No ambient motion.", "preservation_promise": "Keep the expert path direct.",
                 "tradeoff": "Less simultaneous overview.", "anti_reference": "No generic dashboard bento.", "fidelity_level": "board-v1",
                 "slop_report": self.slop_reference(slop),
             }, {
-                "direction_id": "direction-2", "recommended": False, "thesis": "Inspection creates confidence.",
+                "role": "contrast-study", "study_id": "study-spatial-inspection", "tests_uncertainty": "Whether spatial evidence improves confidence without slowing expert review.",
+                "recommended": False, "thesis": "Inspection creates confidence.",
                 "signature_move": "A spatial field-note seam connecting material to consequence.", "palette": ["field", "graphite", "safety"],
-                "type_specimen": {"copy": "Inspect the system from source to outcome."}, "wide_composition": {"path": "contrast.html", "sha256": contrast_hash},
-                "narrow_transformation": {"path": "contrast.html", "sha256": contrast_hash}, "imagery_treatment": "Owned infrastructure details with annotated scale.",
+                "type_specimen": {"copy": "Inspect the system from source to outcome."}, "wide_composition": concept_visuals["study-wide"],
+                "narrow_transformation": concept_visuals["study-narrow"], "imagery_treatment": "Owned infrastructure details with annotated scale.",
                 "motion_decision": "One state-led spatial transition with a static equivalent.", "preservation_promise": "Keep the expert path direct.",
                 "tradeoff": "More deliberate scanning.", "anti_reference": "No copied aerospace identity.", "fidelity_level": "board-v1",
                 "slop_report": self.slop_reference(contrast_slop),
             }], "browser_snapshots": browser_snapshots,
-            "browser_probes": [{"viewport": viewport, "status": "passed", "evidence": "Browser probe found no overflow, obstruction, clipping, or inaccessible control."} for viewport in ("mobile", "tablet", "desktop")],
+            "browser_probes": browser_probes,
+            "research_links": [],
             "visual_references": [],
         }), encoding="utf-8")
+        duplicate_manifest = self.root / "concept-duplicate-visual.json"
+        duplicate_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        duplicate_value["concepts"][1]["narrow_transformation"] = duplicate_value["concepts"][0]["narrow_transformation"]
+        duplicate_manifest.write_text(json.dumps(duplicate_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "must be distinct"):
+            design.concept_validate(self.root, self.config, duplicate_manifest)
         validated = design.concept_validate(self.root, self.config, concept_manifest)
         self.assertEqual(validated["status"], "awaiting-feedback")
         with self.assertRaisesRegex(design.DesignError, "not selectable"):
@@ -339,9 +518,21 @@ class DesignLifecycleTests(unittest.TestCase):
             '<meta name="continuity-fixture-data" content="none">'
             "</head><body><main id=\"direction\"><h1>Operational evidence</h1></main></body></html>", encoding="utf-8",
         )
+        prototype_screenshots = []
+        prototype_paths = []
+        for viewport, width, color in (
+            ("mobile", 390, (236, 239, 235, 255)),
+            ("tablet", 768, (229, 234, 230, 255)),
+            ("desktop", 1440, (221, 228, 223, 255)),
+        ):
+            screenshot = self.root / f"prototype-{viewport}.png"
+            screenshot.write_bytes(png_bytes(width, 900, color))
+            prototype_paths.append(screenshot)
+            prototype_screenshots.append({"path": screenshot.name, "media_type": "image/png", "role": viewport, "sha256": __import__("hashlib").sha256(screenshot.read_bytes()).hexdigest()})
         prototype_slop = design.slop_check(self.root, self.config, prototype, self.write_slop_manifest(
             stage="prototype", design_id=selected["design_id"], revision=selected["revision"],
             design_hash=selected["design_hash"], approval_bundle_hash=selected["approval_bundle_hash"],
+            visual_review=self.visual_review_for(prototype_paths),
         ))
         prototype_manifest = self.root / "prototype-manifest.json"
         prototype_manifest.write_text(json.dumps({
@@ -349,7 +540,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "revision": selected["revision"], "design_hash": selected["design_hash"], "approval_bundle_hash": selected["approval_bundle_hash"],
             "maturity": "directional", "fixture_data": "none",
             "implementation_context_hash": design._canonical_hash(None), "component_map_hash": design._canonical_hash([]), "asset_strategy_hash": design._canonical_hash([]),
-            "files": [{"path": "prototype.html", "media_type": "text/html", "role": "prototype", "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()}],
+            "files": [{"path": "prototype.html", "media_type": "text/html", "role": "prototype", "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()}, *prototype_screenshots],
             "demonstrated_audiences": [], "demonstrated_surfaces": ["Direction"], "demonstrated_states": ["default"],
             "omitted_surfaces": [], "omitted_states": [], "design_claims": [], "validation_results": [],
             "slop_report": self.slop_reference(prototype_slop), "execution_authorized": False,
@@ -362,6 +553,7 @@ class DesignLifecycleTests(unittest.TestCase):
         implementation_slop = design.slop_check(self.root, self.config, prototype, self.write_slop_manifest(
             stage="implementation", design_id=selected["design_id"], revision=selected["revision"],
             design_hash=selected["design_hash"], approval_bundle_hash=selected["approval_bundle_hash"],
+            visual_review=self.visual_review_for(prototype_paths),
         ))
         artifact_value = json.loads(prototype_manifest.read_text(encoding="utf-8"))
         artifact_value["slop_report"] = self.slop_reference(implementation_slop)
@@ -378,6 +570,14 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(revised["revision"], 2)
         self.assertEqual(revised["status"], "refining")
         self.assertFalse(revised["slop_evidence_valid"])
+        refreshed = design.draft(self.root, self.config, CATALOG, self.write_input(self.creative_input(
+            design_id="concept-loop", collaboration_profile="guided", concept_presentation_mode="director-led",
+            research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )))
+        self.assertEqual(refreshed["revision"], 2)
+        self.assertEqual(len(refreshed["feedback_rounds"]), 2)
+        self.assertEqual(refreshed["decision_register"][0]["disposition"], "unresolved-change")
+        self.assertTrue(refreshed["rejected_decisions"] == [] or isinstance(refreshed["rejected_decisions"], list))
 
     def test_adaptive_direction_counts(self):
         one = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="one")))
@@ -785,7 +985,7 @@ class DesignLifecycleTests(unittest.TestCase):
         html.write_text(html.read_text().replace("</body>", '<section id="manager-route">Manager decision path</section></body>'), encoding="utf-8")
         for name, width, height, role in (("desktop.png", 1440, 900, "desktop"), ("mobile.png", 390, 844, "mobile")):
             png = artifact_dir / name
-            png.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big"))
+            png.write_bytes(png_bytes(width, height))
             manifest["files"].append({"path": f"docs/design/artifacts/{name}", "media_type": "image/png", "role": role, "sha256": design.hashlib.sha256(png.read_bytes()).hexdigest()})
         manifest["files"][0]["sha256"] = design.hashlib.sha256(html.read_bytes()).hexdigest()
         manifest["demonstrated_audiences"] = ["Managers", "Reviewers"]
@@ -892,7 +1092,7 @@ class DesignLifecycleTests(unittest.TestCase):
         files = [{"path": ".continuity/private/designs/complete-react/1/index.html", "media_type": "text/html", "role": "prototype", "sha256": design.hashlib.sha256(html.read_bytes()).hexdigest()}]
         for name, width in (("desktop", 1440), ("tablet", 768), ("mobile", 390)):
             png = artifact_dir / f"{name}.png"
-            png.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + (900).to_bytes(4, "big"))
+            png.write_bytes(png_bytes(width, 900))
             files.append({"path": f".continuity/private/designs/complete-react/1/{name}.png", "media_type": "image/png", "role": name, "sha256": design.hashlib.sha256(png.read_bytes()).hexdigest()})
         digest = lambda item: design.hashlib.sha256(json.dumps(item, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         manifest = {
@@ -1259,6 +1459,8 @@ class DesignLifecycleTests(unittest.TestCase):
     def test_cross_industry_cross_modality_evaluation_is_healthy(self):
         report = EVALUATION.evaluate(CATALOG, SCENARIOS)
         self.assertTrue(report["healthy"], report)
+        self.assertEqual(report["quality_scope"], "contract-routing-and-regression-only")
+        self.assertEqual(report["output_quality_evidence"], "not-measured-run-evaluate-design-outputs")
         self.assertEqual(report["metrics"]["scenario_count"], 21)
         self.assertEqual(report["metrics"]["passed_scenario_count"], 21)
         self.assertEqual(report["metrics"]["routing_precision"], 1.0)
@@ -1269,6 +1471,40 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertGreaterEqual(report["metrics"]["minimum_implementation_usefulness"], 0.9)
         self.assertEqual({item["modality"] for item in report["scenarios"]}, {"ui", "document", "image"})
         self.assertGreaterEqual(len({item["industry_group"] for item in report["scenarios"]}), 10)
+
+    def test_blinded_output_benchmark_requires_real_artifacts_and_paired_lift(self):
+        dimensions = ["project-specificity", "signature-recognition", "structural-diversity", "reference-transformation", "responsive-fidelity", "genericity-resistance"]
+        benchmark = {
+            "schema_version": 1,
+            "dimensions": dimensions,
+            "thresholds": {"minimum_cases": 3, "minimum_reviewers_per_case": 2, "minimum_mean_lift": 0.5, "minimum_candidate_win_rate": 1.0, "maximum_dimension_regression": 0},
+            "cases": [],
+        }
+        for index, case_id in enumerate(("vague-operator-brief", "named-reference", "creative-peer"), 1):
+            baseline = self.root / f"baseline-{index}.png"
+            candidate = self.root / f"candidate-{index}.png"
+            baseline.write_bytes(png_bytes(1200, 800, (230 - index, 230, 230, 255)))
+            candidate.write_bytes(png_bytes(1200, 800, (210, 222 - index, 216, 255)))
+            benchmark["cases"].append({
+                "case_id": case_id, "brief_hash": f"{index:x}" * 64,
+                "baseline": {"path": baseline.name, "sha256": __import__("hashlib").sha256(baseline.read_bytes()).hexdigest()},
+                "candidate": {"path": candidate.name, "sha256": __import__("hashlib").sha256(candidate.read_bytes()).hexdigest()},
+                "ratings": [
+                    {"reviewer_id": "reviewer-a", "blind": True, "baseline_scores": {dimension: 2 for dimension in dimensions}, "candidate_scores": {dimension: 4 for dimension in dimensions}},
+                    {"reviewer_id": "reviewer-b", "blind": True, "baseline_scores": {dimension: 3 for dimension in dimensions}, "candidate_scores": {dimension: 4 for dimension in dimensions}},
+                ],
+            })
+        manifest = self.root / "output-benchmark.json"
+        manifest.write_text(json.dumps(benchmark), encoding="utf-8")
+        report = OUTPUT_EVALUATION.evaluate(self.root, manifest)
+        self.assertTrue(report["healthy"])
+        self.assertEqual(report["case_count"], 3)
+        self.assertGreater(report["mean_lift"], 0.5)
+
+        benchmark["thresholds"]["minimum_cases"] = 1
+        manifest.write_text(json.dumps(benchmark), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "at least three cases"):
+            OUTPUT_EVALUATION.evaluate(self.root, manifest)
 
     def test_evaluation_fails_closed_on_metric_regressions(self):
         suite = json.loads(SCENARIOS.read_text(encoding="utf-8"))

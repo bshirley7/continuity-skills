@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "dimensions": [
+    "project-specificity",
+    "signature-recognition",
+    "structural-diversity",
+    "reference-transformation",
+    "responsive-fidelity",
+    "genericity-resistance"
+  ],
+  "thresholds": {
+    "minimum_cases": 3,
+    "minimum_reviewers_per_case": 2,
+    "minimum_mean_lift": 0.5,
+    "minimum_candidate_win_rate": 0.67,
+    "maximum_dimension_regression": 0
+  },
+  "cases": [
+    {
+      "case_id": "vague-novice-brief",
+      "brief_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "baseline": {"path": "renders/vague-baseline.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "candidate": {"path": "renders/vague-candidate.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "ratings": [
+        {"reviewer_id": "blind-reviewer-a", "blind": true, "baseline_scores": {"project-specificity": 2, "signature-recognition": 2, "structural-diversity": 2, "reference-transformation": 2, "responsive-fidelity": 3, "genericity-resistance": 2}, "candidate_scores": {"project-specificity": 4, "signature-recognition": 4, "structural-diversity": 4, "reference-transformation": 4, "responsive-fidelity": 4, "genericity-resistance": 4}},
+        {"reviewer_id": "blind-reviewer-b", "blind": true, "baseline_scores": {"project-specificity": 2, "signature-recognition": 2, "structural-diversity": 3, "reference-transformation": 2, "responsive-fidelity": 3, "genericity-resistance": 2}, "candidate_scores": {"project-specificity": 4, "signature-recognition": 4, "structural-diversity": 4, "reference-transformation": 4, "responsive-fidelity": 4, "genericity-resistance": 4}}
+      ]
+    },
+    {
+      "case_id": "named-brand-reference",
+      "brief_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "baseline": {"path": "renders/reference-baseline.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "candidate": {"path": "renders/reference-candidate.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "ratings": [
+        {"reviewer_id": "blind-reviewer-a", "blind": true, "baseline_scores": {"project-specificity": 2, "signature-recognition": 2, "structural-diversity": 2, "reference-transformation": 1, "responsive-fidelity": 3, "genericity-resistance": 2}, "candidate_scores": {"project-specificity": 4, "signature-recognition": 4, "structural-diversity": 4, "reference-transformation": 4, "responsive-fidelity": 4, "genericity-resistance": 4}},
+        {"reviewer_id": "blind-reviewer-b", "blind": true, "baseline_scores": {"project-specificity": 2, "signature-recognition": 2, "structural-diversity": 2, "reference-transformation": 2, "responsive-fidelity": 3, "genericity-resistance": 2}, "candidate_scores": {"project-specificity": 4, "signature-recognition": 4, "structural-diversity": 4, "reference-transformation": 4, "responsive-fidelity": 4, "genericity-resistance": 4}}
+      ]
+    },
+    {
+      "case_id": "creative-peer-shorthand",
+      "brief_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "baseline": {"path": "renders/peer-baseline.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "candidate": {"path": "renders/peer-candidate.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "ratings": [
+        {"reviewer_id": "blind-reviewer-a", "blind": true, "baseline_scores": {"project-specificity": 3, "signature-recognition": 2, "structural-diversity": 2, "reference-transformation": 3, "responsive-fidelity": 3, "genericity-resistance": 2}, "candidate_scores": {"project-specificity": 4, "signature-recognition": 4, "structural-diversity": 4, "reference-transformation": 4, "responsive-fidelity": 4, "genericity-resistance": 4}},
+        {"reviewer_id": "blind-reviewer-b", "blind": true, "baseline_scores": {"project-specificity": 3, "signature-recognition": 3, "structural-diversity": 2, "reference-transformation": 3, "responsive-fidelity": 3, "genericity-resistance": 2}, "candidate_scores": {"project-specificity": 4, "signature-recognition": 4, "structural-diversity": 4, "reference-transformation": 4, "responsive-fidelity": 4, "genericity-resistance": 4}}
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@
     "targets"
   ],
   "properties": {
+    "workflow_version": {"enum": [1, 2]},
     "design_id": {"type": "string"},
     "title": {"type": "string", "minLength": 1},
     "intent": {"type": "string", "minLength": 1},
@@ -29,6 +30,8 @@
       }
     },
     "concept_presentation_mode": {"enum": ["equal-directions", "director-led"]},
+    "direction_count": {"type": "integer", "minimum": 1, "maximum": 3},
+    "direction_count_basis": {"type": "string", "minLength": 1},
     "rejected_decisions": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object"}]}},
     "audiences": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "targets": {

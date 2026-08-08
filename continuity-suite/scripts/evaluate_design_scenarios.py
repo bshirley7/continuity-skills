@@ -176,6 +176,28 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
             scenario_id = scenario["scenario_id"]
             payload = dict(scenario["input"])
             payload["design_id"] = f"evaluation-{index + 1:02d}-{scenario_id}"
+            creative_fields = {"collaboration_profile", "specialization", "research", "reference_decomposition", "concept_presentation_mode", "rejected_decisions"}
+            if creative_fields.intersection(payload):
+                seed_payload = {key: value for key, value in payload.items() if key not in creative_fields}
+                seed_payload["design_id"] = f"{payload['design_id']}-authored-seed"
+                seed_path = root / f"{scenario_id}-authored-seed.json"
+                seed_path.write_text(json.dumps(seed_payload), encoding="utf-8")
+                seed = design.draft(root, config, catalog_path, seed_path)
+                payload.update({
+                    "workflow_version": 2,
+                    "direction_count": 1,
+                    "direction_count_basis": "The benchmark supplies one settled organizing idea and tests contrast separately.",
+                    "concept_presentation_mode": "director-led",
+                    "research": payload.get("research", {"mode": "offline", "status": "not-started", "announced": True, "opt_out_offered": True, "moodboard": []}),
+                    "direction_assessment": {"material_ambiguities": [], "resolved_by_evidence": []},
+                    "modality_assessment": {
+                        "observed_signals": [f"The scenario targets {scenario['modality']} output."],
+                        "selected_targets": payload["targets"],
+                        "rationale": "The benchmark modality is explicit.",
+                        "conflicts": [],
+                    },
+                    "directions": [seed["directions"][0]],
+                })
             input_path = root / f"{scenario_id}.json"
             input_path.write_text(json.dumps(payload), encoding="utf-8")
             draft = design.draft(root, config, catalog_path, input_path)
@@ -302,6 +324,8 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "offline": True,
+        "quality_scope": "contract-routing-and-regression-only",
+        "output_quality_evidence": "not-measured-run-evaluate-design-outputs",
         "thresholds": thresholds,
         "metrics": metrics,
         "threshold_results": threshold_results,

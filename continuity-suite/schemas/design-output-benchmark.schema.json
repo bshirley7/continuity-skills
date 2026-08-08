@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity blinded design-output benchmark",
+  "type": "object",
+  "required": ["schema_version", "dimensions", "thresholds", "cases"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "dimensions": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "thresholds": {"type": "object", "required": ["minimum_cases", "minimum_reviewers_per_case", "minimum_mean_lift", "minimum_candidate_win_rate", "maximum_dimension_regression"], "properties": {"minimum_cases": {"type": "integer", "minimum": 3}, "minimum_reviewers_per_case": {"type": "integer", "minimum": 2}, "minimum_mean_lift": {"type": "number"}, "minimum_candidate_win_rate": {"type": "number", "minimum": 0, "maximum": 1}, "maximum_dimension_regression": {"type": "number", "maximum": 0}}, "additionalProperties": false},
+    "cases": {
+      "type": "array", "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["case_id", "brief_hash", "baseline", "candidate", "ratings"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "brief_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "baseline": {"$ref": "#/$defs/artifact"},
+          "candidate": {"$ref": "#/$defs/artifact"},
+          "ratings": {"type": "array", "minItems": 2, "items": {"type": "object"}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false}
+  },
+  "additionalProperties": false
+}

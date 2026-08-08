@@ -43,6 +43,9 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-D015": {"class": "default-risk", "severity": "warning", "title": "Generic promotional copy", "remediation": "Replace generic benefit language with concrete actions, evidence, and consequences."},
     "CDS-D016": {"class": "default-risk", "severity": "warning", "title": "Model-like em-dash cadence", "remediation": "Vary sentence structure and use punctuation that fits the project voice."},
     "CDS-D017": {"class": "default-risk", "severity": "warning", "title": "Fashionable counter-default", "remediation": "Demonstrate that the dark terminal or neon treatment belongs to this project rather than serving as an anti-SaaS reflex."},
+    "CDS-D018": {"class": "default-risk", "severity": "warning", "title": "Interchangeable category identity", "remediation": "Derive the identity from project-specific subject matter, behavior, language, and evidence rather than a category template."},
+    "CDS-D019": {"class": "default-risk", "severity": "warning", "title": "Cosmetic concept variation", "remediation": "Change the organizing idea, hierarchy, composition, interaction, or material system rather than only palette, type, or decoration."},
+    "CDS-D020": {"class": "default-risk", "severity": "warning", "title": "Decoration without a job", "remediation": "Remove the decoration or identify the content, hierarchy, state, or subject relationship it communicates."},
     "CDS-P001": {"class": "project-drift", "severity": "error", "title": "Unapproved design token", "remediation": "Return to the approved font, color, spacing, radius, motion, or opening-pattern family."},
     "CDS-P002": {"class": "project-drift", "severity": "error", "title": "Signature absent beyond hero", "remediation": "Carry the approved signature into body, mobile, quiet, error, and reduced-motion states."},
     "CDS-P003": {"class": "project-drift", "severity": "error", "title": "Reference imitation", "remediation": "Adapt the recorded mechanic through the project-specific transformation instead of copying identity."},
@@ -235,16 +238,22 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
         disposition = by_finding.get(finding["finding_id"]) or by_rule.get(finding["rule_id"])
         if disposition:
             status = disposition["status"]
-            if finding["rule_class"] != "default-risk" and status == "accepted-intentional":
-                raise ValueError("Hard failures and project drift cannot be accepted as intentional")
+            if finding["rule_class"] != "default-risk" and status in {"accepted-intentional", "not-applicable"}:
+                raise ValueError("Hard failures and project drift cannot be accepted or marked not applicable")
             if status == "accepted-intentional" and (
                 not isinstance(disposition.get("rationale"), str) or not disposition["rationale"].strip()
                 or not isinstance(disposition.get("contract_reference"), str) or not disposition["contract_reference"].strip()
             ):
                 raise ValueError("Intentional acceptance requires a project rationale and design-contract reference")
+            if status == "not-applicable" and (
+                not isinstance(disposition.get("rationale"), str) or not disposition["rationale"].strip()
+                or not isinstance(disposition.get("evidence"), str) or not disposition["evidence"].strip()
+            ):
+                raise ValueError("Not-applicable default risks require a rationale and evidence")
             normalized_dispositions.append({
                 "finding_id": finding["finding_id"], "rule_id": finding["rule_id"], "status": status,
                 "rationale": disposition.get("rationale", ""), "contract_reference": disposition.get("contract_reference", ""),
+                "evidence": disposition.get("evidence", ""),
             })
             if status == "open":
                 unresolved.append(finding["finding_id"])
@@ -255,7 +264,7 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
             ):
                 unresolved.append(finding["finding_id"])
         else:
-            normalized_dispositions.append({"finding_id": finding["finding_id"], "rule_id": finding["rule_id"], "status": "open", "rationale": "", "contract_reference": ""})
+            normalized_dispositions.append({"finding_id": finding["finding_id"], "rule_id": finding["rule_id"], "status": "open", "rationale": "", "contract_reference": "", "evidence": ""})
             unresolved.append(finding["finding_id"])
     counts = {severity: sum(1 for item in findings if item["severity"] == severity) for severity in sorted(SEVERITIES)}
     source_bundle_hash = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()

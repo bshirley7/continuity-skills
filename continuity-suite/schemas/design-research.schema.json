@@ -13,12 +13,14 @@
       "type": "array", "maxItems": 20,
       "items": {
         "type": "object",
-        "required": ["tile", "source", "captured_at", "intended_lesson", "axis", "ownership", "prohibited_copying", "publishable"],
+        "required": ["tile", "source", "captured_at", "intended_lesson", "axis", "project_mechanic", "ownership", "prohibited_copying", "publishable"],
         "properties": {
           "tile": {"type": "integer", "minimum": 1}, "source": {"type": "string", "minLength": 1},
           "captured_at": {"type": "string", "minLength": 1}, "intended_lesson": {"type": "string", "minLength": 1},
-          "axis": {"type": "string", "minLength": 1}, "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]},
-          "prohibited_copying": {"const": true}, "publishable": {"type": "boolean"}, "local_path": {"type": "string"}
+          "axis": {"enum": ["subject-material", "treatment-light", "graphic-spatial"]}, "project_mechanic": {"type": "string", "minLength": 1},
+          "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]},
+          "prohibited_copying": {"const": true}, "publishable": {"type": "boolean"}, "local_path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
         },
         "additionalProperties": false
       }

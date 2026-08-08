@@ -5,7 +5,7 @@ Use this workflow when the user needs a direction, not only a contract. One sent
 ## 1. Diagnose
 
 - Inspect the product, current implementation, brand material, audiences, strengths, debt, constraints, and behavior to preserve.
-- Infer `guided`, `collaborative`, or `creative-peer`. Ask one calibration question only when the working relationship remains materially unclear.
+- Infer `guided`, `collaborative`, or `creative-peer`. Ask one calibration question only when the working relationship remains materially unclear. Apply the corresponding collaboration contract to recommendation posture, explanation depth, feedback scope, and challenge style.
 - Infer `brand-marketing`, `product-system`, `document-editorial`, `image-art-direction`, `cinematic-experience`, or `mixed`.
 - Preserve the user's exact language as feedback evidence; translate it into private design decisions without making the user learn a taxonomy.
 
@@ -21,27 +21,27 @@ Build a private moodboard of 12–20 numbered tiles across two or three axes:
 - treatment or light;
 - graphic or spatial language.
 
-Record source, capture time, intended lesson, ownership, and `prohibited_copying: true` for every tile. Keep third-party screenshots and moodboards private and non-shipping. Render the board with `continuity design visual-render --input <moodboard.json>`.
+Save and hash each captured image. Record source, capture time, intended lesson, project mechanic, ownership, and `prohibited_copying: true` for every tile. Use at least two axes and three sources; duplicate captures do not count. Keep third-party screenshots and moodboards private and non-shipping. Render the board with `continuity design visual-render --input <moodboard.json>` and later disposition every tile against a concept.
 
 ## 3. Teach visually
 
-Render only the useful contrasts with `continuity design visual-atlas --input <request.json>`. The self-contained private HTML/SVG plate shows type, palette, composition, density, surface, motion intent, and a counterexample. Ask the user to react to plate numbers.
+Render only the useful contrasts with `continuity design visual-atlas --input <request.json>`. Supply the same real project copy to every plate. Each self-contained private plate must change the organizing idea, type roles, composition, density, surface, motion intent, responsive transformation, and counterexample—not merely palette. Ask the user to react to plate numbers.
 
 ## 4. Concept
 
 - If material direction is unclear, create two or three equally developed boards and preselect no winner.
-- If direction is clear, recommend one board and show one or two deliberately contrasting studies.
+- If direction is clear, create one selectable recommended board and one or two non-selectable contrast studies that each test a named uncertainty.
 - Keep fidelity comparable. A palette or font swap is not a new direction.
 
-Every board must contain a thesis, one signature move, palette, real-copy type specimen, wide composition, narrow transformation, imagery or material treatment, motion storyboard or explicit no-motion decision, preservation promise, tradeoff, anti-reference, and passed concept-stage slop report. Render comparisons with `visual-render`, then validate the manifest with `concept-validate`.
+Every board must contain a thesis, one signature move, palette, real-copy type specimen, distinct PNG wide composition, distinct PNG narrow transformation, imagery or material treatment, motion storyboard or explicit no-motion decision, preservation promise, tradeoff, anti-reference, and passed concept-stage slop report bound to those exact renders. Render comparisons with `visual-render`, then validate the manifest with `concept-validate`.
 
-For atlases, moodboards, concept comparisons, and visual deltas, capture browser evidence at mobile, tablet, and desktop widths. Run `scripts/artifact-browser-probe.js` in each viewport, review the three captures together, and retain their file hashes in the private evidence package. A source-valid HTML page without inspected browser output is not complete visual evidence.
+For atlases, moodboards, concept comparisons, and visual deltas, capture valid browser-rendered PNG evidence at mobile, tablet, and desktop widths. Save the JSON returned by `scripts/artifact-browser-probe.js` in each viewport and bind its file hash; free-form claims that the probe passed are invalid. Review the three captures together and retain their hashes in the private evidence package. A source-valid HTML page without inspected browser output is not complete visual evidence.
 
 ## 5. Feedback and refinement
 
 Ask for reactions against numbered elements: `keep`, `change`, `avoid`, or `uncertain`, plus why. Render a visual delta showing what changed, what stayed, and why. Record it with `feedback-record`.
 
-Preserve accepted, rejected, and unresolved decisions. Contract-changing feedback creates a new revision, clears prior selection, and invalidates affected concept and slop evidence. Continue until the user explicitly marks the concept set ready for selection; do not optimize for the fewest turns.
+Preserve accepted, rejected, and unresolved decisions in the active revision as well as its archive. Every `change` or `avoid` reaction is material unless refreshed evidence proves otherwise; it creates a new revision, clears prior selection, and invalidates affected concept and slop evidence. Redraft the same invalidated revision so feedback is carried forward rather than incrementing twice. Continue until the user explicitly marks the refreshed concept set ready for selection; do not optimize for the fewest turns.
 
 ## 6. Approve, version, and scale
 
