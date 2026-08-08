@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity concept-board evidence",
+  "type": "object",
+  "required": ["design_id", "revision", "presentation_mode", "concepts", "browser_snapshots", "browser_probes", "visual_references"],
+  "properties": {
+    "design_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1}, "presentation_mode": {"enum": ["equal-directions", "director-led"]},
+    "concepts": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "object", "required": ["direction_id", "recommended", "thesis", "signature_move", "palette", "type_specimen", "wide_composition", "narrow_transformation", "imagery_treatment", "motion_decision", "preservation_promise", "tradeoff", "anti_reference", "fidelity_level", "slop_report"], "properties": {"direction_id": {"type": "string"}, "recommended": {"type": "boolean"}, "thesis": {"type": "string"}, "signature_move": {"type": "string"}, "palette": {"type": "array", "minItems": 3, "items": {"type": "string"}}, "type_specimen": {"type": "object"}, "wide_composition": {"$ref": "#/$defs/file"}, "narrow_transformation": {"$ref": "#/$defs/file"}, "imagery_treatment": {"type": "string"}, "motion_decision": {"type": "string"}, "preservation_promise": {"type": "string"}, "tradeoff": {"type": "string"}, "anti_reference": {"type": "string"}, "fidelity_level": {"type": "string"}, "slop_report": {"$ref": "#/$defs/slopReport"}}, "additionalProperties": false}},
+    "browser_snapshots": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object", "required": ["viewport", "path", "sha256"], "properties": {"viewport": {"enum": ["mobile", "tablet", "desktop"]}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false}},
+    "browser_probes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object", "required": ["viewport", "status", "evidence"], "properties": {"viewport": {"enum": ["mobile", "tablet", "desktop"]}, "status": {"const": "passed"}, "evidence": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+    "visual_references": {"type": "array", "items": {"type": "object", "required": ["path", "sha256", "ownership", "publishable"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]}, "publishable": {"type": "boolean"}, "lesson": {"type": "string"}}, "additionalProperties": false}}
+  },
+  "$defs": {
+    "file": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},
+    "slopReport": {"type": "object", "required": ["path", "sha256", "report_hash", "ruleset_version", "counts_by_severity", "dispositions_hash", "status"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "report_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "ruleset_version": {"type": "string"}, "counts_by_severity": {"type": "object"}, "dispositions_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "status": {"const": "passed"}}, "additionalProperties": false}
+  },
+  "additionalProperties": false
+}

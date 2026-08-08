@@ -16,6 +16,7 @@ SUITE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SUITE / "lib"))
 
 import design  # noqa: E402
+import design_slop  # noqa: E402
 
 SOURCE_REFERENCES = SUITE / "skills" / "continuity-design" / "references"
 INSTALLED_REFERENCES = SUITE.parent / "skills" / "continuity-design" / "references"
@@ -159,6 +160,10 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
     conflicts_found = conflicts_total = 0
     maximum_similarity = 0.0
     usefulness_values: list[float] = []
+    briefing_guidance_checks: list[bool] = []
+    collaboration_checks: list[bool] = []
+    reference_checks: list[bool] = []
+    fidelity_checks: list[bool] = []
 
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
@@ -174,6 +179,20 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
             input_path = root / f"{scenario_id}.json"
             input_path.write_text(json.dumps(payload), encoding="utf-8")
             draft = design.draft(root, config, catalog_path, input_path)
+            briefing_guidance_checks.append(draft.get("collaboration_profile") in design.COLLABORATION_PROFILES and draft.get("specialization") in design.DESIGN_SPECIALIZATIONS)
+            collaboration_checks.append(
+                scenario.get("expected_collaboration_profile") is None
+                or draft.get("collaboration_profile") == scenario["expected_collaboration_profile"]
+            )
+            reference_checks.append(
+                not payload.get("reference_decomposition")
+                or len(draft.get("reference_decomposition", [])) == len(payload["reference_decomposition"])
+            )
+            fidelity_checks.append(all(
+                set(direction.get("design_grammar", {})) == set(design.TARGET_GRAMMAR_DIMENSIONS[scenario["modality"]])
+                and all(direction["design_grammar"].values())
+                for direction in draft["directions"]
+            ))
             selected = set(draft["lenses"])
             contextual = selected - baseline
             expected = set(scenario.get("expected_lenses", []))
@@ -243,6 +262,17 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
     safeguard_coverage = safeguards_found / safeguards_total if safeguards_total else 1.0
     conflict_resolution_coverage = conflicts_found / conflicts_total if conflicts_total else 1.0
     implementation_usefulness = min(usefulness_values, default=0.0)
+    fixture_root = DEFAULT_REFERENCES / "slop-fixtures"
+    fixture_expectations = _read_json(fixture_root / "expectations.json")
+    slop_true_positive = slop_expected = slop_false_positive = 0
+    for name, expected_rules in fixture_expectations.items():
+        actual = {item["rule_id"] for item in design_slop._scan_text(name, (fixture_root / name).read_text(encoding="utf-8"))}
+        expected = set(expected_rules)
+        slop_true_positive += len(actual & expected)
+        slop_expected += len(expected)
+        slop_false_positive += len(actual - expected)
+    slop_recall = slop_true_positive / slop_expected if slop_expected else 1.0
+    slop_false_positive_rate = slop_false_positive / max(1, sum(len(value) for value in fixture_expectations.values()) + slop_false_positive)
     metrics = {
         "routing_precision": round(precision, 4),
         "routing_recall": round(recall, 4),
@@ -250,6 +280,14 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
         "conflict_resolution_coverage": round(conflict_resolution_coverage, 4),
         "maximum_direction_similarity": round(maximum_similarity, 4),
         "minimum_implementation_usefulness": round(implementation_usefulness, 4),
+        "briefing_guidance_coverage": round(sum(briefing_guidance_checks) / len(briefing_guidance_checks), 4),
+        "collaboration_adaptation": round(sum(collaboration_checks) / len(collaboration_checks), 4),
+        "visual_evidence_coverage": 1.0 if all(hasattr(design, name) for name in ("visual_atlas", "visual_render", "concept_validate", "feedback_record")) else 0.0,
+        "reference_decomposition_coverage": round(sum(reference_checks) / len(reference_checks), 4),
+        "genericity_resistance": round(1.0 - maximum_similarity, 4),
+        "direction_fidelity_parity": round(sum(fidelity_checks) / len(fidelity_checks), 4),
+        "slop_detection_recall": round(slop_recall, 4),
+        "slop_false_positive_rate": round(slop_false_positive_rate, 4),
         "scenario_count": len(scenario_results),
         "passed_scenario_count": sum(1 for result in scenario_results if result["passed"]),
     }

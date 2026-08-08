@@ -1,0 +1,2 @@
+.panel { transition: opacity 140ms ease, transform 140ms ease; background: #f3f1eb; border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) { .panel { transition: none; } }

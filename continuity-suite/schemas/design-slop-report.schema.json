@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity AI-slop report",
+  "type": "object",
+  "required": ["schema_version", "ruleset_version", "ruleset_hash", "stage", "target", "source_bundle_hash", "counts_by_severity", "findings", "dispositions", "status", "report_hash"],
+  "properties": {
+    "schema_version": {"const": 1}, "ruleset_version": {"type": "string"}, "ruleset_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "stage": {"enum": ["concept", "prototype", "implementation"]}, "target": {"type": "string"}, "source_bundle_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "counts_by_severity": {"type": "object"}, "findings": {"type": "array", "items": {"type": "object"}}, "dispositions": {"type": "array", "items": {"type": "object"}},
+    "status": {"enum": ["passed", "failed"]}, "report_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": true
+}

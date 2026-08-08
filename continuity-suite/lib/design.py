@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import html
 import json
 import re
 import shutil
 import struct
 from pathlib import Path
 from typing import Any
+
+import design_slop
 
 AXES = {
     "industry": "industry",
@@ -47,6 +50,16 @@ WEB_ARTIFACT_QUALITY_SCENARIOS = {
     "horizontal-overflow", "sticky-action-obstruction", "color-contrast",
     "accessible-names", "semantic-controls", "reduced-motion", "intermediate-viewport",
 }
+COLLABORATION_PROFILES = {"guided", "collaborative", "creative-peer"}
+DESIGN_SPECIALIZATIONS = {
+    "brand-marketing", "product-system", "document-editorial",
+    "image-art-direction", "cinematic-experience", "mixed",
+}
+RESEARCH_MODES = {"adaptive-live", "offline", "user-supplied-only", "declined"}
+RESEARCH_STATUSES = {"not-started", "in-progress", "complete", "unavailable", "declined"}
+CONCEPT_PRESENTATION_MODES = {"equal-directions", "director-led"}
+FEEDBACK_REACTIONS = {"keep", "change", "avoid", "uncertain"}
+VISUAL_REFERENCE_OWNERSHIP = {"project-owned", "supplied-with-rights", "generated", "third-party"}
 ASSET_RESOLUTION_STATUSES = {"resolved", "deliberately-omitted", "blocked"}
 ASSET_SOURCES = {"existing", "supplied", "generated", "derived", "deliberately-omitted"}
 ARTIFACT_MEDIA_TYPES = {
@@ -472,6 +485,128 @@ def _validate_strings(payload: dict[str, Any], key: str, required: bool = False)
     if required and not value:
         raise DesignError(f"{key} requires at least one value")
     return [item.strip() for item in value]
+
+
+def _infer_collaboration_profile(payload: dict[str, Any]) -> str:
+    supplied = payload.get("collaboration_profile")
+    if supplied is not None:
+        if supplied not in COLLABORATION_PROFILES:
+            raise DesignError("collaboration_profile must be guided, collaborative, or creative-peer")
+        return supplied
+    context = " ".join(
+        str(value)
+        for key in ("intent", "audiences", "workflow_signals", "evidence_inspected")
+        for value in ([payload.get(key)] if isinstance(payload.get(key), str) else payload.get(key, []))
+    ).lower()
+    if any(term in context for term in ("creative director", "design director", "art director", "creative lead", "design lead")):
+        return "creative-peer"
+    if any(term in context for term in ("co-create", "collaborate", "workshop", "design team")):
+        return "collaborative"
+    return "guided"
+
+
+def _infer_specialization(payload: dict[str, Any]) -> str:
+    supplied = payload.get("specialization")
+    if supplied is not None:
+        if supplied not in DESIGN_SPECIALIZATIONS:
+            raise DesignError("specialization is not supported")
+        return supplied
+    targets = set(payload.get("targets", []))
+    context = " ".join([payload.get("intent", ""), *payload.get("sections", []), *payload.get("themes", [])]).lower()
+    if len(targets) > 1:
+        return "mixed"
+    if targets == {"document"}:
+        return "document-editorial"
+    if targets == {"image"}:
+        return "image-art-direction"
+    if any(term in context for term in ("film", "cinematic", "immersive", "motion experience")):
+        return "cinematic-experience"
+    if any(term in context for term in ("brand", "campaign", "marketing", "launch", "story")):
+        return "brand-marketing"
+    return "product-system"
+
+
+def _validate_reference_decomposition(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise DesignError("reference_decomposition must be an array")
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    dimensions = ("composition", "typography", "density", "imagery", "motion", "voice")
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise DesignError(f"reference_decomposition[{index}] must be an object")
+        reference_id = _identifier(str(item.get("reference_id", "")), "reference ID")
+        if reference_id in seen:
+            raise DesignError("Reference decomposition IDs must be unique")
+        source = item.get("source")
+        appeal = item.get("inferred_appeal")
+        transformation = item.get("project_transformation")
+        if not all(isinstance(text, str) and text.strip() for text in (source, appeal, transformation)):
+            raise DesignError("Reference decomposition requires source, inferred_appeal, and project_transformation")
+        breakdown = item.get("dimensions")
+        if not isinstance(breakdown, dict) or any(not isinstance(breakdown.get(key), str) or not breakdown[key].strip() for key in dimensions):
+            raise DesignError("Reference decomposition requires composition, typography, density, imagery, motion, and voice")
+        normalized.append({
+            "reference_id": reference_id,
+            "source": source.strip(),
+            "inferred_appeal": appeal.strip(),
+            "project_transformation": transformation.strip(),
+            "dimensions": {key: breakdown[key].strip() for key in dimensions},
+            "provisional": True,
+        })
+        seen.add(reference_id)
+    return normalized
+
+
+def _validate_research_record(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {"mode": "offline", "status": "not-started", "announced": False, "opt_out_offered": False, "moodboard": []}
+    if not isinstance(value, dict) or value.get("mode") not in RESEARCH_MODES or value.get("status") not in RESEARCH_STATUSES:
+        raise DesignError("research requires a supported mode and status")
+    announced = value.get("announced", False)
+    opt_out = value.get("opt_out_offered", False)
+    if not isinstance(announced, bool) or not isinstance(opt_out, bool):
+        raise DesignError("research announcement flags must be booleans")
+    if value["mode"] == "adaptive-live" and (not announced or not opt_out):
+        raise DesignError("Adaptive live research must be announced and offer an opt-out")
+    completed_at = value.get("completed_at")
+    if completed_at is not None and (not isinstance(completed_at, str) or not completed_at.strip()):
+        raise DesignError("research completed_at must be non-empty text when supplied")
+    tiles = value.get("moodboard", [])
+    if not isinstance(tiles, list):
+        raise DesignError("research moodboard must be an array")
+    if value["status"] == "complete" and value["mode"] == "adaptive-live" and not 12 <= len(tiles) <= 20:
+        raise DesignError("Completed live-research moodboards require 12 to 20 tiles")
+    normalized_tiles: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for index, tile in enumerate(tiles):
+        if not isinstance(tile, dict) or not isinstance(tile.get("tile"), int) or tile["tile"] < 1:
+            raise DesignError(f"Moodboard tile {index + 1} requires a positive number")
+        if tile["tile"] in seen:
+            raise DesignError("Moodboard tile numbers must be unique")
+        for key in ("source", "captured_at", "intended_lesson", "axis"):
+            if not isinstance(tile.get(key), str) or not tile[key].strip():
+                raise DesignError(f"Moodboard tile {tile['tile']} requires {key}")
+        ownership = tile.get("ownership", "third-party")
+        if ownership not in VISUAL_REFERENCE_OWNERSHIP:
+            raise DesignError("Moodboard tile ownership is invalid")
+        if tile.get("prohibited_copying") is not True:
+            raise DesignError("Every moodboard tile must explicitly prohibit copying")
+        if ownership == "third-party" and tile.get("publishable", False):
+            raise DesignError("Third-party moodboard tiles cannot be publishable")
+        normalized_tiles.append({
+            "tile": tile["tile"], "source": tile["source"].strip(), "captured_at": tile["captured_at"].strip(),
+            "intended_lesson": tile["intended_lesson"].strip(), "axis": tile["axis"].strip(),
+            "ownership": ownership, "prohibited_copying": True, "publishable": bool(tile.get("publishable", False)),
+            "local_path": str(tile.get("local_path", "")).strip(),
+        })
+        seen.add(tile["tile"])
+    return {
+        "mode": value["mode"], "status": value["status"], "announced": announced,
+        "opt_out_offered": opt_out, "completed_at": completed_at, "moodboard": normalized_tiles,
+    }
 
 
 def _selected_packs(payload: dict[str, Any], catalog: dict[str, Any]) -> list[dict[str, str]]:
@@ -1539,6 +1674,10 @@ def _validate_direction(value: Any, index: int, targets: list[str]) -> dict[str,
 def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Path) -> dict[str, Any]:
     _enabled(config)
     payload = _read_json(input_path)
+    creative_director_workflow = any(
+        key in payload
+        for key in ("collaboration_profile", "specialization", "research", "reference_decomposition", "concept_presentation_mode", "rejected_decisions")
+    )
     for key in ("title", "intent"):
         if not isinstance(payload.get(key), str) or not payload[key].strip():
             raise DesignError(f"Design input requires {key}")
@@ -1596,6 +1735,18 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         payload[key] = _validate_strings(payload, key)
     if not set(payload["targets"]).issubset(TARGETS):
         raise DesignError(f"Unknown targets: {sorted(set(payload['targets']) - TARGETS)}")
+    payload["collaboration_profile"] = _infer_collaboration_profile(payload)
+    payload["specialization"] = _infer_specialization(payload)
+    payload["research"] = _validate_research_record(payload.get("research"))
+    payload["reference_decomposition"] = _validate_reference_decomposition(payload.get("reference_decomposition"))
+    presentation_mode = payload.get("concept_presentation_mode")
+    if presentation_mode is not None and presentation_mode not in CONCEPT_PRESENTATION_MODES:
+        raise DesignError("concept_presentation_mode must be equal-directions or director-led")
+    payload["concept_presentation_mode"] = presentation_mode
+    rejected = payload.get("rejected_decisions", [])
+    if not isinstance(rejected, list) or any(not isinstance(item, (str, dict)) for item in rejected):
+        raise DesignError("rejected_decisions must be an array of text or decision objects")
+    payload["rejected_decisions"] = rejected
     consequence_level = payload.get("consequence_level", "moderate")
     if consequence_level not in CONSEQUENCE_LEVELS:
         raise DesignError("consequence_level must be routine, moderate, or high")
@@ -1630,6 +1781,12 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         status = "mixed" if len(active) > 1 else next(iter(active), "not-applicable")
         evidence_application[target] = {"status": status, **groups}
     count = _direction_count(payload)
+    if payload["concept_presentation_mode"] is None:
+        payload["concept_presentation_mode"] = "equal-directions" if count > 1 and bool(payload["open_questions"]) else "director-led"
+    if creative_director_workflow and count < 2:
+        if payload.get("direction_count") == 1 or supplied is not None:
+            raise DesignError("Creative-director work requires at least two structurally distinct directions")
+        count = 2
     if supplied is not None and payload["direction_assessment"] is None:
         raise DesignError("Authored directions require direction_assessment")
     if payload["direction_assessment"]:
@@ -1665,12 +1822,23 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         (design_dir / "design.md").unlink(missing_ok=True)
         (design_dir / "approval.json").unlink(missing_ok=True)
     record = {
-        "schema_version": 1,
+        "schema_version": 2 if creative_director_workflow else 1,
+        "workflow_version": 2 if creative_director_workflow else 1,
         "design_id": design_id,
         "revision": revision,
         "status": "awaiting-selection",
         "title": payload["title"].strip(),
         "intent": payload["intent"].strip(),
+        "collaboration_profile": payload["collaboration_profile"],
+        "specialization": payload["specialization"],
+        "research": payload["research"],
+        "reference_decomposition": payload["reference_decomposition"],
+        "concept_presentation_mode": payload["concept_presentation_mode"],
+        "concept_evidence": None,
+        "feedback_rounds": [],
+        "rejected_decisions": payload["rejected_decisions"],
+        "slop_ruleset_version": design_slop.RULESET_VERSION,
+        "slop_ruleset_hash": design_slop.ruleset_hash(),
         "audiences": payload["audiences"],
         "targets": payload["targets"],
         "modality_assessment": payload["modality_assessment"],
@@ -2088,12 +2256,36 @@ def select(root: Path, config: dict[str, Any], design_id: str, direction_ids: li
     by_id = {item["direction_id"]: item for item in record["directions"]}
     if not requested or not set(requested).issubset(by_id):
         raise DesignError("Select one or more known direction IDs")
+    if record.get("workflow_version", 1) >= 2:
+        evidence = record.get("concept_evidence")
+        concept_ids = {item["direction_id"] for item in evidence.get("concepts", [])} if isinstance(evidence, dict) else set()
+        if not evidence or not evidence.get("validated") or not set(requested).issubset(concept_ids):
+            raise DesignError("Creative-director selection requires current validated concept and slop evidence")
     markdown = _direction_markdown(record, [by_id[item] for item in requested])
     design_hash = hashlib.sha256(markdown.encode()).hexdigest()
     (design_dir / "design.md").write_bytes(markdown.encode("utf-8"))
-    record.update({"status": "awaiting-approval", "selected_direction_ids": requested, "selected_by": actor, "selected_at": _now(), "design_hash": design_hash})
+    update = {"status": "awaiting-approval", "selected_direction_ids": requested, "selected_by": actor, "selected_at": _now(), "design_hash": design_hash}
+    if record.get("workflow_version", 1) >= 2:
+        bundle = {
+            "design_hash": design_hash,
+            "visual_reference_hash": record["concept_evidence"]["visual_reference_hash"],
+            "concept_manifest_hash": record["concept_evidence"]["manifest_hash"],
+            "selected_slop_report_hashes": [
+                concept["slop_report"]["report_hash"]
+                for concept in record["concept_evidence"]["concepts"]
+                if concept["direction_id"] in requested
+            ],
+            "slop_ruleset_version": record["slop_ruleset_version"],
+            "slop_ruleset_hash": record["slop_ruleset_hash"],
+        }
+        update.update({"approval_bundle": bundle, "approval_bundle_hash": _canonical_hash(bundle), "prototype_slop_evidence": None})
+    record.update(update)
     _write_json(design_dir / "draft.json", record)
-    record["required_authorization_text"] = f"Approve design {design_id} revision {record['revision']} hash {design_hash}"
+    record["required_authorization_text"] = (
+        f"Approve design {design_id} revision {record['revision']} hash {design_hash} bundle {record['approval_bundle_hash']}"
+        if record.get("approval_bundle_hash")
+        else f"Approve design {design_id} revision {record['revision']} hash {design_hash}"
+    )
     return record
 
 
@@ -2110,15 +2302,67 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
     actual_hash = hashlib.sha256(draft_path.read_bytes()).hexdigest()
     if actual_hash != record.get("design_hash"):
         raise DesignError("Private design draft changed after selection")
-    required = f"Approve design {design_id} revision {revision} hash {actual_hash}"
+    if record.get("workflow_version", 1) >= 2:
+        if _canonical_hash(record.get("approval_bundle")) != record.get("approval_bundle_hash"):
+            raise DesignError("Approval bundle changed after selection")
+        if not record.get("prototype_slop_evidence"):
+            raise DesignError("Exact approval requires a passed slop check for the selected private prototype")
+        prototype_slop = _verified_private_report(root, record["prototype_slop_evidence"], stage="prototype")
+        _, prototype_report_path = _artifact_relative_path(root, prototype_slop["path"])
+        prototype_report = _read_json(prototype_report_path)
+        for key, expected in (("design_id", design_id), ("revision", revision), ("design_hash", actual_hash), ("approval_bundle_hash", record["approval_bundle_hash"])):
+            if prototype_report.get(key) != expected:
+                raise DesignError(f"Prototype AI-slop report {key} is stale")
+        for item in prototype_report.get("files", []):
+            relative, scanned_path = _artifact_relative_path(root, item.get("path"))
+            if not scanned_path.is_file() or hashlib.sha256(scanned_path.read_bytes()).hexdigest() != item.get("sha256"):
+                raise DesignError(f"Prototype AI-slop report is stale for: {relative}")
+    required = (
+        f"Approve design {design_id} revision {revision} hash {actual_hash} bundle {record['approval_bundle_hash']}"
+        if record.get("approval_bundle_hash")
+        else f"Approve design {design_id} revision {revision} hash {actual_hash}"
+    )
     if authorization_text != required:
         raise DesignError("Authorization text must exactly match the design ID, revision, and hash")
     canonical_path = root / "docs" / "design" / "design.md"
     canonical_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(draft_path, canonical_path)
-    approval = {"schema_version": 1, "design_id": design_id, "revision": revision, "design_hash": actual_hash, "approved_by": approved_by, "approved_at": _now(), "authorization_text": authorization_text, "execution_authorized": False}
+    approved_references: list[dict[str, Any]] = []
+    if record.get("workflow_version", 1) >= 2:
+        reference_dir = root / "docs" / "design" / "references"
+        reference_dir.mkdir(parents=True, exist_ok=True)
+        for item in record.get("concept_evidence", {}).get("publishable_references", []):
+            if item["ownership"] not in {"project-owned", "supplied-with-rights", "generated"}:
+                raise DesignError("Only owned, rights-supplied, or generated references may be promoted")
+            _, source = _artifact_relative_path(root, item["path"])
+            if hashlib.sha256(source.read_bytes()).hexdigest() != item["sha256"]:
+                raise DesignError("Approved visual reference changed after concept validation")
+            destination = reference_dir / source.name
+            if destination.exists() and hashlib.sha256(destination.read_bytes()).hexdigest() != item["sha256"]:
+                raise DesignError(f"Approved visual reference name conflicts with an existing file: {source.name}")
+            shutil.copy2(source, destination)
+            approved_references.append({"path": f"docs/design/references/{source.name}", "sha256": item["sha256"], "ownership": item["ownership"]})
+        if _canonical_hash(record.get("concept_evidence", {}).get("visual_reference_material", [])) != record.get("approval_bundle", {}).get("visual_reference_hash"):
+            raise DesignError("Visual-reference bundle changed after selection")
+    approval = {
+        "schema_version": 2 if record.get("workflow_version", 1) >= 2 else 1,
+        "design_id": design_id, "revision": revision, "design_hash": actual_hash,
+        "approved_by": approved_by, "approved_at": _now(), "authorization_text": authorization_text,
+        "execution_authorized": False,
+    }
+    if record.get("workflow_version", 1) >= 2:
+        approval.update({
+            "visual_reference_hash": record["approval_bundle"]["visual_reference_hash"],
+            "approval_bundle_hash": record["approval_bundle_hash"],
+            "slop_ruleset_version": record["slop_ruleset_version"],
+            "slop_ruleset_hash": record["slop_ruleset_hash"],
+            "prototype_slop_evidence": record["prototype_slop_evidence"],
+        })
     _write_json(design_dir / "approval.json", approval)
     shared = {key: approval[key] for key in ("schema_version", "design_id", "revision", "design_hash", "approved_by", "approved_at", "execution_authorized")}
+    for key in ("visual_reference_hash", "approval_bundle_hash", "slop_ruleset_version", "slop_ruleset_hash"):
+        if key in approval:
+            shared[key] = approval[key]
     selected = [item for item in record["directions"] if item["direction_id"] in record["selected_direction_ids"]]
     alignment_contract = {
         "selected_direction_ids": record["selected_direction_ids"],
@@ -2146,7 +2390,15 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         "validation_criteria": [rule for direction in selected for rule in direction["validation_criteria"]],
         "prohibited_patterns": [rule for direction in selected for rule in direction["prohibited_patterns"]],
     }
-    shared.update({"status": "approved", "document_path": "docs/design/design.md", "catalog_packs": record["catalog_packs"], "alignment_contract": alignment_contract})
+    alignment_contract.update({
+        "collaboration_profile": record.get("collaboration_profile"),
+        "specialization": record.get("specialization"),
+        "reference_decomposition": record.get("reference_decomposition", []),
+        "rejected_decisions": record.get("rejected_decisions", []),
+        "concept_evidence": record.get("concept_evidence"),
+        "slop_ruleset_version": record.get("slop_ruleset_version"),
+    })
+    shared.update({"status": "approved", "document_path": "docs/design/design.md", "visual_references": approved_references, "catalog_packs": record["catalog_packs"], "alignment_contract": alignment_contract})
     _write_json(root / ".continuity" / "design.json", shared)
     record["status"] = "approved"
     _write_json(design_dir / "draft.json", record)
@@ -2167,11 +2419,13 @@ def show(root: Path, config: dict[str, Any], design_id: str | None = None) -> di
 def workflow(root: Path, config: dict[str, Any], design_id: str) -> dict[str, Any]:
     record = show(root, config, design_id)
     status = record.get("status")
+    if status in {"awaiting-feedback", "refining"}:
+        return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["react-to-numbered-visuals", "record-visual-delta", "mark-ready-for-selection"], "execution_authorized": False}
     if status == "awaiting-selection":
         return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["select-or-combine"], "execution_authorized": False}
     if status == "awaiting-approval":
-        return {"design_id": design_id, "revision": record["revision"], "design_hash": record["design_hash"], "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["approve-exact-draft", "revise"], "execution_authorized": False}
-    return {"design_id": design_id, "revision": record["revision"], "design_hash": record.get("design_hash"), "status": status, "next_skill": "continuity-plan", "human_required": False, "allowed_actions": ["plan-with-design-binding", "revise-design"], "execution_authorized": False}
+        return {"design_id": design_id, "revision": record["revision"], "design_hash": record["design_hash"], "approval_bundle_hash": record.get("approval_bundle_hash"), "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["validate-selected-prototype", "approve-exact-draft", "revise"], "execution_authorized": False}
+    return {"design_id": design_id, "revision": record["revision"], "design_hash": record.get("design_hash"), "approval_bundle_hash": record.get("approval_bundle_hash"), "status": status, "next_skill": "continuity-plan", "human_required": False, "allowed_actions": ["plan-with-design-binding", "revise-design"], "execution_authorized": False}
 
 
 def bind_approved(root: Path, config: dict[str, Any], design_ids: list[str]) -> list[dict[str, Any]]:
@@ -2186,7 +2440,11 @@ def bind_approved(root: Path, config: dict[str, Any], design_ids: list[str]) -> 
     document = root / record["document_path"]
     if not document.is_file() or hashlib.sha256(document.read_bytes()).hexdigest() != record["design_hash"]:
         raise DesignError("Approved design document does not match its recorded hash")
-    return [{"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"], "alignment_contract": record.get("alignment_contract", {})}]
+    binding = {"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"], "alignment_contract": record.get("alignment_contract", {})}
+    for key in ("approval_bundle_hash", "visual_reference_hash", "slop_ruleset_version", "slop_ruleset_hash"):
+        if key in record:
+            binding[key] = record[key]
+    return [binding]
 
 
 def _artifact_relative_path(root: Path, value: Any) -> tuple[str, Path]:
@@ -2201,6 +2459,399 @@ def _artifact_relative_path(root: Path, value: Any) -> tuple[str, Path]:
     except ValueError as exc:
         raise DesignError("Artifact path escapes the project root") from exc
     return candidate.as_posix(), resolved
+
+
+VISUAL_REVIEW_QUESTIONS = {
+    "signature_identifiable": "Can the signature be identified within five seconds?",
+    "identity_specific": "Would changing the product name make this design fit an unrelated company?",
+    "not_category_reflex": "Is the result merely the category default or its fashionable opposite?",
+    "directions_structurally_distinct": "Are concept directions structurally different rather than cosmetically varied?",
+    "not_library_default": "Did the implementation retreat to component-library defaults?",
+    "signature_survives_states": "Does the signature survive mobile, quiet states, errors, and reduced motion?",
+    "reference_transformed": "Does the output adapt a mechanic instead of copying a reference identity?",
+    "decoration_has_job": "Is each decorative choice doing work content, hierarchy, or subject material cannot do?",
+}
+
+
+def _canonical_hash(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def visual_atlas(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Path) -> dict[str, Any]:
+    """Render a private first-party visual-language atlas without network access."""
+    _enabled(config)
+    request = _read_json(input_path)
+    title = request.get("title", "Visual language atlas")
+    if not isinstance(title, str) or not title.strip():
+        raise DesignError("Visual atlas requires a title")
+    contrasts = request.get("contrasts", ["quiet / expressive", "dense / spacious", "flat / material"])
+    if not isinstance(contrasts, list) or not 1 <= len(contrasts) <= 6 or any(not isinstance(item, str) or not item.strip() for item in contrasts):
+        raise DesignError("Visual atlas contrasts must contain one to six labels")
+    catalog = load_catalog(catalog_path)
+    palette_sets = [
+        ("#ece7dc", "#1c2427", "#c85d3f"), ("#dce8ef", "#10232d", "#2d6c78"),
+        ("#e8e4f0", "#261f35", "#7a5638"), ("#e8eee4", "#1e2b22", "#6b7241"),
+        ("#eee9e0", "#25211d", "#8b3f32"), ("#e1e7e8", "#172325", "#596e9a"),
+    ]
+    plate_html: list[str] = []
+    for index, contrast in enumerate(contrasts, 1):
+        surface, ink, accent = palette_sets[(index - 1) % len(palette_sets)]
+        plate_html.append(f"""
+        <article class="plate" style="--surface:{surface};--ink:{ink};--accent:{accent}">
+          <div class="plate-copy"><span class="index">{index:02d}</span><h2>{html.escape(contrast)}</h2>
+          <p>Compare hierarchy, rhythm, material, and voice before choosing terminology.</p>
+          <div class="type"><strong>Subject-led display</strong><span>Utility text remains calm and exact.</span></div></div>
+          <svg class="composition" viewBox="0 0 420 260" role="img" aria-label="Abstract composition for {html.escape(contrast)}">
+            <rect width="420" height="260" rx="4" fill="var(--surface)"/><path d="M25 32h210v20H25zM25 70h126v9H25zM25 90h172v9H25z" fill="var(--ink)"/>
+            <circle cx="328" cy="112" r="68" fill="var(--accent)"/><path d="M25 195h370v2H25zM25 216h230v8H25z" fill="var(--ink)" opacity=".62"/>
+          </svg>
+          <div class="tokens"><i style="background:var(--surface)"></i><i style="background:var(--ink)"></i><i style="background:var(--accent)"></i></div>
+          <p class="counter"><b>Counterexample:</b> a cosmetic palette swap with the same card grid and hierarchy.</p>
+          <dl><div><dt>Density</dt><dd>{'spacious' if index % 2 else 'compact'}</dd></div><div><dt>Surface</dt><dd>{'tactile' if index % 3 else 'flat'}</dd></div><div><dt>Motion</dt><dd>state-led, reduced-motion safe</dd></div></dl>
+        </article>""")
+    document = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{html.escape(title)}</title><style>
+    *{{box-sizing:border-box}}body{{margin:0;background:#111514;color:#edf0ea;font-family:ui-sans-serif,system-ui,sans-serif}}main{{max-width:1440px;margin:auto;padding:clamp(24px,5vw,72px)}}
+    header{{display:grid;grid-template-columns:1fr 2fr;gap:32px;margin-bottom:56px}}h1{{font:600 clamp(38px,7vw,96px)/.9 ui-serif,Georgia,serif;letter-spacing:-.045em;margin:0}}header p{{max-width:58ch;margin:8px 0 0;color:#aeb8b2}}
+    .grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}}.plate{{background:var(--surface);color:var(--ink);padding:clamp(18px,3vw,36px);display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;min-height:460px}}
+    .index{{font:600 11px/1 ui-monospace,monospace;letter-spacing:.18em}}h2{{font:600 clamp(28px,4vw,52px)/.94 ui-serif,Georgia,serif;letter-spacing:-.035em;margin:18px 0}}.plate p{{line-height:1.45}}.type{{border-left:3px solid var(--accent);padding:12px;margin-top:28px;display:grid;gap:6px}}.composition{{width:100%;align-self:start}}.tokens{{display:flex;gap:5px}}.tokens i{{width:34px;height:34px;border:1px solid color-mix(in srgb,var(--ink) 25%,transparent)}}.counter{{grid-column:1/-1;border-top:1px solid color-mix(in srgb,var(--ink) 25%,transparent);padding-top:14px}}dl{{grid-column:1/-1;display:flex;gap:22px;margin:0}}dl div{{display:grid;gap:3px}}dt{{font:600 10px/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em}}dd{{margin:0;font-size:13px}}
+    @media(max-width:760px){{header,.grid,.plate{{grid-template-columns:1fr}}.plate{{min-height:0}}dl{{flex-wrap:wrap}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important}}}}
+    </style></head><body><main><header><h1>{html.escape(title)}</h1><p>React to numbered contrasts. Each plate demonstrates type, palette, composition, density, surface, motion intent, and an explicit counterexample. Catalog {html.escape(catalog['catalog_version'])}.</p></header><section class="grid">{''.join(plate_html)}</section></main></body></html>"""
+    request_hash = _canonical_hash({"request": request, "catalog_version": catalog["catalog_version"]})
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "visual-atlas" / f"{request_hash}.html"
+    output = root / relative
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(document, encoding="utf-8")
+    return {"schema_version": 1, "private": True, "network_used": False, "path": relative.as_posix(), "sha256": hashlib.sha256(output.read_bytes()).hexdigest(), "plate_count": len(contrasts), "catalog_version": catalog["catalog_version"], "required_snapshot_viewports": ["mobile", "tablet", "desktop"]}
+
+
+def visual_render(root: Path, config: dict[str, Any], input_path: Path) -> dict[str, Any]:
+    """Render private moodboard, concept-comparison, or visual-delta evidence."""
+    _enabled(config)
+    request = _read_json(input_path)
+    kind = request.get("kind")
+    if kind not in {"moodboard", "concept-comparison", "visual-delta"}:
+        raise DesignError("Visual render kind must be moodboard, concept-comparison, or visual-delta")
+    title = request.get("title")
+    items = request.get("items")
+    if not isinstance(title, str) or not title.strip() or not isinstance(items, list) or not items or len(items) > 20:
+        raise DesignError("Visual render requires a title and one to twenty items")
+    cards: list[str] = []
+    for index, item in enumerate(items, 1):
+        if not isinstance(item, dict) or not isinstance(item.get("title"), str) or not item["title"].strip():
+            raise DesignError("Each visual render item requires a title")
+        image_markup = ""
+        if item.get("image_path"):
+            relative, path = _artifact_relative_path(root, item["image_path"])
+            if not path.is_file():
+                raise DesignError(f"Visual render image is missing: {relative}")
+            if path.suffix.lower() not in {".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"}:
+                raise DesignError("Visual render image_path must be an image")
+            alt_text = html.escape(str(item.get("alt", item["title"])))
+            image_markup = f'<img src="{html.escape(path.as_uri())}" alt="{alt_text}">'
+        else:
+            image_markup = f'<svg viewBox="0 0 600 360" role="img" aria-label="Abstract study {index}"><rect width="600" height="360" fill="#d9ded9"/><path d="M30 35h320v28H30zm0 55h180v12H30zm0 25h240v12H30z" fill="#1d2926"/><circle cx="470" cy="185" r="105" fill="#b65a3b"/><path d="M30 290h540v3H30zm0 24h310v12H30z" fill="#1d2926"/></svg>'
+        summary = html.escape(str(item.get("summary", "")))
+        lesson = html.escape(str(item.get("lesson", "")))
+        source = html.escape(str(item.get("source", "")))
+        label = html.escape(str(item.get("number", index)))
+        cards.append(f'<article><div class="visual">{image_markup}</div><div class="copy"><span>{label}</span><h2>{html.escape(item["title"])}</h2><p>{summary}</p><p class="lesson">{lesson}</p><small>{source}</small></div></article>')
+    document = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>
+    *{{box-sizing:border-box}}body{{margin:0;background:#151918;color:#edf0ec;font-family:ui-sans-serif,system-ui,sans-serif}}main{{max-width:1500px;margin:auto;padding:clamp(24px,5vw,70px)}}header{{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:38px}}h1{{font:600 clamp(42px,7vw,94px)/.9 ui-serif,Georgia,serif;letter-spacing:-.045em;margin:0}}header p{{max-width:42ch;color:#aab5ae}}section{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}article{{background:#eef0ea;color:#18201e;display:grid;grid-template-columns:1.25fr .75fr;min-height:340px}}.visual{{min-height:260px;background:#d9ded9;display:grid;place-items:center;overflow:hidden}}img,svg{{width:100%;height:100%;object-fit:cover}}.copy{{padding:22px;display:flex;flex-direction:column}}.copy>span{{font:700 11px ui-monospace,monospace;letter-spacing:.16em}}h2{{font:600 clamp(24px,3vw,42px)/.95 ui-serif,Georgia,serif;margin:18px 0}}p{{line-height:1.45}}.lesson{{border-top:1px solid #9ea7a1;padding-top:12px}}small{{margin-top:auto;color:#5c6862;word-break:break-word}}@media(max-width:820px){{section,article{{grid-template-columns:1fr}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important}}}}</style></head><body><main><header><h1>{html.escape(title)}</h1><p>{html.escape(kind.replace('-', ' ').title())}. React to numbered elements; the source record remains private.</p></header><section>{''.join(cards)}</section></main></body></html>'''
+    request_hash = _canonical_hash(request)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "visual-renders" / kind / f"{request_hash}.html"
+    output = root / relative
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(document, encoding="utf-8")
+    return {"schema_version": 1, "kind": kind, "private": True, "network_used": False, "path": relative.as_posix(), "sha256": hashlib.sha256(output.read_bytes()).hexdigest(), "item_count": len(items), "required_snapshot_viewports": ["mobile", "tablet", "desktop"]}
+
+
+def slop_check(root: Path, config: dict[str, Any], target_path: Path, manifest_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    resolved_root = root.resolve()
+    resolved_target = target_path.resolve()
+    try:
+        resolved_target.relative_to(resolved_root)
+    except ValueError as exc:
+        raise DesignError("Slop-check target must remain inside the project root") from exc
+    manifest = _read_json(manifest_path)
+    if manifest.get("ruleset_version", design_slop.RULESET_VERSION) != design_slop.RULESET_VERSION:
+        raise DesignError("Slop-check manifest ruleset version is stale")
+    stage = manifest.get("stage")
+    if stage not in {"concept", "prototype", "implementation"}:
+        raise DesignError("Slop-check manifest requires concept, prototype, or implementation stage")
+    review = manifest.get("visual_review")
+    if not isinstance(review, dict) or any(not isinstance(review.get(key), str) or not review[key].strip() for key in VISUAL_REVIEW_QUESTIONS):
+        raise DesignError("Slop-check requires answers to every visual review question")
+    if "craft_findings" in manifest and "dispositions" not in manifest:
+        dispositions: list[dict[str, Any]] = []
+        for item in manifest["craft_findings"]:
+            if not isinstance(item, dict):
+                raise DesignError("Slop craft findings must be objects")
+            dispositions.append({
+                "rule_id": item.get("rule_id"), "status": item.get("status"),
+                "rationale": item.get("override_rationale", item.get("response", "")),
+                "contract_reference": item.get("contract_reference", item.get("artifact_ref", "")),
+                "evidence": item.get("evidence", ""),
+            })
+        manifest["dispositions"] = dispositions
+    try:
+        report = design_slop.inspect(resolved_target, resolved_root, manifest)
+    except (OSError, ValueError) as exc:
+        raise DesignError(str(exc)) from exc
+    report.update({
+        "stage": stage,
+        "design_id": manifest.get("design_id"),
+        "revision": manifest.get("revision"),
+        "design_hash": manifest.get("design_hash"),
+        "approval_bundle_hash": manifest.get("approval_bundle_hash"),
+        "visual_review_questions": VISUAL_REVIEW_QUESTIONS,
+        "checked_at": _now(),
+    })
+    report.pop("report_hash", None)
+    report["report_hash"] = _canonical_hash(report)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "slop" / f"{report['report_hash']}.json"
+    _write_json(root / relative, report)
+    return {**report, "report_path": relative.as_posix()}
+
+
+def _verified_private_report(root: Path, value: Any, *, stage: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError("Concept direction requires a slop report reference")
+    relative, path = _artifact_relative_path(root, value.get("path"))
+    if not path.is_file():
+        raise DesignError("Concept slop report is missing")
+    report = _read_json(path)
+    actual = _canonical_hash({key: item for key, item in report.items() if key != "report_hash"})
+    if value.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest() or report.get("report_hash") != actual:
+        raise DesignError("Concept slop report hash is invalid")
+    if (
+        report.get("stage") != stage
+        or report.get("status") != "passed"
+        or report.get("ruleset_version") != design_slop.RULESET_VERSION
+        or report.get("ruleset_hash") != design_slop.ruleset_hash()
+    ):
+        raise DesignError("Concept slop report is stale or did not pass")
+    dispositions_hash = _canonical_hash(report.get("dispositions", []))
+    expected_manifest = {
+        "report_hash": report["report_hash"], "ruleset_version": report["ruleset_version"],
+        "counts_by_severity": report.get("counts_by_severity", {}), "dispositions_hash": dispositions_hash,
+        "status": report["status"],
+    }
+    if any(value.get(key) != expected for key, expected in expected_manifest.items()):
+        raise DesignError("Slop report manifest summary does not match the bound report")
+    return {"path": relative, "sha256": value["sha256"], **expected_manifest}
+
+
+def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    design_id = _identifier(str(manifest.get("design_id", "")), "design ID")
+    design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
+    record = _read_json(design_dir / "draft.json")
+    if record.get("workflow_version", 1) < 2:
+        raise DesignError("Concept evidence requires a creative-director workflow draft")
+    if manifest.get("revision") != record.get("revision"):
+        raise DesignError("Concept manifest revision does not match the current draft")
+    mode = manifest.get("presentation_mode")
+    if mode != record.get("concept_presentation_mode") or mode not in CONCEPT_PRESENTATION_MODES:
+        raise DesignError("Concept presentation mode does not match the draft")
+    concepts = manifest.get("concepts")
+    if not isinstance(concepts, list) or not 1 <= len(concepts) <= 3:
+        raise DesignError("Concept manifest requires one to three concepts")
+    if len(concepts) != len(record.get("directions", [])):
+        raise DesignError("Concept manifest must provide comparable evidence for every drafted direction")
+    recommendation_count = sum(item.get("recommended") is True for item in concepts if isinstance(item, dict))
+    if mode == "equal-directions" and len(concepts) < 2:
+        raise DesignError("Ambiguous direction requires two or three equally developed concepts")
+    if mode == "equal-directions" and recommendation_count:
+        raise DesignError("Equal-direction concepts cannot preselect a winner")
+    if mode == "director-led" and (len(concepts) < 2 or recommendation_count != 1):
+        raise DesignError("Director-led concepts require exactly one recommendation and at least one contrast")
+    required_text = ("thesis", "signature_move", "imagery_treatment", "motion_decision", "preservation_promise", "tradeoff", "anti_reference")
+    normalized: list[dict[str, Any]] = []
+    fidelity: set[str] = set()
+    concept_ids: set[str] = set()
+    report_hashes: list[str] = []
+    for index, concept in enumerate(concepts):
+        if not isinstance(concept, dict):
+            raise DesignError("Each concept must be an object")
+        direction_id = _identifier(str(concept.get("direction_id", "")), "concept direction ID")
+        if direction_id in concept_ids or direction_id not in {item["direction_id"] for item in record["directions"]}:
+            raise DesignError("Concept direction IDs must be unique and belong to the draft")
+        if any(not isinstance(concept.get(key), str) or not concept[key].strip() for key in required_text):
+            raise DesignError(f"Concept {direction_id} lacks required creative evidence")
+        palette = concept.get("palette")
+        specimen = concept.get("type_specimen")
+        level = concept.get("fidelity_level")
+        if not isinstance(palette, list) or len(palette) < 3 or any(not isinstance(item, str) or not item.strip() for item in palette):
+            raise DesignError(f"Concept {direction_id} requires at least three palette roles")
+        if not isinstance(specimen, dict) or not isinstance(specimen.get("copy"), str) or not specimen["copy"].strip():
+            raise DesignError(f"Concept {direction_id} requires a real-copy type specimen")
+        if not isinstance(level, str) or not level.strip():
+            raise DesignError(f"Concept {direction_id} requires a fidelity level")
+        fidelity.add(level.strip())
+        visuals: dict[str, dict[str, str]] = {}
+        for role in ("wide_composition", "narrow_transformation"):
+            evidence = concept.get(role)
+            if not isinstance(evidence, dict):
+                raise DesignError(f"Concept {direction_id} requires {role}")
+            relative, path = _artifact_relative_path(root, evidence.get("path"))
+            if not path.is_file() or evidence.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest():
+                raise DesignError(f"Concept visual evidence is missing or changed: {relative}")
+            visuals[role] = {"path": relative, "sha256": evidence["sha256"]}
+        slop = _verified_private_report(root, concept.get("slop_report"), stage="concept")
+        report_hashes.append(slop["report_hash"])
+        normalized.append({
+            "direction_id": direction_id, "recommended": bool(concept.get("recommended", False)),
+            **{key: concept[key].strip() for key in required_text}, "palette": palette,
+            "type_specimen": specimen, "fidelity_level": level.strip(), **visuals, "slop_report": slop,
+        })
+        concept_ids.add(direction_id)
+    if len(fidelity) != 1:
+        raise DesignError("Concept directions must have comparable fidelity")
+    if len(set(report_hashes)) != len(normalized):
+        raise DesignError("Every concept requires its own current AI-slop report")
+    if len({(item["thesis"].casefold(), item["signature_move"].casefold()) for item in normalized}) != len(normalized):
+        raise DesignError("Concept directions must differ structurally, not only cosmetically")
+    browser_snapshots = manifest.get("browser_snapshots")
+    if not isinstance(browser_snapshots, list) or len(browser_snapshots) != 3:
+        raise DesignError("Concept comparison requires mobile, tablet, and desktop browser snapshots")
+    normalized_snapshots: list[dict[str, Any]] = []
+    snapshot_roles: set[str] = set()
+    for item in browser_snapshots:
+        if not isinstance(item, dict) or item.get("viewport") not in {"mobile", "tablet", "desktop"}:
+            raise DesignError("Concept browser snapshot requires a supported viewport")
+        relative, path = _artifact_relative_path(root, item.get("path"))
+        if path.suffix.lower() != ".png" or not path.is_file() or item.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest():
+            raise DesignError(f"Concept browser snapshot is missing or changed: {relative}")
+        width, height = _png_dimensions(path)
+        role = item["viewport"]
+        if role in snapshot_roles or height < 1 or (role == "mobile" and width >= 600) or (role == "tablet" and not 600 <= width < 1100) or (role == "desktop" and width < 1100):
+            raise DesignError("Concept browser snapshot dimensions do not match its viewport")
+        normalized_snapshots.append({"viewport": role, "path": relative, "sha256": item["sha256"], "width": width, "height": height})
+        snapshot_roles.add(role)
+    browser_probes = manifest.get("browser_probes")
+    if not isinstance(browser_probes, list) or len(browser_probes) != 3:
+        raise DesignError("Concept comparison requires a passed browser probe at every required viewport")
+    normalized_probes: list[dict[str, str]] = []
+    probe_roles: set[str] = set()
+    for item in browser_probes:
+        if not isinstance(item, dict) or item.get("viewport") not in snapshot_roles or item.get("status") != "passed" or not isinstance(item.get("evidence"), str) or not item["evidence"].strip() or item["viewport"] in probe_roles:
+            raise DesignError("Concept browser probes require unique passed mobile, tablet, and desktop evidence")
+        normalized_probes.append({"viewport": item["viewport"], "status": "passed", "evidence": item["evidence"].strip()})
+        probe_roles.add(item["viewport"])
+    references = manifest.get("visual_references", [])
+    if not isinstance(references, list):
+        raise DesignError("visual_references must be an array")
+    publishable: list[dict[str, Any]] = []
+    normalized_refs: list[dict[str, Any]] = []
+    for item in references:
+        if not isinstance(item, dict) or item.get("ownership") not in VISUAL_REFERENCE_OWNERSHIP:
+            raise DesignError("Visual references require a valid ownership classification")
+        relative, path = _artifact_relative_path(root, item.get("path"))
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+        if not actual or item.get("sha256") != actual:
+            raise DesignError(f"Visual reference is missing or changed: {relative}")
+        publish = bool(item.get("publishable", False))
+        if publish and item["ownership"] == "third-party":
+            raise DesignError("Third-party moodboard and screenshot material cannot be promoted")
+        normalized_ref = {"path": relative, "sha256": actual, "ownership": item["ownership"], "publishable": publish, "lesson": str(item.get("lesson", "")).strip()}
+        normalized_refs.append(normalized_ref)
+        if publish:
+            publishable.append(normalized_ref)
+    visual_reference_material = [
+        {"name": Path(item["path"]).name, "sha256": item["sha256"], "ownership": item["ownership"]}
+        for item in publishable
+    ]
+    visual_reference_hash = _canonical_hash(visual_reference_material)
+    evidence = {
+        "manifest_hash": _canonical_hash(manifest), "presentation_mode": mode, "concepts": normalized,
+        "visual_references": normalized_refs, "publishable_references": publishable,
+        "visual_reference_material": visual_reference_material,
+        "browser_snapshots": normalized_snapshots,
+        "browser_probes": normalized_probes,
+        "visual_reference_hash": visual_reference_hash, "slop_report_hashes": report_hashes,
+        "ruleset_version": design_slop.RULESET_VERSION, "validated": True, "validated_at": _now(),
+    }
+    record.update({"status": "awaiting-feedback", "concept_evidence": evidence})
+    _write_json(design_dir / "draft.json", record)
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+
+
+def feedback_record(root: Path, config: dict[str, Any], design_id: str, input_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    design_id = _identifier(design_id, "design ID")
+    design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
+    record = _read_json(design_dir / "draft.json")
+    if record.get("status") not in {"awaiting-feedback", "refining", "awaiting-selection", "awaiting-approval", "approved"} or not record.get("concept_evidence"):
+        raise DesignError("Design does not have a validated concept set for feedback")
+    if not record["concept_evidence"].get("validated"):
+        raise DesignError("Feedback requires refreshed concept and slop evidence for the current revision")
+    payload = _read_json(input_path)
+    reactions = payload.get("reactions")
+    if not isinstance(reactions, list) or not reactions:
+        raise DesignError("Feedback requires at least one numbered visual reaction")
+    normalized: list[dict[str, str]] = []
+    for item in reactions:
+        if not isinstance(item, dict) or item.get("reaction") not in FEEDBACK_REACTIONS:
+            raise DesignError("Each feedback reaction must be keep, change, avoid, or uncertain")
+        element_id = item.get("element_id")
+        why = item.get("why")
+        if not isinstance(element_id, str) or not element_id.strip() or not isinstance(why, str) or not why.strip():
+            raise DesignError("Each feedback reaction requires a numbered element_id and why")
+        normalized.append({"element_id": element_id.strip(), "reaction": item["reaction"], "why": why.strip(), "user_language": str(item.get("user_language", why)).strip()})
+    contract_changed = payload.get("contract_changed", False)
+    ready = payload.get("ready_for_selection", False)
+    if not isinstance(contract_changed, bool) or not isinstance(ready, bool) or (contract_changed and ready):
+        raise DesignError("Feedback readiness and contract_changed flags are invalid")
+    material_feedback = contract_changed or any(item["reaction"] in {"change", "avoid"} for item in normalized)
+    visual_delta = payload.get("visual_delta", {})
+    if material_feedback:
+        if not isinstance(visual_delta, dict):
+            raise DesignError("Material feedback requires a visual_delta object")
+        for key in ("changed", "stayed", "why"):
+            values = visual_delta.get(key)
+            if not isinstance(values, list) or not values or any(not isinstance(item, str) or not item.strip() for item in values):
+                raise DesignError(f"Material feedback visual_delta requires {key}")
+        relative, delta_path = _artifact_relative_path(root, visual_delta.get("path"))
+        if not delta_path.is_file() or visual_delta.get("sha256") != hashlib.sha256(delta_path.read_bytes()).hexdigest():
+            raise DesignError("Visual delta evidence is missing or changed")
+        visual_delta = {"changed": visual_delta["changed"], "stayed": visual_delta["stayed"], "why": visual_delta["why"], "path": relative, "sha256": visual_delta["sha256"]}
+    elif not isinstance(visual_delta, dict):
+        raise DesignError("visual_delta must be an object")
+    round_record = {"round": len(record.get("feedback_rounds", [])) + 1, "recorded_at": _now(), "actor": str(payload.get("actor", "user")), "reactions": normalized, "visual_delta": visual_delta, "contract_changed": contract_changed, "ready_for_selection": ready}
+    if contract_changed:
+        previous_revision = record["revision"]
+        archive = design_dir / "revisions" / f"v{previous_revision}"
+        if archive.exists():
+            raise DesignError("Design revision archive already exists")
+        archive.mkdir(parents=True)
+        shutil.copy2(design_dir / "draft.json", archive / "draft.json")
+        for name in ("design.md", "approval.json"):
+            path = design_dir / name
+            if path.exists():
+                shutil.copy2(path, archive / name)
+                path.unlink()
+        record["revision"] = previous_revision + 1
+        record["status"] = "refining"
+        record["selected_direction_ids"] = []
+        record.pop("design_hash", None)
+        record.pop("approval_bundle_hash", None)
+        record["concept_evidence"]["validated"] = False
+        record["concept_evidence"]["invalidated_by_feedback_round"] = round_record["round"]
+    elif ready:
+        if not record["concept_evidence"].get("validated"):
+            raise DesignError("Stale concept and slop evidence cannot be marked ready for selection")
+        record["status"] = "awaiting-selection"
+    else:
+        record["status"] = "refining"
+    record.setdefault("feedback_rounds", []).append(round_record)
+    for reaction in normalized:
+        if reaction["reaction"] == "avoid":
+            record.setdefault("rejected_decisions", []).append({"element_id": reaction["element_id"], "reason": reaction["why"], "round": round_record["round"]})
+    _write_json(design_dir / "draft.json", record)
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "feedback_round": round_record["round"], "slop_evidence_valid": bool(record["concept_evidence"].get("validated")), "execution_authorized": False}
 
 
 def _png_dimensions(path: Path) -> tuple[int, int]:
@@ -2399,7 +3050,8 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
             readiness_problems.append("responsive HTML requires overflow and sticky-obstruction probe results")
         if readiness_problems:
             raise DesignError("Artifact is not implementation-facing: " + "; ".join(readiness_problems))
-    if manifest.get("schema_version", 1) == 2:
+    slop_evidence: dict[str, Any] | None = None
+    if manifest.get("schema_version", 1) in {2, 3}:
         contract = approved.get("alignment_contract", {})
         for field, value in (
             ("implementation_context_hash", contract.get("implementation_context")),
@@ -2465,6 +3117,20 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
                 raise DesignError("Artifact is missing completion-contract viewport captures")
             if set(completion.get("required_states", [])) - set(manifest.get("demonstrated_states", [])):
                 raise DesignError("Artifact is missing completion-contract states")
+    if manifest.get("schema_version", 1) == 3:
+        if manifest.get("approval_bundle_hash") != approved.get("approval_bundle_hash"):
+            raise DesignError("Artifact approval_bundle_hash does not match the approved design")
+        stage = "prototype" if candidate else "implementation"
+        slop_evidence = _verified_private_report(root, manifest.get("slop_report"), stage=stage)
+        _, report_path = _artifact_relative_path(root, slop_evidence["path"])
+        report = _read_json(report_path)
+        for item in report.get("files", []):
+            relative, scanned_path = _artifact_relative_path(root, item.get("path"))
+            if not scanned_path.is_file() or hashlib.sha256(scanned_path.read_bytes()).hexdigest() != item.get("sha256"):
+                raise DesignError(f"AI-slop report is stale for artifact file: {relative}")
+        for key in ("design_id", "revision", "design_hash", "approval_bundle_hash"):
+            if report.get(key) != manifest.get(key):
+                raise DesignError(f"AI-slop report {key} does not match the artifact manifest")
     return {
         "schema_version": manifest.get("schema_version", 1),
         "artifact_id": artifact_id,
@@ -2476,6 +3142,7 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
         "missing_differentiated_audiences": missing_audiences,
         "failed_validations": failures,
         "craft_findings": normalized_findings,
+        "ai_slop_check": slop_evidence,
         "missing_decided_insights": missing_decided_insights,
         "implementation_ready": maturity == "implementation-facing" and not readiness_problems,
         "candidate": candidate,
@@ -2487,6 +3154,8 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
     _enabled(config)
     manifest = _read_json(manifest_path)
     approved = _read_json(root / ".continuity" / "design.json")
+    if approved.get("schema_version", 1) >= 2 and manifest.get("schema_version") != 3:
+        raise DesignError("Schema v2 design approval requires a schema v3 artifact with AI-slop evidence")
     return _validate_artifact_against_record(root, manifest, approved, candidate=False)
 
 
@@ -2513,6 +3182,13 @@ def validate_candidate_artifact(root: Path, config: dict[str, Any], manifest_pat
     }
     candidate_record = {
         "design_id": draft["design_id"], "revision": draft["revision"], "design_hash": draft["design_hash"],
+        "approval_bundle_hash": draft.get("approval_bundle_hash"),
         "alignment_contract": alignment_contract,
     }
-    return _validate_artifact_against_record(root, manifest, candidate_record, candidate=True)
+    result = _validate_artifact_against_record(root, manifest, candidate_record, candidate=True)
+    if draft.get("workflow_version", 1) >= 2:
+        if manifest.get("schema_version") != 3 or not result.get("ai_slop_check"):
+            raise DesignError("Creative-director prototype validation requires schema v3 AI-slop evidence")
+        draft["prototype_slop_evidence"] = result["ai_slop_check"]
+        _write_json(design_dir / "draft.json", draft)
+    return result

@@ -1,0 +1,26 @@
+{
+  "stage": "concept",
+  "ruleset_version": "1.0.0",
+  "design_id": "example-direction",
+  "revision": 1,
+  "visual_review": {
+    "signature_identifiable": "Yes; the proof rail is visible immediately.",
+    "identity_specific": "The structure depends on this product's evidence model.",
+    "not_category_reflex": "It is neither a generic SaaS grid nor a terminal counter-default.",
+    "directions_structurally_distinct": "The alternatives change hierarchy and interaction, not only styling.",
+    "not_library_default": "Library behavior is retained but its default composition is not visible.",
+    "signature_survives_states": "The proof rail becomes an inline evidence seam on mobile and quiet states.",
+    "reference_transformed": "Only the recorded density relationship is adapted.",
+    "decoration_has_job": "Every non-content element communicates evidence state or grouping."
+  },
+  "visual_findings": [],
+  "context_findings": [],
+  "project_context": {
+    "unapproved_markers": [],
+    "required_signature_markers": ["evidence-rail"],
+    "reference_transformations": [],
+    "rejected_choices": [],
+    "continuity_house_tells": []
+  },
+  "craft_findings": []
+}

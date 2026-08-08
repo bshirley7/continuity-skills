@@ -1,0 +1,25 @@
+{
+  "design_id": "example-direction",
+  "title": "Example direction",
+  "intent": "Give operators a distinctive evidence-first review experience.",
+  "audiences": ["Operators"],
+  "targets": ["ui"],
+  "collaboration_profile": "guided",
+  "specialization": "product-system",
+  "concept_presentation_mode": "director-led",
+  "research": {
+    "mode": "adaptive-live",
+    "status": "in-progress",
+    "announced": true,
+    "opt_out_offered": true,
+    "moodboard": []
+  },
+  "reference_decomposition": [],
+  "direction_assessment": {"material_ambiguities": [], "resolved_by_evidence": []},
+  "modality_assessment": {"observed_signals": ["The requested output is an interactive product surface."], "selected_targets": ["ui"], "rationale": "The work changes an operational interface.", "conflicts": []},
+  "industry": "b2b-saas",
+  "sections": ["review-approval-lifecycle"],
+  "themes": ["calm"],
+  "message_structures": ["proof-first"],
+  "constraints": [], "preserve": [], "open_questions": [], "rejected_decisions": []
+}

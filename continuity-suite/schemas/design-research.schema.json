@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity private design research record",
+  "type": "object",
+  "required": ["mode", "status", "announced", "opt_out_offered", "moodboard"],
+  "properties": {
+    "mode": {"enum": ["adaptive-live", "offline", "user-supplied-only", "declined"]},
+    "status": {"enum": ["not-started", "in-progress", "complete", "unavailable", "declined"]},
+    "announced": {"type": "boolean"},
+    "opt_out_offered": {"type": "boolean"},
+    "completed_at": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+    "moodboard": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["tile", "source", "captured_at", "intended_lesson", "axis", "ownership", "prohibited_copying", "publishable"],
+        "properties": {
+          "tile": {"type": "integer", "minimum": 1}, "source": {"type": "string", "minLength": 1},
+          "captured_at": {"type": "string", "minLength": 1}, "intended_lesson": {"type": "string", "minLength": 1},
+          "axis": {"type": "string", "minLength": 1}, "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]},
+          "prohibited_copying": {"const": true}, "publishable": {"type": "boolean"}, "local_path": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

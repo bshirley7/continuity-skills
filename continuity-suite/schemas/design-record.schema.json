@@ -4,10 +4,15 @@
   "type": "object",
   "required": ["schema_version", "design_id", "revision", "design_hash", "status", "document_path", "catalog_packs", "approved_at", "approved_by", "execution_authorized"],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"enum": [1, 2]},
     "design_id": {"type": "string", "minLength": 1},
     "revision": {"type": "integer", "minimum": 1},
     "design_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "visual_reference_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "approval_bundle_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "slop_ruleset_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "slop_ruleset_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "visual_references": {"type": "array", "items": {"type": "object"}},
     "status": {"const": "approved"},
     "document_path": {"const": "docs/design/design.md"},
     "catalog_packs": {"type": "array", "items": {"type": "object", "required": ["pack_id", "version"], "properties": {"pack_id": {"type": "string"}, "version": {"type": "string"}}, "additionalProperties": false}},
@@ -38,7 +43,13 @@
         "non_goals": {"type": "array", "items": {"type": "string"}},
         "implementation_guidance": {"type": "array", "items": {"type": "string"}},
         "validation_criteria": {"type": "array", "items": {"type": "string"}},
-        "prohibited_patterns": {"type": "array", "items": {"type": "string"}}
+        "prohibited_patterns": {"type": "array", "items": {"type": "string"}},
+        "collaboration_profile": {"enum": ["guided", "collaborative", "creative-peer"]},
+        "specialization": {"enum": ["brand-marketing", "product-system", "document-editorial", "image-art-direction", "cinematic-experience", "mixed"]},
+        "reference_decomposition": {"type": "array", "items": {"type": "object"}},
+        "rejected_decisions": {"type": "array"},
+        "concept_evidence": {"oneOf": [{"type": "object"}, {"type": "null"}]},
+        "slop_ruleset_version": {"type": "string"}
       },
       "additionalProperties": false
     },

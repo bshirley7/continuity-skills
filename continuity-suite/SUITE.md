@@ -54,7 +54,7 @@ python3 continuity-suite/installer/install.py \
   --validation <project-validation-command>
 ```
 
-Add `--collection design` for projects that need the optional offline design workflow. Core and project-management collections remain enabled by default; upgrades preserve the project’s selected collections.
+Add `--collection design` for projects that need the optional creative-director workflow. Its validator and renderers remain network-free; an agent may perform an announced, opt-out research pass and save only private provenance records. Core and project-management collections remain enabled by default; upgrades preserve the project’s selected collections.
 
 The main skill guides the user through recommended defaults and explicit overrides. For a deterministic initial install, pass `--configuration <answers.json>`; for a terminal questionnaire, pass `--interactive`. Every applied install or update silently accepts a healthy GitHub CLI session or launches GitHub's browser/device authentication when the account or `project` scope is missing. Continuity never handles the token; unattended runs return an exact next command and may explicitly use `--skip-github-auth`. After installation, use:
 
@@ -118,6 +118,11 @@ continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id
 
 continuity design catalog
 continuity design draft --input <design-input.json>
+continuity design visual-atlas --input <request.json>
+continuity design visual-render --input <render.json>
+continuity design slop-check --target <file-or-directory> --manifest <slop-manifest.json>
+continuity design concept-validate --manifest <concept-manifest.json>
+continuity design feedback-record <design-id> --input <feedback.json>
 continuity design select <design-id> --direction <direction-id> [--combine <direction-id>] --actor <identity>
 continuity design approve <design-id> --revision <revision> --approved-by <identity> --authorization-text <exact-text>
 continuity workflow status --design-id <design-id>
@@ -152,7 +157,7 @@ continuity merge record-human <goal-id> --pr-url <url> --merged-by <identity> --
 
 `merge assess` also supports a fail-closed lifecycle recovery when GitHub already reports the exact tested PR head as merged. It verifies the merge commit on the remote integration branch plus all current evidence and hosted gates before permitting the normal `review-ready` and verified `merged` disposition sequence.
 
-The offline design catalog selects one foundation pack per active axis plus any reviewed category overlays matching the design input. Draft and approved design records preserve every selected pack ID and version. Film-led web work conditionally loads the cinematic-media method: define the outcome before the technique; run private multi-concept divergence; map beats or loops to commercial chapters; derive the interface from the subject; choose among looping hero, chapter loops, normal playback, scroll-linked playback, and still equivalents; then validate the joined media, performance, control, and accessibility behavior.
+The installed design catalog selects one foundation pack per active axis plus reviewed category overlays matching the design input. Draft and approved records preserve every selected pack ID and version. Live research never runs inside the shared runtime: the agent gathers evidence, while Continuity renders private self-contained comparisons and validates local provenance and hashes. Film-led web work conditionally loads the cinematic-media method, and every modality passes the named AI-slop gate before concept selection, exact approval, and implementation-facing handoff.
 
 Use `continuity suite update --check`, a dry run, and an explicit tagged update for existing installations. Release artifacts are attested and hash-manifested; modified suite-managed files fail closed, each update creates a rollback snapshot, and project-owned configuration and ignored private state remain outside release replacement. See [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md). Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 

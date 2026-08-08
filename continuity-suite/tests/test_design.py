@@ -14,6 +14,7 @@ SUITE = Path(__file__).resolve().parents[1]
 SUITE_VERSION = (SUITE / "VERSION").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(SUITE / "lib"))
 import design
+import design_slop
 
 BOUNDARY_SPEC = importlib.util.spec_from_file_location("validate_design_boundary", SUITE / "scripts" / "validate_design_boundary.py")
 BOUNDARY = importlib.util.module_from_spec(BOUNDARY_SPEC)
@@ -79,6 +80,304 @@ class DesignLifecycleTests(unittest.TestCase):
         path = self.root / "input.json"
         path.write_text(json.dumps(value), encoding="utf-8")
         return path
+
+    def visual_review(self):
+        return {key: "Reviewed against the numbered rendered evidence." for key in design.VISUAL_REVIEW_QUESTIONS}
+
+    def write_slop_manifest(self, stage="concept", **overrides):
+        value = {"stage": stage, "ruleset_version": design_slop.RULESET_VERSION, "visual_review": self.visual_review()}
+        value.update(overrides)
+        path = self.root / f"slop-{stage}.json"
+        path.write_text(json.dumps(value), encoding="utf-8")
+        return path
+
+    def slop_reference(self, result):
+        report_path = self.root / result["report_path"]
+        return {
+            "path": result["report_path"], "sha256": __import__("hashlib").sha256(report_path.read_bytes()).hexdigest(),
+            "report_hash": result["report_hash"], "ruleset_version": result["ruleset_version"],
+            "counts_by_severity": result["counts_by_severity"], "dispositions_hash": design._canonical_hash(result["dispositions"]),
+            "status": result["status"],
+        }
+
+    def test_creative_director_input_infers_profile_and_specialization(self):
+        value = input_value(
+            design_id="creative-peer", intent="A creative director will co-create a launch system.",
+            collaboration_profile="creative-peer", concept_presentation_mode="director-led",
+            research={"mode": "declined", "status": "declined", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["schema_version"], 2)
+        self.assertEqual(draft["collaboration_profile"], "creative-peer")
+        self.assertEqual(draft["specialization"], "brand-marketing")
+        self.assertEqual(len(draft["directions"]), 2)
+        self.assertEqual(draft["slop_ruleset_hash"], design_slop.ruleset_hash())
+
+    def test_completed_live_research_requires_numbered_provenance_tiles(self):
+        value = input_value(
+            design_id="bad-research", collaboration_profile="guided",
+            research={"mode": "adaptive-live", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )
+        with self.assertRaisesRegex(design.DesignError, "12 to 20"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_third_party_moodboard_tile_cannot_be_marked_publishable(self):
+        value = input_value(
+            design_id="third-party-promotion", collaboration_profile="guided",
+            research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": [{
+                "tile": 1, "source": "https://example.com/reference", "captured_at": "2026-08-08T12:00:00Z",
+                "intended_lesson": "Observe the relationship between scale and whitespace.", "axis": "graphic/spatial",
+                "ownership": "third-party", "prohibited_copying": True, "publishable": True,
+            }]},
+        )
+        with self.assertRaisesRegex(design.DesignError, "cannot be publishable"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_visual_atlas_is_private_self_contained_and_network_free(self):
+        request = self.root / "atlas.json"
+        request.write_text(json.dumps({"title": "Material contrasts", "contrasts": ["quiet / expressive", "flat / tactile"]}), encoding="utf-8")
+        result = design.visual_atlas(self.root, self.config, CATALOG, request)
+        text = (self.root / result["path"]).read_text(encoding="utf-8")
+        self.assertTrue(result["private"])
+        self.assertFalse(result["network_used"])
+        self.assertEqual(result["plate_count"], 2)
+        self.assertIn("<svg", text)
+        self.assertNotIn("http://", text)
+        self.assertNotIn("https://", text)
+
+    def test_private_renderer_supports_moodboards_concepts_and_visual_deltas(self):
+        for kind in ("moodboard", "concept-comparison", "visual-delta"):
+            with self.subTest(kind=kind):
+                request = self.root / f"{kind}.json"
+                request.write_text(json.dumps({"kind": kind, "title": f"{kind} evidence", "items": [{"number": 1, "title": "Evidence rail", "summary": "A structural study", "lesson": "Keep proof attached", "source": "project-owned study"}]}), encoding="utf-8")
+                result = design.visual_render(self.root, self.config, request)
+                rendered = (self.root / result["path"]).read_text(encoding="utf-8")
+                self.assertTrue(result["private"])
+                self.assertFalse(result["network_used"])
+                self.assertIn("Evidence rail", rendered)
+                self.assertIn("@media(max-width:820px)", rendered)
+
+    def test_slop_check_detects_hard_and_default_risks(self):
+        source = self.root / "risk.css"
+        source.write_text(".hero { transition: all .3s; background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual({item["rule_id"] for item in result["findings"]}, {"CDS-H004", "CDS-D001"})
+
+    def test_static_slop_rules_have_positive_detection_fixtures(self):
+        fixtures = {
+            "CDS-H001": "<video autoplay src='clip.mp4'></video>",
+            "CDS-H002": "const scene = new WebGLRenderer();",
+            "CDS-H003": "main { opacity: 0; }",
+            "CDS-H004": ".thing { transition: all .2s; }",
+            "CDS-H005": "window.addEventListener('scroll', update);",
+            "CDS-D001": ".hero{background:linear-gradient(90deg,#8b5cf6,#3b82f6)}",
+            "CDS-D002": ".headline{background:linear-gradient(red,blue);background-clip:text}",
+            "CDS-D003": ":root{--surface:#faf7f0}",
+            "CDS-D004": ".body{font-family:'Space Grotesk',sans-serif}",
+            "CDS-D005": ".glass{backdrop-filter:blur(12px);background:rgba(255,255,255,.4)}",
+            "CDS-D006": ".a{border-radius:24px}.b{border-radius:24px}.c{border-radius:24px}",
+            "CDS-D007": "<div class='bento-grid'></div>",
+            "CDS-D008": "<p class='eyebrow'>A</p><p class='eyebrow'>B</p><p class='eyebrow'>C</p>",
+            "CDS-D009": "<p>01. One</p><p>02. Two</p><p>03. Three</p>",
+            "CDS-D010": ".a{text-align:center}.b{text-align:center}.c{text-align:center}.d{text-align:center}.e{text-align:center}",
+            "CDS-D011": "<div class='fade-up'></div><div class='fade-up'></div><div class='fade-up'></div>",
+            "CDS-D012": "<section class='hero'><div class='stat'>1</div><div class='metric'>2</div></section>",
+            "CDS-D013": ".orb{box-shadow:0 0 40px #8b5cf6}",
+            "CDS-D014": "<img src='https://images.unsplash.com/example'>",
+            "CDS-D015": "<h1>Revolutionize your work</h1>",
+            "CDS-D016": "One — two — three — four — five.",
+            "CDS-D017": ".terminal{background:#000;color:#39ff14;font-family:monospace}",
+        }
+        for rule_id, source in fixtures.items():
+            with self.subTest(rule_id=rule_id):
+                actual = {item["rule_id"] for item in design_slop._scan_text("fixture", source)}
+                self.assertIn(rule_id, actual)
+
+    def test_slop_check_rejects_stale_ruleset_and_unqualified_generated_claim(self):
+        source = self.root / "claim.html"
+        source.write_text("<main><h1>Illustrative outcome</h1></main>", encoding="utf-8")
+        stale = self.write_slop_manifest(ruleset_version="0.9.0")
+        with self.assertRaisesRegex(design.DesignError, "stale"):
+            design.slop_check(self.root, self.config, source, stale)
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(
+            generated_claims=[{"location": "claim.html#outcome", "visible_qualification": "", "provenance": ""}]
+        ))
+        self.assertIn("CDS-H006", {item["rule_id"] for item in result["findings"]})
+
+    def test_slop_report_manifest_summary_is_hash_bound(self):
+        source = self.root / "bound.html"
+        source.write_text("<main><h1>Bound evidence</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest())
+        reference = self.slop_reference(result)
+        reference["counts_by_severity"] = {**reference["counts_by_severity"], "warning": 1}
+        with self.assertRaisesRegex(design.DesignError, "summary"):
+            design._verified_private_report(self.root, reference, stage="concept")
+
+    def test_context_slop_layer_detects_contract_reference_rejection_and_house_drift(self):
+        source = self.root / "drift.html"
+        source.write_text("<main class='unapproved-radius copied-brand generic-proof-grid'>Reference identity</main>", encoding="utf-8")
+        manifest = self.write_slop_manifest(project_context={
+            "unapproved_markers": ["unapproved-radius"],
+            "required_signature_markers": ["approved-evidence-rail"],
+            "reference_transformations": [{"reference_identity_marker": "copied-brand", "project_transformation_marker": "project-proof-rail"}],
+            "rejected_choices": ["generic-proof-grid"],
+            "continuity_house_tells": ["reference identity"],
+        })
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(
+            {item["rule_id"] for item in result["findings"]},
+            {"CDS-P001", "CDS-P002", "CDS-P003", "CDS-P004", "CDS-P005"},
+        )
+        self.assertEqual(result["status"], "failed")
+
+    def test_default_risk_can_be_intentionally_accepted_with_contract_evidence(self):
+        source = self.root / "approved.css"
+        source.write_text(".signal { background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
+        manifest = self.write_slop_manifest(dispositions=[{
+            "rule_id": "CDS-D001", "status": "accepted-intentional",
+            "rationale": "The approved spectrograph uses this measured wavelength mapping.",
+            "contract_reference": "Design contract / Signature move",
+        }])
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["dispositions"][0]["status"], "accepted-intentional")
+
+    def test_hash_bound_craft_finding_shape_can_accept_intentional_default(self):
+        source = self.root / "intentional.css"
+        source.write_text(".signal { background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
+        manifest = self.write_slop_manifest(craft_findings=[{
+            "rule_id": "CDS-D001", "status": "accepted-intentional", "artifact_ref": "Design contract / Signature move",
+            "evidence": "Rendered spectrograph wavelength mapping.", "override_rationale": "The approved subject encodes wavelength with this exact range.",
+        }])
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(result["status"], "passed")
+
+    def test_hard_failure_cannot_be_suppressed_as_intentional(self):
+        source = self.root / "unsafe.css"
+        source.write_text(".thing { transition: all .3s; }", encoding="utf-8")
+        manifest = self.write_slop_manifest(dispositions=[{
+            "rule_id": "CDS-H004", "status": "accepted-intentional", "rationale": "Wanted", "contract_reference": "contract",
+        }])
+        with self.assertRaisesRegex(design.DesignError, "cannot be accepted"):
+            design.slop_check(self.root, self.config, source, manifest)
+
+    def test_third_party_reference_promotion_is_a_hard_failure(self):
+        source = self.root / "clean.html"
+        source.write_text("<main><h1>Project evidence</h1></main>", encoding="utf-8")
+        manifest = self.write_slop_manifest(promoted_references=[{"path": "refs/example.png", "ownership": "third-party"}])
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("CDS-H007", {item["rule_id"] for item in result["findings"]})
+
+    def test_adversarial_slop_fixture_corpus_recall_and_nearby_precision(self):
+        fixture_root = SUITE / "skills" / "continuity-design" / "references" / "slop-fixtures"
+        expectations = json.loads((fixture_root / "expectations.json").read_text(encoding="utf-8"))
+        for name, expected in expectations.items():
+            with self.subTest(name=name):
+                findings = design_slop._scan_text(name, (fixture_root / name).read_text(encoding="utf-8"))
+                self.assertEqual(sorted({item["rule_id"] for item in findings}), sorted(expected))
+
+    def test_concept_feedback_gates_selection_and_invalidates_changed_revision(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(
+            design_id="concept-loop", collaboration_profile="guided", concept_presentation_mode="director-led",
+            research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )))
+        source = self.root / "concept.html"
+        source.write_text("<main><h1>Operational evidence</h1><p>A calm direct path.</p></main>", encoding="utf-8")
+        slop = design.slop_check(self.root, self.config, source, self.write_slop_manifest(design_id=draft["design_id"], revision=draft["revision"]))
+        file_hash = __import__("hashlib").sha256(source.read_bytes()).hexdigest()
+        contrast = self.root / "contrast.html"
+        contrast.write_text("<main><h1>Infrastructure field notes</h1><p>A spatial inspection path.</p></main>", encoding="utf-8")
+        contrast_slop = design.slop_check(self.root, self.config, contrast, self.write_slop_manifest(design_id=draft["design_id"], revision=draft["revision"]))
+        contrast_hash = __import__("hashlib").sha256(contrast.read_bytes()).hexdigest()
+        browser_snapshots = []
+        for viewport, width in (("mobile", 390), ("tablet", 768), ("desktop", 1440)):
+            snapshot = self.root / f"concept-{viewport}.png"
+            snapshot.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + (900).to_bytes(4, "big"))
+            browser_snapshots.append({"viewport": viewport, "path": snapshot.name, "sha256": __import__("hashlib").sha256(snapshot.read_bytes()).hexdigest()})
+        concept_manifest = self.root / "concept.json"
+        concept_manifest.write_text(json.dumps({
+            "design_id": draft["design_id"], "revision": draft["revision"], "presentation_mode": "director-led",
+            "concepts": [{
+                "direction_id": "direction-1", "recommended": True, "thesis": "Evidence before ornament.",
+                "signature_move": "A proof rail attached to each decision.", "palette": ["paper", "carbon", "signal"],
+                "type_specimen": {"copy": "Review the source before approval."}, "wide_composition": {"path": "concept.html", "sha256": file_hash},
+                "narrow_transformation": {"path": "concept.html", "sha256": file_hash}, "imagery_treatment": "Owned working evidence only.",
+                "motion_decision": "No ambient motion.", "preservation_promise": "Keep the expert path direct.",
+                "tradeoff": "Less simultaneous overview.", "anti_reference": "No generic dashboard bento.", "fidelity_level": "board-v1",
+                "slop_report": self.slop_reference(slop),
+            }, {
+                "direction_id": "direction-2", "recommended": False, "thesis": "Inspection creates confidence.",
+                "signature_move": "A spatial field-note seam connecting material to consequence.", "palette": ["field", "graphite", "safety"],
+                "type_specimen": {"copy": "Inspect the system from source to outcome."}, "wide_composition": {"path": "contrast.html", "sha256": contrast_hash},
+                "narrow_transformation": {"path": "contrast.html", "sha256": contrast_hash}, "imagery_treatment": "Owned infrastructure details with annotated scale.",
+                "motion_decision": "One state-led spatial transition with a static equivalent.", "preservation_promise": "Keep the expert path direct.",
+                "tradeoff": "More deliberate scanning.", "anti_reference": "No copied aerospace identity.", "fidelity_level": "board-v1",
+                "slop_report": self.slop_reference(contrast_slop),
+            }], "browser_snapshots": browser_snapshots,
+            "browser_probes": [{"viewport": viewport, "status": "passed", "evidence": "Browser probe found no overflow, obstruction, clipping, or inaccessible control."} for viewport in ("mobile", "tablet", "desktop")],
+            "visual_references": [],
+        }), encoding="utf-8")
+        validated = design.concept_validate(self.root, self.config, concept_manifest)
+        self.assertEqual(validated["status"], "awaiting-feedback")
+        with self.assertRaisesRegex(design.DesignError, "not selectable"):
+            design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        feedback = self.root / "feedback.json"
+        feedback.write_text(json.dumps({"actor": "reviewer", "contract_changed": False, "ready_for_selection": True, "reactions": [{"element_id": "1.signature", "reaction": "keep", "why": "It makes evidence structural."}]}), encoding="utf-8")
+        ready = design.feedback_record(self.root, self.config, draft["design_id"], feedback)
+        self.assertEqual(ready["status"], "awaiting-selection")
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        self.assertIn(" bundle ", selected["required_authorization_text"])
+        prototype = self.root / "prototype.html"
+        prototype.write_text(
+            "<html><head>"
+            f'<meta name="continuity-design-id" content="{selected["design_id"]}">'
+            f'<meta name="continuity-design-revision" content="{selected["revision"]}">'
+            f'<meta name="continuity-design-hash" content="{selected["design_hash"]}">'
+            '<meta name="continuity-prototype-maturity" content="directional">'
+            '<meta name="continuity-fixture-data" content="none">'
+            "</head><body><main id=\"direction\"><h1>Operational evidence</h1></main></body></html>", encoding="utf-8",
+        )
+        prototype_slop = design.slop_check(self.root, self.config, prototype, self.write_slop_manifest(
+            stage="prototype", design_id=selected["design_id"], revision=selected["revision"],
+            design_hash=selected["design_hash"], approval_bundle_hash=selected["approval_bundle_hash"],
+        ))
+        prototype_manifest = self.root / "prototype-manifest.json"
+        prototype_manifest.write_text(json.dumps({
+            "schema_version": 3, "artifact_id": "concept-loop-prototype", "design_id": selected["design_id"],
+            "revision": selected["revision"], "design_hash": selected["design_hash"], "approval_bundle_hash": selected["approval_bundle_hash"],
+            "maturity": "directional", "fixture_data": "none",
+            "implementation_context_hash": design._canonical_hash(None), "component_map_hash": design._canonical_hash([]), "asset_strategy_hash": design._canonical_hash([]),
+            "files": [{"path": "prototype.html", "media_type": "text/html", "role": "prototype", "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()}],
+            "demonstrated_audiences": [], "demonstrated_surfaces": ["Direction"], "demonstrated_states": ["default"],
+            "omitted_surfaces": [], "omitted_states": [], "design_claims": [], "validation_results": [],
+            "slop_report": self.slop_reference(prototype_slop), "execution_authorized": False,
+        }), encoding="utf-8")
+        candidate = design.validate_candidate_artifact(self.root, self.config, prototype_manifest)
+        self.assertEqual(candidate["ai_slop_check"]["status"], "passed")
+        approved = design.approve(self.root, self.config, draft["design_id"], 1, "reviewer", selected["required_authorization_text"])
+        self.assertEqual(approved["schema_version"], 2)
+        self.assertEqual(approved["approval_bundle_hash"], selected["approval_bundle_hash"])
+        implementation_slop = design.slop_check(self.root, self.config, prototype, self.write_slop_manifest(
+            stage="implementation", design_id=selected["design_id"], revision=selected["revision"],
+            design_hash=selected["design_hash"], approval_bundle_hash=selected["approval_bundle_hash"],
+        ))
+        artifact_value = json.loads(prototype_manifest.read_text(encoding="utf-8"))
+        artifact_value["slop_report"] = self.slop_reference(implementation_slop)
+        prototype_manifest.write_text(json.dumps(artifact_value), encoding="utf-8")
+        approved_artifact = design.validate_artifact(self.root, self.config, prototype_manifest)
+        self.assertEqual(approved_artifact["ai_slop_check"]["status"], "passed")
+        changed = self.root / "changed.json"
+        changed.write_text(json.dumps({
+            "actor": "reviewer", "contract_changed": True, "ready_for_selection": False,
+            "reactions": [{"element_id": "1.signature", "reaction": "change", "why": "Make the evidence rail quieter."}],
+            "visual_delta": {"changed": ["Reduced evidence-rail contrast"], "stayed": ["Evidence remains attached to the decision"], "why": ["Preserve rigor without overpowering content"], "path": "prototype.html", "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()},
+        }), encoding="utf-8")
+        revised = design.feedback_record(self.root, self.config, draft["design_id"], changed)
+        self.assertEqual(revised["revision"], 2)
+        self.assertEqual(revised["status"], "refining")
+        self.assertFalse(revised["slop_evidence_valid"])
 
     def test_adaptive_direction_counts(self):
         one = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="one")))

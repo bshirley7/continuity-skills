@@ -1,0 +1,52 @@
+{
+  "design_id": "example-direction",
+  "revision": 1,
+  "presentation_mode": "director-led",
+  "concepts": [
+    {
+      "direction_id": "direction-1",
+      "recommended": true,
+      "thesis": "Evidence becomes the visual identity.",
+      "signature_move": "Attach a proof rail to every consequential claim.",
+      "palette": ["Paper", "Carbon", "Signal oxide"],
+      "type_specimen": {"copy": "Inspect the source before approval."},
+      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-a.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-a-mobile.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "imagery_treatment": "Owned operational material with visible provenance.",
+      "motion_decision": "State-led continuity only, with a static equivalent.",
+      "preservation_promise": "Keep the expert path direct.",
+      "tradeoff": "Less simultaneous overview.",
+      "anti_reference": "No generic SaaS bento or copied aerospace identity.",
+      "fidelity_level": "board-v1",
+      "slop_report": {"path": ".continuity/private/design/slop/concept-a.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.0.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
+    },
+    {
+      "direction_id": "direction-2",
+      "recommended": false,
+      "thesis": "Inspection creates confidence.",
+      "signature_move": "Use a spatial field-note seam from material to outcome.",
+      "palette": ["Field", "Graphite", "Safety amber"],
+      "type_specimen": {"copy": "Trace the system from source to consequence."},
+      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-b.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-b-mobile.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "imagery_treatment": "Owned infrastructure detail with annotated scale.",
+      "motion_decision": "One spatial transition with reduced-motion replacement.",
+      "preservation_promise": "Keep the expert path direct.",
+      "tradeoff": "More deliberate scanning.",
+      "anti_reference": "No black-neon terminal counter-default.",
+      "fidelity_level": "board-v1",
+      "slop_report": {"path": ".continuity/private/design/slop/concept-b.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.0.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
+    }
+  ],
+  "browser_snapshots": [
+    {"viewport": "mobile", "path": ".continuity/private/designs/example/1/concepts-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "tablet", "path": ".continuity/private/designs/example/1/concepts-tablet.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "desktop", "path": ".continuity/private/designs/example/1/concepts-desktop.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+  ],
+  "browser_probes": [
+    {"viewport": "mobile", "status": "passed", "evidence": "No overflow, obstruction, clipping, or inaccessible control."},
+    {"viewport": "tablet", "status": "passed", "evidence": "No overflow, obstruction, clipping, or inaccessible control."},
+    {"viewport": "desktop", "status": "passed", "evidence": "No overflow, obstruction, clipping, or inaccessible control."}
+  ],
+  "visual_references": []
+}

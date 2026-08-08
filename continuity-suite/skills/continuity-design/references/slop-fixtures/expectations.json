@@ -1,0 +1,7 @@
+{
+  "generic-ai-landing.html": ["CDS-D001", "CDS-D004", "CDS-D006", "CDS-D007", "CDS-D009", "CDS-D015"],
+  "fashionable-anti-saas.css": ["CDS-D017"],
+  "project-specific.css": [],
+  "approved-exception.css": ["CDS-D001"],
+  "nearby-acceptable.css": []
+}

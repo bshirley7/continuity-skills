@@ -11827,6 +11827,16 @@ def design_command(args: argparse.Namespace) -> Any:
             return design_lib.catalog_summary(config, catalog_path, args.axis)
         if args.command == "draft":
             return design_lib.draft(root, config, catalog_path, Path(args.input).expanduser().resolve())
+        if args.command == "visual-atlas":
+            return design_lib.visual_atlas(root, config, catalog_path, Path(args.input).expanduser().resolve())
+        if args.command == "visual-render":
+            return design_lib.visual_render(root, config, Path(args.input).expanduser().resolve())
+        if args.command == "concept-validate":
+            return design_lib.concept_validate(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "feedback-record":
+            return design_lib.feedback_record(root, config, args.design_id, Path(args.input).expanduser().resolve())
+        if args.command == "slop-check":
+            return design_lib.slop_check(root, config, Path(args.target).expanduser().resolve(), Path(args.manifest).expanduser().resolve())
         if args.command == "select":
             return design_lib.select(root, config, args.design_id, [args.direction, *(args.combine or [])], args.actor)
         if args.command == "approve":
@@ -12198,6 +12208,23 @@ def build_parser() -> argparse.ArgumentParser:
     design_draft = design_sub.add_parser("draft")
     design_draft.add_argument("--input", required=True)
     design_draft.set_defaults(handler=design_command)
+    design_visual_atlas = design_sub.add_parser("visual-atlas")
+    design_visual_atlas.add_argument("--input", required=True)
+    design_visual_atlas.set_defaults(handler=design_command)
+    design_visual_render = design_sub.add_parser("visual-render")
+    design_visual_render.add_argument("--input", required=True)
+    design_visual_render.set_defaults(handler=design_command)
+    design_concept_validate = design_sub.add_parser("concept-validate")
+    design_concept_validate.add_argument("--manifest", required=True)
+    design_concept_validate.set_defaults(handler=design_command)
+    design_feedback_record = design_sub.add_parser("feedback-record")
+    design_feedback_record.add_argument("design_id")
+    design_feedback_record.add_argument("--input", required=True)
+    design_feedback_record.set_defaults(handler=design_command)
+    design_slop_check = design_sub.add_parser("slop-check")
+    design_slop_check.add_argument("--target", required=True)
+    design_slop_check.add_argument("--manifest", required=True)
+    design_slop_check.set_defaults(handler=design_command)
     design_select = design_sub.add_parser("select")
     design_select.add_argument("design_id")
     design_select.add_argument("--direction", required=True)

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity approved visual-reference bundle",
+  "type": "object",
+  "required": ["visual_reference_hash", "references"],
+  "properties": {
+    "visual_reference_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "references": {"type": "array", "items": {"type": "object", "required": ["path", "sha256", "ownership"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated"]}}, "additionalProperties": false}}
+  },
+  "additionalProperties": false
+}
