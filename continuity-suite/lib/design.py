@@ -84,6 +84,43 @@ CONCEPT_ROLES = {"direction", "contrast-study"}
 RESEARCH_LINK_DISPOSITIONS = {"adopted", "transformed", "rejected", "reference-only"}
 FEEDBACK_REACTIONS = {"keep", "change", "avoid", "uncertain"}
 VISUAL_REFERENCE_OWNERSHIP = {"project-owned", "supplied-with-rights", "generated", "third-party"}
+GENERATIVE_EXPLORATION_STATUSES = {"complete", "unavailable", "declined", "deliberately-omitted"}
+GENERATIVE_EXPLORATION_MODES = {"mixed-media", "generated-media", "code-only", "omitted"}
+GENERATIVE_MEDIA = {"image-generation", "image-editing", "svg", "typography", "collage", "motion-frame", "code-sketch"}
+GENERATED_IMAGE_MEDIA = {"image-generation", "image-editing"}
+ART_DIRECTION_FAMILIES = {
+    "photographic", "documentary", "illustrative", "typographic", "material",
+    "spatial", "diagrammatic", "cinematic", "interaction-led", "mixed",
+}
+TYPOGRAPHY_FAMILIES = {
+    "serif", "humanist-sans", "grotesk-sans", "neo-grotesk-sans", "condensed-display",
+    "monospaced", "vernacular-display", "system-utility", "custom-letterform", "mixed",
+}
+TYPOGRAPHY_SOURCES = {"system", "project-supplied", "open-licensed", "licensed", "custom-lettering", "code-native"}
+COMPOSITION_FAMILIES = {
+    "editorial-sequence", "spatial-field", "cinematic-chapters", "typographic-poster",
+    "documentary-index", "interactive-instrument", "material-collage", "narrative-scroll", "modular-system",
+}
+PAGE_GRAMMAR_FAMILIES = {
+    "longform-narrative", "single-canvas-instrument", "navigable-artifact", "editorial-issue",
+    "cinematic-sequence", "modular-system", "spatial-journey",
+}
+INTERACTION_MOTION_MODES = {"static", "native-disclosure", "direct-manipulation", "spatial-transition", "cinematic", "mixed"}
+GENERATED_EXTRACTION_DOMAINS = {"typography", "composition", "material", "motion", "code-native", "imagery"}
+STYLE_FRAME_METHODS = {"generated", "edited", "code-native", "project-owned"}
+IMPACT_STRENGTHS = {"credible", "compelling"}
+IMPACT_REVIEWER_TYPES = {"agent-multimodal", "human"}
+IMPROVEMENT_PASS_STATUSES = {"planned", "implemented", "validated", "awaiting-human", "accepted", "changes-requested"}
+JOURNEY_STAGE_ROLES = {
+    "opening", "orientation", "proof", "system-model", "interaction", "quiet-state",
+    "edge-state", "trust", "decision", "closure",
+}
+MEDIA_ASSET_SOURCES = {"generated", "derived", "project-owned", "supplied", "code-native", "deliberately-omitted"}
+PRIMARY_CONCEPT_CARRIERS = {"imagery", "interaction", "typography", "material", "spatial-system", "motion", "narrative"}
+CREATIVE_DISTANCE_DIMENSIONS = {
+    "organizing-idea", "primary-carrier", "emotional-register", "material-system",
+    "typography-behavior", "imagery-behavior", "motion-model", "voice", "responsive-transformation",
+}
 ASSET_RESOLUTION_STATUSES = {"resolved", "deliberately-omitted", "blocked"}
 ASSET_SOURCES = {"existing", "supplied", "generated", "derived", "deliberately-omitted"}
 ARTIFACT_MEDIA_TYPES = {
@@ -660,6 +697,378 @@ def _validate_research_record(value: Any, root: Path) -> dict[str, Any]:
     return {
         "mode": value["mode"], "status": value["status"], "announced": announced,
         "opt_out_offered": opt_out, "completed_at": completed_at, "moodboard": normalized_tiles,
+    }
+
+
+def _validate_generative_exploration(value: Any, root: Path) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError("Creative-director workflow requires an explicit generative_exploration record")
+    status = value.get("status")
+    mode = value.get("mode")
+    required = value.get("required_for_directioning")
+    if status not in GENERATIVE_EXPLORATION_STATUSES or mode not in GENERATIVE_EXPLORATION_MODES:
+        raise DesignError("generative_exploration requires a supported status and mode")
+    if not isinstance(required, bool):
+        raise DesignError("generative_exploration required_for_directioning must be boolean")
+    omission = value.get("omission_rationale", "")
+    if not isinstance(omission, str):
+        raise DesignError("generative_exploration omission_rationale must be text")
+    lenses = value.get("lenses", [])
+    seeds = value.get("seeds", [])
+    combinations = value.get("cross_pollinations", [])
+    shortlist = value.get("shortlisted_seed_ids", [])
+    style_frames = value.get("style_frame_explorations", [])
+    range_plan = value.get("range_plan", {})
+    if not all(isinstance(items, list) for items in (lenses, seeds, combinations, shortlist, style_frames)):
+        raise DesignError("generative_exploration collections must be arrays")
+    if status != "complete":
+        if mode != "omitted" or required or lenses or seeds or combinations or shortlist or style_frames or range_plan or not omission.strip():
+            raise DesignError("Unavailable, declined, or omitted concept laboratories require mode omitted, no generated work, and a rationale")
+        return {
+            "status": status, "mode": mode, "required_for_directioning": False,
+            "lenses": [], "seeds": [], "cross_pollinations": [],
+            "shortlisted_seed_ids": [], "style_frame_explorations": [], "range_plan": {}, "omission_rationale": omission.strip(),
+            "laboratory_hash": _canonical_hash({"status": status, "mode": mode, "omission_rationale": omission.strip()}),
+        }
+    if mode == "omitted" or required is not True or omission.strip():
+        raise DesignError("A completed concept laboratory must be required for directioning and cannot use omitted mode or rationale")
+    if not 4 <= len(lenses) <= 8:
+        raise DesignError("Completed concept laboratories require four to eight project-derived lenses")
+    if not isinstance(range_plan, dict):
+        raise DesignError("Completed concept laboratories require a range_plan object")
+    art_families = range_plan.get("art_direction_families")
+    typography_hypotheses = range_plan.get("typography_hypotheses")
+    composition_families = range_plan.get("composition_families")
+    page_depth_roles = range_plan.get("page_depth_roles")
+    page_grammar_hypotheses = range_plan.get("page_grammar_hypotheses")
+    interaction_motion_hypotheses = range_plan.get("interaction_motion_hypotheses")
+    intentional_convergence = range_plan.get("intentional_convergence", "")
+    if (
+        not isinstance(art_families, list) or len(set(art_families)) < 4
+        or any(item not in ART_DIRECTION_FAMILIES for item in art_families)
+    ):
+        raise DesignError("Completed concept laboratories require at least four distinct art-direction families")
+    if (
+        not isinstance(composition_families, list) or len(set(composition_families)) < 3
+        or any(item not in COMPOSITION_FAMILIES for item in composition_families)
+    ):
+        raise DesignError("Completed concept laboratories require at least three distinct composition families")
+    if (
+        not isinstance(page_depth_roles, list) or len(set(page_depth_roles)) < 5
+        or any(item not in JOURNEY_STAGE_ROLES for item in page_depth_roles)
+        or not {"opening", "proof", "closure"} <= set(page_depth_roles)
+        or not set(page_depth_roles).intersection({"quiet-state", "edge-state"})
+    ):
+        raise DesignError("Completed concept laboratories require opening, proof, quiet or edge, closure, and at least one additional page-depth role")
+    if not isinstance(typography_hypotheses, list) or not 3 <= len(typography_hypotheses) <= 6:
+        raise DesignError("Completed concept laboratories require three to six typography hypotheses")
+    normalized_typography: list[dict[str, Any]] = []
+    typography_ids: set[str] = set()
+    typography_families: set[str] = set()
+    typography_specimen_hashes: set[str] = set()
+    non_system_typography_count = 0
+    for item in typography_hypotheses:
+        if not isinstance(item, dict):
+            raise DesignError("Every typography hypothesis must be an object")
+        strategy_id = _identifier(str(item.get("strategy_id", "")), "typography strategy ID")
+        family = item.get("family")
+        if strategy_id in typography_ids or family not in TYPOGRAPHY_FAMILIES:
+            raise DesignError("Typography hypotheses require unique IDs and supported families")
+        source = item.get("source")
+        if source not in TYPOGRAPHY_SOURCES:
+            raise DesignError(f"Typography hypothesis {strategy_id} requires a supported source")
+        text_fields = ("role_relationship", "responsive_behavior", "anti_default", "customization", "license_evidence")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in text_fields):
+            raise DesignError(f"Typography hypothesis {strategy_id} lacks role, responsive, anti-default, customization, or license evidence")
+        specimen = item.get("specimen")
+        if not isinstance(specimen, dict):
+            raise DesignError(f"Typography hypothesis {strategy_id} requires a rendered specimen")
+        specimen_relative, specimen_path = _artifact_relative_path(root, specimen.get("path"))
+        specimen_actual = hashlib.sha256(specimen_path.read_bytes()).hexdigest() if specimen_path.is_file() else ""
+        if specimen_path.suffix.lower() not in {".html", ".png", ".svg"} or not specimen_actual or specimen.get("sha256") != specimen_actual:
+            raise DesignError(f"Typography specimen is missing or changed: {specimen_relative}")
+        if specimen_actual in typography_specimen_hashes:
+            raise DesignError("Every typography hypothesis requires a distinct specimen")
+        behavior_tests = item.get("behavior_tests")
+        if not isinstance(behavior_tests, list) or not {"display", "text", "narrow"} <= set(behavior_tests):
+            raise DesignError(f"Typography hypothesis {strategy_id} must test display, text, and narrow behavior")
+        normalized_typography.append({
+            "strategy_id": strategy_id, "family": family, "source": source,
+            **{key: item[key].strip() for key in text_fields},
+            "behavior_tests": list(dict.fromkeys(behavior_tests)),
+            "specimen": {"path": specimen_relative, "sha256": specimen_actual},
+        })
+        typography_ids.add(strategy_id)
+        typography_families.add(family)
+        typography_specimen_hashes.add(specimen_actual)
+        if source != "system":
+            non_system_typography_count += 1
+    if len(typography_families) < 3:
+        raise DesignError("Completed concept laboratories require at least three typography families")
+    if non_system_typography_count < 1:
+        raise DesignError("Completed concept laboratories require at least one supplied, licensed, custom-lettered, or code-native typography study")
+    if not isinstance(page_grammar_hypotheses, list) or not 4 <= len(page_grammar_hypotheses) <= 7:
+        raise DesignError("Completed concept laboratories require four to seven page-grammar hypotheses")
+    normalized_page_grammars: list[dict[str, str]] = []
+    page_grammar_ids: set[str] = set()
+    page_grammar_families: set[str] = set()
+    for item in page_grammar_hypotheses:
+        if not isinstance(item, dict):
+            raise DesignError("Every page-grammar hypothesis must be an object")
+        grammar_id = _identifier(str(item.get("grammar_id", "")), "page grammar ID")
+        family = item.get("family")
+        if grammar_id in page_grammar_ids or family not in PAGE_GRAMMAR_FAMILIES:
+            raise DesignError("Page-grammar hypotheses require unique IDs and supported families")
+        fields = ("hypothesis", "responsive_behavior", "depth_proof", "risk")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in fields):
+            raise DesignError(f"Page grammar {grammar_id} lacks hypothesis, responsive, depth, or risk evidence")
+        normalized_page_grammars.append({"grammar_id": grammar_id, "family": family, **{key: item[key].strip() for key in fields}})
+        page_grammar_ids.add(grammar_id)
+        page_grammar_families.add(family)
+    if len(page_grammar_families) < 4 or page_grammar_families == {"longform-narrative"}:
+        raise DesignError("Completed concept laboratories require at least four materially different page grammars")
+    if not isinstance(interaction_motion_hypotheses, list) or not 3 <= len(interaction_motion_hypotheses) <= 6:
+        raise DesignError("Completed concept laboratories require three to six interaction and motion hypotheses")
+    normalized_interactions: list[dict[str, Any]] = []
+    interaction_ids: set[str] = set()
+    interaction_artifact_hashes: set[str] = set()
+    for item in interaction_motion_hypotheses:
+        if not isinstance(item, dict):
+            raise DesignError("Every interaction and motion hypothesis must be an object")
+        strategy_id = _identifier(str(item.get("strategy_id", "")), "interaction and motion strategy ID")
+        interaction_mode = item.get("mode")
+        if strategy_id in interaction_ids or interaction_mode not in INTERACTION_MOTION_MODES:
+            raise DesignError("Interaction and motion hypotheses require unique IDs and supported modes")
+        fields = ("semantic_purpose", "reduced_motion", "static_fallback", "risk")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in fields):
+            raise DesignError(f"Interaction and motion hypothesis {strategy_id} lacks semantic, fallback, or risk evidence")
+        prototype = item.get("prototype")
+        if not isinstance(prototype, dict):
+            raise DesignError(f"Interaction and motion hypothesis {strategy_id} requires a prototype artifact")
+        prototype_relative, prototype_path = _artifact_relative_path(root, prototype.get("path"))
+        prototype_actual = hashlib.sha256(prototype_path.read_bytes()).hexdigest() if prototype_path.is_file() else ""
+        if prototype_path.suffix.lower() not in {".html", ".json", ".png", ".svg"} or not prototype_actual or prototype.get("sha256") != prototype_actual:
+            raise DesignError(f"Interaction and motion prototype is missing or changed: {prototype_relative}")
+        if prototype_actual in interaction_artifact_hashes:
+            raise DesignError("Every interaction and motion hypothesis requires a distinct prototype")
+        normalized_interactions.append({"strategy_id": strategy_id, "mode": interaction_mode, **{key: item[key].strip() for key in fields}, "prototype": {"path": prototype_relative, "sha256": prototype_actual}})
+        interaction_ids.add(strategy_id)
+        interaction_artifact_hashes.add(prototype_actual)
+    if not isinstance(intentional_convergence, str):
+        raise DesignError("Concept-laboratory intentional_convergence must be text")
+    normalized_range_plan = {
+        "art_direction_families": list(dict.fromkeys(art_families)),
+        "typography_hypotheses": normalized_typography,
+        "composition_families": list(dict.fromkeys(composition_families)),
+        "page_depth_roles": list(dict.fromkeys(page_depth_roles)),
+        "page_grammar_hypotheses": normalized_page_grammars,
+        "interaction_motion_hypotheses": normalized_interactions,
+        "intentional_convergence": intentional_convergence.strip(),
+    }
+    normalized_lenses: list[dict[str, str]] = []
+    lens_ids: set[str] = set()
+    for item in lenses:
+        if not isinstance(item, dict):
+            raise DesignError("Every generative lens must be an object")
+        lens_id = _identifier(str(item.get("lens_id", "")), "generative lens ID")
+        if lens_id in lens_ids:
+            raise DesignError("Generative lens IDs must be unique")
+        thesis = item.get("thesis")
+        truth = item.get("product_truth")
+        if not all(isinstance(text, str) and text.strip() for text in (thesis, truth)):
+            raise DesignError("Every generative lens requires a thesis and project-specific product truth")
+        normalized_lenses.append({"lens_id": lens_id, "thesis": thesis.strip(), "product_truth": truth.strip()})
+        lens_ids.add(lens_id)
+    if not 8 <= len(seeds) <= 12:
+        raise DesignError("Completed concept laboratories require eight to twelve inexpensive seeds")
+    normalized_seeds: list[dict[str, Any]] = []
+    seed_ids: set[str] = set()
+    artifact_hashes: set[str] = set()
+    media: set[str] = set()
+    represented_lenses: set[str] = set()
+    for item in seeds:
+        if not isinstance(item, dict):
+            raise DesignError("Every generative seed must be an object")
+        seed_id = _identifier(str(item.get("seed_id", "")), "generative seed ID")
+        lens_id = _identifier(str(item.get("lens_id", "")), "generative lens ID")
+        medium = item.get("medium")
+        if seed_id in seed_ids or lens_id not in lens_ids or medium not in GENERATIVE_MEDIA:
+            raise DesignError("Generative seeds require unique IDs, known lenses, and supported media")
+        art_family = item.get("art_direction_family")
+        typography_strategy_id = item.get("typography_strategy_id")
+        composition_family = item.get("composition_family")
+        depth_roles = item.get("page_depth_roles")
+        if art_family not in set(normalized_range_plan["art_direction_families"]):
+            raise DesignError(f"Generative seed {seed_id} requires a planned art-direction family")
+        if typography_strategy_id not in typography_ids:
+            raise DesignError(f"Generative seed {seed_id} requires a planned typography strategy")
+        if composition_family not in set(normalized_range_plan["composition_families"]):
+            raise DesignError(f"Generative seed {seed_id} requires a planned composition family")
+        if not isinstance(depth_roles, list) or not depth_roles or any(role not in set(normalized_range_plan["page_depth_roles"]) for role in depth_roles):
+            raise DesignError(f"Generative seed {seed_id} requires planned page-depth roles")
+        text_fields = ("hypothesis", "project_specificity", "surprising_quality", "risk")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in text_fields):
+            raise DesignError(f"Generative seed {seed_id} lacks its hypothesis, specificity, surprise, or risk")
+        mechanics = item.get("transferable_mechanics")
+        if not isinstance(mechanics, list) or not mechanics or any(not isinstance(entry, str) or not entry.strip() for entry in mechanics):
+            raise DesignError(f"Generative seed {seed_id} requires transferable mechanics")
+        provenance = item.get("provenance")
+        if provenance not in {"generated", "project-owned", "supplied-with-rights", "derived-study"}:
+            raise DesignError(f"Generative seed {seed_id} requires supported provenance")
+        artifact = item.get("artifact")
+        if not isinstance(artifact, dict):
+            raise DesignError(f"Generative seed {seed_id} requires an artifact")
+        relative, path = _artifact_relative_path(root, artifact.get("path"))
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+        if not actual or artifact.get("sha256") != actual:
+            raise DesignError(f"Generative seed artifact is missing or changed: {relative}")
+        if actual in artifact_hashes:
+            raise DesignError("Every generative seed requires a distinct artifact")
+        normalized_seeds.append({
+            "seed_id": seed_id, "lens_id": lens_id, "medium": medium,
+            "art_direction_family": art_family, "typography_strategy_id": typography_strategy_id,
+            "composition_family": composition_family, "page_depth_roles": list(dict.fromkeys(depth_roles)),
+            **{key: item[key].strip() for key in text_fields},
+            "transferable_mechanics": [entry.strip() for entry in mechanics],
+            "provenance": provenance, "artifact": {"path": relative, "sha256": actual},
+        })
+        seed_ids.add(seed_id)
+        artifact_hashes.add(actual)
+        media.add(medium)
+        represented_lenses.add(lens_id)
+    if len(represented_lenses) < 4:
+        raise DesignError("Completed concept laboratories must explore at least four lenses")
+    if len({item["art_direction_family"] for item in normalized_seeds}) < 4:
+        raise DesignError("Completed concept laboratories must realize at least four art-direction families in seed artifacts")
+    if len({item["typography_strategy_id"] for item in normalized_seeds}) < 3:
+        raise DesignError("Completed concept laboratories must realize at least three typography strategies in seed artifacts")
+    if len({item["composition_family"] for item in normalized_seeds}) < 3:
+        raise DesignError("Completed concept laboratories must realize at least three composition families in seed artifacts")
+    if not set(normalized_range_plan["page_depth_roles"]) <= {role for item in normalized_seeds for role in item["page_depth_roles"]}:
+        raise DesignError("Completed concept laboratories must test every planned page-depth role in seed artifacts")
+    if mode == "mixed-media" and (len(media) < 3 or not media.intersection(GENERATED_IMAGE_MEDIA)):
+        raise DesignError("Mixed-media concept laboratories require at least three media including image generation or editing")
+    if mode == "generated-media" and not media.intersection(GENERATED_IMAGE_MEDIA):
+        raise DesignError("Generated-media concept laboratories require image generation or editing")
+    if mode == "code-only" and not media <= {"svg", "typography", "motion-frame", "code-sketch"}:
+        raise DesignError("Code-only concept laboratories cannot claim generated-image media")
+    generated_families = {
+        item["art_direction_family"] for item in normalized_seeds if item["medium"] in GENERATED_IMAGE_MEDIA
+    }
+    if not isinstance(style_frames, list) or len(style_frames) < max(2, len(generated_families)):
+        raise DesignError("Completed concept laboratories require multi-frame exploration for at least two promising art-direction families")
+    normalized_style_frames: list[dict[str, Any]] = []
+    style_frame_group_ids: set[str] = set()
+    explored_style_families: set[str] = set()
+    style_frame_hashes: set[str] = set()
+    for group in style_frames:
+        if not isinstance(group, dict):
+            raise DesignError("Every style-frame exploration must be an object")
+        exploration_id = _identifier(str(group.get("exploration_id", "")), "style-frame exploration ID")
+        art_family = group.get("art_direction_family")
+        if exploration_id in style_frame_group_ids or art_family not in set(normalized_range_plan["art_direction_families"]):
+            raise DesignError("Style-frame explorations require unique IDs and planned art-direction families")
+        hypothesis = group.get("hypothesis")
+        synthesis = group.get("synthesis")
+        if not isinstance(hypothesis, str) or not hypothesis.strip() or not isinstance(synthesis, str) or not synthesis.strip():
+            raise DesignError(f"Style-frame exploration {exploration_id} requires a hypothesis and synthesis")
+        frames = group.get("frames")
+        if not isinstance(frames, list) or not 2 <= len(frames) <= 4:
+            raise DesignError(f"Style-frame exploration {exploration_id} requires two to four frames")
+        normalized_frames: list[dict[str, Any]] = []
+        frame_ids: set[str] = set()
+        for frame in frames:
+            if not isinstance(frame, dict):
+                raise DesignError("Every style frame must be an object")
+            frame_id = _identifier(str(frame.get("frame_id", "")), "style frame ID")
+            method = frame.get("method")
+            lesson = frame.get("lesson")
+            if frame_id in frame_ids or method not in STYLE_FRAME_METHODS or not isinstance(lesson, str) or not lesson.strip():
+                raise DesignError("Style frames require unique IDs, supported methods, and a lesson")
+            artifact = frame.get("artifact")
+            if not isinstance(artifact, dict):
+                raise DesignError(f"Style frame {frame_id} requires an artifact")
+            relative, artifact_path = _artifact_relative_path(root, artifact.get("path"))
+            actual = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path.is_file() else ""
+            if artifact_path.suffix.lower() not in {".html", ".jpeg", ".jpg", ".png", ".svg", ".webp"} or not actual or artifact.get("sha256") != actual:
+                raise DesignError(f"Style frame is missing or changed: {relative}")
+            if actual in style_frame_hashes:
+                raise DesignError("Every style frame requires a distinct artifact")
+            normalized_frames.append({"frame_id": frame_id, "method": method, "lesson": lesson.strip(), "artifact": {"path": relative, "sha256": actual}})
+            frame_ids.add(frame_id)
+            style_frame_hashes.add(actual)
+        selected = group.get("selected_frame_ids")
+        rejected = group.get("rejected_frame_ids")
+        mechanics = group.get("system_extractions")
+        if (
+            not isinstance(selected, list) or not selected or not set(selected) <= frame_ids
+            or not isinstance(rejected, list) or not rejected or not set(rejected) <= frame_ids
+            or set(selected) & set(rejected)
+        ):
+            raise DesignError(f"Style-frame exploration {exploration_id} must explicitly select and reject frames")
+        if not isinstance(mechanics, list) or len(mechanics) < 3 or any(not isinstance(item, str) or not item.strip() for item in mechanics):
+            raise DesignError(f"Style-frame exploration {exploration_id} requires at least three system extractions")
+        normalized_style_frames.append({
+            "exploration_id": exploration_id, "art_direction_family": art_family,
+            "hypothesis": hypothesis.strip(), "frames": normalized_frames,
+            "selected_frame_ids": selected, "rejected_frame_ids": rejected,
+            "system_extractions": [item.strip() for item in mechanics], "synthesis": synthesis.strip(),
+        })
+        style_frame_group_ids.add(exploration_id)
+        explored_style_families.add(art_family)
+    if not generated_families <= explored_style_families:
+        raise DesignError("Every generated art-direction family requires a multi-frame exploration before concept commitment")
+    if len(combinations) < 2:
+        raise DesignError("Completed concept laboratories require at least two cross-pollination experiments")
+    normalized_combinations: list[dict[str, Any]] = []
+    combination_ids: set[str] = set()
+    for item in combinations:
+        if not isinstance(item, dict):
+            raise DesignError("Every cross-pollination experiment must be an object")
+        combination_id = _identifier(str(item.get("combination_id", "")), "cross-pollination ID")
+        linked = item.get("seed_ids")
+        hypothesis = item.get("hypothesis")
+        mechanics = item.get("resulting_mechanics")
+        if combination_id in combination_ids or not isinstance(linked, list) or len(set(linked)) < 2 or not set(linked) <= seed_ids:
+            raise DesignError("Cross-pollination experiments require unique IDs and at least two known seeds")
+        if not isinstance(hypothesis, str) or not hypothesis.strip() or not isinstance(mechanics, list) or not mechanics or any(not isinstance(entry, str) or not entry.strip() for entry in mechanics):
+            raise DesignError("Cross-pollination experiments require a hypothesis and resulting mechanics")
+        normalized_combinations.append({"combination_id": combination_id, "seed_ids": linked, "hypothesis": hypothesis.strip(), "resulting_mechanics": [entry.strip() for entry in mechanics]})
+        combination_ids.add(combination_id)
+    if not 3 <= len(shortlist) <= 6 or len(set(shortlist)) != len(shortlist) or not set(shortlist) <= seed_ids:
+        raise DesignError("Completed concept laboratories require three to six unique shortlisted seeds")
+    normalized = {
+        "status": status, "mode": mode, "required_for_directioning": True,
+        "lenses": normalized_lenses, "seeds": normalized_seeds,
+        "cross_pollinations": normalized_combinations, "shortlisted_seed_ids": shortlist,
+        "style_frame_explorations": normalized_style_frames,
+        "range_plan": normalized_range_plan,
+        "omission_rationale": "",
+    }
+    normalized["laboratory_hash"] = _canonical_hash(normalized)
+    return normalized
+
+
+def concept_lab_validate(root: Path, config: dict[str, Any], input_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    laboratory = _validate_generative_exploration(_read_json(input_path), root)
+    return {
+        "status": laboratory["status"], "mode": laboratory["mode"],
+        "lens_count": len(laboratory["lenses"]), "seed_count": len(laboratory["seeds"]),
+        "media_count": len({item["medium"] for item in laboratory["seeds"]}),
+        "art_direction_family_count": len({item["art_direction_family"] for item in laboratory["seeds"]}) if laboratory["status"] == "complete" else 0,
+        "typography_strategy_count": len({item["typography_strategy_id"] for item in laboratory["seeds"]}) if laboratory["status"] == "complete" else 0,
+        "typography_family_count": len({item["family"] for item in laboratory.get("range_plan", {}).get("typography_hypotheses", [])}),
+        "composition_family_count": len({item["composition_family"] for item in laboratory["seeds"]}) if laboratory["status"] == "complete" else 0,
+        "page_depth_role_count": len(laboratory.get("range_plan", {}).get("page_depth_roles", [])),
+        "page_grammar_count": len(laboratory.get("range_plan", {}).get("page_grammar_hypotheses", [])),
+        "interaction_motion_count": len(laboratory.get("range_plan", {}).get("interaction_motion_hypotheses", [])),
+        "style_frame_family_count": len({item["art_direction_family"] for item in laboratory.get("style_frame_explorations", [])}),
+        "style_frame_count": sum(len(item["frames"]) for item in laboratory.get("style_frame_explorations", [])),
+        "non_system_typography_count": sum(item.get("source") != "system" for item in laboratory.get("range_plan", {}).get("typography_hypotheses", [])),
+        "generated_seed_count": sum(item["medium"] in GENERATED_IMAGE_MEDIA for item in laboratory["seeds"]),
+        "shortlisted_seed_count": len(laboratory["shortlisted_seed_ids"]),
+        "laboratory_hash": laboratory["laboratory_hash"], "execution_authorized": False,
     }
 
 
@@ -1734,7 +2143,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     creative_director_workflow = requested_workflow == 2
     v2_fields = {
         "collaboration_profile", "specialization", "research", "reference_decomposition",
-        "concept_presentation_mode", "rejected_decisions",
+        "generative_exploration", "concept_presentation_mode", "rejected_decisions",
     }
     if not creative_director_workflow and v2_fields.intersection(payload):
         raise DesignError("Creative-director fields require explicit workflow_version 2")
@@ -1799,6 +2208,9 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     payload["specialization"] = _infer_specialization(payload)
     payload["research"] = _validate_research_record(payload.get("research"), root)
     payload["reference_decomposition"] = _validate_reference_decomposition(payload.get("reference_decomposition"))
+    if creative_director_workflow and "generative_exploration" not in payload:
+        raise DesignError("Creative-director workflow requires an explicit generative_exploration record")
+    payload["generative_exploration"] = _validate_generative_exploration(payload.get("generative_exploration"), root) if creative_director_workflow else None
     presentation_mode = payload.get("concept_presentation_mode")
     if presentation_mode is not None and presentation_mode not in CONCEPT_PRESENTATION_MODES:
         raise DesignError("concept_presentation_mode must be equal-directions or director-led")
@@ -1920,6 +2332,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "specialization": payload["specialization"],
         "research": payload["research"],
         "reference_decomposition": payload["reference_decomposition"],
+        "generative_exploration": payload["generative_exploration"],
         "concept_presentation_mode": payload["concept_presentation_mode"],
         "concept_evidence": None,
         "feedback_rounds": carried_feedback,
@@ -2061,6 +2474,17 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
     else:
         lines.append("- No structured source uncertainties were supplied; do not infer that the source material was complete.")
     lines.append("")
+    laboratory = draft_record.get("generative_exploration")
+    if isinstance(laboratory, dict):
+        lines.extend(["## Generative concept lineage", "", f"Status: `{laboratory.get('status')}`  ", f"Laboratory hash: `{laboratory.get('laboratory_hash')}`", ""])
+        if laboratory.get("status") == "complete":
+            lines.extend(["Exploration lenses:", "", *[f"- **{item['lens_id']}:** {item['thesis']} Product truth: {item['product_truth']}" for item in laboratory.get("lenses", [])], ""])
+            lines.extend(["Shortlisted seeds:", "", *[f"- `{seed_id}`" for seed_id in laboratory.get("shortlisted_seed_ids", [])], ""])
+        else:
+            lines.extend([f"- {laboratory.get('omission_rationale') or 'No exploration rationale recorded.'}", ""])
+        range_evidence = draft_record.get("concept_evidence", {}).get("creative_range") if isinstance(draft_record.get("concept_evidence"), dict) else None
+        if range_evidence:
+            lines.extend(["Creative-range disposition:", "", f"- `{range_evidence.get('status')}` — {range_evidence.get('house_tell_review', {}).get('rationale', '')}", ""])
     architecture = draft_record.get("audience_architecture")
     lines.extend(["## Audience architecture", ""])
     if architecture:
@@ -2484,6 +2908,7 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         "specialization": record.get("specialization"),
         "reference_decomposition": record.get("reference_decomposition", []),
         "research": record.get("research"),
+        "generative_exploration": record.get("generative_exploration"),
         "decision_register": record.get("decision_register", []),
         "rejected_decisions": record.get("rejected_decisions", []),
         "concept_evidence": record.get("concept_evidence"),
@@ -2886,12 +3311,44 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         or roles.count("contrast-study") != len(concepts) - 1
     ):
         raise DesignError("Director-led concepts require one selectable recommendation and one or two contrast studies")
-    required_text = ("thesis", "signature_move", "imagery_treatment", "motion_decision", "preservation_promise", "tradeoff", "anti_reference")
+    required_text = ("thesis", "impact_thesis", "emotional_register", "signature_move", "imagery_treatment", "motion_decision", "preservation_promise", "tradeoff", "anti_reference")
+    laboratory = record.get("generative_exploration") or {}
+    laboratory_seeds = {item["seed_id"]: item for item in laboratory.get("seeds", []) if isinstance(item, dict) and item.get("seed_id")}
     normalized: list[dict[str, Any]] = []
     fidelity: set[str] = set()
     concept_ids: set[str] = set()
     visual_hashes: set[str] = set()
     report_hashes: list[str] = []
+    typography_strategy_ids: set[str] = set()
+    typography_family_names: set[str] = set()
+    art_direction_family_names: set[str] = set()
+    composition_family_names: set[str] = set()
+    page_grammar_ids: set[str] = set()
+    page_grammar_families: set[str] = set()
+    interaction_strategy_ids: set[str] = set()
+    interaction_modes: set[str] = set()
+    concept_runtime_probe_hashes: set[str] = set()
+    comparison_strip_hashes: set[str] = set()
+    generated_extraction_passed = True
+    minimum_journey_stage_count = 999
+    laboratory_complete = laboratory.get("status") == "complete"
+    planned_typography = {
+        item["strategy_id"]: item
+        for item in laboratory.get("range_plan", {}).get("typography_hypotheses", [])
+        if isinstance(item, dict) and item.get("strategy_id")
+    }
+    planned_art_families = set(laboratory.get("range_plan", {}).get("art_direction_families", []))
+    planned_composition_families = set(laboratory.get("range_plan", {}).get("composition_families", []))
+    planned_page_grammars = {
+        item["grammar_id"]: item
+        for item in laboratory.get("range_plan", {}).get("page_grammar_hypotheses", [])
+        if isinstance(item, dict) and item.get("grammar_id")
+    }
+    planned_interactions = {
+        item["strategy_id"]: item
+        for item in laboratory.get("range_plan", {}).get("interaction_motion_hypotheses", [])
+        if isinstance(item, dict) and item.get("strategy_id")
+    }
     for index, concept in enumerate(concepts):
         if not isinstance(concept, dict):
             raise DesignError("Each concept must be an object")
@@ -2914,6 +3371,19 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             raise DesignError("Concept and study IDs must be unique")
         if any(not isinstance(concept.get(key), str) or not concept[key].strip() for key in required_text):
             raise DesignError(f"Concept {concept_id} lacks required creative evidence")
+        primary_carrier = concept.get("primary_carrier")
+        if primary_carrier not in PRIMARY_CONCEPT_CARRIERS:
+            raise DesignError(f"Concept {concept_id} requires a supported primary creative carrier")
+        lineage = concept.get("seed_lineage")
+        if not isinstance(lineage, list) or len(set(lineage)) != len(lineage) or any(item not in laboratory_seeds for item in lineage):
+            raise DesignError(f"Concept {concept_id} seed lineage must reference unique known laboratory seeds")
+        if laboratory.get("status") == "complete" and not lineage:
+            raise DesignError(f"Concept {concept_id} must carry lineage from the completed concept laboratory")
+        extractions = concept.get("system_extractions")
+        if not isinstance(extractions, list) or any(not isinstance(item, str) or not item.strip() for item in extractions):
+            raise DesignError(f"Concept {concept_id} system_extractions must be an array of design decisions")
+        if any(laboratory_seeds[item]["medium"] in GENERATED_IMAGE_MEDIA for item in lineage) and len(extractions) < 3:
+            raise DesignError(f"Concept {concept_id} must extract at least three non-image system decisions from generated-image lineage")
         palette = concept.get("palette")
         specimen = concept.get("type_specimen")
         level = concept.get("fidelity_level")
@@ -2923,6 +3393,163 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             raise DesignError(f"Concept {concept_id} requires a real-copy type specimen")
         if not isinstance(level, str) or not level.strip():
             raise DesignError(f"Concept {concept_id} requires a fidelity level")
+        typography_system = concept.get("typography_system")
+        if not isinstance(typography_system, dict):
+            raise DesignError(f"Concept {concept_id} requires a typography system")
+        strategy_id = _identifier(str(typography_system.get("strategy_id", "")), "typography strategy ID")
+        typography_family = typography_system.get("family")
+        typography_text_fields = ("display_behavior", "text_behavior", "responsive_behavior", "rationale")
+        if laboratory_complete:
+            if strategy_id not in planned_typography or typography_family != planned_typography[strategy_id].get("family"):
+                raise DesignError(f"Concept {concept_id} typography must use a planned laboratory strategy and family")
+        elif typography_family not in TYPOGRAPHY_FAMILIES:
+            raise DesignError(f"Concept {concept_id} typography requires a supported family")
+        if any(not isinstance(typography_system.get(key), str) or not typography_system[key].strip() for key in typography_text_fields):
+            raise DesignError(f"Concept {concept_id} typography system lacks display, text, responsive, or rationale evidence")
+        media_system = concept.get("media_system")
+        if not isinstance(media_system, dict):
+            raise DesignError(f"Concept {concept_id} requires a media system")
+        if laboratory_complete:
+            if media_system.get("art_direction_family") not in planned_art_families:
+                raise DesignError(f"Concept {concept_id} media system must use a planned art-direction family")
+        elif media_system.get("art_direction_family") not in ART_DIRECTION_FAMILIES:
+            raise DesignError(f"Concept {concept_id} media system requires a supported art-direction family")
+        if any(not isinstance(media_system.get(key), str) or not media_system[key].strip() for key in ("primary_role", "quiet_state", "fallback")):
+            raise DesignError(f"Concept {concept_id} media system lacks primary, quiet, or fallback behavior")
+        asset_mix = media_system.get("asset_mix")
+        if not isinstance(asset_mix, list) or not asset_mix or len(set(asset_mix)) != len(asset_mix) or any(item not in MEDIA_ASSET_SOURCES for item in asset_mix):
+            raise DesignError(f"Concept {concept_id} media system requires a supported asset mix")
+        composition_family = concept.get("composition_family")
+        if laboratory_complete:
+            if composition_family not in planned_composition_families:
+                raise DesignError(f"Concept {concept_id} must use a planned composition family")
+        elif composition_family not in COMPOSITION_FAMILIES:
+            raise DesignError(f"Concept {concept_id} requires a supported composition family")
+        page_grammar = concept.get("page_grammar")
+        if not isinstance(page_grammar, dict):
+            raise DesignError(f"Concept {concept_id} requires an explicit page grammar")
+        grammar_id = _identifier(str(page_grammar.get("grammar_id", "")), "page grammar ID")
+        grammar_family = page_grammar.get("family")
+        grammar_fields = ("core_behavior", "responsive_behavior", "depth_proof")
+        if laboratory_complete:
+            if grammar_id not in planned_page_grammars or grammar_family != planned_page_grammars[grammar_id].get("family"):
+                raise DesignError(f"Concept {concept_id} page grammar must use a planned laboratory hypothesis")
+        elif grammar_family not in PAGE_GRAMMAR_FAMILIES:
+            raise DesignError(f"Concept {concept_id} requires a supported page-grammar family")
+        if any(not isinstance(page_grammar.get(key), str) or not page_grammar[key].strip() for key in grammar_fields):
+            raise DesignError(f"Concept {concept_id} page grammar lacks core, responsive, or depth behavior")
+        interaction_system = concept.get("interaction_motion_system")
+        if not isinstance(interaction_system, dict):
+            raise DesignError(f"Concept {concept_id} requires an interaction and motion system")
+        interaction_strategy_id = _identifier(str(interaction_system.get("strategy_id", "")), "interaction and motion strategy ID")
+        interaction_mode = interaction_system.get("mode")
+        interaction_fields = ("semantic_purpose", "reduced_motion", "static_fallback")
+        if laboratory_complete:
+            if interaction_strategy_id not in planned_interactions or interaction_mode != planned_interactions[interaction_strategy_id].get("mode"):
+                raise DesignError(f"Concept {concept_id} interaction and motion must use a planned laboratory hypothesis")
+        elif interaction_mode not in INTERACTION_MOTION_MODES:
+            raise DesignError(f"Concept {concept_id} requires a supported interaction and motion mode")
+        if any(not isinstance(interaction_system.get(key), str) or not interaction_system[key].strip() for key in interaction_fields):
+            raise DesignError(f"Concept {concept_id} interaction and motion lacks semantic, reduced-motion, or static behavior")
+        journey_stages = concept.get("journey_stages")
+        if not isinstance(journey_stages, list) or len(journey_stages) < 5:
+            raise DesignError(f"Concept {concept_id} requires at least five journey stages")
+        normalized_stages: list[dict[str, str]] = []
+        stage_ids: set[str] = set()
+        stage_roles: set[str] = set()
+        for stage in journey_stages:
+            if not isinstance(stage, dict):
+                raise DesignError(f"Concept {concept_id} journey stages must be objects")
+            stage_id = _identifier(str(stage.get("stage_id", "")), "journey stage ID")
+            role_name = stage.get("role")
+            if stage_id in stage_ids or role_name not in JOURNEY_STAGE_ROLES:
+                raise DesignError(f"Concept {concept_id} journey stages require unique IDs and supported roles")
+            if any(not isinstance(stage.get(key), str) or not stage[key].strip() for key in ("purpose", "signature_expression")):
+                raise DesignError(f"Concept {concept_id} journey stage {stage_id} lacks purpose or signature evidence")
+            normalized_stages.append({"stage_id": stage_id, "role": role_name, "purpose": stage["purpose"].strip(), "signature_expression": stage["signature_expression"].strip()})
+            stage_ids.add(stage_id)
+            stage_roles.add(role_name)
+        if not {"opening", "proof", "closure"} <= stage_roles or not stage_roles.intersection({"quiet-state", "edge-state"}):
+            raise DesignError(f"Concept {concept_id} journey must include opening, proof, quiet or edge, and closure stages")
+        comparison_coverage = concept.get("comparison_coverage")
+        if not isinstance(comparison_coverage, dict):
+            raise DesignError(f"Concept {concept_id} requires full-page comparison coverage")
+        chapter_index = comparison_coverage.get("chapter_index")
+        if chapter_index != [item["stage_id"] for item in normalized_stages]:
+            raise DesignError(f"Concept {concept_id} comparison chapter index must cover the complete journey in order")
+        strip = comparison_coverage.get("full_page_strip")
+        if not isinstance(strip, dict):
+            raise DesignError(f"Concept {concept_id} requires a full-page comparison strip")
+        strip_relative, strip_path = _artifact_relative_path(root, strip.get("path"))
+        strip_actual = hashlib.sha256(strip_path.read_bytes()).hexdigest() if strip_path.is_file() else ""
+        if strip_path.suffix.lower() != ".png" or not strip_actual or strip.get("sha256") != strip_actual:
+            raise DesignError(f"Concept comparison strip is missing or changed: {strip_relative}")
+        strip_width, strip_height = _png_dimensions(strip_path)
+        if strip_height < strip_width * 1.5 or strip_actual in comparison_strip_hashes:
+            raise DesignError("Every concept requires a distinct, genuinely full-page comparison strip")
+        deep_link = comparison_coverage.get("deep_link")
+        if not isinstance(deep_link, dict):
+            raise DesignError(f"Concept {concept_id} requires a deep link to its complete prototype")
+        deep_relative, deep_path = _artifact_relative_path(root, deep_link.get("path"))
+        deep_actual = hashlib.sha256(deep_path.read_bytes()).hexdigest() if deep_path.is_file() else ""
+        if deep_path.suffix.lower() != ".html" or not deep_actual or deep_link.get("sha256") != deep_actual:
+            raise DesignError(f"Concept comparison deep link is missing or changed: {deep_relative}")
+        generated_lineage = [item for item in lineage if laboratory_seeds[item]["medium"] in GENERATED_IMAGE_MEDIA]
+        generated_disposition = concept.get("generated_media_disposition")
+        if not isinstance(generated_disposition, dict):
+            raise DesignError(f"Concept {concept_id} requires an explicit generated-media disposition")
+        normalized_generated_disposition: dict[str, Any]
+        if generated_lineage:
+            if generated_disposition.get("status") != "extracted" or generated_disposition.get("pixel_promotion") is not False:
+                raise DesignError(f"Concept {concept_id} must extract generated media into a system without promoting generated pixels by default")
+            source_seed_ids = generated_disposition.get("source_seed_ids")
+            mappings = generated_disposition.get("extractions")
+            if not isinstance(source_seed_ids, list) or not set(source_seed_ids) == set(generated_lineage):
+                raise DesignError(f"Concept {concept_id} generated-media disposition must cover every generated seed in its lineage")
+            if not isinstance(mappings, list) or len(mappings) < 3:
+                raise DesignError(f"Concept {concept_id} requires at least three generated-media extraction mappings")
+            domains: set[str] = set()
+            normalized_mappings: list[dict[str, str]] = []
+            for mapping in mappings:
+                domain = mapping.get("domain") if isinstance(mapping, dict) else None
+                rule = mapping.get("rule") if isinstance(mapping, dict) else None
+                if domain not in GENERATED_EXTRACTION_DOMAINS or domain in domains or not isinstance(rule, str) or not rule.strip():
+                    raise DesignError(f"Concept {concept_id} generated-media extractions require unique supported domains and concrete rules")
+                domains.add(domain)
+                normalized_mappings.append({"domain": domain, "rule": rule.strip()})
+            derived = generated_disposition.get("derived_artifacts")
+            if not isinstance(derived, list) or not derived:
+                raise DesignError(f"Concept {concept_id} requires at least one hash-bound artifact derived from generated exploration")
+            normalized_derived: list[dict[str, str]] = []
+            for artifact in derived:
+                relative, artifact_path = _artifact_relative_path(root, artifact.get("path") if isinstance(artifact, dict) else None)
+                actual = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path.is_file() else ""
+                if artifact_path.suffix.lower() not in {".css", ".html", ".png", ".svg"} or not actual or artifact.get("sha256") != actual:
+                    raise DesignError(f"Generated-media derived artifact is missing or changed: {relative}")
+                normalized_derived.append({"path": relative, "sha256": actual})
+            normalized_generated_disposition = {"status": "extracted", "source_seed_ids": source_seed_ids, "pixel_promotion": False, "extractions": normalized_mappings, "derived_artifacts": normalized_derived}
+        else:
+            rationale = generated_disposition.get("rationale")
+            if generated_disposition.get("status") != "not-applicable" or not isinstance(rationale, str) or not rationale.strip():
+                raise DesignError(f"Concept {concept_id} without generated-image lineage must explain why generated-media extraction is not applicable")
+            normalized_generated_disposition = {"status": "not-applicable", "rationale": rationale.strip()}
+        comparison_strip_hashes.add(strip_actual)
+        runtime_probes = concept.get("runtime_probes")
+        if not isinstance(runtime_probes, list) or len(runtime_probes) != 3:
+            raise DesignError(f"Concept {concept_id} requires mobile, tablet, and desktop runtime probes")
+        normalized_runtime_probes: list[dict[str, Any]] = []
+        runtime_viewports: set[str] = set()
+        expected_widths = {"mobile": 390, "tablet": 768, "desktop": 1440}
+        for probe in runtime_probes:
+            viewport = probe.get("viewport") if isinstance(probe, dict) else None
+            if viewport not in expected_widths or viewport in runtime_viewports:
+                raise DesignError(f"Concept {concept_id} runtime probes require unique mobile, tablet, and desktop evidence")
+            normalized_probe = _verified_browser_probe(root, probe, viewport, expected_widths[viewport])
+            if normalized_probe["sha256"] in concept_runtime_probe_hashes:
+                raise DesignError("Every concept requires its own runtime probe artifacts")
+            concept_runtime_probe_hashes.add(normalized_probe["sha256"])
+            normalized_runtime_probes.append(normalized_probe)
+            runtime_viewports.add(viewport)
         fidelity.add(level.strip())
         visuals: dict[str, dict[str, str]] = {}
         for visual_role in ("wide_composition", "narrow_transformation"):
@@ -2958,9 +3585,28 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             "direction_id": concept_id if role == "direction" else None,
             "study_id": concept_id if role == "contrast-study" else None,
             "tests_uncertainty": tests_uncertainty.strip(), "recommended": bool(concept.get("recommended", False)),
-            **{key: concept[key].strip() for key in required_text}, "palette": palette,
-            "type_specimen": specimen, "fidelity_level": level.strip(), **visuals, "slop_report": slop,
+            **{key: concept[key].strip() for key in required_text}, "primary_carrier": primary_carrier,
+            "seed_lineage": lineage, "system_extractions": [item.strip() for item in extractions], "palette": palette,
+            "type_specimen": specimen,
+            "typography_system": {"strategy_id": strategy_id, "family": typography_family, **{key: typography_system[key].strip() for key in typography_text_fields}},
+            "media_system": {"art_direction_family": media_system["art_direction_family"], "primary_role": media_system["primary_role"].strip(), "asset_mix": asset_mix, "quiet_state": media_system["quiet_state"].strip(), "fallback": media_system["fallback"].strip()},
+            "composition_family": composition_family,
+            "page_grammar": {"grammar_id": grammar_id, "family": grammar_family, **{key: page_grammar[key].strip() for key in grammar_fields}},
+            "interaction_motion_system": {"strategy_id": interaction_strategy_id, "mode": interaction_mode, **{key: interaction_system[key].strip() for key in interaction_fields}},
+            "journey_stages": normalized_stages, "runtime_probes": normalized_runtime_probes,
+            "comparison_coverage": {"full_page_strip": {"path": strip_relative, "sha256": strip_actual, "width": strip_width, "height": strip_height}, "chapter_index": chapter_index, "deep_link": {"path": deep_relative, "sha256": deep_actual}},
+            "generated_media_disposition": normalized_generated_disposition,
+            "fidelity_level": level.strip(), **visuals, "slop_report": slop,
         })
+        typography_strategy_ids.add(strategy_id)
+        typography_family_names.add(typography_family)
+        art_direction_family_names.add(media_system["art_direction_family"])
+        composition_family_names.add(composition_family)
+        page_grammar_ids.add(grammar_id)
+        page_grammar_families.add(grammar_family)
+        interaction_strategy_ids.add(interaction_strategy_id)
+        interaction_modes.add(interaction_mode)
+        minimum_journey_stage_count = min(minimum_journey_stage_count, len(normalized_stages))
         concept_ids.add(concept_id)
     if len(fidelity) != 1:
         raise DesignError("Concept directions must have comparable fidelity")
@@ -2968,6 +3614,156 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         raise DesignError("Every concept requires its own current AI-slop report")
     if len({(item["thesis"].casefold(), item["signature_move"].casefold()) for item in normalized}) != len(normalized):
         raise DesignError("Concept directions must differ structurally, not only cosmetically")
+    if len(typography_strategy_ids) != len(normalized) or len(typography_family_names) < min(2, len(normalized)):
+        raise DesignError("Concept range requires a distinct typography strategy per concept and at least two typography families")
+    if len(art_direction_family_names) != len(normalized):
+        raise DesignError("Concept range requires a distinct art-direction family per concept")
+    if len(composition_family_names) != len(normalized):
+        raise DesignError("Concept range requires a distinct composition family per concept")
+    if len(page_grammar_ids) != len(normalized) or len(page_grammar_families) != len(normalized):
+        raise DesignError("Concept range requires a distinct planned page grammar per concept")
+    if len(interaction_strategy_ids) != len(normalized):
+        raise DesignError("Concept range requires a distinct interaction and motion strategy per concept")
+    if len(normalized) > 1 and interaction_modes == {"static"}:
+        raise DesignError("Multi-concept UI directioning must test at least one meaningful interaction or motion mode")
+    creative_range = manifest.get("creative_range")
+    if not isinstance(creative_range, dict) or creative_range.get("status") != "passed":
+        raise DesignError("Concept selection requires a passed creative-range review separate from AI-slop review")
+    for key in ("reviewer", "reviewed_at"):
+        if not isinstance(creative_range.get(key), str) or not creative_range[key].strip():
+            raise DesignError(f"Creative-range review requires {key}")
+    reactions = creative_range.get("five_second_reactions")
+    if not isinstance(reactions, list) or {item.get("concept_id") for item in reactions if isinstance(item, dict)} != concept_ids:
+        raise DesignError("Creative-range review requires one five-second reaction for every concept")
+    reaction_text = []
+    for item in reactions:
+        if not isinstance(item, dict) or set(item) != {"concept_id", "reaction"} or not isinstance(item.get("reaction"), str) or not item["reaction"].strip():
+            raise DesignError("Five-second reactions require only concept_id and reaction")
+        reaction_text.append(item["reaction"].strip().casefold())
+    if len(set(reaction_text)) != len(reaction_text):
+        raise DesignError("Five-second reactions must distinguish the concepts at a glance")
+    distances = creative_range.get("pairwise_distances")
+    ordered_concept_ids = sorted(concept_ids)
+    expected_pairs = {frozenset((left, right)) for index, left in enumerate(ordered_concept_ids) for right in ordered_concept_ids[index + 1:]}
+    normalized_pairs: set[frozenset[str]] = set()
+    if not isinstance(distances, list):
+        raise DesignError("Creative-range review requires pairwise distance evidence")
+    for item in distances:
+        pair = item.get("concept_ids") if isinstance(item, dict) else None
+        dimensions = item.get("differing_dimensions") if isinstance(item, dict) else None
+        rationale = item.get("rationale") if isinstance(item, dict) else None
+        pair_set = frozenset(pair) if isinstance(pair, list) else frozenset()
+        if len(pair_set) != 2 or not pair_set <= concept_ids or pair_set in normalized_pairs:
+            raise DesignError("Creative-range pairwise evidence must cover unique known concept pairs")
+        if not isinstance(dimensions, list) or len(set(dimensions)) < 3 or not set(dimensions) <= CREATIVE_DISTANCE_DIMENSIONS:
+            raise DesignError("Every concept pair must differ across at least three material design dimensions")
+        if not isinstance(rationale, str) or not rationale.strip():
+            raise DesignError("Creative-range pairwise evidence requires rationale")
+        normalized_pairs.add(pair_set)
+    if normalized_pairs != expected_pairs:
+        raise DesignError("Creative-range review must compare every concept pair")
+    house_review = creative_range.get("house_tell_review")
+    if not isinstance(house_review, dict) or house_review.get("project_identity_wins") is not True:
+        raise DesignError("Creative-range review must show that project identity wins over Continuity house tells")
+    tells = house_review.get("recurring_tells_checked")
+    if not isinstance(tells, list) or not tells or any(not isinstance(item, str) or not item.strip() for item in tells) or not isinstance(house_review.get("rationale"), str) or not house_review["rationale"].strip():
+        raise DesignError("House-tell review requires checked tells and a project-specific rationale")
+    adversarial = creative_range.get("adversarial_pass")
+    if not isinstance(adversarial, list) or {item.get("concept_id") for item in adversarial if isinstance(item, dict)} != concept_ids:
+        raise DesignError("Creative-range review requires an adversarial pass for every concept")
+    adversarial_fields = ("genericity_argument", "opposing_hypothesis", "resulting_change", "rejected_choice")
+    for item in adversarial:
+        if not isinstance(item, dict) or any(not isinstance(item.get(key), str) or not item[key].strip() for key in adversarial_fields):
+            raise DesignError("Every adversarial concept pass requires its genericity argument, opposing hypothesis, resulting change, and rejected choice")
+    range_audit = creative_range.get("range_audit")
+    actual_range_counts = {
+        "typography_strategy_count": len(typography_strategy_ids),
+        "typography_family_count": len(typography_family_names),
+        "art_direction_family_count": len(art_direction_family_names),
+        "composition_family_count": len(composition_family_names),
+        "page_grammar_count": len(page_grammar_ids),
+        "interaction_motion_strategy_count": len(interaction_strategy_ids),
+        "minimum_journey_stage_count": minimum_journey_stage_count,
+    }
+    if not isinstance(range_audit, dict) or range_audit.get("status") != "passed" or range_audit.get("per_concept_runtime_probes") is not True:
+        raise DesignError("Creative-range review requires a passed typography, media, depth, and per-concept runtime audit")
+    if range_audit.get("comparison_depth_coverage") is not True or range_audit.get("generated_media_extraction_passed") is not True:
+        raise DesignError("Creative-range review requires full-page comparison coverage and generated-media extraction evidence")
+    if any(range_audit.get(key) != value for key, value in actual_range_counts.items()):
+        raise DesignError("Creative-range audit counts do not match the concept evidence")
+    if not isinstance(range_audit.get("rationale"), str) or not range_audit["rationale"].strip():
+        raise DesignError("Creative-range audit requires a project-specific rationale")
+    normalized_creative_range = {
+        "status": "passed", "reviewer": creative_range["reviewer"].strip(), "reviewed_at": creative_range["reviewed_at"].strip(),
+        "five_second_reactions": reactions, "pairwise_distances": distances,
+        "house_tell_review": house_review, "adversarial_pass": adversarial,
+        "range_audit": {"status": "passed", **actual_range_counts, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "rationale": range_audit["rationale"].strip()},
+    }
+    impact_review = manifest.get("impact_review")
+    if not isinstance(impact_review, dict) or impact_review.get("status") != "passed":
+        raise DesignError("Concept selection requires a passed impact review separate from range and AI-slop review")
+    reviewer_type = impact_review.get("reviewer_type")
+    if reviewer_type not in IMPACT_REVIEWER_TYPES:
+        raise DesignError("Impact review requires a human or agent-multimodal reviewer type")
+    for key in ("reviewer", "reviewed_at", "set_conclusion"):
+        if not isinstance(impact_review.get(key), str) or not impact_review[key].strip():
+            raise DesignError(f"Impact review requires {key}")
+    impact_concepts = impact_review.get("concepts")
+    if not isinstance(impact_concepts, list) or {item.get("concept_id") for item in impact_concepts if isinstance(item, dict)} != concept_ids:
+        raise DesignError("Impact review requires one assessment for every concept")
+    normalized_impact_concepts: list[dict[str, Any]] = []
+    compelling_count = 0
+    signature_stage_minimum = 999
+    normalized_by_id = {item["concept_id"]: item for item in normalized}
+    for assessment in impact_concepts:
+        concept_id = assessment.get("concept_id")
+        concept = normalized_by_id[concept_id]
+        if assessment.get("outcome") != "passed" or assessment.get("strength") not in IMPACT_STRENGTHS:
+            raise DesignError(f"Concept {concept_id} impact review must pass with credible or compelling strength")
+        signature_stage_ids = assessment.get("signature_stage_ids")
+        stage_by_id = {item["stage_id"]: item for item in concept["journey_stages"]}
+        if (
+            not isinstance(signature_stage_ids, list) or len(set(signature_stage_ids)) < 3
+            or not set(signature_stage_ids) <= set(stage_by_id)
+            or len({stage_by_id[item]["role"] for item in signature_stage_ids}) < 3
+        ):
+            raise DesignError(f"Concept {concept_id} signature must materially control at least three different journey roles")
+        checks = ("identity_specificity", "emotional_resonance", "craft_coherence")
+        if any(assessment.get(key) != "pass" for key in checks):
+            raise DesignError(f"Concept {concept_id} impact review must pass identity, resonance, and craft checks")
+        fields = ("rationale", "weakest_moment", "refinement_priority")
+        if any(not isinstance(assessment.get(key), str) or not assessment[key].strip() for key in fields):
+            raise DesignError(f"Concept {concept_id} impact review requires rationale, weakest moment, and refinement priority")
+        impact_evidence = assessment.get("evidence")
+        if not isinstance(impact_evidence, list) or len(impact_evidence) < 2:
+            raise DesignError(f"Concept {concept_id} impact review requires wide and narrow visual evidence")
+        normalized_impact_evidence: list[dict[str, str]] = []
+        impact_hashes: set[str] = set()
+        for artifact in impact_evidence:
+            relative, artifact_path = _artifact_relative_path(root, artifact.get("path") if isinstance(artifact, dict) else None)
+            actual = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path.is_file() else ""
+            if artifact_path.suffix.lower() != ".png" or not actual or artifact.get("sha256") != actual:
+                raise DesignError(f"Impact-review evidence is missing or changed: {relative}")
+            normalized_impact_evidence.append({"path": relative, "sha256": actual})
+            impact_hashes.add(actual)
+        if not {concept["wide_composition"]["sha256"], concept["narrow_transformation"]["sha256"]} <= impact_hashes:
+            raise DesignError(f"Concept {concept_id} impact review is not bound to its wide and narrow visuals")
+        if assessment["strength"] == "compelling":
+            compelling_count += 1
+        signature_stage_minimum = min(signature_stage_minimum, len(set(signature_stage_ids)))
+        normalized_impact_concepts.append({
+            "concept_id": concept_id, "outcome": "passed", "strength": assessment["strength"],
+            "signature_stage_ids": signature_stage_ids, **{key: "pass" for key in checks},
+            **{key: assessment[key].strip() for key in fields}, "evidence": normalized_impact_evidence,
+        })
+    if compelling_count < 1 or impact_review.get("at_least_one_compelling") is not True:
+        raise DesignError("A concept set cannot proceed without at least one compelling direction")
+    normalized_impact_review = {
+        "status": "passed", "reviewer_type": reviewer_type,
+        "reviewer": impact_review["reviewer"].strip(), "reviewed_at": impact_review["reviewed_at"].strip(),
+        "at_least_one_compelling": True, "set_conclusion": impact_review["set_conclusion"].strip(),
+        "signature_stage_coverage_minimum": signature_stage_minimum, "concepts": normalized_impact_concepts,
+    }
     browser_snapshots = manifest.get("browser_snapshots")
     if not isinstance(browser_snapshots, list) or len(browser_snapshots) != 3:
         raise DesignError("Concept comparison requires mobile, tablet, and desktop browser snapshots")
@@ -3049,12 +3845,139 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         "browser_probes": normalized_probes,
         "research_links": normalized_links,
         "collaboration_delivery": collaboration_delivery,
+        "creative_range": normalized_creative_range,
+        "creative_range_status": "passed",
+        "impact_review": normalized_impact_review,
+        "impact_review_status": "passed",
+        "generative_laboratory_hash": laboratory.get("laboratory_hash"),
         "visual_reference_hash": visual_reference_hash, "slop_report_hashes": report_hashes,
         "ruleset_version": design_slop.RULESET_VERSION, "validated": True, "validated_at": _now(),
     }
     record.update({"status": "awaiting-feedback", "concept_evidence": evidence})
     _write_json(design_dir / "draft.json", record)
-    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+
+
+def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    """Validate and persist one resumable design-improvement cycle without granting authority."""
+    _enabled(config)
+    payload = _read_json(manifest_path)
+    if payload.get("schema_version") != 1:
+        raise DesignError("Design improvement cycles require schema_version 1")
+    cycle_id = _identifier(str(payload.get("cycle_id", "")), "design improvement cycle ID")
+    design_id = _identifier(str(payload.get("design_id", "")), "design ID")
+    objective = payload.get("objective")
+    max_passes = payload.get("max_passes")
+    if not isinstance(objective, str) or not objective.strip() or not isinstance(max_passes, int) or not 1 <= max_passes <= 8:
+        raise DesignError("Design improvement cycles require an objective and one to eight maximum passes")
+    source = payload.get("source")
+    if (
+        not isinstance(source, dict) or set(source) != {"branch", "commit", "skill_sha256"}
+        or not isinstance(source["branch"], str) or not source["branch"].strip()
+        or not re.fullmatch(r"[a-f0-9]{40}", str(source["commit"]))
+        or not re.fullmatch(r"[a-f0-9]{64}", str(source["skill_sha256"]))
+    ):
+        raise DesignError("Design improvement cycles require an exact branch, commit, and skill hash")
+
+    def verified_artifact(value: Any, label: str, suffixes: set[str] | None = None) -> dict[str, str]:
+        if not isinstance(value, dict):
+            raise DesignError(f"{label} requires a hash-bound artifact")
+        relative, path = _artifact_relative_path(root, value.get("path"))
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+        if not actual or value.get("sha256") != actual or (suffixes is not None and path.suffix.lower() not in suffixes):
+            raise DesignError(f"{label} is missing or changed: {relative}")
+        return {"path": relative, "sha256": actual}
+
+    baseline = payload.get("baseline")
+    if not isinstance(baseline, dict):
+        raise DesignError("Design improvement cycles require a baseline evaluation and self-assessment")
+    baseline_evaluation = verified_artifact(baseline.get("benchmark_evaluation"), "Baseline benchmark evaluation", {".json"})
+    baseline_assessment = verified_artifact(baseline.get("self_assessment"), "Baseline self-assessment", {".json", ".md"})
+    passes = payload.get("passes")
+    if not isinstance(passes, list) or len(passes) > max_passes:
+        raise DesignError("Design improvement cycle passes must be an array within max_passes")
+    normalized_passes: list[dict[str, Any]] = []
+    previous_status: str | None = None
+    for index, item in enumerate(passes, 1):
+        if not isinstance(item, dict) or item.get("pass_number") != index or item.get("status") not in IMPROVEMENT_PASS_STATUSES:
+            raise DesignError("Design improvement passes must be sequential and use supported statuses")
+        status = item["status"]
+        if previous_status not in {None, "changes-requested"}:
+            raise DesignError("A new improvement pass can start only after human-requested changes")
+        findings = item.get("findings")
+        if not isinstance(findings, list) or not findings:
+            raise DesignError(f"Improvement pass {index} requires concrete findings")
+        normalized_findings: list[dict[str, str]] = []
+        finding_ids: set[str] = set()
+        for finding in findings:
+            if not isinstance(finding, dict):
+                raise DesignError("Improvement findings must be objects")
+            finding_id = _identifier(str(finding.get("finding_id", "")), "improvement finding ID")
+            fields = ("category", "observation", "action", "success_metric")
+            if finding_id in finding_ids or any(not isinstance(finding.get(key), str) or not finding[key].strip() for key in fields):
+                raise DesignError("Improvement findings require unique IDs, observations, actions, and success metrics")
+            normalized_findings.append({"finding_id": finding_id, **{key: finding[key].strip() for key in fields}})
+            finding_ids.add(finding_id)
+        changes = item.get("changes", [])
+        if status != "planned" and (not isinstance(changes, list) or not changes):
+            raise DesignError(f"Improvement pass {index} status {status} requires implemented changes")
+        normalized_changes: list[dict[str, Any]] = []
+        for change in changes:
+            linked = change.get("finding_ids") if isinstance(change, dict) else None
+            description = change.get("description") if isinstance(change, dict) else None
+            artifacts = change.get("artifacts") if isinstance(change, dict) else None
+            if not isinstance(linked, list) or not linked or not set(linked) <= finding_ids or not isinstance(description, str) or not description.strip() or not isinstance(artifacts, list):
+                raise DesignError("Improvement changes must bind findings, description, and artifacts")
+            normalized_changes.append({"finding_ids": linked, "description": description.strip(), "artifacts": [verified_artifact(artifact, "Improvement change artifact") for artifact in artifacts]})
+        validation = item.get("validation")
+        normalized_validation: dict[str, Any] | None = None
+        if status in {"validated", "awaiting-human", "accepted", "changes-requested"}:
+            if not isinstance(validation, dict) or validation.get("passed") is not True:
+                raise DesignError(f"Improvement pass {index} requires passed validation before human review")
+            evaluation = verified_artifact(validation.get("benchmark_evaluation"), "Improvement benchmark evaluation", {".json"})
+            assessment = verified_artifact(validation.get("self_assessment"), "Improvement self-assessment", {".json", ".md"})
+            evaluation_value = _read_json(root / evaluation["path"])
+            if evaluation_value.get("stage_valid") is not True:
+                raise DesignError("Improvement benchmark evaluation must be stage-valid")
+            source_tests = validation.get("source_tests")
+            if not isinstance(source_tests, list) or not source_tests or any(not isinstance(test, dict) or test.get("status") != "passed" or not isinstance(test.get("name"), str) or not test["name"].strip() for test in source_tests):
+                raise DesignError("Improvement validation requires named passing source tests")
+            normalized_validation = {"passed": True, "benchmark_evaluation": evaluation, "self_assessment": assessment, "source_tests": source_tests}
+        human_gate = item.get("human_gate")
+        if not isinstance(human_gate, dict) or human_gate.get("required") is not True or human_gate.get("status") not in {"pending", "accepted", "changes-requested"}:
+            raise DesignError("Every improvement pass requires an explicit human gate")
+        if status in {"accepted", "changes-requested"}:
+            if human_gate.get("status") != status or human_gate.get("actor_type") != "human" or not isinstance(human_gate.get("actor"), str) or not human_gate["actor"].strip():
+                raise DesignError("Accepted or changes-requested passes require an identified human disposition")
+        elif human_gate.get("status") != "pending":
+            raise DesignError("Unfinished improvement passes must keep the human gate pending")
+        normalized_passes.append({"pass_number": index, "status": status, "findings": normalized_findings, "changes": normalized_changes, "validation": normalized_validation, "human_gate": human_gate})
+        previous_status = status
+    if not normalized_passes:
+        status = "active"
+        next_gate = "diagnose-and-plan-pass-1"
+    else:
+        last = normalized_passes[-1]
+        status = "complete" if last["status"] == "accepted" else "active"
+        next_gate = {
+            "planned": "implement-pass",
+            "implemented": "validate-pass",
+            "validated": "human-feedback",
+            "awaiting-human": "human-feedback",
+            "changes-requested": "cycle-limit-reached" if len(normalized_passes) >= max_passes else f"diagnose-and-plan-pass-{len(normalized_passes) + 1}",
+            "accepted": "complete",
+        }[last["status"]]
+    normalized = {
+        "schema_version": 1, "cycle_id": cycle_id, "design_id": design_id,
+        "objective": objective.strip(), "max_passes": max_passes, "source": source,
+        "baseline": {"benchmark_evaluation": baseline_evaluation, "self_assessment": baseline_assessment},
+        "passes": normalized_passes, "status": status, "next_gate": next_gate,
+        "updated_at": _now(), "execution_authorized": False,
+    }
+    normalized["cycle_hash"] = _canonical_hash(normalized)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "cycles" / cycle_id / "cycle.json"
+    _write_json(root / relative, normalized)
+    return {"cycle_id": cycle_id, "status": status, "pass_count": len(normalized_passes), "max_passes": max_passes, "next_gate": next_gate, "cycle_hash": normalized["cycle_hash"], "record_path": relative.as_posix(), "execution_authorized": False}
 
 
 def feedback_record(root: Path, config: dict[str, Any], design_id: str, input_path: Path) -> dict[str, Any]:

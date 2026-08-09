@@ -176,7 +176,7 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
             scenario_id = scenario["scenario_id"]
             payload = dict(scenario["input"])
             payload["design_id"] = f"evaluation-{index + 1:02d}-{scenario_id}"
-            creative_fields = {"collaboration_profile", "specialization", "research", "reference_decomposition", "concept_presentation_mode", "rejected_decisions"}
+            creative_fields = {"collaboration_profile", "specialization", "research", "reference_decomposition", "generative_exploration", "concept_presentation_mode", "rejected_decisions"}
             if creative_fields.intersection(payload):
                 seed_payload = {key: value for key, value in payload.items() if key not in creative_fields}
                 seed_payload["design_id"] = f"{payload['design_id']}-authored-seed"
@@ -189,6 +189,12 @@ def evaluate(catalog_path: Path, scenario_path: Path) -> dict[str, Any]:
                     "direction_count_basis": "The benchmark supplies one settled organizing idea and tests contrast separately.",
                     "concept_presentation_mode": "director-led",
                     "research": payload.get("research", {"mode": "offline", "status": "not-started", "announced": True, "opt_out_offered": True, "moodboard": []}),
+                    "generative_exploration": payload.get("generative_exploration", {
+                        "status": "deliberately-omitted", "mode": "omitted", "required_for_directioning": False,
+                        "lenses": [], "seeds": [], "cross_pollinations": [], "shortlisted_seed_ids": [],
+                        "range_plan": {},
+                        "omission_rationale": "Deterministic routing scenario does not evaluate expressive output.",
+                    }),
                     "direction_assessment": {"material_ambiguities": [], "resolved_by_evidence": []},
                     "modality_assessment": {
                         "observed_signals": [f"The scenario targets {scenario['modality']} output."],

@@ -11834,8 +11834,12 @@ def design_command(args: argparse.Namespace) -> Any:
             return design_lib.visual_atlas(root, config, catalog_path, Path(args.input).expanduser().resolve())
         if args.command == "visual-render":
             return design_lib.visual_render(root, config, Path(args.input).expanduser().resolve())
+        if args.command == "concept-lab-validate":
+            return design_lib.concept_lab_validate(root, config, Path(args.input).expanduser().resolve())
         if args.command == "concept-validate":
             return design_lib.concept_validate(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "improvement-cycle":
+            return design_lib.improvement_cycle(root, config, Path(args.manifest).expanduser().resolve())
         if args.command == "feedback-record":
             return design_lib.feedback_record(root, config, args.design_id, Path(args.input).expanduser().resolve())
         if args.command == "slop-check":
@@ -12217,9 +12221,15 @@ def build_parser() -> argparse.ArgumentParser:
     design_visual_render = design_sub.add_parser("visual-render")
     design_visual_render.add_argument("--input", required=True)
     design_visual_render.set_defaults(handler=design_command)
+    design_concept_lab_validate = design_sub.add_parser("concept-lab-validate")
+    design_concept_lab_validate.add_argument("--input", required=True)
+    design_concept_lab_validate.set_defaults(handler=design_command)
     design_concept_validate = design_sub.add_parser("concept-validate")
     design_concept_validate.add_argument("--manifest", required=True)
     design_concept_validate.set_defaults(handler=design_command)
+    design_improvement_cycle = design_sub.add_parser("improvement-cycle")
+    design_improvement_cycle.add_argument("--manifest", required=True)
+    design_improvement_cycle.set_defaults(handler=design_command)
     design_feedback_record = design_sub.add_parser("feedback-record")
     design_feedback_record.add_argument("design_id")
     design_feedback_record.add_argument("--input", required=True)

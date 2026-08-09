@@ -48,6 +48,7 @@
         "collaboration_contract": {"type": "object"},
         "specialization": {"enum": ["brand-marketing", "product-system", "document-editorial", "image-art-direction", "cinematic-experience", "mixed"]},
         "research": {"type": "object"},
+        "generative_exploration": {"oneOf": [{"type": "object"}, {"type": "null"}]},
         "decision_register": {"type": "array", "items": {"type": "object"}},
         "reference_decomposition": {"type": "array", "items": {"type": "object"}},
         "rejected_decisions": {"type": "array"},

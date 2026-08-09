@@ -130,7 +130,7 @@ def _scan_text(location: str, text: str) -> list[dict[str, Any]]:
     if len(re.findall(r"\bfade[-_ ]?up\b|translateY\([^)]*\).*opacity", text, re.I | re.S)) >= 3:
         match = re.search(r"\bfade[-_ ]?up\b|translateY\([^)]*\).*opacity", text, re.I | re.S)
         findings.append(_finding("CDS-D011", location, _line_number(text, match.start()), "fade-up reveal repeated across elements"))
-    _match_once(findings, "CDS-D012", location, text, r"(?:hero|masthead)[\s\S]{0,1800}(?:metric|stat)[\s\S]{0,400}(?:metric|stat)", "multiple metric/stat elements inside a hero")
+    _match_once(findings, "CDS-D012", location, text, r"(?:hero|masthead)[\s\S]{0,1800}\b(?:metric|stat)\b[\s\S]{0,400}\b(?:metric|stat)\b", "multiple metric/stat elements inside a hero")
     _match_once(findings, "CDS-D013", location, text, r"(?:box-shadow|filter)\s*:[^;}]*\b(?:drop-shadow|0\s+0)\b[^;}]*(?:#(?:7c3aed|8b5cf6|2563eb|3b82f6)|rgba?\([^)]*(?:128|139|37|59))", "decorative purple or blue glow")
     _match_once(findings, "CDS-D014", location, text, r"(?:unsplash\.com|pexels\.com|pixabay\.com|images\.ctfassets\.net/[^\s'\"]*stock)", "interchangeable stock-image source")
     _match_once(findings, "CDS-D015", location, text, r"\b(?:seamless|seamlessly|revolutionize|effortless|effortlessly|elevate)\b", "generic promotional word")

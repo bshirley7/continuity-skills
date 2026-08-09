@@ -119,10 +119,12 @@ continuity workflow status [--capture-id <id> | --note-id <id> | --memory-id <id
 continuity design catalog
 continuity design draft --input <design-input.json>
 continuity design visual-atlas --input <request.json>
+continuity design concept-lab-validate --input <laboratory.json>
 continuity design visual-render --input <render.json>
 continuity design slop-check --target <file-or-directory> --manifest <slop-manifest.json>
 continuity design concept-validate --manifest <concept-manifest.json>
 continuity design feedback-record <design-id> --input <feedback.json>
+continuity design improvement-cycle --manifest <cycle.json>
 continuity design select <design-id> --direction <direction-id> [--combine <direction-id>] --actor <identity>
 continuity design approve <design-id> --revision <revision> --approved-by <identity> --authorization-text <exact-text>
 continuity workflow status --design-id <design-id>
@@ -161,7 +163,7 @@ The installed design catalog selects one foundation pack per active axis plus re
 
 Design scenario evaluation proves contract and routing behavior, not aesthetic superiority. Use `scripts/evaluate_design_outputs.py` for blinded paired review of real hash-bound baseline and candidate renders before claiming that the workflow materially improves design output.
 
-Before merging a material Continuity-Design workflow change, run the versioned [Continuity homepage benchmark](skills/continuity-design/references/continuity-homepage-benchmark.md). It exercises the human-gated process from diagnosis and reference synthesis through concept selection, private responsive prototype evidence, exact design approval, and outside scoring. A valid intermediate stage is not a passing benchmark, and no benchmark stage authorizes product implementation.
+Before merging a material Continuity-Design workflow change, run the versioned [Continuity homepage benchmark](skills/continuity-design/references/continuity-homepage-benchmark.md). It exercises the human-gated process from diagnosis and reference synthesis through a declared typography, art-direction, composition, and page-depth range; concept-specific responsive evidence; selection; private prototype evidence; exact design approval; and outside scoring. A valid intermediate stage is not a passing benchmark, and no benchmark stage authorizes product implementation.
 
 Use `continuity suite update --check`, a dry run, and an explicit tagged update for existing installations. Release artifacts are attested and hash-manifested; modified suite-managed files fail closed, each update creates a rollback snapshot, and project-owned configuration and ignored private state remain outside release replacement. See [Releases, Updates, and Recovery](docs/releases-updates-and-recovery.md). Configuration is hash-bound to the generated project-local skill and selected surface adapters, and `project doctor` fails on drift. Keep developer workspace roots and scheduler registration records in developer-local configuration, never in this repository.
 

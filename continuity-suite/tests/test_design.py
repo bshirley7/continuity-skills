@@ -137,6 +137,12 @@ class DesignLifecycleTests(unittest.TestCase):
             collaboration_profile="guided",
             concept_presentation_mode="director-led",
             research={"mode": "offline", "status": "not-started", "announced": True, "opt_out_offered": True, "moodboard": []},
+            generative_exploration={
+                "status": "deliberately-omitted", "mode": "omitted", "required_for_directioning": False,
+                "lenses": [], "seeds": [], "cross_pollinations": [], "shortlisted_seed_ids": [],
+                "range_plan": {},
+                "omission_rationale": "Unit test uses pre-authored directions without expressive media generation.",
+            },
         )
         value.update(overrides)
         return value
@@ -229,6 +235,120 @@ class DesignLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(design.DesignError, "cannot be publishable"):
             design.draft(self.root, self.config, CATALOG, self.write_input(value))
 
+    def test_generative_concept_laboratory_requires_breadth_and_hash_bound_artifacts(self):
+        lenses = [
+            {"lens_id": f"lens-{index}", "thesis": f"Explore structural proposition {index}.", "product_truth": f"Project truth {index} must remain visible."}
+            for index in range(1, 5)
+        ]
+        media = ["image-generation", "svg", "typography", "motion-frame", "image-editing", "collage", "code-sketch", "svg"]
+        seeds = []
+        for index, medium in enumerate(media, 1):
+            artifact = self.root / f"seed-{index}.png"
+            artifact.write_bytes(png_bytes(320 + index, 200, (180 + index, 190, 200, 255)))
+            seeds.append({
+                "seed_id": f"seed-{index}", "lens_id": f"lens-{((index - 1) % 4) + 1}", "medium": medium,
+                "art_direction_family": ["photographic", "illustrative", "typographic", "spatial"][(index - 1) % 4],
+                "typography_strategy_id": ["type-serif", "type-humanist", "type-mono"][(index - 1) % 3],
+                "composition_family": ["editorial-sequence", "spatial-field", "typographic-poster"][(index - 1) % 3],
+                "page_depth_roles": [["opening"], ["orientation"], ["proof"], ["edge-state"], ["closure"]][(index - 1) % 5],
+                "hypothesis": f"Seed {index} tests a different organizing relationship.",
+                "project_specificity": f"It makes project truth {((index - 1) % 4) + 1} visible.",
+                "surprising_quality": f"It changes the expected reading order {index}.",
+                "transferable_mechanics": [f"Carry relationship {index} into hierarchy."],
+                "risk": "Could become decorative if detached from product proof.", "provenance": "generated",
+                "artifact": {"path": artifact.name, "sha256": __import__("hashlib").sha256(artifact.read_bytes()).hexdigest()},
+            })
+        typography_hypotheses = []
+        for strategy_id, family, source in (("type-serif", "serif", "open-licensed"), ("type-humanist", "humanist-sans", "system"), ("type-mono", "monospaced", "code-native")):
+            specimen = self.root / f"{strategy_id}-specimen.svg"
+            specimen.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><text x="30" y="120">{strategy_id} display</text><text x="30" y="220">Evidence text at narrow measure.</text></svg>', encoding="utf-8")
+            typography_hypotheses.append({
+                "strategy_id": strategy_id, "family": family, "source": source,
+                "role_relationship": "Display establishes identity while utility text keeps evidence literal.",
+                "responsive_behavior": "Display measure narrows before scale reduces and evidence remains readable.",
+                "anti_default": "No interchangeable model-default type stack.",
+                "customization": "Spacing, measure, and role contrast derive from the tested project relationship.",
+                "license_evidence": "Test fixture uses a system, open-licensed, or code-native specimen without distribution rights claims.",
+                "behavior_tests": ["display", "text", "narrow"],
+                "specimen": {"path": specimen.name, "sha256": __import__("hashlib").sha256(specimen.read_bytes()).hexdigest()},
+            })
+        interaction_hypotheses = []
+        for strategy_id, mode in (("motion-disclosure", "native-disclosure"), ("motion-direct", "direct-manipulation"), ("motion-spatial", "spatial-transition")):
+            prototype = self.root / f"{strategy_id}.html"
+            prototype.write_text(f"<main><button>{strategy_id}</button><p>Static equivalent remains visible.</p></main>", encoding="utf-8")
+            interaction_hypotheses.append({
+                "strategy_id": strategy_id, "mode": mode,
+                "semantic_purpose": "Reveal one consequential relationship without hiding the default truth.",
+                "reduced_motion": "Remove interpolation while preserving the state change and reading order.",
+                "static_fallback": "Render every label and outcome in the initial document.",
+                "risk": "Could become decorative if the transition is detached from authority.",
+                "prototype": {"path": prototype.name, "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()},
+            })
+        style_frame_groups = []
+        for group_index, family in enumerate(("photographic", "illustrative"), 1):
+            frames = []
+            for frame_index in (1, 2):
+                frame = self.root / f"style-{group_index}-{frame_index}.png"
+                frame.write_bytes(png_bytes(480 + frame_index, 300, (130 + group_index * 20, 150 + frame_index * 10, 180, 255)))
+                frames.append({"frame_id": f"style-{group_index}-{frame_index}", "method": "generated" if family == "photographic" else "code-native", "lesson": f"Test {family} relationship {frame_index}.", "artifact": {"path": frame.name, "sha256": __import__("hashlib").sha256(frame.read_bytes()).hexdigest()}})
+            style_frame_groups.append({"exploration_id": f"style-group-{group_index}", "art_direction_family": family, "hypothesis": f"Compare two {family} systems before commitment.", "frames": frames, "selected_frame_ids": [frames[0]["frame_id"]], "rejected_frame_ids": [frames[1]["frame_id"]], "system_extractions": ["Extract the composition rule.", "Extract the typography relationship.", "Extract the material or motion behavior."], "synthesis": "The selected frame produced a stronger project-specific system."})
+        laboratory = {
+            "status": "complete", "mode": "mixed-media", "required_for_directioning": True,
+            "range_plan": {
+                "art_direction_families": ["photographic", "illustrative", "typographic", "spatial"],
+                "typography_hypotheses": typography_hypotheses,
+                "composition_families": ["editorial-sequence", "spatial-field", "typographic-poster"],
+                "page_depth_roles": ["opening", "orientation", "proof", "edge-state", "closure"],
+                "page_grammar_hypotheses": [
+                    {"grammar_id": "grammar-long", "family": "longform-narrative", "hypothesis": "A sequential argument can build trust.", "responsive_behavior": "Chapters stack without losing proof adjacency.", "depth_proof": "Opening, proof, edge, and closure use different compositions.", "risk": "Could collapse into a conventional landing page."},
+                    {"grammar_id": "grammar-canvas", "family": "single-canvas-instrument", "hypothesis": "One operable canvas can teach the model.", "responsive_behavior": "The canvas becomes a vertical control trace.", "depth_proof": "Interaction, proof, edge, and decision remain addressable.", "risk": "Could hide narrative depth."},
+                    {"grammar_id": "grammar-issue", "family": "editorial-issue", "hypothesis": "An issue structure can make time and evidence tangible.", "responsive_behavior": "Spreads become ordered mobile articles.", "depth_proof": "Sections retain different editorial roles.", "risk": "Could become premium editorial styling."},
+                    {"grammar_id": "grammar-spatial", "family": "spatial-journey", "hypothesis": "Topology can organize authority.", "responsive_behavior": "Routes become a linear evidence trace.", "depth_proof": "The field includes opening, proof, quiet, and closure nodes.", "risk": "Could become a generic node map."},
+                ],
+                "interaction_motion_hypotheses": interaction_hypotheses,
+                "intentional_convergence": "",
+            },
+            "lenses": lenses, "seeds": seeds,
+            "cross_pollinations": [
+                {"combination_id": "cross-a", "seed_ids": ["seed-1", "seed-3"], "hypothesis": "Combine image scale with typographic interruption.", "resulting_mechanics": ["Type interrupts the image boundary."]},
+                {"combination_id": "cross-b", "seed_ids": ["seed-2", "seed-4"], "hypothesis": "Combine diagram structure with time.", "resulting_mechanics": ["State changes reshape the spatial diagram."]},
+            ],
+            "style_frame_explorations": style_frame_groups,
+            "shortlisted_seed_ids": ["seed-1", "seed-2", "seed-3", "seed-4"], "omission_rationale": "",
+        }
+        lab_path = self.root / "laboratory.json"
+        lab_path.write_text(json.dumps(laboratory), encoding="utf-8")
+        result = design.concept_lab_validate(self.root, self.config, lab_path)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["seed_count"], 8)
+        self.assertEqual(result["media_count"], 7)
+        value = self.creative_input(design_id="lab-backed", generative_exploration=laboratory)
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["generative_exploration"]["laboratory_hash"], result["laboratory_hash"])
+
+        too_narrow = json.loads(json.dumps(laboratory))
+        too_narrow["seeds"] = too_narrow["seeds"][:7]
+        with self.assertRaisesRegex(design.DesignError, "eight to twelve"):
+            design._validate_generative_exploration(too_narrow, self.root)
+
+        collapsed_range = json.loads(json.dumps(laboratory))
+        collapsed_range["range_plan"]["art_direction_families"] = ["photographic", "illustrative", "typographic"]
+        with self.assertRaisesRegex(design.DesignError, "four distinct art-direction"):
+            design._validate_generative_exploration(collapsed_range, self.root)
+        single_frame = json.loads(json.dumps(laboratory))
+        single_frame["style_frame_explorations"][0]["frames"] = single_frame["style_frame_explorations"][0]["frames"][:1]
+        with self.assertRaisesRegex(design.DesignError, "two to four frames"):
+            design._validate_generative_exploration(single_frame, self.root)
+        system_only_type = json.loads(json.dumps(laboratory))
+        for hypothesis in system_only_type["range_plan"]["typography_hypotheses"]:
+            hypothesis["source"] = "system"
+        with self.assertRaisesRegex(design.DesignError, "at least one supplied, licensed"):
+            design._validate_generative_exploration(system_only_type, self.root)
+        collapsed_page_grammar = json.loads(json.dumps(laboratory))
+        collapsed_page_grammar["range_plan"]["page_grammar_hypotheses"] = collapsed_page_grammar["range_plan"]["page_grammar_hypotheses"][:3]
+        with self.assertRaisesRegex(design.DesignError, "four to seven page-grammar"):
+            design._validate_generative_exploration(collapsed_page_grammar, self.root)
+
     def test_visual_atlas_is_private_self_contained_and_network_free(self):
         request = self.root / "atlas.json"
         request.write_text(json.dumps({"title": "Material contrasts", "project_copy": "Inspect the source before approval.", "contrasts": ["editorial evidence", "technical index"]}), encoding="utf-8")
@@ -241,6 +361,46 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn('data-system="technical-index"', text)
         self.assertNotIn("http://", text)
         self.assertNotIn("https://", text)
+
+    def test_design_improvement_cycle_is_resumable_hash_bound_and_human_gated(self):
+        baseline_eval = self.root / "baseline-evaluation.json"
+        baseline_eval.write_text(json.dumps({"stage_valid": True, "status": "directions"}), encoding="utf-8")
+        baseline_assessment = self.root / "baseline-assessment.md"
+        baseline_assessment.write_text("The concepts need a stronger impact gate.", encoding="utf-8")
+        improved_eval = self.root / "improved-evaluation.json"
+        improved_eval.write_text(json.dumps({"stage_valid": True, "status": "directions"}), encoding="utf-8")
+        improved_assessment = self.root / "improved-assessment.md"
+        improved_assessment.write_text("At least one concept is now compelling.", encoding="utf-8")
+        changed = self.root / "changed-schema.json"
+        changed.write_text(json.dumps({"impact_review": "required"}), encoding="utf-8")
+        ref = lambda path: {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+        cycle = {
+            "schema_version": 1, "cycle_id": "cycle-001", "design_id": "benchmark-homepage",
+            "objective": "Raise the creative ceiling without weakening evidence gates.", "max_passes": 3,
+            "source": {"branch": "feature/design", "commit": "a" * 40, "skill_sha256": "b" * 64},
+            "baseline": {"benchmark_evaluation": ref(baseline_eval), "self_assessment": ref(baseline_assessment)},
+            "passes": [{
+                "pass_number": 1, "status": "awaiting-human",
+                "findings": [{"finding_id": "impact-gate", "category": "creative-impact", "observation": "Range validation cannot prove impact.", "action": "Require a separate multimodal impact review.", "success_metric": "At least one concept is compelling and every signature controls three roles."}],
+                "changes": [{"finding_ids": ["impact-gate"], "description": "Added impact evidence and validation.", "artifacts": [ref(changed)]}],
+                "validation": {"passed": True, "benchmark_evaluation": ref(improved_eval), "self_assessment": ref(improved_assessment), "source_tests": [{"name": "focused design tests", "status": "passed"}]},
+                "human_gate": {"required": True, "status": "pending"},
+            }],
+        }
+        cycle_path = self.root / "cycle.json"
+        cycle_path.write_text(json.dumps(cycle), encoding="utf-8")
+        result = design.improvement_cycle(self.root, self.config, cycle_path)
+        self.assertEqual(result["next_gate"], "human-feedback")
+        self.assertFalse(result["execution_authorized"])
+        persisted = json.loads((self.root / result["record_path"]).read_text(encoding="utf-8"))
+        self.assertEqual(persisted["passes"][0]["status"], "awaiting-human")
+        invalid = json.loads(json.dumps(cycle))
+        invalid["passes"][0]["status"] = "accepted"
+        invalid["passes"][0]["human_gate"] = {"required": True, "status": "accepted"}
+        invalid_path = self.root / "cycle-invalid.json"
+        invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "identified human"):
+            design.improvement_cycle(self.root, self.config, invalid_path)
 
     def test_private_renderer_supports_moodboards_concepts_and_visual_deltas(self):
         wide = self.root / "render-wide.png"
@@ -303,6 +463,10 @@ class DesignLifecycleTests(unittest.TestCase):
             with self.subTest(rule_id=rule_id):
                 actual = {item["rule_id"] for item in design_slop._scan_text("fixture", source)}
                 self.assertIn(rule_id, actual)
+
+    def test_hero_metric_rule_does_not_treat_station_as_stat(self):
+        source = "<section class='hero'><p>One connected station</p><div class='proof'>Current</div></section>"
+        self.assertNotIn("CDS-D012", {item["rule_id"] for item in design_slop._scan_text("fixture", source)})
 
     def test_slop_check_rejects_stale_ruleset_and_unqualified_generated_claim(self):
         source = self.root / "claim.html"
@@ -466,6 +630,8 @@ class DesignLifecycleTests(unittest.TestCase):
         ))
         browser_snapshots = []
         browser_probes = []
+        direction_probes = []
+        study_probes = []
         for viewport, width in (("mobile", 390), ("tablet", 768), ("desktop", 1440)):
             snapshot = self.root / f"concept-{viewport}.png"
             snapshot.write_bytes(png_bytes(width, 900, (235, 237, 234, 255)))
@@ -473,14 +639,42 @@ class DesignLifecycleTests(unittest.TestCase):
             probe = self.root / f"concept-{viewport}-probe.json"
             probe.write_text(json.dumps({"schema_version": 2, "viewport": {"width": width, "height": 900}, "horizontal_overflow": False, "sticky_or_fixed_obstructions": [], "craft_findings": [], "passed": True}), encoding="utf-8")
             browser_probes.append({"viewport": viewport, "path": probe.name, "sha256": __import__("hashlib").sha256(probe.read_bytes()).hexdigest()})
+            for concept_name, probe_collection in (("direction", direction_probes), ("study", study_probes)):
+                concept_probe = self.root / f"{concept_name}-{viewport}-probe.json"
+                concept_probe.write_text(json.dumps({"schema_version": 2, "concept_id": concept_name, "viewport": {"width": width, "height": 900}, "horizontal_overflow": False, "sticky_or_fixed_obstructions": [], "craft_findings": [], "passed": True}), encoding="utf-8")
+                probe_collection.append({"viewport": viewport, "path": concept_probe.name, "sha256": __import__("hashlib").sha256(concept_probe.read_bytes()).hexdigest()})
+        direction_journey = [
+            {"stage_id": "opening-proof", "role": "opening", "purpose": "State the authority thesis.", "signature_expression": "The proof rail interrupts the opening claim."},
+            {"stage_id": "orientation", "role": "orientation", "purpose": "Explain the evidence model.", "signature_expression": "Proof labels establish the reading order."},
+            {"stage_id": "project-proof", "role": "proof", "purpose": "Demonstrate accountable evidence.", "signature_expression": "Each claim carries adjacent source material."},
+            {"stage_id": "blocked-edge", "role": "edge-state", "purpose": "Show review-ready without completion.", "signature_expression": "The rail stops before authority."},
+            {"stage_id": "closure", "role": "closure", "purpose": "Return responsibility to the person.", "signature_expression": "The final proof seam remains visibly human-held."},
+        ]
+        study_journey = [
+            {"stage_id": "opening-field", "role": "opening", "purpose": "Introduce the inspection space.", "signature_expression": "Spatial routes begin at the source boundary."},
+            {"stage_id": "orientation-map", "role": "orientation", "purpose": "Teach the topology.", "signature_expression": "Labels define navigable evidence regions."},
+            {"stage_id": "inspection-proof", "role": "proof", "purpose": "Trace source to consequence.", "signature_expression": "Material and outcome share a visible seam."},
+            {"stage_id": "quiet-route", "role": "quiet-state", "purpose": "Preserve the model without activity.", "signature_expression": "Static topology retains ownership boundaries."},
+            {"stage_id": "closure-boundary", "role": "closure", "purpose": "End at exact authority.", "signature_expression": "The final route remains closed until selected."},
+        ]
         concept_manifest = self.root / "concept.json"
         concept_manifest.write_text(json.dumps({
             "design_id": draft["design_id"], "revision": draft["revision"], "presentation_mode": "director-led",
             "collaboration_delivery": {"profile": draft["collaboration_profile"], **draft["collaboration_contract"], "feedback_prompt": "React to elements 1 through 5 in plain language."},
             "concepts": [{
                 "role": "direction", "direction_id": "direction-1", "recommended": True, "thesis": "Evidence before ornament.",
+                "impact_thesis": "Make authority legible before asking for trust.", "primary_carrier": "narrative", "emotional_register": "calm scrutiny", "seed_lineage": [], "system_extractions": [],
                 "signature_move": "A proof rail attached to each decision.", "palette": ["paper", "carbon", "signal"],
                 "type_specimen": {"copy": "Review the source before approval."}, "wide_composition": concept_visuals["direction-wide"],
+                "typography_system": {"strategy_id": "type-proof-serif", "family": "serif", "display_behavior": "Reflective serif claims are interrupted by proof labels.", "text_behavior": "Humanist utility text remains literal and compact.", "responsive_behavior": "Claims narrow before scale reduces and proof follows immediately.", "rationale": "The contrast separates judgment from evidence."},
+                "media_system": {"art_direction_family": "documentary", "primary_role": "Owned evidence material proves each claim.", "asset_mix": ["project-owned"], "quiet_state": "Captions and source seams remain without imagery.", "fallback": "Use a qualified no-evidence state."},
+                "composition_family": "editorial-sequence",
+                "page_grammar": {"grammar_id": "grammar-proof-issue", "family": "editorial-issue", "core_behavior": "Claims and proof form an evidence issue.", "responsive_behavior": "Spreads become ordered mobile evidence articles.", "depth_proof": "Opening, proof, edge, and closure use distinct issue structures."},
+                "interaction_motion_system": {"strategy_id": "interaction-proof-disclosure", "mode": "native-disclosure", "semantic_purpose": "Reveal proof without losing its claim.", "reduced_motion": "Use immediate disclosure.", "static_fallback": "All proof remains in document order."},
+                "journey_stages": direction_journey,
+                "comparison_coverage": {"full_page_strip": concept_visuals["direction-narrow"], "chapter_index": [item["stage_id"] for item in direction_journey], "deep_link": {"path": source.name, "sha256": file_hash}},
+                "generated_media_disposition": {"status": "not-applicable", "rationale": "This unit-test direction has no generated-image lineage."},
+                "runtime_probes": direction_probes,
                 "narrow_transformation": concept_visuals["direction-narrow"], "imagery_treatment": "Owned working evidence only.",
                 "motion_decision": "No ambient motion.", "preservation_promise": "Keep the expert path direct.",
                 "tradeoff": "Less simultaneous overview.", "anti_reference": "No generic dashboard bento.", "fidelity_level": "board-v1",
@@ -488,13 +682,45 @@ class DesignLifecycleTests(unittest.TestCase):
             }, {
                 "role": "contrast-study", "study_id": "study-spatial-inspection", "tests_uncertainty": "Whether spatial evidence improves confidence without slowing expert review.",
                 "recommended": False, "thesis": "Inspection creates confidence.",
+                "impact_thesis": "Turn system relationships into a place the user can inspect.", "primary_carrier": "spatial-system", "emotional_register": "active investigation", "seed_lineage": [], "system_extractions": [],
                 "signature_move": "A spatial field-note seam connecting material to consequence.", "palette": ["field", "graphite", "safety"],
                 "type_specimen": {"copy": "Inspect the system from source to outcome."}, "wide_composition": concept_visuals["study-wide"],
+                "typography_system": {"strategy_id": "type-spatial-mono", "family": "monospaced", "display_behavior": "Monospaced coordinates establish the field.", "text_behavior": "A humanist sans carries explanations.", "responsive_behavior": "Coordinates become a sequential mobile index.", "rationale": "The type acts as navigational evidence rather than a terminal costume."},
+                "media_system": {"art_direction_family": "diagrammatic", "primary_role": "Code-native topology explains authority boundaries.", "asset_mix": ["code-native"], "quiet_state": "Static routes preserve every ownership relationship.", "fallback": "Render a labeled linear source-to-outcome path."},
+                "composition_family": "spatial-field",
+                "page_grammar": {"grammar_id": "grammar-inspection-field", "family": "single-canvas-instrument", "core_behavior": "One field supports inspection and consequence.", "responsive_behavior": "The field becomes a vertical control trace.", "depth_proof": "Opening, proof, quiet state, and closure remain addressable."},
+                "interaction_motion_system": {"strategy_id": "interaction-spatial-trace", "mode": "direct-manipulation", "semantic_purpose": "Trace source to consequence.", "reduced_motion": "Update state without interpolation.", "static_fallback": "Render the complete labeled route."},
+                "journey_stages": study_journey,
+                "comparison_coverage": {"full_page_strip": concept_visuals["study-narrow"], "chapter_index": [item["stage_id"] for item in study_journey], "deep_link": {"path": contrast.name, "sha256": __import__("hashlib").sha256(contrast.read_bytes()).hexdigest()}},
+                "generated_media_disposition": {"status": "not-applicable", "rationale": "This unit-test study has no generated-image lineage."},
+                "runtime_probes": study_probes,
                 "narrow_transformation": concept_visuals["study-narrow"], "imagery_treatment": "Owned infrastructure details with annotated scale.",
                 "motion_decision": "One state-led spatial transition with a static equivalent.", "preservation_promise": "Keep the expert path direct.",
                 "tradeoff": "More deliberate scanning.", "anti_reference": "No copied aerospace identity.", "fidelity_level": "board-v1",
                 "slop_report": self.slop_reference(contrast_slop),
-            }], "browser_snapshots": browser_snapshots,
+            }],
+            "creative_range": {
+                "status": "passed", "reviewer": "test-creative-reviewer", "reviewed_at": "2026-08-08T12:00:00Z",
+                "five_second_reactions": [
+                    {"concept_id": "direction-1", "reaction": "A restrained proof ledger."},
+                    {"concept_id": "study-spatial-inspection", "reaction": "An explorable field map."},
+                ],
+                "pairwise_distances": [{"concept_ids": ["direction-1", "study-spatial-inspection"], "differing_dimensions": ["organizing-idea", "primary-carrier", "responsive-transformation"], "rationale": "One is a linear proof narrative while the other is a spatial inspection model."}],
+                "house_tell_review": {"recurring_tells_checked": ["serif-plus-mono", "thin-rules", "quiet-field", "orange-interruption"], "project_identity_wins": True, "rationale": "Authority and inspection determine the systems, not a recurring Continuity palette or type pairing."},
+                "adversarial_pass": [
+                    {"concept_id": "direction-1", "genericity_argument": "Could resemble editorial enterprise software.", "opposing_hypothesis": "Proof should alter the reading path, not decorate it.", "resulting_change": "Bound evidence to every consequential decision.", "rejected_choice": "Detached credibility logo row."},
+                    {"concept_id": "study-spatial-inspection", "genericity_argument": "Could become a generic node map.", "opposing_hypothesis": "The map should expose authority boundaries.", "resulting_change": "Made authorization state change topology.", "rejected_choice": "Decorative network particles."},
+                ],
+                "range_audit": {"status": "passed", "typography_strategy_count": 2, "typography_family_count": 2, "art_direction_family_count": 2, "composition_family_count": 2, "page_grammar_count": 2, "interaction_motion_strategy_count": 2, "minimum_journey_stage_count": 5, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "rationale": "The direction and study use different type, media, composition, page grammar, interaction, and full-page journey systems."},
+            },
+            "impact_review": {
+                "status": "passed", "reviewer_type": "agent-multimodal", "reviewer": "test-impact-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "at_least_one_compelling": True,
+                "set_conclusion": "The proof direction is compelling and the spatial study is a credible contrast.",
+                "concepts": [
+                    {"concept_id": "direction-1", "outcome": "passed", "strength": "compelling", "signature_stage_ids": ["opening-proof", "project-proof", "blocked-edge"], "identity_specificity": "pass", "emotional_resonance": "pass", "craft_coherence": "pass", "rationale": "The proof seam controls three consequential roles.", "weakest_moment": "The orientation could feel familiar.", "refinement_priority": "Make the evidence issue more ownable.", "evidence": [concept_visuals["direction-wide"], concept_visuals["direction-narrow"]]},
+                    {"concept_id": "study-spatial-inspection", "outcome": "passed", "strength": "credible", "signature_stage_ids": ["opening-field", "inspection-proof", "quiet-route"], "identity_specificity": "pass", "emotional_resonance": "pass", "craft_coherence": "pass", "rationale": "The topology controls opening, proof, and quiet state.", "weakest_moment": "The field could feel diagrammatic.", "refinement_priority": "Add human consequence.", "evidence": [concept_visuals["study-wide"], concept_visuals["study-narrow"]]},
+                ],
+            }, "browser_snapshots": browser_snapshots,
             "browser_probes": browser_probes,
             "research_links": [],
             "visual_references": [],
@@ -505,8 +731,44 @@ class DesignLifecycleTests(unittest.TestCase):
         duplicate_manifest.write_text(json.dumps(duplicate_value), encoding="utf-8")
         with self.assertRaisesRegex(design.DesignError, "must be distinct"):
             design.concept_validate(self.root, self.config, duplicate_manifest)
+        reused_probe_manifest = self.root / "concept-reused-probe.json"
+        reused_probe_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        reused_probe_value["concepts"][1]["runtime_probes"] = reused_probe_value["concepts"][0]["runtime_probes"]
+        reused_probe_manifest.write_text(json.dumps(reused_probe_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "own runtime probe"):
+            design.concept_validate(self.root, self.config, reused_probe_manifest)
+        collapsed_art_manifest = self.root / "concept-collapsed-art.json"
+        collapsed_art_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        collapsed_art_value["concepts"][1]["media_system"]["art_direction_family"] = "documentary"
+        collapsed_art_value["creative_range"]["range_audit"]["art_direction_family_count"] = 1
+        collapsed_art_manifest.write_text(json.dumps(collapsed_art_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "distinct art-direction"):
+            design.concept_validate(self.root, self.config, collapsed_art_manifest)
+        weak_impact_manifest = self.root / "concept-weak-impact.json"
+        weak_impact_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        weak_impact_value["impact_review"]["at_least_one_compelling"] = False
+        weak_impact_value["impact_review"]["concepts"][0]["strength"] = "credible"
+        weak_impact_manifest.write_text(json.dumps(weak_impact_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "at least one compelling"):
+            design.concept_validate(self.root, self.config, weak_impact_manifest)
+        shallow_signature_manifest = self.root / "concept-shallow-signature.json"
+        shallow_signature_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        shallow_signature_value["impact_review"]["concepts"][0]["signature_stage_ids"] = ["opening-proof", "project-proof"]
+        shallow_signature_manifest.write_text(json.dumps(shallow_signature_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "at least three different journey roles"):
+            design.concept_validate(self.root, self.config, shallow_signature_manifest)
+        collapsed_grammar_manifest = self.root / "concept-collapsed-grammar.json"
+        collapsed_grammar_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        collapsed_grammar_value["concepts"][1]["page_grammar"]["grammar_id"] = collapsed_grammar_value["concepts"][0]["page_grammar"]["grammar_id"]
+        collapsed_grammar_value["concepts"][1]["page_grammar"]["family"] = collapsed_grammar_value["concepts"][0]["page_grammar"]["family"]
+        collapsed_grammar_value["creative_range"]["range_audit"]["page_grammar_count"] = 1
+        collapsed_grammar_manifest.write_text(json.dumps(collapsed_grammar_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "distinct planned page grammar"):
+            design.concept_validate(self.root, self.config, collapsed_grammar_manifest)
         validated = design.concept_validate(self.root, self.config, concept_manifest)
         self.assertEqual(validated["status"], "awaiting-feedback")
+        self.assertEqual(validated["impact_review_status"], "passed")
+        self.assertEqual(validated["compelling_concept_count"], 1)
         with self.assertRaisesRegex(design.DesignError, "not selectable"):
             design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
         feedback = self.root / "feedback.json"
@@ -1530,17 +1792,27 @@ class DesignLifecycleTests(unittest.TestCase):
 
         doctor = artifact("evidence/doctor.json", json.dumps({"healthy": True}))
         concepts = []
+        laboratory_hash = "9" * 64
+        concept_range = {
+            "morning-brief": ("type-reflective-serif", "serif", "photographic", "cinematic-chapters", "editorial-issue", "motion-witness", "compelling"),
+            "proof-relay": ("type-humanist-proof", "humanist-sans", "diagrammatic", "editorial-sequence", "navigable-artifact", "interaction-proof", "credible"),
+            "local-aperture": ("type-mono-coordinate", "monospaced", "spatial", "spatial-field", "single-canvas-instrument", "spatial-inspection", "credible"),
+        }
         for direction_id in ("morning-brief", "proof-relay", "local-aperture"):
             board = artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>")
             slop = artifact(
                 f"concepts/{direction_id}-slop.json",
                 json.dumps({"stage": "concept", "status": "passed"}),
             )
-            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop})
+            strategy, family, art_family, composition, grammar, interaction, strength = concept_range[direction_id]
+            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed"})
 
         checkpoints = []
-        for checkpoint_id in ("brief-interpretation", "reference-synthesis", "concept-directions"):
-            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps({"checkpoint_id": checkpoint_id}))
+        for checkpoint_id in ("brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions"):
+            content = {"checkpoint_id": checkpoint_id}
+            if checkpoint_id == "generative-concept-laboratory":
+                content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
             checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
 
         manifest = {
@@ -1609,8 +1881,12 @@ class DesignLifecycleTests(unittest.TestCase):
             return {"path": relative, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
 
         checkpoints = []
+        laboratory_hash = "9" * 64
         for checkpoint_id in definition["required_checkpoints"]:
-            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps({"checkpoint_id": checkpoint_id}))
+            content = {"checkpoint_id": checkpoint_id}
+            if checkpoint_id == "generative-concept-laboratory":
+                content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
             checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
         board = artifact("concepts/morning-brief.html", "<h1>Morning brief</h1>")
         slop = artifact("concepts/morning-brief-slop.json", json.dumps({"stage": "concept", "status": "passed"}))
@@ -1638,7 +1914,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "seed": {"audience": "founder-operator", "posture": "calm-authority", "hero": "morning-decision-surface", "references": ["Linear", "Palantir Foundry"], "edge_case": "healthy-but-unauthorized"},
             "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
             "checkpoints": checkpoints,
-            "concepts": [{"direction_id": "morning-brief", "board": board, "slop_report": slop}],
+            "concepts": [{"direction_id": "morning-brief", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": "type-reflective-serif", "typography_family": "serif", "art_direction_family": "photographic", "composition_family": "cinematic-chapters", "page_grammar_family": "editorial-issue", "interaction_motion_strategy_id": "motion-witness", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "compelling", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed"}],
             "selection": {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]},
             "prototype_validation": prototype,
             "approval": {"actor_type": "human", **{key: approval_value[key] for key in ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")}, "record": approval_record},

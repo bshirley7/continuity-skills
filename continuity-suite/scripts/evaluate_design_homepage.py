@@ -50,7 +50,7 @@ def _definition(path: Path) -> dict[str, Any]:
     }
     if set(value) != required or value.get("schema_version") != 1:
         raise ValueError("Benchmark definition has an unsupported shape")
-    if value.get("benchmark_id") != "continuity-design-homepage-v1" or value.get("workflow") != "$continuity-design":
+    if value.get("benchmark_id") != "continuity-design-homepage-v4" or value.get("workflow") != "$continuity-design":
         raise ValueError("Benchmark definition identity is invalid")
     return value
 
@@ -121,11 +121,43 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     missing_checkpoints = sorted(required_for_stage - set(normalized_checkpoints))
     if missing_checkpoints:
         raise ValueError(f"Benchmark stage {stage} lacks checkpoints: {missing_checkpoints}")
+    laboratory_artifact = normalized_checkpoints.get("generative-concept-laboratory")
+    laboratory_hash = None
+    if laboratory_artifact:
+        laboratory = _read(run_root / laboratory_artifact["path"], "Generative concept laboratory checkpoint")
+        if (
+            laboratory.get("status") != "complete"
+            or not 4 <= laboratory.get("lens_count", 0) <= 8
+            or not 8 <= laboratory.get("seed_count", 0) <= 12
+            or laboratory.get("media_count", 0) < 3
+            or laboratory.get("generated_seed_count", 0) < 1
+            or laboratory.get("art_direction_family_count", 0) < 4
+            or laboratory.get("typography_strategy_count", 0) < 3
+            or laboratory.get("typography_family_count", 0) < 3
+            or laboratory.get("composition_family_count", 0) < 3
+            or laboratory.get("page_depth_role_count", 0) < 5
+            or laboratory.get("page_grammar_count", 0) < 4
+            or laboratory.get("interaction_motion_count", 0) < 3
+            or laboratory.get("style_frame_family_count", 0) < 2
+            or laboratory.get("style_frame_count", 0) < 4
+            or laboratory.get("non_system_typography_count", 0) < 1
+            or not 3 <= laboratory.get("shortlisted_seed_count", 0) <= 6
+            or not re.fullmatch(r"[a-f0-9]{64}", str(laboratory.get("laboratory_hash", "")))
+        ):
+            raise ValueError("Homepage benchmark requires a broad, completed generative concept laboratory")
+        laboratory_hash = laboratory["laboratory_hash"]
 
     concepts = manifest.get("concepts")
     if not isinstance(concepts, list) or not 1 <= len(concepts) <= 3:
         raise ValueError("Homepage benchmark requires one to three concepts")
     concept_ids: set[str] = set()
+    typography_strategies: set[str] = set()
+    typography_families: set[str] = set()
+    art_direction_families: set[str] = set()
+    composition_families: set[str] = set()
+    page_grammar_families: set[str] = set()
+    interaction_motion_strategies: set[str] = set()
+    impact_strengths: set[str] = set()
     normalized_concepts = []
     for concept in concepts:
         if not isinstance(concept, dict) or not isinstance(concept.get("direction_id"), str) or not concept["direction_id"].strip():
@@ -138,8 +170,49 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop["path"], f"Concept slop report {direction_id}")
         if slop_value.get("status") != "passed" or slop_value.get("stage") != "concept":
             raise ValueError(f"Concept {direction_id} lacks a passed concept-stage slop report")
+        if concept.get("creative_range_status") != "passed" or concept.get("generative_laboratory_hash") != laboratory_hash:
+            raise ValueError(f"Concept {direction_id} lacks passed creative-range evidence bound to the generative laboratory")
+        required_range = {
+            "typography_strategy_id": str,
+            "typography_family": str,
+            "art_direction_family": str,
+            "composition_family": str,
+            "journey_stage_count": int,
+            "runtime_probe_count": int,
+            "page_grammar_family": str,
+            "interaction_motion_strategy_id": str,
+            "signature_stage_count": int,
+        }
+        if any(not isinstance(concept.get(key), kind) for key, kind in required_range.items()):
+            raise ValueError(f"Concept {direction_id} lacks typography, media, composition, journey, or runtime range evidence")
+        if concept["journey_stage_count"] < 5 or concept["runtime_probe_count"] != 3 or concept["signature_stage_count"] < 3:
+            raise ValueError(f"Concept {direction_id} lacks a complete page journey or all three concept-specific runtime probes")
+        if concept.get("impact_review_status") != "passed" or concept.get("impact_strength") not in {"credible", "compelling"}:
+            raise ValueError(f"Concept {direction_id} lacks a passed impact review")
+        if concept.get("comparison_depth_status") != "passed" or concept.get("generated_media_extraction_status") not in {"passed", "not-applicable"}:
+            raise ValueError(f"Concept {direction_id} lacks comparison-depth or generated-media disposition evidence")
+        typography_strategies.add(concept["typography_strategy_id"])
+        typography_families.add(concept["typography_family"])
+        art_direction_families.add(concept["art_direction_family"])
+        composition_families.add(concept["composition_family"])
+        page_grammar_families.add(concept["page_grammar_family"])
+        interaction_motion_strategies.add(concept["interaction_motion_strategy_id"])
+        impact_strengths.add(concept["impact_strength"])
         normalized_concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop})
         concept_ids.add(direction_id)
+    if len(concepts) > 1 and (
+        len(typography_strategies) != len(concepts)
+        or len(typography_families) < 2
+        or len(art_direction_families) != len(concepts)
+        or len(composition_families) != len(concepts)
+        or len(page_grammar_families) != len(concepts)
+        or len(interaction_motion_strategies) != len(concepts)
+    ):
+        raise ValueError("Homepage benchmark concepts must use distinct typography strategies, art-direction families, and composition families")
+    if any(concept.get("range_audit_status") != "passed" for concept in concepts):
+        raise ValueError("Homepage benchmark concepts require a passed range audit")
+    if "compelling" not in impact_strengths:
+        raise ValueError("Homepage benchmark requires at least one compelling concept before selection")
 
     selection = manifest.get("selection")
     if STAGES[stage] >= STAGES["selected"]:
@@ -242,6 +315,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "status": stage,
         "stage_valid": True,
         "concept_count": len(normalized_concepts),
+        "typography_family_count": len(typography_families),
+        "art_direction_family_count": len(art_direction_families),
+        "composition_family_count": len(composition_families),
+        "page_grammar_family_count": len(page_grammar_families),
+        "interaction_motion_strategy_count": len(interaction_motion_strategies),
+        "compelling_concept_count": sum(concept.get("impact_strength") == "compelling" for concept in concepts),
         "checkpoint_count": len(normalized_checkpoints),
         "evidence_roles": sorted(normalized_evidence),
         "seed": seed,

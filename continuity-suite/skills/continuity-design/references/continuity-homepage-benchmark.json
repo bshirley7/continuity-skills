@@ -1,5 +1,5 @@
 {
-  "benchmark_id": "continuity-design-homepage-v1",
+  "benchmark_id": "continuity-design-homepage-v4",
   "brief_path": "continuity-homepage-challenge.md",
   "hard_failures": [
     {"rule_id": "CDHB-H001", "description": "Healthy is presented as authorized."},
@@ -7,13 +7,18 @@
     {"rule_id": "CDHB-H003", "description": "Private project information appears in the portfolio layer."},
     {"rule_id": "CDHB-H004", "description": "Color alone conveys critical state."},
     {"rule_id": "CDHB-H005", "description": "Mobile or reduced-motion behavior is missing."},
-    {"rule_id": "CDHB-H006", "description": "Fictional data is presented as real proof."}
+    {"rule_id": "CDHB-H006", "description": "Fictional data is presented as real proof."},
+    {"rule_id": "CDHB-H007", "description": "Concept directions lack material creative range or traceable generative lineage."},
+    {"rule_id": "CDHB-H008", "description": "Concepts collapse into one typography, art-direction, composition, page-grammar, or interaction family; omit a complete page journey; or reuse comparison-only runtime evidence."},
+    {"rule_id": "CDHB-H009", "description": "No concept passes the separate impact review as compelling, or the signature fails to control at least three journey roles."},
+    {"rule_id": "CDHB-H010", "description": "Generated exploration is promoted as unexplained pixels instead of being dispositioned and extracted into a project-specific system."}
   ],
   "minimum_human_reviewers": 1,
   "passing_score": 75,
   "required_checkpoints": [
     "brief-interpretation",
     "reference-synthesis",
+    "generative-concept-laboratory",
     "concept-directions",
     "direction-selection",
     "private-prototype",
@@ -29,13 +34,16 @@
     "accessibility": ["application/json", "text/markdown"]
   },
   "rubric": [
-    {"dimension": "product-understanding-and-truthfulness", "weight": 15},
-    {"dimension": "concept-thesis-and-originality", "weight": 15},
-    {"dimension": "narrative-and-information-architecture", "weight": 15},
-    {"dimension": "visual-system-and-craft", "weight": 20},
-    {"dimension": "product-proof-and-interaction", "weight": 15},
-    {"dimension": "authority-and-lifecycle-clarity", "weight": 10},
-    {"dimension": "responsive-behavior-and-accessibility", "weight": 10}
+    {"dimension": "product-understanding-and-truthfulness", "weight": 13},
+    {"dimension": "concept-thesis-and-originality", "weight": 10},
+    {"dimension": "creative-range-and-generative-synthesis", "weight": 9},
+    {"dimension": "narrative-and-information-architecture", "weight": 9},
+    {"dimension": "visual-system-and-craft", "weight": 13},
+    {"dimension": "typography-media-and-page-range", "weight": 11},
+    {"dimension": "product-proof-and-interaction", "weight": 13},
+    {"dimension": "impact-and-cultural-resonance", "weight": 8},
+    {"dimension": "authority-and-lifecycle-clarity", "weight": 9},
+    {"dimension": "responsive-behavior-and-accessibility", "weight": 5}
   ],
   "schema_version": 1,
   "seed_options": {
@@ -46,11 +54,11 @@
     "references": ["Linear", "incident.io", "Raycast", "Stripe", "Palantir Foundry"]
   },
   "stage_checkpoints": {
-    "approved": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection", "private-prototype", "artifact-critique", "design-approval"],
-    "directions": ["brief-interpretation", "reference-synthesis", "concept-directions"],
-    "prototype-validated": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection", "private-prototype", "artifact-critique"],
-    "scored": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection", "private-prototype", "artifact-critique", "design-approval"],
-    "selected": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection"]
+    "approved": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions", "direction-selection", "private-prototype", "artifact-critique", "design-approval"],
+    "directions": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions"],
+    "prototype-validated": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions", "direction-selection", "private-prototype", "artifact-critique"],
+    "scored": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions", "direction-selection", "private-prototype", "artifact-critique", "design-approval"],
+    "selected": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions", "direction-selection"]
   },
   "workflow": "$continuity-design"
 }

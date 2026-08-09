@@ -16,6 +16,7 @@
     "collaboration_profile": {"enum": ["guided", "collaborative", "creative-peer"]},
     "specialization": {"enum": ["brand-marketing", "product-system", "document-editorial", "image-art-direction", "cinematic-experience", "mixed"]},
     "research": {"$ref": "design-research.schema.json"},
+    "generative_exploration": {"$ref": "design-generative-exploration.schema.json"},
     "reference_decomposition": {
       "type": "array",
       "items": {

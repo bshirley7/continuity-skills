@@ -2,6 +2,8 @@
 
 Run `continuity design slop-check --target <file-or-directory> --manifest <manifest.json>` at concept, prototype, and implementation stages. The scanner is deterministic, standard-library only, and network-free. It combines source inspection with agent-supplied rendered-artifact and project-context findings.
 
+This gate does not prove creative range. Run the generative concept laboratory and its creative-range review first. A concept may be free of known slop and still be timid, repetitive, or generic.
+
 ## Decision model
 
 - Hard failures and project drift block the stage until the detected condition is absent. They cannot be accepted or marked not applicable.

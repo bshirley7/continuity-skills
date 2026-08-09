@@ -1,6 +1,6 @@
 {
   "approval": null,
-  "benchmark_id": "continuity-design-homepage-v1",
+  "benchmark_id": "continuity-design-homepage-v4",
   "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "checkpoints": [],
   "concepts": [],
@@ -11,7 +11,7 @@
   "hard_failure_reviews": [],
   "prototype_validation": null,
   "reviews": [],
-  "run_id": "premerge-001",
+  "run_id": "premerge-006",
   "schema_version": 1,
   "seed": {
     "audience": "founder-operator",
