@@ -1,0 +1,56 @@
+{
+  "benchmark_id": "continuity-design-homepage-v1",
+  "brief_path": "continuity-homepage-challenge.md",
+  "hard_failures": [
+    {"rule_id": "CDHB-H001", "description": "Healthy is presented as authorized."},
+    {"rule_id": "CDHB-H002", "description": "Review-ready is presented as completed."},
+    {"rule_id": "CDHB-H003", "description": "Private project information appears in the portfolio layer."},
+    {"rule_id": "CDHB-H004", "description": "Color alone conveys critical state."},
+    {"rule_id": "CDHB-H005", "description": "Mobile or reduced-motion behavior is missing."},
+    {"rule_id": "CDHB-H006", "description": "Fictional data is presented as real proof."}
+  ],
+  "minimum_human_reviewers": 1,
+  "passing_score": 75,
+  "required_checkpoints": [
+    "brief-interpretation",
+    "reference-synthesis",
+    "concept-directions",
+    "direction-selection",
+    "private-prototype",
+    "artifact-critique",
+    "design-approval"
+  ],
+  "required_evidence_roles": {
+    "desktop": ["image/png"],
+    "tablet": ["image/png"],
+    "mobile": ["image/png"],
+    "interaction": ["application/json", "text/html"],
+    "reduced-motion": ["application/json", "image/png"],
+    "accessibility": ["application/json", "text/markdown"]
+  },
+  "rubric": [
+    {"dimension": "product-understanding-and-truthfulness", "weight": 15},
+    {"dimension": "concept-thesis-and-originality", "weight": 15},
+    {"dimension": "narrative-and-information-architecture", "weight": 15},
+    {"dimension": "visual-system-and-craft", "weight": 20},
+    {"dimension": "product-proof-and-interaction", "weight": 15},
+    {"dimension": "authority-and-lifecycle-clarity", "weight": 10},
+    {"dimension": "responsive-behavior-and-accessibility", "weight": 10}
+  ],
+  "schema_version": 1,
+  "seed_options": {
+    "audience": ["founder-operator", "engineering-leader", "platform-team", "independent-studio"],
+    "edge_case": ["healthy-but-unauthorized", "checks-passed-evidence-stale", "review-ready-not-completed", "aggregate-current-one-project-blocked"],
+    "hero": ["morning-decision-surface", "time-based-lifecycle", "interactive-authority-model", "living-portfolio-map"],
+    "posture": ["calm-authority", "kinetic-momentum", "editorial-clarity", "technical-precision"],
+    "references": ["Linear", "incident.io", "Raycast", "Stripe", "Palantir Foundry"]
+  },
+  "stage_checkpoints": {
+    "approved": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection", "private-prototype", "artifact-critique", "design-approval"],
+    "directions": ["brief-interpretation", "reference-synthesis", "concept-directions"],
+    "prototype-validated": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection", "private-prototype", "artifact-critique"],
+    "scored": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection", "private-prototype", "artifact-critique", "design-approval"],
+    "selected": ["brief-interpretation", "reference-synthesis", "concept-directions", "direction-selection"]
+  },
+  "workflow": "$continuity-design"
+}

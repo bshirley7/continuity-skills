@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity-Design homepage benchmark run",
+  "type": "object",
+  "required": ["schema_version", "benchmark_id", "workflow", "run_id", "status", "definition_sha256", "brief_sha256", "source", "seed", "doctor", "checkpoints", "concepts", "selection", "prototype_validation", "approval", "evidence", "reviews", "hard_failure_reviews", "execution_authorized"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "benchmark_id": {"const": "continuity-design-homepage-v1"},
+    "workflow": {"const": "$continuity-design"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
+    "status": {"enum": ["directions", "selected", "prototype-validated", "approved", "scored"]},
+    "definition_sha256": {"$ref": "#/$defs/hash"},
+    "brief_sha256": {"$ref": "#/$defs/hash"},
+    "source": {"type": "object"},
+    "seed": {"type": "object"},
+    "doctor": {"$ref": "#/$defs/artifact"},
+    "checkpoints": {"type": "array", "items": {"type": "object"}},
+    "concepts": {"type": "array", "maxItems": 3, "items": {"type": "object"}},
+    "selection": {"type": ["object", "null"]},
+    "prototype_validation": {"type": ["object", "null"]},
+    "approval": {"type": ["object", "null"]},
+    "evidence": {"type": "array", "items": {"type": "object"}},
+    "reviews": {"type": "array", "items": {"type": "object"}},
+    "hard_failure_reviews": {"type": "array", "items": {"type": "object"}},
+    "execution_authorized": {"const": false}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "artifact": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}, "additionalProperties": true}
+  },
+  "additionalProperties": false
+}

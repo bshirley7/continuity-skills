@@ -13,6 +13,8 @@ Read [workflow handoffs](../../references/workflow-handoffs.md), [output quality
 
 When evaluating whether this workflow materially improves design quality, use the blinded paired structure in [output-benchmark.example.json](references/output-benchmark.example.json). Deterministic scenarios prove contract behavior only; they are not aesthetic evidence.
 
+Before merging a material change to this workflow, run the versioned [Continuity homepage benchmark](references/continuity-homepage-benchmark.md) using its [fixed definition](references/continuity-homepage-benchmark.json), [fixed challenge](references/continuity-homepage-challenge.md), and [private run template](references/continuity-homepage-benchmark-run.example.json). It is a staged, human-gated acceptance run: directions can validate before selection, but the benchmark passes only after private prototype evidence, exact design approval, an outside human score of at least 75, and no hard failure. Keep run artifacts private. This benchmark exercises the complete process; it does not replace blinded paired output evaluation or authorize homepage implementation.
+
 ## Preconditions
 
 1. Run `continuity project doctor` and confirm the `design` collection is enabled and healthy.

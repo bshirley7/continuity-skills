@@ -1,0 +1,32 @@
+{
+  "approval": null,
+  "benchmark_id": "continuity-design-homepage-v1",
+  "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "checkpoints": [],
+  "concepts": [],
+  "definition_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "doctor": {"path": "evidence/doctor.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "evidence": [],
+  "execution_authorized": false,
+  "hard_failure_reviews": [],
+  "prototype_validation": null,
+  "reviews": [],
+  "run_id": "premerge-001",
+  "schema_version": 1,
+  "seed": {
+    "audience": "founder-operator",
+    "edge_case": "healthy-but-unauthorized",
+    "hero": "morning-decision-surface",
+    "posture": "calm-authority",
+    "references": ["Linear", "Palantir Foundry"]
+  },
+  "selection": null,
+  "source": {
+    "branch": "feature/continuity-design-creative-director",
+    "commit": "0000000000000000000000000000000000000000",
+    "skill_path": "skills/continuity-design/SKILL.md",
+    "skill_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "status": "directions",
+  "workflow": "$continuity-design"
+}

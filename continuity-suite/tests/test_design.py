@@ -40,6 +40,13 @@ OUTPUT_EVALUATION_SPEC = importlib.util.spec_from_file_location(
 OUTPUT_EVALUATION = importlib.util.module_from_spec(OUTPUT_EVALUATION_SPEC)
 assert OUTPUT_EVALUATION_SPEC.loader
 OUTPUT_EVALUATION_SPEC.loader.exec_module(OUTPUT_EVALUATION)
+HOMEPAGE_EVALUATION_SPEC = importlib.util.spec_from_file_location(
+    "evaluate_design_homepage",
+    SUITE / "scripts" / "evaluate_design_homepage.py",
+)
+HOMEPAGE_EVALUATION = importlib.util.module_from_spec(HOMEPAGE_EVALUATION_SPEC)
+assert HOMEPAGE_EVALUATION_SPEC.loader
+HOMEPAGE_EVALUATION_SPEC.loader.exec_module(HOMEPAGE_EVALUATION)
 CATALOG = SUITE / "skills" / "continuity-design" / "references" / "catalog.json"
 SCENARIOS = SUITE / "skills" / "continuity-design" / "references" / "evaluation-scenarios.json"
 
@@ -1505,6 +1512,155 @@ class DesignLifecycleTests(unittest.TestCase):
         manifest.write_text(json.dumps(benchmark), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "at least three cases"):
             OUTPUT_EVALUATION.evaluate(self.root, manifest)
+
+    def test_homepage_benchmark_preserves_human_gates_and_hash_binding(self):
+        definition_path = SUITE / "skills" / "continuity-design" / "references" / "continuity-homepage-benchmark.json"
+        definition = json.loads(definition_path.read_text(encoding="utf-8"))
+        brief_path = definition_path.parent / definition["brief_path"]
+        skill_path = SUITE / "skills" / "continuity-design" / "SKILL.md"
+
+        def artifact(relative, content):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(content, bytes):
+                path.write_bytes(content)
+            else:
+                path.write_text(content, encoding="utf-8")
+            return {"path": relative, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        doctor = artifact("evidence/doctor.json", json.dumps({"healthy": True}))
+        concepts = []
+        for direction_id in ("morning-brief", "proof-relay", "local-aperture"):
+            board = artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>")
+            slop = artifact(
+                f"concepts/{direction_id}-slop.json",
+                json.dumps({"stage": "concept", "status": "passed"}),
+            )
+            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop})
+
+        checkpoints = []
+        for checkpoint_id in ("brief-interpretation", "reference-synthesis", "concept-directions"):
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps({"checkpoint_id": checkpoint_id}))
+            checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
+
+        manifest = {
+            "schema_version": 1,
+            "benchmark_id": definition["benchmark_id"],
+            "workflow": "$continuity-design",
+            "run_id": "test-homepage",
+            "status": "directions",
+            "definition_sha256": __import__("hashlib").sha256(definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest(),
+            "source": {
+                "branch": "feature/test",
+                "commit": "a" * 40,
+                "skill_path": "skills/continuity-design/SKILL.md",
+                "skill_sha256": __import__("hashlib").sha256(skill_path.read_bytes()).hexdigest(),
+            },
+            "seed": {
+                "audience": "founder-operator",
+                "posture": "calm-authority",
+                "hero": "morning-decision-surface",
+                "references": ["Linear", "Palantir Foundry"],
+                "edge_case": "healthy-but-unauthorized",
+            },
+            "doctor": doctor,
+            "checkpoints": checkpoints,
+            "concepts": concepts,
+            "selection": None,
+            "prototype_validation": None,
+            "approval": None,
+            "evidence": [],
+            "reviews": [],
+            "hard_failure_reviews": [],
+            "execution_authorized": False,
+        }
+        manifest_path = self.root / "run.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertTrue(report["stage_valid"])
+        self.assertFalse(report["benchmark_passed"])
+        self.assertFalse(report["merge_eligible"])
+        self.assertEqual(report["next_gate"], "human-direction-selection")
+
+        with self.assertRaisesRegex(ValueError, "cannot preselect"):
+            manifest["selection"] = {
+                "actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        manifest["selection"] = None
+        manifest["definition_sha256"] = "0" * 64
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "definition changed"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+    def test_homepage_benchmark_passes_only_after_approval_and_human_score(self):
+        definition_path = SUITE / "skills" / "continuity-design" / "references" / "continuity-homepage-benchmark.json"
+        definition = json.loads(definition_path.read_text(encoding="utf-8"))
+        brief_path = definition_path.parent / definition["brief_path"]
+        skill_path = SUITE / "skills" / "continuity-design" / "SKILL.md"
+
+        def artifact(relative, content):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content if isinstance(content, bytes) else content.encode("utf-8"))
+            return {"path": relative, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        checkpoints = []
+        for checkpoint_id in definition["required_checkpoints"]:
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps({"checkpoint_id": checkpoint_id}))
+            checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
+        board = artifact("concepts/morning-brief.html", "<h1>Morning brief</h1>")
+        slop = artifact("concepts/morning-brief-slop.json", json.dumps({"stage": "concept", "status": "passed"}))
+        prototype = artifact("evidence/prototype-validation.json", json.dumps({"validated": True, "ai_slop_check": {"status": "passed"}}))
+        evidence = []
+        media_types = {
+            "desktop": "image/png", "tablet": "image/png", "mobile": "image/png",
+            "interaction": "application/json", "reduced-motion": "application/json", "accessibility": "text/markdown",
+        }
+        for role, media_type in media_types.items():
+            value = artifact(f"evidence/{role}.bin", role.encode("utf-8"))
+            evidence.append({"role": role, "media_type": media_type, **value})
+        approval_value = {
+            "status": "approved", "execution_authorized": False, "design_id": "homepage", "revision": 1,
+            "design_hash": "1" * 64, "visual_reference_hash": "2" * 64, "approval_bundle_hash": "3" * 64,
+        }
+        approval_record = artifact("evidence/approval.json", json.dumps(approval_value))
+        scores = {item["dimension"]: item["weight"] for item in definition["rubric"]}
+        manifest = {
+            "schema_version": 1, "benchmark_id": definition["benchmark_id"], "workflow": "$continuity-design",
+            "run_id": "test-homepage-complete", "status": "scored",
+            "definition_sha256": __import__("hashlib").sha256(definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest(),
+            "source": {"branch": "feature/test", "commit": "b" * 40, "skill_path": "skills/continuity-design/SKILL.md", "skill_sha256": __import__("hashlib").sha256(skill_path.read_bytes()).hexdigest()},
+            "seed": {"audience": "founder-operator", "posture": "calm-authority", "hero": "morning-decision-surface", "references": ["Linear", "Palantir Foundry"], "edge_case": "healthy-but-unauthorized"},
+            "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
+            "checkpoints": checkpoints,
+            "concepts": [{"direction_id": "morning-brief", "board": board, "slop_report": slop}],
+            "selection": {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]},
+            "prototype_validation": prototype,
+            "approval": {"actor_type": "human", **{key: approval_value[key] for key in ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")}, "record": approval_record},
+            "evidence": evidence,
+            "reviews": [{"actor_type": "human", "reviewer_id": "reviewer-a", "scores": scores, "rationale": "All supplied evidence was inspected against the fixed rubric."}],
+            "hard_failure_reviews": [{"rule_id": item["rule_id"], "result": "pass", "rationale": "Verified in the bound evidence."} for item in definition["hard_failures"]],
+            "execution_authorized": False,
+        }
+        manifest_path = self.root / "run-complete.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertEqual(report["score"], 100)
+        self.assertTrue(report["benchmark_passed"])
+        self.assertTrue(report["merge_eligible"])
+
+        manifest["hard_failure_reviews"][0]["result"] = "fail"
+        manifest["hard_failure_reviews"][0]["rationale"] = "Healthy was incorrectly shown as authorization."
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertEqual(report["score"], definition["passing_score"] - 1)
+        self.assertFalse(report["benchmark_passed"])
+        self.assertFalse(report["merge_eligible"])
 
     def test_evaluation_fails_closed_on_metric_regressions(self):
         suite = json.loads(SCENARIOS.read_text(encoding="utf-8"))
