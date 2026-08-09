@@ -13,6 +13,7 @@
   "concepts": [
     {
       "role": "direction",
+      "reference_adaptation_id": "adaptation-evidence-seam",
       "direction_id": "direction-1",
       "recommended": true,
       "thesis": "Evidence becomes the visual identity.",
@@ -53,10 +54,11 @@
       "tradeoff": "Less simultaneous overview.",
       "anti_reference": "No generic SaaS bento or copied aerospace identity.",
       "fidelity_level": "board-v1",
-      "slop_report": {"path": ".continuity/private/design/slop/concept-a.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.0.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
+      "slop_report": {"path": ".continuity/private/design/slop/concept-a.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.3.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
     },
     {
       "role": "contrast-study",
+      "reference_adaptation_id": "adaptation-inspection-field",
       "study_id": "study-material-seam",
       "tests_uncertainty": "Whether spatial inspection is more useful than a persistent proof rail.",
       "recommended": false,
@@ -98,7 +100,7 @@
       "tradeoff": "More deliberate scanning.",
       "anti_reference": "No black-neon terminal counter-default.",
       "fidelity_level": "board-v1",
-      "slop_report": {"path": ".continuity/private/design/slop/concept-b.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.0.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
+      "slop_report": {"path": ".continuity/private/design/slop/concept-b.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.3.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
     }
   ],
   "creative_range": {

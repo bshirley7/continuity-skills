@@ -131,6 +131,39 @@ CREATIVE_DISTANCE_DIMENSIONS = {
     "organizing-idea", "primary-carrier", "emotional-register", "material-system",
     "typography-behavior", "imagery-behavior", "motion-model", "voice", "responsive-transformation",
 }
+REFERENCE_CONSTRAINT_DIMENSIONS = {
+    "composition", "scale", "negative-space", "typography", "media", "material",
+    "color", "motion", "interaction", "content-structure", "responsive-transformation",
+}
+REFERENCE_REQUIRED_DIMENSIONS = {
+    "composition", "scale", "negative-space", "typography", "media", "responsive-transformation",
+}
+REFERENCE_MEDIA_STRATEGIES = {"generated", "project-owned", "supplied-with-rights", "code-native", "mixed"}
+REFERENCE_FIDELITY_CHECKS = (
+    "reference_mechanics_preserved", "project_identity_distinct", "material_fidelity",
+    "template_distance", "declared_visible",
+)
+REFERENCE_REVIEW_QUESTIONS = (
+    "salience_order", "spatial_tension", "typography_role", "media_dominance",
+    "mechanic_lineage", "project_distinction", "responsive_fidelity", "variable_contrast",
+)
+REFERENCE_CLASSES = {"photographic", "diagrammatic", "editorial", "motion-led", "product-object", "mixed"}
+REFERENCE_CLASS_THRESHOLDS = {
+    "photographic": {"crop-fidelity", "media-transition", "responsive-crop"},
+    "diagrammatic": {"information-density", "relationship-topology", "label-hierarchy"},
+    "editorial": {"reading-order", "typographic-rhythm", "material-texture"},
+    "motion-led": {"timing-model", "state-transition", "static-fallback"},
+    "product-object": {"object-salience", "material-detail", "responsive-object-behavior"},
+    "mixed": {"dominant-medium", "cross-medium-hierarchy", "responsive-medium-priority"},
+}
+ADAPTATION_DISTANCE_DIMENSIONS = {
+    "composition", "color", "typography", "media-role", "responsive-behavior", "interaction",
+}
+ADAPTATION_DISTANCE_ROLES = {"close-study", "far-study", "experimental-study"}
+PORTFOLIO_FINGERPRINT_DIMENSIONS = {
+    "palette-family", "typography-family", "composition-family", "label-style",
+    "status-mark-style", "signature-language", "material-system", "section-rhythm",
+}
 ASSET_RESOLUTION_STATUSES = {"resolved", "deliberately-omitted", "blocked"}
 ASSET_SOURCES = {"existing", "supplied", "generated", "derived", "deliberately-omitted"}
 ARTIFACT_MEDIA_TYPES = {
@@ -635,7 +668,7 @@ def _validate_reference_decomposition(value: Any) -> list[dict[str, Any]]:
     return normalized
 
 
-def _validate_research_record(value: Any, root: Path) -> dict[str, Any]:
+def _validate_research_record(value: Any, root: Path, *, precision: bool = False) -> dict[str, Any]:
     if value is None:
         return {"mode": "offline", "status": "not-started", "announced": False, "opt_out_offered": False, "moodboard": []}
     if not isinstance(value, dict) or value.get("mode") not in RESEARCH_MODES or value.get("status") not in RESEARCH_STATUSES:
@@ -672,8 +705,28 @@ def _validate_research_record(value: Any, root: Path) -> dict[str, Any]:
         ownership = tile.get("ownership", "third-party")
         if ownership not in VISUAL_REFERENCE_OWNERSHIP:
             raise DesignError("Moodboard tile ownership is invalid")
-        if tile.get("prohibited_copying") is not True:
-            raise DesignError("Every moodboard tile must explicitly prohibit copying")
+        copy_candidates = tile.get("copy_candidates", [])
+        shipping_boundary = tile.get("shipping_boundary", "")
+        if precision:
+            if not isinstance(copy_candidates, list) or not copy_candidates:
+                raise DesignError(f"Moodboard tile {tile['tile']} must identify specific details to copy privately and adapt")
+            if not isinstance(shipping_boundary, str) or not shipping_boundary.strip():
+                raise DesignError(f"Moodboard tile {tile['tile']} requires a shipping boundary")
+            if tile.get("shipping_copy_prohibited") is not True:
+                raise DesignError(f"Moodboard tile {tile['tile']} must keep source identity and pixels out of shipping work")
+        elif tile.get("prohibited_copying") is not True:
+            raise DesignError("Legacy moodboard tiles must explicitly prohibit copying")
+        normalized_candidates: list[dict[str, str]] = []
+        candidate_ids: set[str] = set()
+        for candidate in copy_candidates:
+            if not isinstance(candidate, dict):
+                raise DesignError(f"Moodboard tile {tile['tile']} copy candidates must be objects")
+            detail_id = _identifier(str(candidate.get("detail_id", "")), "moodboard copy detail ID")
+            fields = ("detail", "source_location", "private_copy_action", "project_adaptation", "shipping_transformation")
+            if detail_id in candidate_ids or any(not isinstance(candidate.get(field), str) or not candidate[field].strip() for field in fields):
+                raise DesignError(f"Moodboard tile {tile['tile']} copy candidates require unique IDs and a complete adaptation path")
+            normalized_candidates.append({"detail_id": detail_id, **{field: candidate[field].strip() for field in fields}})
+            candidate_ids.add(detail_id)
         if ownership == "third-party" and tile.get("publishable", False):
             raise DesignError("Third-party moodboard tiles cannot be publishable")
         local_path = str(tile.get("local_path", "")).strip()
@@ -693,7 +746,9 @@ def _validate_research_record(value: Any, root: Path) -> dict[str, Any]:
             "tile": tile["tile"], "source": tile["source"].strip(), "captured_at": tile["captured_at"].strip(),
             "intended_lesson": tile["intended_lesson"].strip(), "axis": tile["axis"].strip(),
             "project_mechanic": tile["project_mechanic"].strip(),
-            "ownership": ownership, "prohibited_copying": True, "publishable": bool(tile.get("publishable", False)),
+            "copy_candidates": normalized_candidates, "shipping_boundary": shipping_boundary.strip(),
+            "ownership": ownership, "prohibited_copying": bool(tile.get("prohibited_copying", not precision)),
+            "shipping_copy_prohibited": bool(tile.get("shipping_copy_prohibited", precision)), "publishable": bool(tile.get("publishable", False)),
             "local_path": local_path, "sha256": visual_hash,
         })
         seen.add(tile["tile"])
@@ -2148,15 +2203,16 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     _enabled(config)
     payload = _read_json(input_path)
     requested_workflow = payload.get("workflow_version", 1)
-    if requested_workflow not in {1, 2}:
-        raise DesignError("workflow_version must be 1 or 2")
-    creative_director_workflow = requested_workflow == 2
+    if requested_workflow not in {1, 2, 3}:
+        raise DesignError("workflow_version must be 1, 2, or 3")
+    creative_director_workflow = requested_workflow >= 2
+    reference_translation_workflow = requested_workflow >= 3
     v2_fields = {
         "collaboration_profile", "specialization", "research", "reference_decomposition",
         "generative_exploration", "concept_presentation_mode", "rejected_decisions",
     }
     if not creative_director_workflow and v2_fields.intersection(payload):
-        raise DesignError("Creative-director fields require explicit workflow_version 2")
+        raise DesignError("Creative-director fields require explicit workflow_version 2 or 3")
     for key in ("title", "intent"):
         if not isinstance(payload.get(key), str) or not payload[key].strip():
             raise DesignError(f"Design input requires {key}")
@@ -2216,7 +2272,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         raise DesignError(f"Unknown targets: {sorted(set(payload['targets']) - TARGETS)}")
     payload["collaboration_profile"] = _infer_collaboration_profile(payload)
     payload["specialization"] = _infer_specialization(payload)
-    payload["research"] = _validate_research_record(payload.get("research"), root)
+    payload["research"] = _validate_research_record(payload.get("research"), root, precision=requested_workflow >= 3)
     payload["reference_decomposition"] = _validate_reference_decomposition(payload.get("reference_decomposition"))
     if creative_director_workflow and "generative_exploration" not in payload:
         raise DesignError("Creative-director workflow requires an explicit generative_exploration record")
@@ -2266,7 +2322,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     if payload["concept_presentation_mode"] is None:
         payload["concept_presentation_mode"] = "equal-directions" if count > 1 and bool(payload["open_questions"]) else "director-led"
     if creative_director_workflow and supplied is None:
-        raise DesignError("Creative-director workflow v2 requires agent-authored project-specific directions")
+        raise DesignError("Creative-director workflow requires agent-authored project-specific directions")
     if creative_director_workflow and payload["concept_presentation_mode"] == "director-led" and count != 1:
         raise DesignError("Director-led workflow requires one selectable direction; contrast studies belong in concept evidence")
     if creative_director_workflow and payload["concept_presentation_mode"] == "equal-directions" and count < 2:
@@ -2330,11 +2386,11 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
             deduped_rejections.append(item)
             seen_rejections.add(key)
     record = {
-        "schema_version": 2 if creative_director_workflow else 1,
-        "workflow_version": 2 if creative_director_workflow else 1,
+        "schema_version": requested_workflow,
+        "workflow_version": requested_workflow,
         "design_id": design_id,
         "revision": revision,
-        "status": "developing-concepts" if creative_director_workflow else "awaiting-selection",
+        "status": "developing-reference-translations" if reference_translation_workflow else ("developing-concepts" if creative_director_workflow else "awaiting-selection"),
         "title": payload["title"].strip(),
         "intent": payload["intent"].strip(),
         "collaboration_profile": payload["collaboration_profile"],
@@ -2345,6 +2401,7 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         "generative_exploration": payload["generative_exploration"],
         "concept_presentation_mode": payload["concept_presentation_mode"],
         "concept_evidence": None,
+        "reference_translation": None,
         "feedback_rounds": carried_feedback,
         "decision_register": carried_decisions,
         "rejected_decisions": deduped_rejections,
@@ -2800,6 +2857,8 @@ def select(root: Path, config: dict[str, Any], design_id: str, direction_ids: li
             "slop_ruleset_version": record["slop_ruleset_version"],
             "slop_ruleset_hash": record["slop_ruleset_hash"],
         }
+        if record.get("workflow_version", 1) >= 3:
+            bundle["reference_translation_hash"] = record["concept_evidence"].get("reference_translation_hash")
         update.update({"approval_bundle": bundle, "approval_bundle_hash": _canonical_hash(bundle), "prototype_slop_evidence": None})
     record.update(update)
     _write_json(design_dir / "draft.json", record)
@@ -2880,9 +2939,11 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
             "slop_ruleset_hash": record["slop_ruleset_hash"],
             "prototype_slop_evidence": record["prototype_slop_evidence"],
         })
+        if record.get("workflow_version", 1) >= 3:
+            approval["reference_translation_hash"] = record["approval_bundle"].get("reference_translation_hash")
     _write_json(design_dir / "approval.json", approval)
     shared = {key: approval[key] for key in ("schema_version", "design_id", "revision", "design_hash", "approved_by", "approved_at", "execution_authorized")}
-    for key in ("visual_reference_hash", "approval_bundle_hash", "slop_ruleset_version", "slop_ruleset_hash"):
+    for key in ("visual_reference_hash", "approval_bundle_hash", "reference_translation_hash", "slop_ruleset_version", "slop_ruleset_hash"):
         if key in approval:
             shared[key] = approval[key]
     selected = [item for item in record["directions"] if item["direction_id"] in record["selected_direction_ids"]]
@@ -2922,6 +2983,7 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         "decision_register": record.get("decision_register", []),
         "rejected_decisions": record.get("rejected_decisions", []),
         "concept_evidence": record.get("concept_evidence"),
+        "reference_translation": record.get("reference_translation"),
         "slop_ruleset_version": record.get("slop_ruleset_version"),
     })
     shared.update({"status": "approved", "document_path": "docs/design/design.md", "visual_references": approved_references, "catalog_packs": record["catalog_packs"], "alignment_contract": alignment_contract})
@@ -2945,6 +3007,8 @@ def show(root: Path, config: dict[str, Any], design_id: str | None = None) -> di
 def workflow(root: Path, config: dict[str, Any], design_id: str) -> dict[str, Any]:
     record = show(root, config, design_id)
     status = record.get("status")
+    if status == "developing-reference-translations":
+        return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": False, "allowed_actions": ["rebuild-reference-mechanics", "compile-transfer-constraints", "render-project-adaptations", "validate-reference-translation"], "execution_authorized": False}
     if status == "developing-concepts":
         return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": False, "allowed_actions": ["render-visual-evidence", "run-concept-slop-checks", "validate-concept-set"], "execution_authorized": False}
     if status in {"awaiting-feedback", "refining"}:
@@ -2969,7 +3033,7 @@ def bind_approved(root: Path, config: dict[str, Any], design_ids: list[str]) -> 
     if not document.is_file() or hashlib.sha256(document.read_bytes()).hexdigest() != record["design_hash"]:
         raise DesignError("Approved design document does not match its recorded hash")
     binding = {"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"], "alignment_contract": record.get("alignment_contract", {})}
-    for key in ("approval_bundle_hash", "visual_reference_hash", "slop_ruleset_version", "slop_ruleset_hash"):
+    for key in ("approval_bundle_hash", "visual_reference_hash", "reference_translation_hash", "slop_ruleset_version", "slop_ruleset_hash"):
         if key in record:
             binding[key] = record[key]
     return [binding]
@@ -3283,6 +3347,510 @@ def _verified_browser_probe(root: Path, value: Any, viewport: str, screenshot_wi
     return {"viewport": viewport, "path": relative, "sha256": actual_hash, "schema_version": 2, "status": "passed"}
 
 
+def _verified_reference_file(root: Path, value: Any, label: str, suffixes: set[str]) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise DesignError(f"{label} requires hash-bound file evidence")
+    relative, path = _artifact_relative_path(root, value.get("path"))
+    actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+    if path.suffix.lower() not in suffixes or not actual or value.get("sha256") != actual:
+        raise DesignError(f"{label} is missing or changed: {relative}")
+    return {"path": relative, "sha256": actual}
+
+
+def _verified_reference_visual(root: Path, value: Any, label: str, role: str) -> dict[str, Any]:
+    result = _verified_reference_file(root, value, label, {".png"})
+    _, path = _artifact_relative_path(root, result["path"])
+    width, height = _png_dimensions(path)
+    if height < 1 or (role == "wide" and width < 1100) or (role == "narrow" and width >= 600):
+        raise DesignError(f"{label} has the wrong viewport role: {result['path']}")
+    return {**result, "width": width, "height": height}
+
+
+def portfolio_validate(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    """Validate private prior-output fingerprints used to resist Continuity house-style convergence."""
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    if manifest.get("schema_version") != 1 or manifest.get("status") != "passed":
+        raise DesignError("Design portfolio review requires schema_version 1 with passed status")
+    for field in ("portfolio_id", "reviewer", "reviewed_at", "conclusion"):
+        if not isinstance(manifest.get(field), str) or not manifest[field].strip():
+            raise DesignError(f"Design portfolio review requires {field}")
+    generations = manifest.get("generations")
+    if not isinstance(generations, list) or len(generations) > 20:
+        raise DesignError("Design portfolio review requires zero to twenty prior generations")
+    normalized_generations: list[dict[str, Any]] = []
+    generation_ids: set[str] = set()
+    artifact_hashes: set[str] = set()
+    for item in generations:
+        if not isinstance(item, dict):
+            raise DesignError("Portfolio generations must be objects")
+        generation_id = _identifier(str(item.get("generation_id", "")), "portfolio generation ID")
+        if generation_id in generation_ids:
+            raise DesignError("Portfolio generation IDs must be unique")
+        for field in ("reference_identity", "concept_name"):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise DesignError(f"Portfolio generation {generation_id} requires {field}")
+        impact = item.get("impact_score")
+        if not isinstance(impact, (int, float)) or not 0 <= impact <= 5:
+            raise DesignError(f"Portfolio generation {generation_id} impact_score must be between zero and five")
+        artifact = _verified_reference_visual(root, item.get("artifact"), f"Portfolio generation {generation_id}", "wide")
+        if artifact["sha256"] in artifact_hashes:
+            raise DesignError("Portfolio generations require distinct visual evidence")
+        fingerprint = item.get("fingerprint")
+        if not isinstance(fingerprint, dict) or set(fingerprint) != PORTFOLIO_FINGERPRINT_DIMENSIONS:
+            raise DesignError(f"Portfolio generation {generation_id} requires every fingerprint dimension")
+        if any(not isinstance(value, str) or not value.strip() for value in fingerprint.values()):
+            raise DesignError(f"Portfolio generation {generation_id} fingerprint values must be non-empty")
+        normalized_generations.append({
+            "generation_id": generation_id,
+            "reference_identity": item["reference_identity"].strip(),
+            "concept_name": item["concept_name"].strip(),
+            "impact_score": float(impact),
+            "artifact": artifact,
+            "fingerprint": {key: fingerprint[key].strip() for key in sorted(PORTFOLIO_FINGERPRINT_DIMENSIONS)},
+        })
+        generation_ids.add(generation_id)
+        artifact_hashes.add(artifact["sha256"])
+    audit_window = manifest.get("audit_window")
+    if not isinstance(audit_window, dict) or set(audit_window) != {"first_generation_index", "last_generation_index", "runs_since_last_audit"}:
+        raise DesignError("Design portfolio review requires an exact audit_window")
+    if any(not isinstance(audit_window.get(key), int) or audit_window[key] < 0 for key in audit_window):
+        raise DesignError("Design portfolio audit-window values must be non-negative integers")
+    if generations and (
+        audit_window["first_generation_index"] < 1
+        or audit_window["last_generation_index"] < audit_window["first_generation_index"]
+        or audit_window["runs_since_last_audit"] < 1
+        or audit_window["runs_since_last_audit"] > 4
+    ):
+        raise DesignError("Portfolio reviews must run at least every four generations")
+    recurring = manifest.get("recurring_tells")
+    if not isinstance(recurring, list):
+        raise DesignError("Design portfolio review recurring_tells must be an array")
+    if len(generations) >= 3 and not recurring:
+        raise DesignError("Portfolios with three or more generations must identify recurring house tells")
+    normalized_tells: list[dict[str, Any]] = []
+    tell_ids: set[str] = set()
+    for item in recurring:
+        if not isinstance(item, dict):
+            raise DesignError("Recurring house tells must be objects")
+        tell_id = _identifier(str(item.get("tell_id", "")), "house tell ID")
+        dimension = item.get("dimension")
+        members = item.get("generation_ids")
+        if tell_id in tell_ids or dimension not in PORTFOLIO_FINGERPRINT_DIMENSIONS:
+            raise DesignError("Recurring house tells require unique IDs and supported dimensions")
+        if not isinstance(members, list) or len(set(members)) < 2 or not set(members) <= generation_ids:
+            raise DesignError(f"House tell {tell_id} must cite at least two known prior generations")
+        for field in ("value", "description", "default_response"):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise DesignError(f"House tell {tell_id} requires {field}")
+        if any(next(entry for entry in normalized_generations if entry["generation_id"] == member)["fingerprint"][dimension] != item["value"] for member in members):
+            raise DesignError(f"House tell {tell_id} does not match the cited generation fingerprints")
+        normalized_tells.append({
+            "tell_id": tell_id, "dimension": dimension, "value": item["value"].strip(),
+            "description": item["description"].strip(), "generation_ids": members,
+            "default_response": item["default_response"].strip(),
+        })
+        tell_ids.add(tell_id)
+    strongest = manifest.get("strongest_prior_generation_id")
+    if normalized_generations:
+        if strongest not in generation_ids:
+            raise DesignError("Design portfolio review must identify the strongest prior generation")
+        strongest_score = next(item["impact_score"] for item in normalized_generations if item["generation_id"] == strongest)
+        if strongest_score != max(item["impact_score"] for item in normalized_generations):
+            raise DesignError("The strongest prior generation must have the portfolio's highest impact score")
+    elif strongest is not None:
+        raise DesignError("An empty portfolio cannot claim a strongest prior generation")
+    normalized = {
+        "schema_version": 1, "status": "passed", "portfolio_id": manifest["portfolio_id"].strip(),
+        "reviewer": manifest["reviewer"].strip(), "reviewed_at": manifest["reviewed_at"].strip(),
+        "conclusion": manifest["conclusion"].strip(), "audit_window": audit_window,
+        "generations": normalized_generations, "recurring_tells": normalized_tells,
+        "strongest_prior_generation_id": strongest, "validated_at": _now(),
+    }
+    normalized["report_hash"] = _canonical_hash(normalized)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "portfolio" / f"{normalized['report_hash']}.json"
+    _write_json(root / relative, normalized)
+    return {
+        "schema_version": 1, "status": "passed", "portfolio_id": normalized["portfolio_id"],
+        "generation_count": len(normalized_generations), "recurring_tell_count": len(normalized_tells),
+        "strongest_prior_generation_id": strongest, "portfolio_report_hash": normalized["report_hash"],
+        "report_path": relative.as_posix(), "execution_authorized": False,
+    }
+
+
+def _verified_portfolio_report(root: Path, value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError("Concept evidence requires a portfolio report reference")
+    relative, path = _artifact_relative_path(root, value.get("path"))
+    if not path.is_file():
+        raise DesignError("Concept portfolio report is missing")
+    report = _read_json(path)
+    actual_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    actual_hash = _canonical_hash({key: item for key, item in report.items() if key != "report_hash"})
+    if (
+        value.get("sha256") != actual_sha
+        or value.get("report_hash") != report.get("report_hash")
+        or report.get("report_hash") != actual_hash
+        or report.get("status") != "passed"
+    ):
+        raise DesignError("Concept portfolio report is stale or invalid")
+    return {"path": relative, "sha256": actual_sha, "report_hash": actual_hash, "report": report}
+
+
+def reference_validate(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    """Validate a precision-first reconstruction and controlled project adaptation ladder."""
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    if manifest.get("schema_version") != 2 or manifest.get("status") != "passed":
+        raise DesignError("Reference translation requires precision schema_version 2 with passed status")
+    design_id = _identifier(str(manifest.get("design_id", "")), "design ID")
+    design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
+    record = _read_json(design_dir / "draft.json")
+    if record.get("workflow_version", 1) < 3:
+        raise DesignError("Reference reconstruction requires workflow_version 3")
+    if manifest.get("revision") != record.get("revision"):
+        raise DesignError("Reference translation revision does not match the current draft")
+    for field in ("prepared_by", "reviewer", "reviewed_at", "set_conclusion"):
+        if not isinstance(manifest.get(field), str) or not manifest[field].strip():
+            raise DesignError(f"Reference translation requires {field}")
+    if manifest["prepared_by"].strip().casefold() == manifest["reviewer"].strip().casefold():
+        raise DesignError("Reference translation requires an independent reviewer distinct from its preparer")
+    if manifest.get("reviewer_type") not in IMPACT_REVIEWER_TYPES:
+        raise DesignError("Reference translation requires a human or agent-multimodal reviewer")
+
+    research_tiles = {item["tile"] for item in record.get("research", {}).get("moodboard", []) if isinstance(item, dict) and isinstance(item.get("tile"), int)}
+    studies = manifest.get("reference_studies")
+    if not isinstance(studies, list) or not 1 <= len(studies) <= 3:
+        raise DesignError("Reference translation requires one to three reconstructed reference studies")
+    normalized_studies: list[dict[str, Any]] = []
+    study_ids: set[str] = set()
+    constraint_by_id: dict[str, str] = {}
+    reconstruction_visual_hashes: set[str] = set()
+    for study in studies:
+        if not isinstance(study, dict):
+            raise DesignError("Reference studies must be objects")
+        study_id = _identifier(str(study.get("study_id", "")), "reference study ID")
+        if study_id in study_ids:
+            raise DesignError("Reference study IDs must be unique")
+        tile_ids = study.get("source_tile_ids", [])
+        if not isinstance(tile_ids, list) or len(set(tile_ids)) != len(tile_ids) or any(not isinstance(item, int) or item < 1 for item in tile_ids):
+            raise DesignError(f"Reference study {study_id} source_tile_ids must be unique positive integers")
+        if research_tiles and (not tile_ids or not set(tile_ids) <= research_tiles):
+            raise DesignError(f"Reference study {study_id} must link to known moodboard tiles")
+        source_identity = study.get("source_identity")
+        if not isinstance(source_identity, str) or not source_identity.strip():
+            raise DesignError(f"Reference study {study_id} requires one named source identity")
+        source_evidence = study.get("source_evidence")
+        if not isinstance(source_evidence, list) or len(source_evidence) != 2:
+            raise DesignError(f"Reference study {study_id} requires exact wide and narrow captures of one source identity")
+        normalized_sources: list[dict[str, Any]] = []
+        source_roles: set[str] = set()
+        source_ids: set[str] = set()
+        for source in source_evidence:
+            if not isinstance(source, dict) or source.get("ownership") not in VISUAL_REFERENCE_OWNERSHIP:
+                raise DesignError(f"Reference study {study_id} source evidence requires ownership")
+            role = source.get("viewport_role")
+            source_id = source.get("source_id")
+            if role not in {"wide", "narrow"} or not isinstance(source_id, str) or not source_id.strip():
+                raise DesignError(f"Reference study {study_id} source evidence requires source_id and wide or narrow viewport_role")
+            artifact = _verified_reference_visual(root, source, f"Reference study {study_id} {role} source", role)
+            publishable = bool(source.get("publishable", False))
+            if source["ownership"] == "third-party" and publishable:
+                raise DesignError("Third-party reference evidence must remain private and non-publishable")
+            normalized_sources.append({**artifact, "source_id": source_id.strip(), "viewport_role": role, "ownership": source["ownership"], "publishable": publishable})
+            source_roles.add(role)
+            source_ids.add(source_id.strip())
+        if source_roles != {"wide", "narrow"} or len(source_ids) != 1:
+            raise DesignError(f"Reference study {study_id} cannot hybridize multiple sources and must capture both target viewports")
+        reference_class = study.get("reference_class")
+        difficulty_evidence = study.get("difficulty_evidence")
+        if reference_class not in REFERENCE_CLASSES or not isinstance(difficulty_evidence, list):
+            raise DesignError(f"Reference study {study_id} requires a supported reference_class and difficulty evidence")
+        expected_difficulty = set(REFERENCE_CLASS_THRESHOLDS[reference_class])
+        if {item.get("threshold") for item in difficulty_evidence if isinstance(item, dict)} != expected_difficulty:
+            raise DesignError(f"Reference study {study_id} must pass every {reference_class} difficulty threshold")
+        normalized_difficulty: list[dict[str, str]] = []
+        for item in difficulty_evidence:
+            if (
+                item.get("status") != "pass"
+                or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("finding", "evidence_region"))
+            ):
+                raise DesignError(f"Reference study {study_id} difficulty evidence must be passing and visually located")
+            normalized_difficulty.append({
+                "threshold": item["threshold"], "status": "pass",
+                "finding": item["finding"].strip(), "evidence_region": item["evidence_region"].strip(),
+            })
+        copy_ledger = study.get("copy_adaptation_ledger")
+        if not isinstance(copy_ledger, list) or len(copy_ledger) < 3:
+            raise DesignError(f"Reference study {study_id} requires at least three concrete copy-to-adaptation decisions")
+        normalized_copy_ledger: list[dict[str, str]] = []
+        copied_detail_ids: set[str] = set()
+        for item in copy_ledger:
+            if not isinstance(item, dict):
+                raise DesignError(f"Reference study {study_id} copy ledger entries must be objects")
+            detail_id = _identifier(str(item.get("detail_id", "")), "reference copy detail ID")
+            fields = ("detail", "source_location", "private_copy_action", "project_adaptation", "shipping_boundary")
+            if detail_id in copied_detail_ids or any(not isinstance(item.get(field), str) or not item[field].strip() for field in fields):
+                raise DesignError(f"Reference study {study_id} copy ledger requires unique IDs and a complete private-to-shipping path")
+            normalized_copy_ledger.append({"detail_id": detail_id, **{field: item[field].strip() for field in fields}})
+            copied_detail_ids.add(detail_id)
+        reconstruction = study.get("reconstruction")
+        if not isinstance(reconstruction, dict):
+            raise DesignError(f"Reference study {study_id} requires a responsive HTML reconstruction")
+        html_artifact = _verified_reference_file(root, reconstruction.get("html"), f"Reference study {study_id} reconstruction", {".html", ".htm"})
+        wide = _verified_reference_visual(root, reconstruction.get("wide"), f"Reference study {study_id} wide reconstruction", "wide")
+        narrow = _verified_reference_visual(root, reconstruction.get("narrow"), f"Reference study {study_id} narrow reconstruction", "narrow")
+        if wide["sha256"] in reconstruction_visual_hashes or narrow["sha256"] in reconstruction_visual_hashes:
+            raise DesignError("Every reference reconstruction requires distinct wide and narrow visual evidence")
+        reconstruction_visual_hashes.update({wide["sha256"], narrow["sha256"]})
+        correction_passes = study.get("correction_passes")
+        if not isinstance(correction_passes, list) or len(correction_passes) < 2:
+            raise DesignError(f"Reference study {study_id} requires at least two visual-difference correction passes")
+        normalized_passes: list[dict[str, Any]] = []
+        for index, correction in enumerate(correction_passes, 1):
+            expected_status = "passed" if index == len(correction_passes) else "changes-required"
+            if not isinstance(correction, dict) or correction.get("pass_number") != index or correction.get("status") != expected_status:
+                raise DesignError(f"Reference study {study_id} correction passes must be sequential and end in passed status")
+            findings = correction.get("findings")
+            changes = correction.get("changes")
+            if (
+                not isinstance(findings, list) or not findings
+                or not isinstance(changes, list) or not changes
+                or any(not isinstance(item, dict) or not all(isinstance(item.get(field), str) and item[field].strip() for field in ("dimension", "evidence_region", "finding", "correction")) for item in findings)
+                or any(not isinstance(item, str) or not item.strip() for item in changes)
+            ):
+                raise DesignError(f"Reference study {study_id} correction pass {index} requires located findings and applied changes")
+            normalized_passes.append({
+                "pass_number": index, "status": expected_status,
+                "combined_wide": _verified_reference_visual(root, correction.get("combined_wide"), f"Reference study {study_id} pass {index} wide comparison", "wide"),
+                "combined_narrow": _verified_reference_visual(root, correction.get("combined_narrow"), f"Reference study {study_id} pass {index} narrow comparison", "narrow"),
+                "findings": [{field: item[field].strip() for field in ("dimension", "evidence_region", "finding", "correction")} for item in findings],
+                "changes": [item.strip() for item in changes],
+            })
+        salience = study.get("salience_order")
+        if not isinstance(salience, list) or len(salience) != 3 or {item.get("rank") for item in salience if isinstance(item, dict)} != {1, 2, 3}:
+            raise DesignError(f"Reference study {study_id} requires an exact three-element salience comparison")
+        normalized_salience: list[dict[str, Any]] = []
+        for item in sorted(salience, key=lambda entry: entry["rank"]):
+            if item.get("result") != "pass" or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("source_element", "reconstruction_element", "evidence_region")):
+                raise DesignError(f"Reference study {study_id} salience order must visibly match")
+            normalized_salience.append({"rank": item["rank"], "result": "pass", **{field: item[field].strip() for field in ("source_element", "reconstruction_element", "evidence_region")}})
+        constraints = study.get("constraints")
+        if not isinstance(constraints, list) or len(constraints) < 8:
+            raise DesignError(f"Reference study {study_id} requires at least eight measured design-grammar constraints")
+        normalized_constraints: list[dict[str, Any]] = []
+        dimensions: set[str] = set()
+        for constraint in constraints:
+            if not isinstance(constraint, dict):
+                raise DesignError(f"Reference study {study_id} constraints must be objects")
+            constraint_id = _identifier(str(constraint.get("constraint_id", "")), "reference constraint ID")
+            dimension = constraint.get("dimension")
+            if constraint_id in constraint_by_id or dimension not in REFERENCE_CONSTRAINT_DIMENSIONS or dimension in dimensions:
+                raise DesignError("Reference constraints require globally unique IDs and distinct supported dimensions per study")
+            fields = ("observation", "invariant", "measurable_rule", "project_mapping", "allowed_variance", "prohibited_copying", "source_location", "reconstruction_location")
+            if any(not isinstance(constraint.get(field), str) or not constraint[field].strip() for field in fields):
+                raise DesignError(f"Reference constraint {constraint_id} requires located source and reconstruction evidence")
+            metric = constraint.get("metric")
+            if (
+                not isinstance(metric, dict)
+                or not isinstance(metric.get("name"), str) or not metric["name"].strip()
+                or not isinstance(metric.get("unit"), str) or not metric["unit"].strip()
+                or any(not isinstance(metric.get(field), (int, float)) for field in ("source_value", "reconstruction_value", "tolerance"))
+                or metric["tolerance"] < 0
+                or abs(metric["source_value"] - metric["reconstruction_value"]) > metric["tolerance"]
+                or metric.get("status") != "pass"
+            ):
+                raise DesignError(f"Reference constraint {constraint_id} requires a passing numeric source-to-reconstruction measurement")
+            normalized_constraints.append({"constraint_id": constraint_id, "dimension": dimension, **{field: constraint[field].strip() for field in fields}, "metric": {"name": metric["name"].strip(), "unit": metric["unit"].strip(), "source_value": metric["source_value"], "reconstruction_value": metric["reconstruction_value"], "tolerance": metric["tolerance"], "status": "pass"}})
+            constraint_by_id[constraint_id] = study_id
+            dimensions.add(dimension)
+        if not REFERENCE_REQUIRED_DIMENSIONS <= dimensions or not ({"interaction", "motion"} & dimensions):
+            raise DesignError(f"Reference study {study_id} must measure core spatial, typographic, media, responsive, and motion or interaction grammar")
+        normalized_studies.append({
+            "study_id": study_id, "source_identity": source_identity.strip(), "source_tile_ids": tile_ids, "source_evidence": normalized_sources,
+            "reference_class": reference_class, "difficulty_evidence": normalized_difficulty,
+            "reconstruction": {"html": html_artifact, "wide": wide, "narrow": narrow},
+            "copy_adaptation_ledger": normalized_copy_ledger,
+            "correction_passes": normalized_passes, "salience_order": normalized_salience, "constraints": normalized_constraints,
+        })
+        study_ids.add(study_id)
+
+    adaptations = manifest.get("adaptations")
+    if not isinstance(adaptations, list) or not 2 <= len(adaptations) <= 3:
+        raise DesignError("Reference translation requires two or three Continuity adaptation studies")
+    normalized_adaptations: list[dict[str, Any]] = []
+    adaptation_ids: set[str] = set()
+    adaptation_visual_hashes: set[str] = set()
+    adaptation_distance_roles: set[str] = set()
+    for adaptation in adaptations:
+        if not isinstance(adaptation, dict):
+            raise DesignError("Reference adaptations must be objects")
+        adaptation_id = _identifier(str(adaptation.get("adaptation_id", "")), "reference adaptation ID")
+        if adaptation_id in adaptation_ids:
+            raise DesignError("Reference adaptation IDs must be unique")
+        linked_studies = adaptation.get("study_ids")
+        if not isinstance(linked_studies, list) or len(linked_studies) != 1 or not set(linked_studies) <= study_ids:
+            raise DesignError(f"Reference adaptation {adaptation_id} requires one exact primary study; cross-source synthesis belongs after literal substitution")
+        html_artifact = _verified_reference_file(root, adaptation.get("html"), f"Reference adaptation {adaptation_id}", {".html", ".htm"})
+        wide = _verified_reference_visual(root, adaptation.get("wide"), f"Reference adaptation {adaptation_id} wide evidence", "wide")
+        narrow = _verified_reference_visual(root, adaptation.get("narrow"), f"Reference adaptation {adaptation_id} narrow evidence", "narrow")
+        if wide["sha256"] in adaptation_visual_hashes or narrow["sha256"] in adaptation_visual_hashes:
+            raise DesignError("Every reference adaptation requires distinct wide and narrow visual evidence")
+        adaptation_visual_hashes.update({wide["sha256"], narrow["sha256"]})
+        expected_constraints = {constraint_id for constraint_id, owner in constraint_by_id.items() if owner in linked_studies}
+        literal = adaptation.get("literal_substitution")
+        if not isinstance(literal, dict) or literal.get("study_id") not in linked_studies:
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a literal substitution baseline from one linked source")
+        literal_html = _verified_reference_file(root, literal.get("html"), f"Reference adaptation {adaptation_id} literal substitution", {".html", ".htm"})
+        literal_wide = _verified_reference_visual(root, literal.get("wide"), f"Reference adaptation {adaptation_id} literal wide evidence", "wide")
+        literal_narrow = _verified_reference_visual(root, literal.get("narrow"), f"Reference adaptation {adaptation_id} literal narrow evidence", "narrow")
+        mapping = literal.get("mapping")
+        if not isinstance(mapping, list) or {item.get("constraint_id") for item in mapping if isinstance(item, dict)} != expected_constraints:
+            raise DesignError(f"Reference adaptation {adaptation_id} literal substitution must map every linked constraint")
+        normalized_mapping: list[dict[str, str]] = []
+        for item in mapping:
+            fields = ("source_role", "project_replacement", "preserved_relationship", "source_location", "artifact_location")
+            if any(not isinstance(item.get(field), str) or not item[field].strip() for field in fields):
+                raise DesignError(f"Reference adaptation {adaptation_id} literal mappings require located role replacements")
+            normalized_mapping.append({"constraint_id": item["constraint_id"], **{field: item[field].strip() for field in fields}})
+        divergence = adaptation.get("controlled_divergence")
+        if not isinstance(divergence, dict):
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a controlled divergence ledger")
+        changes = divergence.get("changes")
+        if not isinstance(changes, list) or not 1 <= len(changes) <= 4:
+            raise DesignError(f"Reference adaptation {adaptation_id} must change one to four dimensions after literal substitution")
+        normalized_changes: list[dict[str, Any]] = []
+        changed_dimensions: set[str] = set()
+        for item in changes:
+            dimension = item.get("dimension") if isinstance(item, dict) else None
+            preserved = item.get("preserved_constraint_ids") if isinstance(item, dict) else None
+            if (
+                dimension not in REFERENCE_CONSTRAINT_DIMENSIONS or dimension in changed_dimensions
+                or not isinstance(preserved, list) or not preserved or not set(preserved) <= expected_constraints
+                or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("from", "to", "rationale"))
+            ):
+                raise DesignError(f"Reference adaptation {adaptation_id} divergence changes require unique dimensions and preserved constraints")
+            normalized_changes.append({"dimension": dimension, "from": item["from"].strip(), "to": item["to"].strip(), "rationale": item["rationale"].strip(), "preserved_constraint_ids": preserved})
+            changed_dimensions.add(dimension)
+        results = adaptation.get("constraint_results")
+        if not isinstance(results, list) or {item.get("constraint_id") for item in results if isinstance(item, dict)} != expected_constraints:
+            raise DesignError(f"Reference adaptation {adaptation_id} must disposition every linked formal constraint")
+        normalized_results: list[dict[str, str]] = []
+        for result in results:
+            if result.get("result") != "pass" or any(not isinstance(result.get(field), str) or not result[field].strip() for field in ("evidence", "artifact_location")):
+                raise DesignError(f"Reference adaptation {adaptation_id} constraint results require passing artifact evidence")
+            normalized_results.append({"constraint_id": result["constraint_id"], "result": "pass", "evidence": result["evidence"].strip(), "artifact_location": result["artifact_location"].strip()})
+        media = adaptation.get("media_strategy")
+        if not isinstance(media, dict) or media.get("source") not in REFERENCE_MEDIA_STRATEGIES or media.get("primitive_substitution") is not False:
+            raise DesignError(f"Reference adaptation {adaptation_id} cannot replace source-defining media with primitive CSS decoration")
+        if media.get("generated_media_disposition") not in {"retained", "translated", "not-applicable"} or not isinstance(media.get("rationale"), str) or not media["rationale"].strip():
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a generated-media disposition and rationale")
+        distance = adaptation.get("adaptation_distance")
+        if not isinstance(distance, dict) or distance.get("role") not in ADAPTATION_DISTANCE_ROLES:
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a close, far, or experimental distance role")
+        distance_dimensions = distance.get("dimensions")
+        if not isinstance(distance_dimensions, list) or {item.get("dimension") for item in distance_dimensions if isinstance(item, dict)} != ADAPTATION_DISTANCE_DIMENSIONS:
+            raise DesignError(f"Reference adaptation {adaptation_id} must measure every adaptation-distance dimension")
+        normalized_distance_dimensions: list[dict[str, Any]] = []
+        for item in distance_dimensions:
+            score = item.get("score")
+            if not isinstance(score, (int, float)) or not 0 <= score <= 1 or not isinstance(item.get("rationale"), str) or not item["rationale"].strip():
+                raise DesignError(f"Reference adaptation {adaptation_id} distance scores require a zero-to-one score and rationale")
+            normalized_distance_dimensions.append({"dimension": item["dimension"], "score": float(score), "rationale": item["rationale"].strip()})
+        total_score = sum(item["score"] for item in normalized_distance_dimensions) / len(normalized_distance_dimensions)
+        if not isinstance(distance.get("total_score"), (int, float)) or abs(distance["total_score"] - total_score) > 0.01:
+            raise DesignError(f"Reference adaptation {adaptation_id} distance total does not match its dimensions")
+        if distance["role"] == "close-study" and not 0.25 <= total_score <= 0.55:
+            raise DesignError(f"Reference adaptation {adaptation_id} close study must remain recognizably near the source")
+        if distance["role"] == "far-study" and (total_score < 0.55 or sum(item["score"] >= 0.5 for item in normalized_distance_dimensions) < 4):
+            raise DesignError(f"Reference adaptation {adaptation_id} far study must materially diverge in at least four dimensions")
+        review = adaptation.get("fidelity_review")
+        if not isinstance(review, dict) or review.get("status") != "passed" or any(review.get(check) != "pass" for check in REFERENCE_FIDELITY_CHECKS):
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a passed translation-fidelity review")
+        for field in ("strongest_transfer", "weakest_loss", "next_action"):
+            if not isinstance(review.get(field), str) or not review[field].strip():
+                raise DesignError(f"Reference adaptation {adaptation_id} fidelity review requires {field}")
+        normalized_adaptations.append({
+            "adaptation_id": adaptation_id, "study_ids": linked_studies, "html": html_artifact,
+            "wide": wide, "narrow": narrow, "constraint_results": normalized_results,
+            "literal_substitution": {"study_id": literal["study_id"], "html": literal_html, "wide": literal_wide, "narrow": literal_narrow, "mapping": normalized_mapping},
+            "controlled_divergence": {"changes": normalized_changes},
+            "media_strategy": {"source": media["source"], "primitive_substitution": False, "generated_media_disposition": media["generated_media_disposition"], "rationale": media["rationale"].strip()},
+            "adaptation_distance": {"role": distance["role"], "total_score": round(total_score, 4), "dimensions": normalized_distance_dimensions},
+            "fidelity_review": {"status": "passed", **{check: "pass" for check in REFERENCE_FIDELITY_CHECKS}, **{field: review[field].strip() for field in ("strongest_transfer", "weakest_loss", "next_action")}},
+        })
+        adaptation_ids.add(adaptation_id)
+        adaptation_distance_roles.add(distance["role"])
+
+    if not {"close-study", "far-study"} <= adaptation_distance_roles:
+        raise DesignError("Reference adaptation sets require both a close study and a materially far study")
+
+    comparison = manifest.get("comparison")
+    if not isinstance(comparison, dict):
+        raise DesignError("Reference translation requires a side-by-side comparison artifact")
+    normalized_comparison = {
+        "html": _verified_reference_file(root, comparison.get("html"), "Reference translation comparison", {".html", ".htm"}),
+        "wide": _verified_reference_visual(root, comparison.get("wide"), "Reference translation wide comparison", "wide"),
+        "narrow": _verified_reference_visual(root, comparison.get("narrow"), "Reference translation narrow comparison", "narrow"),
+    }
+    independent = manifest.get("independent_review")
+    if (
+        not isinstance(independent, dict)
+        or independent.get("status") != "passed"
+        or independent.get("method") != "combined-visual-comparison"
+        or independent.get("reviewer") != manifest["reviewer"]
+        or independent.get("reviewer_type") != manifest["reviewer_type"]
+        or independent.get("reviewed_at") != manifest["reviewed_at"]
+    ):
+        raise DesignError("Reference translation requires a passed independent combined-visual-comparison review")
+    questions = independent.get("questions")
+    if not isinstance(questions, dict) or set(questions) != set(REFERENCE_REVIEW_QUESTIONS):
+        raise DesignError("Independent reference review must answer every precision question")
+    normalized_questions: dict[str, dict[str, str]] = {}
+    for question in REFERENCE_REVIEW_QUESTIONS:
+        answer = questions[question]
+        if not isinstance(answer, dict) or answer.get("result") != "pass" or any(not isinstance(answer.get(field), str) or not answer[field].strip() for field in ("finding", "evidence_region")):
+            raise DesignError(f"Independent reference review question {question} requires passing located evidence")
+        normalized_questions[question] = {"result": "pass", "finding": answer["finding"].strip(), "evidence_region": answer["evidence_region"].strip()}
+    review_findings = independent.get("findings")
+    if not isinstance(review_findings, list) or not review_findings:
+        raise DesignError("Independent reference review must record at least one concrete correction finding")
+    normalized_review_findings: list[dict[str, str]] = []
+    for item in review_findings:
+        if (
+            not isinstance(item, dict) or item.get("disposition") != "resolved"
+            or item.get("severity") not in {"info", "warning", "error", "critical"}
+            or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("finding_id", "description", "evidence_region", "resolution"))
+        ):
+            raise DesignError("Independent reference review findings must be located and resolved before concept expansion")
+        normalized_review_findings.append({field: item[field].strip() for field in ("finding_id", "severity", "description", "evidence_region", "disposition", "resolution")})
+    normalized = {
+        "schema_version": 2, "status": "passed", "design_id": design_id, "revision": record["revision"],
+        "prepared_by": manifest["prepared_by"].strip(),
+        "reviewer_type": manifest["reviewer_type"], "reviewer": manifest["reviewer"].strip(),
+        "reviewed_at": manifest["reviewed_at"].strip(), "set_conclusion": manifest["set_conclusion"].strip(),
+        "reference_studies": normalized_studies, "adaptations": normalized_adaptations,
+        "comparison": normalized_comparison,
+        "independent_review": {"status": "passed", "method": "combined-visual-comparison", "reviewer_type": manifest["reviewer_type"], "reviewer": manifest["reviewer"].strip(), "reviewed_at": manifest["reviewed_at"].strip(), "questions": normalized_questions, "findings": normalized_review_findings},
+        "validated_at": _now(),
+    }
+    normalized["report_hash"] = _canonical_hash(normalized)
+    record.update({"status": "developing-concepts", "reference_translation": normalized, "concept_evidence": None})
+    _write_json(design_dir / "draft.json", record)
+    return {
+        "schema_version": 2, "precision_schema_version": 2,
+        "design_id": design_id, "revision": record["revision"], "status": record["status"],
+        "reference_study_count": len(normalized_studies), "adaptation_count": len(normalized_adaptations),
+        "constraint_count": len(constraint_by_id), "correction_pass_count": sum(len(item["correction_passes"]) for item in normalized_studies),
+        "copy_detail_count": sum(len(item["copy_adaptation_ledger"]) for item in normalized_studies),
+        "literal_substitution_count": len(normalized_adaptations), "independent_review_status": "passed",
+        "reference_classes": sorted({item["reference_class"] for item in normalized_studies}),
+        "adaptation_distance_roles": sorted(adaptation_distance_roles),
+        "reference_translation_hash": normalized["report_hash"],
+        "execution_authorized": False,
+    }
+
+
 def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
     _enabled(config)
     manifest = _read_json(manifest_path)
@@ -3291,6 +3859,11 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
     record = _read_json(design_dir / "draft.json")
     if record.get("workflow_version", 1) < 2:
         raise DesignError("Concept evidence requires a creative-director workflow draft")
+    reference_translation = record.get("reference_translation")
+    if record.get("workflow_version", 1) >= 3 and (not isinstance(reference_translation, dict) or reference_translation.get("status") != "passed"):
+        raise DesignError("Workflow version 3 requires passed reference reconstruction and adaptation evidence before concept validation")
+    portfolio = _verified_portfolio_report(root, manifest.get("portfolio_report")) if record.get("workflow_version", 1) >= 3 else None
+    portfolio_report = portfolio["report"] if portfolio else {"generations": [], "recurring_tells": [], "strongest_prior_generation_id": None}
     if manifest.get("revision") != record.get("revision"):
         raise DesignError("Concept manifest revision does not match the current draft")
     mode = manifest.get("presentation_mode")
@@ -3327,6 +3900,11 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
     normalized: list[dict[str, Any]] = []
     fidelity: set[str] = set()
     concept_ids: set[str] = set()
+    reference_adaptation_ids: set[str] = set()
+    known_reference_adaptations = {
+        item["adaptation_id"]: item for item in (reference_translation or {}).get("adaptations", [])
+        if isinstance(item, dict) and item.get("adaptation_id")
+    }
     visual_hashes: set[str] = set()
     report_hashes: list[str] = []
     typography_strategy_ids: set[str] = set()
@@ -3340,6 +3918,8 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
     concept_runtime_probe_hashes: set[str] = set()
     comparison_strip_hashes: set[str] = set()
     generated_extraction_passed = True
+    concept_forming_media_count = 0
+    portfolio_fingerprints: dict[str, dict[str, str]] = {}
     minimum_journey_stage_count = 999
     laboratory_complete = laboratory.get("status") == "complete"
     planned_typography = {
@@ -3379,6 +3959,12 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
                 raise DesignError("Contrast studies cannot be recommended or selected")
         if concept_id in concept_ids:
             raise DesignError("Concept and study IDs must be unique")
+        reference_adaptation_id = concept.get("reference_adaptation_id")
+        if record.get("workflow_version", 1) >= 3:
+            reference_adaptation_id = _identifier(str(reference_adaptation_id or ""), "reference adaptation ID")
+            if reference_adaptation_id not in known_reference_adaptations or reference_adaptation_id in reference_adaptation_ids:
+                raise DesignError(f"Concept {concept_id} requires its own validated reference adaptation")
+            reference_adaptation_ids.add(reference_adaptation_id)
         if any(not isinstance(concept.get(key), str) or not concept[key].strip() for key in required_text):
             raise DesignError(f"Concept {concept_id} lacks required creative evidence")
         primary_carrier = concept.get("primary_carrier")
@@ -3429,6 +4015,19 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         asset_mix = media_system.get("asset_mix")
         if not isinstance(asset_mix, list) or not asset_mix or len(set(asset_mix)) != len(asset_mix) or any(item not in MEDIA_ASSET_SOURCES for item in asset_mix):
             raise DesignError(f"Concept {concept_id} media system requires a supported asset mix")
+        concept_role = media_system.get("concept_role", "supporting")
+        if record.get("workflow_version", 1) >= 3 and concept_role not in {"concept-forming", "supporting", "omitted"}:
+            raise DesignError(f"Concept {concept_id} media system requires an explicit concept role")
+        media_effects = {}
+        for field in ("thesis_effect", "composition_effect", "interaction_effect"):
+            value = media_system.get(field, "Legacy workflow evidence")
+            if record.get("workflow_version", 1) >= 3 and (not isinstance(value, str) or not value.strip()):
+                raise DesignError(f"Concept {concept_id} media system requires {field}")
+            media_effects[field] = str(value).strip()
+        if concept_role == "concept-forming":
+            if not set(asset_mix).intersection({"generated", "project-owned", "supplied"}):
+                raise DesignError(f"Concept {concept_id} concept-forming media must use owned, supplied, or generated material")
+            concept_forming_media_count += 1
         composition_family = concept.get("composition_family")
         if laboratory_complete:
             if composition_family not in planned_composition_families:
@@ -3461,6 +4060,17 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             raise DesignError(f"Concept {concept_id} requires a supported interaction and motion mode")
         if any(not isinstance(interaction_system.get(key), str) or not interaction_system[key].strip() for key in interaction_fields):
             raise DesignError(f"Concept {concept_id} interaction and motion lacks semantic, reduced-motion, or static behavior")
+        motion_decision = interaction_system.get("decision", "explicit-no-motion" if interaction_mode == "static" else "purposeful-motion")
+        atmosphere_contribution = str(interaction_system.get("atmosphere_contribution", "Legacy workflow evidence")).strip()
+        state_transition = str(interaction_system.get("state_transition", "Legacy workflow evidence")).strip()
+        if record.get("workflow_version", 1) >= 3:
+            if (interaction_mode == "static" and motion_decision != "explicit-no-motion") or (interaction_mode != "static" and motion_decision != "purposeful-motion"):
+                raise DesignError(f"Concept {concept_id} interaction decision must match its motion mode")
+            if not atmosphere_contribution or not state_transition:
+                raise DesignError(f"Concept {concept_id} interaction system requires atmosphere and state-transition evidence")
+            motion_storyboard = _verified_reference_file(root, interaction_system.get("storyboard"), f"Concept {concept_id} motion storyboard", {".html", ".htm", ".png", ".svg"})
+        else:
+            motion_storyboard = None
         journey_stages = concept.get("journey_stages")
         if not isinstance(journey_stages, list) or len(journey_stages) < 5:
             raise DesignError(f"Concept {concept_id} requires at least five journey stages")
@@ -3481,6 +4091,17 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             stage_roles.add(role_name)
         if not {"opening", "proof", "closure"} <= stage_roles or not stage_roles.intersection({"quiet-state", "edge-state"}):
             raise DesignError(f"Concept {concept_id} journey must include opening, proof, quiet or edge, and closure stages")
+        if record.get("workflow_version", 1) >= 3 and len(stage_roles - {"opening"}) < 4:
+            raise DesignError(f"Concept {concept_id} must extend its signature across at least four distinct downstream roles")
+        fingerprint = concept.get("portfolio_fingerprint")
+        if record.get("workflow_version", 1) >= 3:
+            if not isinstance(fingerprint, dict) or set(fingerprint) != PORTFOLIO_FINGERPRINT_DIMENSIONS:
+                raise DesignError(f"Concept {concept_id} requires every portfolio fingerprint dimension")
+            if any(not isinstance(value, str) or not value.strip() for value in fingerprint.values()):
+                raise DesignError(f"Concept {concept_id} portfolio fingerprint values must be non-empty")
+            portfolio_fingerprints[concept_id] = {key: fingerprint[key].strip() for key in sorted(PORTFOLIO_FINGERPRINT_DIMENSIONS)}
+        else:
+            portfolio_fingerprints[concept_id] = {}
         grammar_congruence = concept.get("grammar_congruence")
         if not isinstance(grammar_congruence, dict) or grammar_congruence.get("status") != "passed":
             raise DesignError(f"Concept {concept_id} requires a passed page-grammar congruence review")
@@ -3586,8 +4207,12 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             raise DesignError(f"Concept {concept_id} requires an explicit generated-media disposition")
         normalized_generated_disposition: dict[str, Any]
         if generated_lineage:
-            if generated_disposition.get("status") != "extracted" or generated_disposition.get("pixel_promotion") is not False:
-                raise DesignError(f"Concept {concept_id} must extract generated media into a system without promoting generated pixels by default")
+            if generated_disposition.get("status") not in {"extracted", "retained-as-concept-carrier"}:
+                raise DesignError(f"Concept {concept_id} must extract generated media or retain it as an approved concept carrier")
+            if generated_disposition.get("status") == "extracted" and generated_disposition.get("pixel_promotion") is not False:
+                raise DesignError(f"Concept {concept_id} extracted media cannot promote generated pixels")
+            if generated_disposition.get("status") == "retained-as-concept-carrier" and generated_disposition.get("pixel_promotion") is not True:
+                raise DesignError(f"Concept {concept_id} retained concept media must declare pixel promotion")
             source_seed_ids = generated_disposition.get("source_seed_ids")
             mappings = generated_disposition.get("extractions")
             if not isinstance(source_seed_ids, list) or not set(source_seed_ids) == set(generated_lineage):
@@ -3613,7 +4238,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
                 if artifact_path.suffix.lower() not in {".css", ".html", ".png", ".svg"} or not actual or artifact.get("sha256") != actual:
                     raise DesignError(f"Generated-media derived artifact is missing or changed: {relative}")
                 normalized_derived.append({"path": relative, "sha256": actual})
-            normalized_generated_disposition = {"status": "extracted", "source_seed_ids": source_seed_ids, "pixel_promotion": False, "extractions": normalized_mappings, "derived_artifacts": normalized_derived}
+            normalized_generated_disposition = {"status": generated_disposition["status"], "source_seed_ids": source_seed_ids, "pixel_promotion": generated_disposition["pixel_promotion"], "extractions": normalized_mappings, "derived_artifacts": normalized_derived}
         else:
             rationale = generated_disposition.get("rationale")
             if generated_disposition.get("status") != "not-applicable" or not isinstance(rationale, str) or not rationale.strip():
@@ -3675,7 +4300,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             "seed_lineage": lineage, "system_extractions": [item.strip() for item in extractions], "palette": palette,
             "type_specimen": specimen,
             "typography_system": {"strategy_id": strategy_id, "family": typography_family, **{key: typography_system[key].strip() for key in typography_text_fields}},
-            "media_system": {"art_direction_family": media_system["art_direction_family"], "primary_role": media_system["primary_role"].strip(), "asset_mix": asset_mix, "quiet_state": media_system["quiet_state"].strip(), "fallback": media_system["fallback"].strip()},
+            "media_system": {"art_direction_family": media_system["art_direction_family"], "primary_role": media_system["primary_role"].strip(), "asset_mix": asset_mix, "quiet_state": media_system["quiet_state"].strip(), "fallback": media_system["fallback"].strip(), "concept_role": concept_role, **media_effects},
             "composition_family": composition_family,
             "page_grammar": {"grammar_id": grammar_id, "family": grammar_family, **{key: page_grammar[key].strip() for key in grammar_fields}},
             "grammar_congruence": {
@@ -3692,10 +4317,12 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
                 "repeated_pattern_risk": journey_structure["repeated_pattern_risk"].strip(),
                 "assignments": normalized_assignments,
             },
-            "interaction_motion_system": {"strategy_id": interaction_strategy_id, "mode": interaction_mode, **{key: interaction_system[key].strip() for key in interaction_fields}},
+            "interaction_motion_system": {"strategy_id": interaction_strategy_id, "mode": interaction_mode, "decision": motion_decision, "storyboard": motion_storyboard, "atmosphere_contribution": atmosphere_contribution, "state_transition": state_transition, **{key: interaction_system[key].strip() for key in interaction_fields}},
+            "portfolio_fingerprint": portfolio_fingerprints[concept_id],
             "journey_stages": normalized_stages, "runtime_probes": normalized_runtime_probes,
             "comparison_coverage": {"full_page_strip": {"path": strip_relative, "sha256": strip_actual, "width": strip_width, "height": strip_height}, "chapter_index": chapter_index, "deep_link": {"path": deep_relative, "sha256": deep_actual}},
             "generated_media_disposition": normalized_generated_disposition,
+            "reference_adaptation_id": reference_adaptation_id if record.get("workflow_version", 1) >= 3 else None,
             "fidelity_level": level.strip(), **visuals, "slop_report": slop,
         })
         typography_strategy_ids.add(strategy_id)
@@ -3708,6 +4335,8 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         interaction_modes.add(interaction_mode)
         minimum_journey_stage_count = min(minimum_journey_stage_count, len(normalized_stages))
         concept_ids.add(concept_id)
+    if record.get("workflow_version", 1) >= 3 and reference_adaptation_ids != set(known_reference_adaptations):
+        raise DesignError("Concept set must consume every validated reference adaptation exactly once")
     if len(fidelity) != 1:
         raise DesignError("Concept directions must have comparable fidelity")
     if len(set(report_hashes)) != len(normalized):
@@ -3726,6 +4355,8 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         raise DesignError("Concept range requires a distinct interaction and motion strategy per concept")
     if len(normalized) > 1 and interaction_modes == {"static"}:
         raise DesignError("Multi-concept UI directioning must test at least one meaningful interaction or motion mode")
+    if record.get("workflow_version", 1) >= 3 and concept_forming_media_count < 1:
+        raise DesignError("Concept sets require at least one direction whose media forms the idea rather than decorating it")
     creative_range = manifest.get("creative_range")
     if not isinstance(creative_range, dict) or creative_range.get("status") != "passed":
         raise DesignError("Concept selection requires a passed creative-range review separate from AI-slop review")
@@ -3765,9 +4396,43 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
     house_review = creative_range.get("house_tell_review")
     if not isinstance(house_review, dict) or house_review.get("project_identity_wins") is not True:
         raise DesignError("Creative-range review must show that project identity wins over Continuity house tells")
+    if portfolio and house_review.get("portfolio_report_hash") != portfolio["report_hash"]:
+        raise DesignError("House-tell review must bind the current portfolio report")
     tells = house_review.get("recurring_tells_checked")
-    if not isinstance(tells, list) or not tells or any(not isinstance(item, str) or not item.strip() for item in tells) or not isinstance(house_review.get("rationale"), str) or not house_review["rationale"].strip():
-        raise DesignError("House-tell review requires checked tells and a project-specific rationale")
+    known_tells = {item["tell_id"]: item for item in portfolio_report.get("recurring_tells", [])}
+    if portfolio and (not isinstance(tells, list) or set(tells) != set(known_tells)):
+        raise DesignError("House-tell review must check every current portfolio tell with a project-specific rationale")
+    if not isinstance(tells, list) or not isinstance(house_review.get("rationale"), str) or not house_review["rationale"].strip():
+        raise DesignError("House-tell review must check every current portfolio tell with a project-specific rationale")
+    comparisons = house_review.get("concept_comparisons")
+    if portfolio and (not isinstance(comparisons, list) or {item.get("concept_id") for item in comparisons if isinstance(item, dict)} != concept_ids):
+        raise DesignError("House-tell review requires one derived comparison for every concept")
+    for item in comparisons or []:
+        concept_id = item["concept_id"]
+        derived_matches = {
+            tell_id for tell_id, tell in known_tells.items()
+            if portfolio_fingerprints[concept_id][tell["dimension"]] == tell["value"]
+        }
+        if set(item.get("matched_tell_ids", [])) != derived_matches or len(derived_matches) > 2:
+            raise DesignError(f"Concept {concept_id} repeats too many portfolio house tells or misstates its overlap")
+        changed = item.get("changed_fingerprint_dimensions")
+        strongest_id = portfolio_report.get("strongest_prior_generation_id")
+        strongest_fingerprint = next(
+            (generation["fingerprint"] for generation in portfolio_report.get("generations", []) if generation["generation_id"] == strongest_id),
+            None,
+        )
+        derived_changed = {
+            dimension for dimension in PORTFOLIO_FINGERPRINT_DIMENSIONS
+            if strongest_fingerprint is None or portfolio_fingerprints[concept_id][dimension] != strongest_fingerprint[dimension]
+        }
+        if not isinstance(changed, list) or set(changed) != derived_changed or len(derived_changed) < 3:
+            raise DesignError(f"Concept {concept_id} must deliberately change at least three portfolio fingerprint dimensions")
+        recurrences = item.get("intentional_recurrences")
+        if not isinstance(recurrences, list) or {entry.get("tell_id") for entry in recurrences if isinstance(entry, dict)} != derived_matches:
+            raise DesignError(f"Concept {concept_id} must disposition every recurring house tell it retains")
+        for entry in recurrences:
+            if any(not isinstance(entry.get(field), str) or not entry[field].strip() for field in ("rationale", "contract_reference")):
+                raise DesignError(f"Concept {concept_id} retained house tells require rationale and contract references")
     adversarial = creative_range.get("adversarial_pass")
     if not isinstance(adversarial, list) or {item.get("concept_id") for item in adversarial if isinstance(item, dict)} != concept_ids:
         raise DesignError("Creative-range review requires an adversarial pass for every concept")
@@ -3785,6 +4450,8 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         "interaction_motion_strategy_count": len(interaction_strategy_ids),
         "minimum_journey_stage_count": minimum_journey_stage_count,
     }
+    if record.get("workflow_version", 1) >= 3:
+        actual_range_counts["concept_forming_media_count"] = concept_forming_media_count
     if not isinstance(range_audit, dict) or range_audit.get("status") != "passed" or range_audit.get("per_concept_runtime_probes") is not True:
         raise DesignError("Creative-range review requires a passed typography, media, depth, and per-concept runtime audit")
     if range_audit.get("comparison_depth_coverage") is not True or range_audit.get("generated_media_extraction_passed") is not True:
@@ -3864,6 +4531,48 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         "at_least_one_compelling": True, "set_conclusion": impact_review["set_conclusion"].strip(),
         "signature_stage_coverage_minimum": signature_stage_minimum, "concepts": normalized_impact_concepts,
     }
+    prior_challenge = manifest.get("prior_output_challenge")
+    strongest_prior = portfolio_report.get("strongest_prior_generation_id")
+    if record.get("workflow_version", 1) < 3:
+        normalized_prior_challenge = None
+    elif strongest_prior:
+        if (
+            not isinstance(prior_challenge, dict)
+            or prior_challenge.get("status") != "passed"
+            or prior_challenge.get("portfolio_report_hash") != portfolio["report_hash"]
+            or prior_challenge.get("strongest_prior_generation_id") != strongest_prior
+            or prior_challenge.get("lineage_preserved") is not True
+        ):
+            raise DesignError("Concept set must pass a hash-bound counterfactual against the strongest prior generation")
+        challenger_id = prior_challenge.get("challenger_concept_id")
+        impact_by_id = {item["concept_id"]: item for item in normalized_impact_concepts}
+        if challenger_id not in impact_by_id or impact_by_id[challenger_id]["strength"] != "compelling":
+            raise DesignError("The strongest-prior challenger must be a compelling current concept")
+        for field in ("impact_advantage", "project_specificity_gain", "reviewer", "reviewed_at"):
+            if not isinstance(prior_challenge.get(field), str) or not prior_challenge[field].strip():
+                raise DesignError(f"Strongest-prior challenge requires {field}")
+        challenge_evidence = prior_challenge.get("evidence")
+        if not isinstance(challenge_evidence, list) or len(challenge_evidence) < 3:
+            raise DesignError("Strongest-prior challenge requires current wide, current narrow, and prior evidence")
+        normalized_challenge_evidence = [
+            _verified_reference_file(root, item, "Strongest-prior challenge evidence", {".png"}) for item in challenge_evidence
+        ]
+        challenger = next(item for item in normalized if item["concept_id"] == challenger_id)
+        prior_generation = next(item for item in portfolio_report["generations"] if item["generation_id"] == strongest_prior)
+        expected_hashes = {challenger["wide_composition"]["sha256"], challenger["narrow_transformation"]["sha256"], prior_generation["artifact"]["sha256"]}
+        if not expected_hashes <= {item["sha256"] for item in normalized_challenge_evidence}:
+            raise DesignError("Strongest-prior challenge evidence is not bound to the compared generations")
+        normalized_prior_challenge = {
+            "status": "passed", "portfolio_report_hash": portfolio["report_hash"],
+            "strongest_prior_generation_id": strongest_prior, "challenger_concept_id": challenger_id,
+            "lineage_preserved": True,
+            **{field: prior_challenge[field].strip() for field in ("impact_advantage", "project_specificity_gain", "reviewer", "reviewed_at")},
+            "evidence": normalized_challenge_evidence,
+        }
+    else:
+        if not isinstance(prior_challenge, dict) or prior_challenge.get("status") != "not-applicable" or not isinstance(prior_challenge.get("rationale"), str) or not prior_challenge["rationale"].strip():
+            raise DesignError("An empty portfolio requires an explicit strongest-prior not-applicable rationale")
+        normalized_prior_challenge = {"status": "not-applicable", "rationale": prior_challenge["rationale"].strip()}
     browser_snapshots = manifest.get("browser_snapshots")
     if not isinstance(browser_snapshots, list) or len(browser_snapshots) != 3:
         raise DesignError("Concept comparison requires mobile, tablet, and desktop browser snapshots")
@@ -3949,13 +4658,16 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         "creative_range_status": "passed",
         "impact_review": normalized_impact_review,
         "impact_review_status": "passed",
+        "portfolio_report": {key: portfolio[key] for key in ("path", "sha256", "report_hash")} if portfolio else None,
+        "prior_output_challenge": normalized_prior_challenge if record.get("workflow_version", 1) >= 3 else None,
         "generative_laboratory_hash": laboratory.get("laboratory_hash"),
+        "reference_translation_hash": (reference_translation or {}).get("report_hash"),
         "visual_reference_hash": visual_reference_hash, "slop_report_hashes": report_hashes,
         "ruleset_version": design_slop.RULESET_VERSION, "validated": True, "validated_at": _now(),
     }
     record.update({"status": "awaiting-feedback", "concept_evidence": evidence})
     _write_json(design_dir / "draft.json", record)
-    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "concept_forming_media_count": concept_forming_media_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "portfolio_report_hash": portfolio["report_hash"] if portfolio else None, "prior_output_challenge_status": normalized_prior_challenge["status"] if normalized_prior_challenge else None, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "reference_translation_hash": (reference_translation or {}).get("report_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
 
 
 def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:

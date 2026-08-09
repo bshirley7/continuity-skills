@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-RULESET_VERSION = "1.0.0"
+RULESET_VERSION = "1.3.0"
 SEVERITIES = {"info", "warning", "error", "critical"}
 DISPOSITIONS = {"open", "resolved", "not-applicable", "accepted-intentional"}
 SCANNABLE_SUFFIXES = {
@@ -46,11 +46,31 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-D018": {"class": "default-risk", "severity": "warning", "title": "Interchangeable category identity", "remediation": "Derive the identity from project-specific subject matter, behavior, language, and evidence rather than a category template."},
     "CDS-D019": {"class": "default-risk", "severity": "warning", "title": "Cosmetic concept variation", "remediation": "Change the organizing idea, hierarchy, composition, interaction, or material system rather than only palette, type, or decoration."},
     "CDS-D020": {"class": "default-risk", "severity": "warning", "title": "Decoration without a job", "remediation": "Remove the decoration or identify the content, hierarchy, state, or subject relationship it communicates."},
+    "CDS-D021": {"class": "default-risk", "severity": "warning", "title": "Primitive media substitution", "remediation": "Retain source-defining media or rebuild its material behavior; do not replace it with generic CSS shapes."},
+    "CDS-D022": {"class": "default-risk", "severity": "warning", "title": "Reference energy loss", "remediation": "Restore the reference's defining scale, material, density, crop, or spatial relationship before styling details."},
+    "CDS-D023": {"class": "default-risk", "severity": "warning", "title": "Template convergence", "remediation": "Rebuild the composition around the transferred constraints instead of a familiar hero-and-sections template."},
+    "CDS-D024": {"class": "default-risk", "severity": "warning", "title": "Declared mechanic is not visible", "remediation": "Demonstrate the claimed mechanic in the rendered artifact or remove the unsupported claim."},
+    "CDS-D025": {"class": "default-risk", "severity": "warning", "title": "Generated study discarded", "remediation": "Retain the useful generated media or translate its defining relationships into equally capable first-party execution."},
+    "CDS-D026": {"class": "default-risk", "severity": "warning", "title": "Primary material demoted to backdrop", "remediation": "Restore the material or subject as the organizing element instead of laying generic display copy over it."},
+    "CDS-D027": {"class": "default-risk", "severity": "warning", "title": "Typographic grammar substitution", "remediation": "Preserve the reference type's role, scale relationships, density, and anchoring before changing its identity."},
+    "CDS-D028": {"class": "default-risk", "severity": "warning", "title": "Hybrid reference lacks exact baseline", "remediation": "Reconstruct each source separately before synthesizing shared mechanics."},
+    "CDS-D029": {"class": "default-risk", "severity": "warning", "title": "Fidelity is self-certified", "remediation": "Use a reviewer distinct from the preparer and bind findings to the combined visual comparison."},
+    "CDS-D030": {"class": "default-risk", "severity": "warning", "title": "Mobile comparison is incomplete", "remediation": "Show source, reconstruction, literal substitution, and adaptation together at the narrow viewport."},
+    "CDS-D031": {"class": "default-risk", "severity": "warning", "title": "Reference lineage is weak", "remediation": "Restore the source role mapping and make the preserved relationship visible within five seconds."},
+    "CDS-D032": {"class": "default-risk", "severity": "warning", "title": "Variable image contrast is unresolved", "remediation": "Move, contain, or protect overlaid type so contrast remains dependable across the actual image range."},
     "CDS-P001": {"class": "project-drift", "severity": "error", "title": "Unapproved design token", "remediation": "Return to the approved font, color, spacing, radius, motion, or opening-pattern family."},
     "CDS-P002": {"class": "project-drift", "severity": "error", "title": "Signature absent beyond hero", "remediation": "Carry the approved signature into body, mobile, quiet, error, and reduced-motion states."},
     "CDS-P003": {"class": "project-drift", "severity": "error", "title": "Reference imitation", "remediation": "Adapt the recorded mechanic through the project-specific transformation instead of copying identity."},
     "CDS-P004": {"class": "project-drift", "severity": "error", "title": "Rejected choice reintroduced", "remediation": "Remove the rejected choice or create and approve a new design revision."},
     "CDS-P005": {"class": "project-drift", "severity": "error", "title": "Continuity house tell dominates", "remediation": "Strengthen the approved project identity and remove recurring generator mannerisms."},
+    "CDS-P006": {"class": "project-drift", "severity": "error", "title": "Approved reference mechanic lost", "remediation": "Restore the validated reconstruction constraints and rerun the side-by-side fidelity review."},
+    "CDS-P007": {"class": "project-drift", "severity": "error", "title": "Portfolio review stale", "remediation": "Review the current output against the last three or four generations and bind the resulting report."},
+    "CDS-P008": {"class": "project-drift", "severity": "error", "title": "House-style overlap too high", "remediation": "Change at least three fingerprint dimensions and disposition every intentionally retained tell."},
+    "CDS-P009": {"class": "project-drift", "severity": "error", "title": "Strongest prior output unchallenged", "remediation": "Run a visual counterfactual against the strongest prior generation while preserving project lineage."},
+    "CDS-P010": {"class": "project-drift", "severity": "error", "title": "Media is merely supporting", "remediation": "Use owned, supplied, or generated media to form at least one concept's thesis, composition, and behavior."},
+    "CDS-P011": {"class": "project-drift", "severity": "error", "title": "Adaptation distance collapsed", "remediation": "Produce and measure both a recognizably close study and a materially far study."},
+    "CDS-P012": {"class": "project-drift", "severity": "error", "title": "Reference difficulty unresolved", "remediation": "Pass the evidence thresholds for the reference's photographic, diagrammatic, editorial, motion, or product-object class."},
+    "CDS-P013": {"class": "project-drift", "severity": "error", "title": "Journey evidence is hero-only", "remediation": "Carry the signature through downstream proof, quiet or edge, closure, responsive, and motion or explicit no-motion states."},
 }
 
 
@@ -210,6 +230,42 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
     for marker in marker_groups["continuity_house_tells"]:
         if isinstance(marker, str) and marker.strip() and marker.casefold() in combined:
             findings.append(_finding("CDS-P005", first_location, 0, f"Continuity house tell is more visible than the approved identity: {marker}", source="context"))
+    translation = manifest.get("translation_fidelity", {})
+    if not isinstance(translation, dict):
+        raise ValueError("translation_fidelity must be an object")
+    translation_checks = (
+        ("primitive_media_substitution", True, "CDS-D021", "source-defining media was replaced with primitive decoration"),
+        ("material_energy_preserved", False, "CDS-D022", "the adaptation lost the reference's defining visual energy"),
+        ("template_convergence", True, "CDS-D023", "the adaptation converged on a familiar generator template"),
+        ("declared_mechanics_visible", False, "CDS-D024", "one or more declared mechanics are not visible in the rendered artifact"),
+        ("generated_study_retained_or_translated", False, "CDS-D025", "generated exploration was discarded without an equivalent translation"),
+        ("approved_constraints_present", False, "CDS-P006", "validated reference constraints are absent from the current artifact"),
+        ("primary_material_organizes", False, "CDS-D026", "the primary material has been demoted to a backdrop"),
+        ("typographic_grammar_preserved", False, "CDS-D027", "the adaptation substituted a different typographic role or scale system"),
+        ("exact_single_source_baseline", False, "CDS-D028", "multiple sources were hybridized without separate exact baselines"),
+        ("independent_review", False, "CDS-D029", "the adaptation fidelity was self-certified"),
+        ("mobile_comparison_complete", False, "CDS-D030", "the narrow comparison does not show the full translation ladder"),
+        ("reference_lineage_visible", False, "CDS-D031", "the preserved reference mechanic is not visibly traceable"),
+        ("variable_contrast_resolved", False, "CDS-D032", "display content crosses variable imagery without dependable contrast"),
+    )
+    for key, failing_value, rule_id, evidence in translation_checks:
+        if key in translation and translation.get(key) is failing_value:
+            findings.append(_finding(rule_id, first_location, 0, evidence, source="context"))
+    portfolio_diversity = manifest.get("portfolio_diversity", {})
+    if not isinstance(portfolio_diversity, dict):
+        raise ValueError("portfolio_diversity must be an object")
+    portfolio_checks = (
+        ("portfolio_audit_current", "CDS-P007", "portfolio review is missing or older than four generations"),
+        ("house_overlap_within_limit", "CDS-P008", "current output repeats too many prior Continuity fingerprints"),
+        ("strongest_prior_challenged", "CDS-P009", "the strongest prior generation was not challenged"),
+        ("concept_forming_media_present", "CDS-P010", "no direction uses media to form the concept"),
+        ("close_far_distance_present", "CDS-P011", "adaptation studies do not prove both close and far transfer"),
+        ("reference_difficulty_passed", "CDS-P012", "reference-class fidelity thresholds remain unresolved"),
+        ("journey_state_depth_passed", "CDS-P013", "the signature is not evidenced beyond the hero and happy path"),
+    )
+    for key, rule_id, evidence in portfolio_checks:
+        if key in portfolio_diversity and portfolio_diversity.get(key) is False:
+            findings.append(_finding(rule_id, first_location, 0, evidence, source="context"))
     for item in manifest.get("generated_claims", []):
         if isinstance(item, dict) and (not item.get("visible_qualification") or not item.get("provenance")):
             findings.append(_finding("CDS-H006", str(item.get("location", "manifest")), 0, "generated or illustrative claim lacks visible qualification or provenance", source="context"))

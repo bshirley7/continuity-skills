@@ -184,6 +184,152 @@ class DesignLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(design.DesignError, "agent-authored"):
             design.draft(self.root, self.config, CATALOG, self.write_input(value))
 
+    def test_workflow_v3_requires_and_validates_reference_reconstruction_before_concepts(self):
+        value = self.creative_input(design_id="reference-translation", workflow_version=3)
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["schema_version"], 3)
+        self.assertEqual(draft["status"], "developing-reference-translations")
+        workflow = design.workflow(self.root, self.config, draft["design_id"])
+        self.assertIn("validate-reference-translation", workflow["allowed_actions"])
+
+        def artifact(path):
+            return {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        html_files = {}
+        for name in ("reconstruction", "literal-a", "literal-b", "adaptation-a", "adaptation-b", "translation-comparison"):
+            path = self.root / f"{name}.html"
+            path.write_text(f"<main data-study='{name}'><h1>Constraint transfer</h1></main>", encoding="utf-8")
+            html_files[name] = path
+        visuals = {}
+        for index, (name, width) in enumerate((
+            ("source-wide", 1440), ("source-narrow", 390),
+            ("reconstruction-wide", 1440), ("reconstruction-narrow", 390),
+            ("correction-1-wide", 1440), ("correction-1-narrow", 390),
+            ("correction-2-wide", 1440), ("correction-2-narrow", 390),
+            ("literal-a-wide", 1440), ("literal-a-narrow", 390),
+            ("literal-b-wide", 1440), ("literal-b-narrow", 390),
+            ("adaptation-a-wide", 1440), ("adaptation-a-narrow", 390),
+            ("adaptation-b-wide", 1440), ("adaptation-b-narrow", 390),
+            ("translation-wide", 1440), ("translation-narrow", 390),
+        )):
+            path = self.root / f"{name}.png"
+            path.write_bytes(png_bytes(width, 900, (90 + (index * 7) % 140, 100, 120, 255)))
+            visuals[name] = path
+        dimensions = ("composition", "scale", "negative-space", "typography", "media", "content-structure", "responsive-transformation", "interaction")
+        constraints = [{
+            "constraint_id": f"reference-{dimension}", "dimension": dimension,
+            "observation": f"The reference uses {dimension} as a defining relationship.",
+            "invariant": f"The {dimension} relationship remains dominant.",
+            "measurable_rule": f"The {dimension} relationship is visible at both target widths.",
+            "project_mapping": f"Continuity evidence replaces the source content while preserving {dimension}.",
+            "allowed_variance": "Color, copy, and proprietary identity may change.",
+            "prohibited_copying": "Do not copy logos, proprietary copy, or brand-specific assets.",
+            "source_location": f"source:{dimension}", "reconstruction_location": f"main[data-constraint='{dimension}']",
+            "metric": {"name": f"{dimension}-ratio", "unit": "ratio", "source_value": 1.0, "reconstruction_value": 0.95, "tolerance": 0.1, "status": "pass"},
+        } for dimension in dimensions]
+        results = [{
+            "constraint_id": item["constraint_id"], "result": "pass",
+            "evidence": f"The adaptation preserves {item['dimension']} in both captures.",
+            "artifact_location": f"main[data-constraint='{item['dimension']}']",
+        } for item in constraints]
+        adaptation = lambda adaptation_id, html_name: {
+            "adaptation_id": adaptation_id, "study_ids": ["reference-mechanic"],
+            "html": artifact(html_files[html_name]),
+            "wide": artifact(visuals[f"{html_name}-wide"]), "narrow": artifact(visuals[f"{html_name}-narrow"]),
+            "literal_substitution": {
+                "study_id": "reference-mechanic", "html": artifact(html_files[f"literal-{html_name[-1]}"]),
+                "wide": artifact(visuals[f"literal-{html_name[-1]}-wide"]), "narrow": artifact(visuals[f"literal-{html_name[-1]}-narrow"]),
+                "mapping": [{"constraint_id": item["constraint_id"], "source_role": item["dimension"], "project_replacement": f"Continuity {item['dimension']}", "preserved_relationship": item["invariant"], "source_location": item["source_location"], "artifact_location": f"[data-literal='{item['dimension']}']"} for item in constraints],
+            },
+            "controlled_divergence": {"changes": [{"dimension": "color", "from": "source identity color", "to": "Continuity evidence color", "rationale": "Separate project identity without changing structure.", "preserved_constraint_ids": [item["constraint_id"] for item in constraints]}]},
+            "constraint_results": results,
+            "media_strategy": {"source": "generated", "primitive_substitution": False, "generated_media_disposition": "retained", "rationale": "The material image remains the primary carrier."},
+            "adaptation_distance": {
+                "role": "close-study" if adaptation_id.endswith("a") else "far-study",
+                "total_score": 0.4 if adaptation_id.endswith("a") else 0.7,
+                "dimensions": [
+                    {"dimension": dimension, "score": 0.4 if adaptation_id.endswith("a") else 0.7, "rationale": f"The {dimension} distance is deliberately controlled."}
+                    for dimension in sorted(design.ADAPTATION_DISTANCE_DIMENSIONS)
+                ],
+            },
+            "fidelity_review": {
+                "status": "passed", "reference_mechanics_preserved": "pass", "project_identity_distinct": "pass",
+                "material_fidelity": "pass", "template_distance": "pass", "declared_visible": "pass",
+                "strongest_transfer": "The dominant media-to-type proportion survives.",
+                "weakest_loss": "The narrow crop compresses some negative space.",
+                "next_action": "Carry the proportion into the full journey.",
+            },
+        }
+        manifest_value = {
+            "schema_version": 2, "status": "passed", "design_id": draft["design_id"], "revision": draft["revision"],
+            "prepared_by": "test-reference-preparer",
+            "reviewer_type": "agent-multimodal", "reviewer": "test-reference-reviewer", "reviewed_at": "2026-08-09T12:00:00Z",
+            "set_conclusion": "Both adaptations preserve the source mechanic without copying identity.",
+            "reference_studies": [{
+                "study_id": "reference-mechanic", "source_identity": "one-exact-source", "source_tile_ids": [],
+                "reference_class": "product-object",
+                "difficulty_evidence": [
+                    {"threshold": threshold, "status": "pass", "finding": f"The {threshold} survives reconstruction.", "evidence_region": f"comparison:{threshold}"}
+                    for threshold in design.REFERENCE_CLASS_THRESHOLDS["product-object"]
+                ],
+                "source_evidence": [
+                    {**artifact(visuals["source-wide"]), "source_id": "one-exact-source", "viewport_role": "wide", "ownership": "third-party", "publishable": False},
+                    {**artifact(visuals["source-narrow"]), "source_id": "one-exact-source", "viewport_role": "narrow", "ownership": "third-party", "publishable": False},
+                ],
+                "copy_adaptation_ledger": [
+                    {"detail_id": "copy-scale", "detail": "Oversized subject-to-utility scale", "source_location": "opening subject", "private_copy_action": "Copy the measured area ratio exactly in the private reconstruction.", "project_adaptation": "Replace the product subject with the Continuity authority instrument.", "shipping_boundary": "Do not ship the source product silhouette or identity."},
+                    {"detail_id": "copy-type", "detail": "Short utility type anchored to the subject", "source_location": "subject boundary", "private_copy_action": "Copy the placement and role before changing content.", "project_adaptation": "Replace labels with Continuity lifecycle states.", "shipping_boundary": "Use project-owned type and wording."},
+                    {"detail_id": "copy-rhythm", "detail": "Five-part control rhythm", "source_location": "control sequence", "private_copy_action": "Copy the sequence count and spacing rhythm.", "project_adaptation": "Map the rhythm to Observe through Review.", "shipping_boundary": "Do not reproduce proprietary control shapes."},
+                ],
+                "reconstruction": {"html": artifact(html_files["reconstruction"]), "wide": artifact(visuals["reconstruction-wide"]), "narrow": artifact(visuals["reconstruction-narrow"])},
+                "correction_passes": [
+                    {"pass_number": 1, "status": "changes-required", "combined_wide": artifact(visuals["correction-1-wide"]), "combined_narrow": artifact(visuals["correction-1-narrow"]), "findings": [{"dimension": "scale", "evidence_region": "opening subject", "finding": "Subject is underscaled.", "correction": "Increase subject area."}], "changes": ["Increased subject area."]},
+                    {"pass_number": 2, "status": "passed", "combined_wide": artifact(visuals["correction-2-wide"]), "combined_narrow": artifact(visuals["correction-2-narrow"]), "findings": [{"dimension": "scale", "evidence_region": "opening subject", "finding": "Subject now matches source salience.", "correction": "Retain corrected scale."}], "changes": ["Locked corrected scale."]},
+                ],
+                "salience_order": [{"rank": rank, "source_element": f"source element {rank}", "reconstruction_element": f"reconstruction element {rank}", "result": "pass", "evidence_region": f"comparison region {rank}"} for rank in (1, 2, 3)],
+                "constraints": constraints,
+            }],
+            "adaptations": [adaptation("adaptation-a", "adaptation-a"), adaptation("adaptation-b", "adaptation-b")],
+            "comparison": {"html": artifact(html_files["translation-comparison"]), "wide": artifact(visuals["translation-wide"]), "narrow": artifact(visuals["translation-narrow"])},
+            "independent_review": {
+                "status": "passed", "method": "combined-visual-comparison", "reviewer_type": "agent-multimodal", "reviewer": "test-reference-reviewer", "reviewed_at": "2026-08-09T12:00:00Z",
+                "questions": {key: {"result": "pass", "finding": f"{key} survives the source, reconstruction, literal baseline, and divergence.", "evidence_region": f"comparison:{key}"} for key in design.REFERENCE_REVIEW_QUESTIONS},
+                "findings": [{"finding_id": "precision-001", "severity": "warning", "description": "Initial subject scale was weak.", "evidence_region": "comparison:opening", "disposition": "resolved", "resolution": "Corrected during pass two."}],
+            },
+        }
+        invalid_path = self.root / "reference-invalid.json"
+        invalid_value = json.loads(json.dumps(manifest_value))
+        invalid_value["adaptations"][0]["media_strategy"]["primitive_substitution"] = True
+        invalid_path.write_text(json.dumps(invalid_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "primitive CSS decoration"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        self_review = json.loads(json.dumps(manifest_value))
+        self_review["prepared_by"] = self_review["reviewer"]
+        invalid_path.write_text(json.dumps(self_review), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "independent reviewer"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        hybrid = json.loads(json.dumps(manifest_value))
+        hybrid["reference_studies"][0]["source_evidence"][1]["source_id"] = "different-source"
+        invalid_path.write_text(json.dumps(hybrid), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "cannot hybridize"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        one_pass = json.loads(json.dumps(manifest_value))
+        one_pass["reference_studies"][0]["correction_passes"] = one_pass["reference_studies"][0]["correction_passes"][:1]
+        invalid_path.write_text(json.dumps(one_pass), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "at least two"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        manifest_path = self.root / "reference-translation.json"
+        manifest_path.write_text(json.dumps(manifest_value), encoding="utf-8")
+        result = design.reference_validate(self.root, self.config, manifest_path)
+        self.assertEqual(result["status"], "developing-concepts")
+        self.assertEqual(result["adaptation_count"], 2)
+        self.assertEqual(result["constraint_count"], 8)
+        self.assertEqual(result["copy_detail_count"], 3)
+        self.assertEqual(result["correction_pass_count"], 2)
+        self.assertEqual(result["literal_substitution_count"], 2)
+        stored = design.show(self.root, self.config, draft["design_id"])
+        self.assertEqual(stored["reference_translation"]["status"], "passed")
+
     def test_completed_live_research_requires_numbered_provenance_tiles(self):
         value = self.creative_input(
             design_id="bad-research", collaboration_profile="guided",
@@ -204,17 +350,26 @@ class DesignLifecycleTests(unittest.TestCase):
                 "intended_lesson": f"Study project-relevant relationship {index}.",
                 "axis": "subject-material" if index % 2 else "graphic-spatial",
                 "project_mechanic": f"Translate relationship {index} into the project evidence system.",
-                "ownership": "third-party", "prohibited_copying": True, "publishable": False,
+                "copy_candidates": [{"detail_id": f"copy-detail-{index}", "detail": f"Measured relationship {index}", "source_location": "captured tile", "private_copy_action": "Reproduce the measured relationship in the private reconstruction.", "project_adaptation": "Replace source content with Continuity evidence.", "shipping_transformation": "Remove source identity while retaining the approved relationship."}],
+                "shipping_boundary": "Third-party identity and pixels remain private and non-shipping.",
+                "ownership": "third-party", "prohibited_copying": False, "shipping_copy_prohibited": True, "publishable": False,
                 "local_path": image.name,
                 "sha256": __import__("hashlib").sha256(image.read_bytes()).hexdigest(),
             })
         value = self.creative_input(
-            design_id="complete-live-research",
+            design_id="complete-live-research", workflow_version=3,
             research={"mode": "adaptive-live", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": moodboard},
         )
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
         self.assertEqual(len(draft["research"]["moodboard"]), 12)
         self.assertEqual(len({item["sha256"] for item in draft["research"]["moodboard"]}), 12)
+        self.assertTrue(all(item["copy_candidates"] for item in draft["research"]["moodboard"]))
+
+        vague = json.loads(json.dumps(value))
+        vague["design_id"] = "vague-live-research"
+        vague["research"]["moodboard"][0]["copy_candidates"] = []
+        with self.assertRaisesRegex(design.DesignError, "specific details to copy"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(vague))
 
         duplicate = json.loads(json.dumps(value))
         duplicate["design_id"] = "duplicate-live-research"
@@ -658,6 +813,30 @@ class DesignLifecycleTests(unittest.TestCase):
         )
         self.assertEqual(result["status"], "failed")
 
+    def test_translation_slop_layer_detects_flattening_and_lost_constraints(self):
+        source = self.root / "flattened.html"
+        source.write_text("<main><h1>Generic translated concept</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(translation_fidelity={
+            "primitive_media_substitution": True,
+            "material_energy_preserved": False,
+            "template_convergence": True,
+            "declared_mechanics_visible": False,
+            "generated_study_retained_or_translated": False,
+            "approved_constraints_present": False,
+            "primary_material_organizes": False,
+            "typographic_grammar_preserved": False,
+            "exact_single_source_baseline": False,
+            "independent_review": False,
+            "mobile_comparison_complete": False,
+            "reference_lineage_visible": False,
+            "variable_contrast_resolved": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {item["rule_id"] for item in result["findings"]},
+            {"CDS-D021", "CDS-D022", "CDS-D023", "CDS-D024", "CDS-D025", "CDS-D026", "CDS-D027", "CDS-D028", "CDS-D029", "CDS-D030", "CDS-D031", "CDS-D032", "CDS-P006"},
+        )
+
     def test_default_risk_can_be_intentionally_accepted_with_contract_evidence(self):
         source = self.root / "approved.css"
         source.write_text(".signal { background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
@@ -742,6 +921,67 @@ class DesignLifecycleTests(unittest.TestCase):
         result = design.slop_check(self.root, self.config, source, manifest)
         self.assertEqual(result["status"], "failed")
         self.assertIn("CDS-H007", {item["rule_id"] for item in result["findings"]})
+
+    def test_slop_check_blocks_portfolio_diversity_regressions(self):
+        source = self.root / "portfolio-drift.html"
+        source.write_text("<main><h1>Project-specific evidence</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(portfolio_diversity={
+            "portfolio_audit_current": False,
+            "house_overlap_within_limit": False,
+            "strongest_prior_challenged": False,
+            "concept_forming_media_present": False,
+            "close_far_distance_present": False,
+            "reference_difficulty_passed": False,
+            "journey_state_depth_passed": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {f"CDS-P{number:03d}" for number in range(7, 14)},
+            {item["rule_id"] for item in result["findings"]},
+        )
+
+    def test_portfolio_review_hash_binds_generations_and_recurring_tells(self):
+        artifacts = []
+        fingerprint = {
+            "palette-family": "dark-paper-signal", "typography-family": "serif-mono",
+            "composition-family": "editorial-ledger", "label-style": "mono-eyebrow",
+            "status-mark-style": "numbered-state", "signature-language": "human-hold",
+            "material-system": "paper-and-rule", "section-rhythm": "hero-proof-ledger",
+        }
+        generations = []
+        for index in range(1, 4):
+            artifact_path = self.root / f"generation-{index}.png"
+            artifact_path.write_bytes(png_bytes(1440, 900, (80 + index, 90, 100, 255)))
+            artifact = {"path": artifact_path.name, "sha256": __import__("hashlib").sha256(artifact_path.read_bytes()).hexdigest()}
+            artifacts.append(artifact)
+            generations.append({
+                "generation_id": f"generation-{index}", "reference_identity": f"reference-{index}",
+                "concept_name": f"Concept {index}", "impact_score": index,
+                "artifact": artifact, "fingerprint": fingerprint,
+            })
+        manifest = self.root / "portfolio.json"
+        manifest.write_text(json.dumps({
+            "schema_version": 1, "status": "passed", "portfolio_id": "homepage-series",
+            "reviewer": "test-multimodal-reviewer", "reviewed_at": "2026-08-09T12:00:00Z",
+            "conclusion": "The three generations repeat an editorial house language.",
+            "audit_window": {"first_generation_index": 1, "last_generation_index": 3, "runs_since_last_audit": 3},
+            "generations": generations, "strongest_prior_generation_id": "generation-3",
+            "recurring_tells": [{
+                "tell_id": "serif-mono", "dimension": "typography-family", "value": "serif-mono",
+                "description": "Reflective serif declarations repeatedly pair with mono labels.",
+                "generation_ids": ["generation-1", "generation-2", "generation-3"],
+                "default_response": "Change the type relationship unless project evidence requires it.",
+            }],
+        }), encoding="utf-8")
+        result = design.portfolio_validate(self.root, self.config, manifest)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["recurring_tell_count"], 1)
+        report = self.root / result["report_path"]
+        verified = design._verified_portfolio_report(self.root, {
+            "path": result["report_path"], "sha256": __import__("hashlib").sha256(report.read_bytes()).hexdigest(),
+            "report_hash": result["portfolio_report_hash"],
+        })
+        self.assertEqual(verified["report_hash"], result["portfolio_report_hash"])
 
     def test_adversarial_slop_fixture_corpus_recall_and_nearby_precision(self):
         fixture_root = SUITE / "skills" / "continuity-design" / "references" / "slop-fixtures"
@@ -1982,6 +2222,7 @@ class DesignLifecycleTests(unittest.TestCase):
         doctor = artifact("evidence/doctor.json", json.dumps({"healthy": True}))
         concepts = []
         laboratory_hash = "9" * 64
+        reference_translation_hash = "8" * 64
         concept_range = {
             "morning-brief": ("type-reflective-serif", "serif", "photographic", "cinematic-chapters", "editorial-issue", "motion-witness", "compelling"),
             "proof-relay": ("type-humanist-proof", "humanist-sans", "diagrammatic", "editorial-sequence", "navigable-artifact", "interaction-proof", "credible"),
@@ -1994,13 +2235,15 @@ class DesignLifecycleTests(unittest.TestCase):
                 json.dumps({"stage": "concept", "status": "passed"}),
             )
             strategy, family, art_family, composition, grammar, interaction, strength = concept_range[direction_id]
-            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
+            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": f"adaptation-{direction_id}", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
 
         checkpoints = []
-        for checkpoint_id in ("brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions"):
+        for checkpoint_id in ("brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions"):
             content = {"checkpoint_id": checkpoint_id}
             if checkpoint_id == "generative-concept-laboratory":
                 content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
+            if checkpoint_id == "reference-translation":
+                content.update({"status": "passed", "precision_schema_version": 2, "reference_study_count": 1, "adaptation_count": 3, "constraint_count": 8, "copy_detail_count": 3, "correction_pass_count": 2, "literal_substitution_count": 3, "independent_review_status": "passed", "comparison_status": "passed", "primitive_substitution_count": 0, "reference_translation_hash": reference_translation_hash})
             value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
             checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
 
@@ -2071,10 +2314,13 @@ class DesignLifecycleTests(unittest.TestCase):
 
         checkpoints = []
         laboratory_hash = "9" * 64
+        reference_translation_hash = "8" * 64
         for checkpoint_id in definition["required_checkpoints"]:
             content = {"checkpoint_id": checkpoint_id}
             if checkpoint_id == "generative-concept-laboratory":
                 content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
+            if checkpoint_id == "reference-translation":
+                content.update({"status": "passed", "precision_schema_version": 2, "reference_study_count": 1, "adaptation_count": 2, "constraint_count": 8, "copy_detail_count": 3, "correction_pass_count": 2, "literal_substitution_count": 2, "independent_review_status": "passed", "comparison_status": "passed", "primitive_substitution_count": 0, "reference_translation_hash": reference_translation_hash})
             value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
             checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
         board = artifact("concepts/morning-brief.html", "<h1>Morning brief</h1>")
@@ -2103,7 +2349,10 @@ class DesignLifecycleTests(unittest.TestCase):
             "seed": {"audience": "founder-operator", "posture": "calm-authority", "hero": "morning-decision-surface", "references": ["Linear", "Palantir Foundry"], "edge_case": "healthy-but-unauthorized"},
             "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
             "checkpoints": checkpoints,
-            "concepts": [{"direction_id": "morning-brief", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": "type-reflective-serif", "typography_family": "serif", "art_direction_family": "photographic", "composition_family": "cinematic-chapters", "page_grammar_family": "editorial-issue", "interaction_motion_strategy_id": "motion-witness", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "compelling", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"}],
+            "concepts": [
+                {"direction_id": "morning-brief", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": "adaptation-morning-brief", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": "type-reflective-serif", "typography_family": "serif", "art_direction_family": "photographic", "composition_family": "cinematic-chapters", "page_grammar_family": "editorial-issue", "interaction_motion_strategy_id": "motion-witness", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "compelling", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"},
+                {"direction_id": "proof-relay", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": "adaptation-proof-relay", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": "type-humanist-proof", "typography_family": "humanist-sans", "art_direction_family": "diagrammatic", "composition_family": "spatial-field", "page_grammar_family": "single-canvas-instrument", "interaction_motion_strategy_id": "interaction-proof", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "credible", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"}
+            ],
             "selection": {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]},
             "prototype_validation": prototype,
             "approval": {"actor_type": "human", **{key: approval_value[key] for key in ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")}, "record": approval_record},
@@ -3422,6 +3671,7 @@ class BoundaryTests(unittest.TestCase):
             self.assertTrue((root / ".claude/commands/continuity-design.md").is_file())
             self.assertTrue((root / ".agents/skills/continuity-design/scripts/artifact-browser-probe.js").is_file())
             self.assertTrue((root / ".agents/continuity/schemas/design-artifact-manifest.schema.json").is_file())
+            self.assertTrue((root / ".agents/continuity/schemas/design-reference-translation.schema.json").is_file())
             config = json.loads((root / ".continuity/config.json").read_text())
             self.assertEqual(config["collections"], ["core", "design", "projects"])
             cli = root / ".agents/continuity/bin/continuity"

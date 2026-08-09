@@ -28,6 +28,38 @@
     "visual_findings": {"type": "array", "items": {"type": "object"}},
     "context_findings": {"type": "array", "items": {"type": "object"}},
     "project_context": {"type": "object"},
+    "translation_fidelity": {
+      "type": "object",
+      "properties": {
+        "primitive_media_substitution": {"type": "boolean"},
+        "material_energy_preserved": {"type": "boolean"},
+        "template_convergence": {"type": "boolean"},
+        "declared_mechanics_visible": {"type": "boolean"},
+        "generated_study_retained_or_translated": {"type": "boolean"},
+        "approved_constraints_present": {"type": "boolean"},
+        "primary_material_organizes": {"type": "boolean"},
+        "typographic_grammar_preserved": {"type": "boolean"},
+        "exact_single_source_baseline": {"type": "boolean"},
+        "independent_review": {"type": "boolean"},
+        "mobile_comparison_complete": {"type": "boolean"},
+        "reference_lineage_visible": {"type": "boolean"},
+        "variable_contrast_resolved": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "portfolio_diversity": {
+      "type": "object",
+      "properties": {
+        "portfolio_audit_current": {"type": "boolean"},
+        "house_overlap_within_limit": {"type": "boolean"},
+        "strongest_prior_challenged": {"type": "boolean"},
+        "concept_forming_media_present": {"type": "boolean"},
+        "close_far_distance_present": {"type": "boolean"},
+        "reference_difficulty_passed": {"type": "boolean"},
+        "journey_state_depth_passed": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
     "dispositions": {"type": "array", "items": {"$ref": "#/$defs/disposition"}},
     "craft_findings": {"type": "array", "items": {"$ref": "#/$defs/craftFinding"}},
     "generated_claims": {"type": "array", "items": {"type": "object"}},

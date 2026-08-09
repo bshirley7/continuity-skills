@@ -28,11 +28,15 @@ Findings emit a stable rule ID, class, severity, location, evidence, and remedia
 
 Review unexplained purple-to-blue gradients, gradient headlines, warm cream, common model-default type, decorative glass, uniform rounded containers, bento grids, repeated eyebrows, meaningless numbering, excessive centering, fade-up repetition, hero metrics, decorative glows, stock imagery, generic promotional copy, em-dash cadence, and the fashionable black-neon terminal counter-default.
 
+Also review translation collapse: source-defining media replaced by primitive CSS decoration, loss of defining scale or material energy, convergence on a familiar hero-and-sections template, declared mechanics absent from the render, and useful generated studies discarded without an equivalent translation. Ruleset 1.3 additionally detects primary material demoted to a copy backdrop, substituted typographic grammar, hybrid references without exact individual baselines, self-certified fidelity, incomplete narrow comparison, weak visible lineage, unresolved type contrast over variable imagery, stale portfolio reviews, excessive house-style overlap, an unchallenged strongest prior, supporting-only media, collapsed close/far distance, unresolved reference difficulty, and hero-only journey evidence.
+
 ## Project drift
 
-Review unapproved tokens or patterns, a signature that disappears beyond the hero, reference imitation without transformation, reintroduced rejected choices, component-library retreat, and Continuity house tells that dominate the approved project identity.
+Review unapproved tokens or patterns, a signature that disappears beyond the hero, reference imitation without transformation, reintroduced rejected choices, component-library retreat, Continuity house tells that dominate the approved project identity, and loss of a mechanic already passed by the reference-translation gate.
 
 Supply deterministic context markers in `project_context`: `unapproved_markers`, `required_signature_markers`, `reference_transformations`, `rejected_choices`, and `continuity_house_tells`. These are literal contract-derived markers, not arbitrary regex suppressions. Add rendered judgments that cannot be expressed as markers to `context_findings` with a stable project-drift rule ID.
+
+Supply `portfolio_diversity` booleans for the current portfolio audit, house-overlap limit, strongest-prior challenge, concept-forming media, close/far distance, reference-class difficulty, and journey/state depth. A false value emits blocking project drift; omitting the object is supported only for legacy workflow records.
 
 ## Required visual review
 

@@ -120,6 +120,8 @@ continuity design catalog
 continuity design draft --input <design-input.json>
 continuity design visual-atlas --input <request.json>
 continuity design concept-lab-validate --input <laboratory.json>
+continuity design reference-validate --manifest <reference-translation.json>
+continuity design portfolio-validate --manifest <portfolio-review.json>
 continuity design visual-render --input <render.json>
 continuity design slop-check --target <file-or-directory> --manifest <slop-manifest.json>
 continuity design concept-validate --manifest <concept-manifest.json>

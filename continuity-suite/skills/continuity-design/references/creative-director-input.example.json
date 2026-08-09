@@ -1,5 +1,5 @@
 {
-  "workflow_version": 2,
+  "workflow_version": 3,
   "design_id": "example-direction",
   "title": "Example direction",
   "intent": "Give operators a distinctive evidence-first review experience.",

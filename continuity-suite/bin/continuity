@@ -11836,6 +11836,10 @@ def design_command(args: argparse.Namespace) -> Any:
             return design_lib.visual_render(root, config, Path(args.input).expanduser().resolve())
         if args.command == "concept-lab-validate":
             return design_lib.concept_lab_validate(root, config, Path(args.input).expanduser().resolve())
+        if args.command == "reference-validate":
+            return design_lib.reference_validate(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "portfolio-validate":
+            return design_lib.portfolio_validate(root, config, Path(args.manifest).expanduser().resolve())
         if args.command == "concept-validate":
             return design_lib.concept_validate(root, config, Path(args.manifest).expanduser().resolve())
         if args.command == "improvement-cycle":
@@ -12224,6 +12228,12 @@ def build_parser() -> argparse.ArgumentParser:
     design_concept_lab_validate = design_sub.add_parser("concept-lab-validate")
     design_concept_lab_validate.add_argument("--input", required=True)
     design_concept_lab_validate.set_defaults(handler=design_command)
+    design_reference_validate = design_sub.add_parser("reference-validate")
+    design_reference_validate.add_argument("--manifest", required=True)
+    design_reference_validate.set_defaults(handler=design_command)
+    design_portfolio_validate = design_sub.add_parser("portfolio-validate")
+    design_portfolio_validate.add_argument("--manifest", required=True)
+    design_portfolio_validate.set_defaults(handler=design_command)
     design_concept_validate = design_sub.add_parser("concept-validate")
     design_concept_validate.add_argument("--manifest", required=True)
     design_concept_validate.set_defaults(handler=design_command)

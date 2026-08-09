@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity precision reference translation",
+  "type": "object",
+  "required": ["schema_version", "status", "design_id", "revision", "prepared_by", "reviewer_type", "reviewer", "reviewed_at", "set_conclusion", "reference_studies", "adaptations", "comparison", "independent_review"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "status": {"const": "passed"},
+    "design_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "prepared_by": {"type": "string", "minLength": 1},
+    "reviewer_type": {"enum": ["human", "agent-multimodal"]},
+    "reviewer": {"type": "string", "minLength": 1},
+    "reviewed_at": {"type": "string", "minLength": 1},
+    "set_conclusion": {"type": "string", "minLength": 1},
+    "reference_studies": {
+      "type": "array", "minItems": 1, "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["study_id", "source_identity", "source_tile_ids", "source_evidence", "reference_class", "difficulty_evidence", "copy_adaptation_ledger", "reconstruction", "correction_passes", "salience_order", "constraints"],
+        "properties": {
+          "study_id": {"type": "string", "minLength": 1},
+          "source_identity": {"type": "string", "minLength": 1},
+          "source_tile_ids": {"type": "array", "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+          "source_evidence": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/source"}},
+          "reference_class": {"enum": ["photographic", "diagrammatic", "editorial", "motion-led", "product-object", "mixed"]},
+          "difficulty_evidence": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/difficultyEvidence"}},
+          "copy_adaptation_ledger": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/copyDecision"}},
+          "reconstruction": {"$ref": "#/$defs/responsiveArtifact"},
+          "correction_passes": {
+            "type": "array", "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": ["pass_number", "status", "combined_wide", "combined_narrow", "findings", "changes"],
+              "properties": {
+                "pass_number": {"type": "integer", "minimum": 1},
+                "status": {"enum": ["changes-required", "passed"]},
+                "combined_wide": {"$ref": "#/$defs/file"},
+                "combined_narrow": {"$ref": "#/$defs/file"},
+                "findings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/correctionFinding"}},
+                "changes": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+              },
+              "additionalProperties": false
+            }
+          },
+          "salience_order": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/salience"}},
+          "constraints": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/constraint"}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "adaptations": {
+      "type": "array", "minItems": 2, "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["adaptation_id", "study_ids", "html", "wide", "narrow", "literal_substitution", "controlled_divergence", "constraint_results", "media_strategy", "adaptation_distance", "fidelity_review"],
+        "properties": {
+          "adaptation_id": {"type": "string", "minLength": 1},
+          "study_ids": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "html": {"$ref": "#/$defs/file"},
+          "wide": {"$ref": "#/$defs/file"},
+          "narrow": {"$ref": "#/$defs/file"},
+          "literal_substitution": {
+            "type": "object",
+            "required": ["study_id", "html", "wide", "narrow", "mapping"],
+            "properties": {
+              "study_id": {"type": "string", "minLength": 1},
+              "html": {"$ref": "#/$defs/file"}, "wide": {"$ref": "#/$defs/file"}, "narrow": {"$ref": "#/$defs/file"},
+              "mapping": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/roleMapping"}}
+            }
+          },
+          "controlled_divergence": {
+            "type": "object", "required": ["changes"],
+            "properties": {"changes": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"$ref": "#/$defs/divergenceChange"}}},
+            "additionalProperties": false
+          },
+          "constraint_results": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/constraintResult"}},
+          "media_strategy": {"$ref": "#/$defs/mediaStrategy"},
+          "adaptation_distance": {"$ref": "#/$defs/adaptationDistance"},
+          "fidelity_review": {"$ref": "#/$defs/fidelityReview"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "comparison": {"$ref": "#/$defs/responsiveArtifact"},
+    "independent_review": {"$ref": "#/$defs/independentReview"}
+  },
+  "$defs": {
+    "file": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},
+    "source": {"type": "object", "required": ["path", "sha256", "source_id", "viewport_role", "ownership", "publishable"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "source_id": {"type": "string", "minLength": 1}, "viewport_role": {"enum": ["wide", "narrow"]}, "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]}, "publishable": {"type": "boolean"}}, "additionalProperties": false},
+    "difficultyEvidence": {"type": "object", "required": ["threshold", "status", "finding", "evidence_region"], "properties": {"threshold": {"type": "string", "minLength": 1}, "status": {"const": "pass"}, "finding": {"type": "string", "minLength": 1}, "evidence_region": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "copyDecision": {"type": "object", "required": ["detail_id", "detail", "source_location", "private_copy_action", "project_adaptation", "shipping_boundary"], "properties": {"detail_id": {"type": "string", "minLength": 1}, "detail": {"type": "string", "minLength": 1}, "source_location": {"type": "string", "minLength": 1}, "private_copy_action": {"type": "string", "minLength": 1}, "project_adaptation": {"type": "string", "minLength": 1}, "shipping_boundary": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "responsiveArtifact": {"type": "object", "required": ["html", "wide", "narrow"], "properties": {"html": {"$ref": "#/$defs/file"}, "wide": {"$ref": "#/$defs/file"}, "narrow": {"$ref": "#/$defs/file"}}, "additionalProperties": false},
+    "correctionFinding": {"type": "object", "required": ["dimension", "evidence_region", "finding", "correction"], "properties": {"dimension": {"type": "string", "minLength": 1}, "evidence_region": {"type": "string", "minLength": 1}, "finding": {"type": "string", "minLength": 1}, "correction": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "salience": {"type": "object", "required": ["rank", "source_element", "reconstruction_element", "result", "evidence_region"], "properties": {"rank": {"type": "integer", "minimum": 1, "maximum": 3}, "source_element": {"type": "string", "minLength": 1}, "reconstruction_element": {"type": "string", "minLength": 1}, "result": {"const": "pass"}, "evidence_region": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "metric": {"type": "object", "required": ["name", "unit", "source_value", "reconstruction_value", "tolerance", "status"], "properties": {"name": {"type": "string", "minLength": 1}, "unit": {"type": "string", "minLength": 1}, "source_value": {"type": "number"}, "reconstruction_value": {"type": "number"}, "tolerance": {"type": "number", "minimum": 0}, "status": {"const": "pass"}}, "additionalProperties": false},
+    "constraint": {"type": "object", "required": ["constraint_id", "dimension", "observation", "invariant", "measurable_rule", "project_mapping", "allowed_variance", "prohibited_copying", "source_location", "reconstruction_location", "metric"], "properties": {"constraint_id": {"type": "string", "minLength": 1}, "dimension": {"enum": ["composition", "scale", "negative-space", "typography", "media", "material", "color", "motion", "interaction", "content-structure", "responsive-transformation"]}, "observation": {"type": "string", "minLength": 1}, "invariant": {"type": "string", "minLength": 1}, "measurable_rule": {"type": "string", "minLength": 1}, "project_mapping": {"type": "string", "minLength": 1}, "allowed_variance": {"type": "string", "minLength": 1}, "prohibited_copying": {"type": "string", "minLength": 1}, "source_location": {"type": "string", "minLength": 1}, "reconstruction_location": {"type": "string", "minLength": 1}, "metric": {"$ref": "#/$defs/metric"}}, "additionalProperties": false},
+    "roleMapping": {"type": "object", "required": ["constraint_id", "source_role", "project_replacement", "preserved_relationship", "source_location", "artifact_location"], "properties": {"constraint_id": {"type": "string", "minLength": 1}, "source_role": {"type": "string", "minLength": 1}, "project_replacement": {"type": "string", "minLength": 1}, "preserved_relationship": {"type": "string", "minLength": 1}, "source_location": {"type": "string", "minLength": 1}, "artifact_location": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "divergenceChange": {"type": "object", "required": ["dimension", "from", "to", "rationale", "preserved_constraint_ids"], "properties": {"dimension": {"enum": ["composition", "scale", "negative-space", "typography", "media", "material", "color", "motion", "interaction", "content-structure", "responsive-transformation"]}, "from": {"type": "string", "minLength": 1}, "to": {"type": "string", "minLength": 1}, "rationale": {"type": "string", "minLength": 1}, "preserved_constraint_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false},
+    "constraintResult": {"type": "object", "required": ["constraint_id", "result", "evidence", "artifact_location"], "properties": {"constraint_id": {"type": "string", "minLength": 1}, "result": {"const": "pass"}, "evidence": {"type": "string", "minLength": 1}, "artifact_location": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "mediaStrategy": {"type": "object", "required": ["source", "primitive_substitution", "generated_media_disposition", "rationale"], "properties": {"source": {"enum": ["generated", "project-owned", "supplied-with-rights", "code-native", "mixed"]}, "primitive_substitution": {"const": false}, "generated_media_disposition": {"enum": ["retained", "translated", "not-applicable"]}, "rationale": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "adaptationDistance": {"type": "object", "required": ["role", "total_score", "dimensions"], "properties": {"role": {"enum": ["close-study", "far-study", "experimental-study"]}, "total_score": {"type": "number", "minimum": 0, "maximum": 1}, "dimensions": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"type": "object", "required": ["dimension", "score", "rationale"], "properties": {"dimension": {"enum": ["composition", "color", "typography", "media-role", "responsive-behavior", "interaction"]}, "score": {"type": "number", "minimum": 0, "maximum": 1}, "rationale": {"type": "string", "minLength": 1}}, "additionalProperties": false}}}, "additionalProperties": false},
+    "fidelityReview": {"type": "object", "required": ["status", "reference_mechanics_preserved", "project_identity_distinct", "material_fidelity", "template_distance", "declared_visible", "strongest_transfer", "weakest_loss", "next_action"], "properties": {"status": {"const": "passed"}, "reference_mechanics_preserved": {"const": "pass"}, "project_identity_distinct": {"const": "pass"}, "material_fidelity": {"const": "pass"}, "template_distance": {"const": "pass"}, "declared_visible": {"const": "pass"}, "strongest_transfer": {"type": "string", "minLength": 1}, "weakest_loss": {"type": "string", "minLength": 1}, "next_action": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "reviewAnswer": {"type": "object", "required": ["result", "finding", "evidence_region"], "properties": {"result": {"const": "pass"}, "finding": {"type": "string", "minLength": 1}, "evidence_region": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "reviewFinding": {"type": "object", "required": ["finding_id", "severity", "description", "evidence_region", "disposition", "resolution"], "properties": {"finding_id": {"type": "string", "minLength": 1}, "severity": {"enum": ["info", "warning", "error", "critical"]}, "description": {"type": "string", "minLength": 1}, "evidence_region": {"type": "string", "minLength": 1}, "disposition": {"const": "resolved"}, "resolution": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "independentReview": {"type": "object", "required": ["status", "method", "reviewer_type", "reviewer", "reviewed_at", "questions", "findings"], "properties": {"status": {"const": "passed"}, "method": {"const": "combined-visual-comparison"}, "reviewer_type": {"enum": ["human", "agent-multimodal"]}, "reviewer": {"type": "string", "minLength": 1}, "reviewed_at": {"type": "string", "minLength": 1}, "questions": {"type": "object", "required": ["salience_order", "spatial_tension", "typography_role", "media_dominance", "mechanic_lineage", "project_distinction", "responsive_fidelity", "variable_contrast"], "properties": {"salience_order": {"$ref": "#/$defs/reviewAnswer"}, "spatial_tension": {"$ref": "#/$defs/reviewAnswer"}, "typography_role": {"$ref": "#/$defs/reviewAnswer"}, "media_dominance": {"$ref": "#/$defs/reviewAnswer"}, "mechanic_lineage": {"$ref": "#/$defs/reviewAnswer"}, "project_distinction": {"$ref": "#/$defs/reviewAnswer"}, "responsive_fidelity": {"$ref": "#/$defs/reviewAnswer"}, "variable_contrast": {"$ref": "#/$defs/reviewAnswer"}}, "additionalProperties": false}, "findings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reviewFinding"}}}, "additionalProperties": false}
+  },
+  "additionalProperties": false
+}

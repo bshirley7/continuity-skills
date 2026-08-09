@@ -50,7 +50,7 @@ def _definition(path: Path) -> dict[str, Any]:
     }
     if set(value) != required or value.get("schema_version") != 1:
         raise ValueError("Benchmark definition has an unsupported shape")
-    if value.get("benchmark_id") != "continuity-design-homepage-v6" or value.get("workflow") != "$continuity-design":
+    if value.get("benchmark_id") != "continuity-design-homepage-v8" or value.get("workflow") != "$continuity-design":
         raise ValueError("Benchmark definition identity is invalid")
     return value
 
@@ -146,6 +146,28 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         ):
             raise ValueError("Homepage benchmark requires a broad, completed generative concept laboratory")
         laboratory_hash = laboratory["laboratory_hash"]
+    translation_artifact = normalized_checkpoints.get("reference-translation")
+    translation_hash = None
+    translation_adaptation_count = 0
+    if translation_artifact:
+        translation = _read(run_root / translation_artifact["path"], "Reference translation checkpoint")
+        if (
+            translation.get("status") != "passed"
+            or translation.get("precision_schema_version") != 2
+            or not 1 <= translation.get("reference_study_count", 0) <= 3
+            or not 2 <= translation.get("adaptation_count", 0) <= 3
+            or translation.get("constraint_count", 0) < 8 * translation.get("reference_study_count", 0)
+            or translation.get("copy_detail_count", 0) < 3 * translation.get("reference_study_count", 0)
+            or translation.get("correction_pass_count", 0) < 2 * translation.get("reference_study_count", 0)
+            or translation.get("literal_substitution_count") != translation.get("adaptation_count")
+            or translation.get("independent_review_status") != "passed"
+            or translation.get("comparison_status") != "passed"
+            or translation.get("primitive_substitution_count") != 0
+            or not re.fullmatch(r"[a-f0-9]{64}", str(translation.get("reference_translation_hash", "")))
+        ):
+            raise ValueError("Homepage benchmark requires passed reference reconstruction and project adaptation evidence")
+        translation_hash = translation["reference_translation_hash"]
+        translation_adaptation_count = translation["adaptation_count"]
 
     concepts = manifest.get("concepts")
     if not isinstance(concepts, list) or not 1 <= len(concepts) <= 3:
@@ -158,6 +180,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     page_grammar_families: set[str] = set()
     interaction_motion_strategies: set[str] = set()
     impact_strengths: set[str] = set()
+    reference_adaptation_ids: set[str] = set()
     normalized_concepts = []
     for concept in concepts:
         if not isinstance(concept, dict) or not isinstance(concept.get("direction_id"), str) or not concept["direction_id"].strip():
@@ -172,6 +195,14 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
             raise ValueError(f"Concept {direction_id} lacks a passed concept-stage slop report")
         if concept.get("creative_range_status") != "passed" or concept.get("generative_laboratory_hash") != laboratory_hash:
             raise ValueError(f"Concept {direction_id} lacks passed creative-range evidence bound to the generative laboratory")
+        reference_adaptation_id = concept.get("reference_adaptation_id")
+        if (
+            not isinstance(reference_adaptation_id, str) or not reference_adaptation_id.strip()
+            or reference_adaptation_id in reference_adaptation_ids
+            or concept.get("reference_translation_hash") != translation_hash
+        ):
+            raise ValueError(f"Concept {direction_id} lacks its own adaptation bound to the passed reference translation")
+        reference_adaptation_ids.add(reference_adaptation_id)
         required_range = {
             "typography_strategy_id": str,
             "typography_family": str,
@@ -204,6 +235,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         impact_strengths.add(concept["impact_strength"])
         normalized_concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop})
         concept_ids.add(direction_id)
+    if translation_adaptation_count != len(concepts):
+        raise ValueError("Reference translation adaptation count must match the complete concept set")
     if len(concepts) > 1 and (
         len(typography_strategies) != len(concepts)
         or len(typography_families) < 2
@@ -327,6 +360,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "journey_structure_status": "passed",
         "interaction_motion_strategy_count": len(interaction_motion_strategies),
         "compelling_concept_count": sum(concept.get("impact_strength") == "compelling" for concept in concepts),
+        "reference_translation_hash": translation_hash,
+        "reference_adaptation_count": translation_adaptation_count,
         "checkpoint_count": len(normalized_checkpoints),
         "evidence_roles": sorted(normalized_evidence),
         "seed": seed,

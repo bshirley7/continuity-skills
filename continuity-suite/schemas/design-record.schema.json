@@ -10,6 +10,7 @@
     "design_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "visual_reference_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "approval_bundle_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "reference_translation_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "slop_ruleset_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
     "slop_ruleset_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "visual_references": {"type": "array", "items": {"type": "object"}},
@@ -53,6 +54,7 @@
         "reference_decomposition": {"type": "array", "items": {"type": "object"}},
         "rejected_decisions": {"type": "array"},
         "concept_evidence": {"oneOf": [{"type": "object"}, {"type": "null"}]},
+        "reference_translation": {"oneOf": [{"type": "object"}, {"type": "null"}]},
         "slop_ruleset_version": {"type": "string"}
       },
       "additionalProperties": false

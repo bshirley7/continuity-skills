@@ -21,7 +21,7 @@ Build a private moodboard of 12–20 numbered tiles across two or three axes:
 - treatment or light;
 - graphic or spatial language.
 
-Save and hash each captured image. Record source, capture time, intended lesson, project mechanic, ownership, and `prohibited_copying: true` for every tile. Use at least two axes and three sources; duplicate captures do not count. Keep third-party screenshots and moodboards private and non-shipping. Render the board with `continuity design visual-render --input <moodboard.json>` and later disposition every tile against a concept.
+Save and hash each captured image. For every tile, identify the concrete details worth copying during private study—such as crop, type placement, scale ratio, spacing rhythm, material treatment, interaction, or transition. Record where each detail appears, how the private reconstruction will copy it, how project content will replace its role, and what must change before shipping. The moodboard is a working extraction surface, not a gallery of vague inspiration. Use at least two axes and three sources; duplicate captures do not count. Keep third-party screenshots, copied calibration work, and moodboards private and non-shipping. Render the board with `continuity design visual-render --input <moodboard.json>` and later disposition every copy candidate against a reconstruction and concept.
 
 ## 3. Teach visually
 
@@ -34,6 +34,8 @@ Before composing web pages or polished boards, run the [generative concept labor
 Delay responsive HTML until seeds are clustered. This prevents every divergent idea from inheriting the same layout, type pairing, rules, and restrained palette. If generated imagery contributes to a direction, extract at least three repeatable non-image system decisions from it.
 
 ## 5. Concept
+
+Before complete concept expansion, rebuild each named reference separately as private responsive HTML/CSS. Complete two located visual-difference corrections, compile at least eight measured grammar constraints, build a literal Continuity substitution while freezing those relationships, and then record one to four controlled divergence dimensions. A reviewer distinct from the preparer compares source, reconstruction, literal baseline, and adaptation at wide and narrow widths. Preserve real or generated media when it carries the material behavior; blended baselines, self-certification, and primitive decoration are not equivalent translation. Validate the set with `reference-validate` and bind each concept to one adaptation. See [precision reference translation](reference-translation-fidelity.md).
 
 - If material direction is unclear, create two or three equally developed boards and preselect no winner.
 - If direction is clear, create one selectable recommended board and one or two non-selectable contrast studies that each test a named uncertainty.
