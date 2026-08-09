@@ -616,14 +616,14 @@ class DesignLifecycleTests(unittest.TestCase):
             concept_visual_paths[name] = visual
             concept_visuals[name] = {"path": visual.name, "sha256": __import__("hashlib").sha256(visual.read_bytes()).hexdigest()}
         source = self.root / "concept.html"
-        source.write_text("<main data-continuity-stage=\"opening-proof\"><h1 data-continuity-grammar-behavior=\"issue-spread-variation\">Operational evidence</h1><p data-continuity-grammar-behavior=\"cross-spread-carrier\">A calm direct path.</p><nav data-continuity-grammar-behavior=\"article-sequencing\" data-continuity-stage=\"orientation\"></nav><section data-continuity-stage=\"project-proof\"></section><section data-continuity-stage=\"blocked-edge\"></section><footer data-continuity-stage=\"closure\"></footer></main>", encoding="utf-8")
+        source.write_text("<main data-continuity-stage=\"opening-proof\" data-continuity-journey-structure=\"opening-composition\"><h1 data-continuity-grammar-behavior=\"issue-spread-variation\" data-continuity-journey-structure=\"evidence-seam\">Operational evidence</h1><p data-continuity-grammar-behavior=\"cross-spread-carrier\" data-continuity-journey-structure=\"proof-article\">A calm direct path.</p><nav data-continuity-grammar-behavior=\"article-sequencing\" data-continuity-stage=\"orientation\" data-continuity-journey-structure=\"dossier-index\"></nav><section data-continuity-stage=\"project-proof\"></section><section data-continuity-stage=\"blocked-edge\"></section><footer data-continuity-stage=\"closure\" data-continuity-journey-structure=\"open-ledger\"></footer></main>", encoding="utf-8")
         slop = design.slop_check(self.root, self.config, source, self.write_slop_manifest(
             design_id=draft["design_id"], revision=draft["revision"],
             visual_review=self.visual_review_for([concept_visual_paths["direction-wide"], concept_visual_paths["direction-narrow"]]),
         ))
         file_hash = __import__("hashlib").sha256(source.read_bytes()).hexdigest()
         contrast = self.root / "contrast.html"
-        contrast.write_text("<main data-continuity-stage=\"opening-field\"><h1 data-continuity-grammar-behavior=\"persistent-canvas\">Infrastructure field notes</h1><p data-continuity-grammar-behavior=\"state-recomposition\">A spatial inspection path.</p><nav data-continuity-grammar-behavior=\"control-continuity\" data-continuity-stage=\"orientation-map\"></nav><section data-continuity-stage=\"inspection-proof\"></section><section data-continuity-stage=\"quiet-route\"></section><footer data-continuity-stage=\"closure-boundary\"></footer></main>", encoding="utf-8")
+        contrast.write_text("<main data-continuity-stage=\"opening-field\" data-continuity-persistent-canvas=\"true\" data-continuity-instrument-state=\"field-entry\"><h1 data-continuity-grammar-behavior=\"persistent-canvas\" data-continuity-instrument-state=\"proof-trace\">Infrastructure field notes</h1><p data-continuity-grammar-behavior=\"state-recomposition\" data-continuity-instrument-state=\"quiet-field\">A spatial inspection path.</p><nav data-continuity-grammar-behavior=\"control-continuity\" data-continuity-stage=\"orientation-map\" data-continuity-instrument-state=\"control-state\"></nav><section data-continuity-stage=\"inspection-proof\"></section><section data-continuity-stage=\"quiet-route\"></section><footer data-continuity-stage=\"closure-boundary\" data-continuity-instrument-state=\"closed-route\"></footer></main>", encoding="utf-8")
         contrast_slop = design.slop_check(self.root, self.config, contrast, self.write_slop_manifest(
             design_id=draft["design_id"], revision=draft["revision"],
             visual_review=self.visual_review_for([concept_visual_paths["study-wide"], concept_visual_paths["study-narrow"]]),
@@ -675,6 +675,13 @@ class DesignLifecycleTests(unittest.TestCase):
                     {"behavior_id": "cross-spread-carrier", "journey_stage_ids": ["project-proof", "blocked-edge"], "artifact_note": "The proof rail crosses consequential spreads."},
                     {"behavior_id": "article-sequencing", "journey_stage_ids": ["opening-proof", "closure"], "artifact_note": "Document order becomes the narrow reading order."}
                 ]},
+                "journey_structure_review": {"status": "passed", "mode": "structural-variety", "distinct_expression_count": 5, "deepest_signature_change": "Evidence changes proof and closure structure.", "repeated_pattern_risk": "The orientation could still resemble a generic article.", "assignments": [
+                    {"stage_id": "opening-proof", "expression_id": "opening-composition", "artifact_note": "A split claim and proof opening.", "responsive_behavior": "Proof follows the claim."},
+                    {"stage_id": "orientation", "expression_id": "dossier-index", "artifact_note": "An index teaches the record.", "responsive_behavior": "The index becomes document order."},
+                    {"stage_id": "project-proof", "expression_id": "proof-article", "artifact_note": "Source material changes the measure.", "responsive_behavior": "Evidence remains adjacent."},
+                    {"stage_id": "blocked-edge", "expression_id": "evidence-seam", "artifact_note": "The seam stops at missing authority.", "responsive_behavior": "The seam remains inline."},
+                    {"stage_id": "closure", "expression_id": "open-ledger", "artifact_note": "The record ends with an open disposition.", "responsive_behavior": "The final line remains visible."}
+                ]},
                 "interaction_motion_system": {"strategy_id": "interaction-proof-disclosure", "mode": "native-disclosure", "semantic_purpose": "Reveal proof without losing its claim.", "reduced_motion": "Use immediate disclosure.", "static_fallback": "All proof remains in document order."},
                 "journey_stages": direction_journey,
                 "comparison_coverage": {"full_page_strip": concept_visuals["direction-narrow"], "chapter_index": [item["stage_id"] for item in direction_journey], "deep_link": {"path": source.name, "sha256": file_hash}},
@@ -698,6 +705,13 @@ class DesignLifecycleTests(unittest.TestCase):
                     {"behavior_id": "persistent-canvas", "journey_stage_ids": ["opening-field", "inspection-proof"], "artifact_note": "The field persists between entry and proof."},
                     {"behavior_id": "state-recomposition", "journey_stage_ids": ["inspection-proof", "quiet-route"], "artifact_note": "The field changes emphasis for proof and quiet state."},
                     {"behavior_id": "control-continuity", "journey_stage_ids": ["orientation-map", "closure-boundary"], "artifact_note": "The control trace remains addressable through closure."}
+                ]},
+                "journey_structure_review": {"status": "passed", "mode": "persistent-state-variation", "distinct_expression_count": 5, "deepest_signature_change": "The same canvas recomposes from proof into quiet state.", "repeated_pattern_risk": "Closure can feel like a final panel rather than a control state.", "assignments": [
+                    {"stage_id": "opening-field", "expression_id": "field-entry", "artifact_note": "The field begins in entry state.", "responsive_behavior": "The canvas becomes a vertical field."},
+                    {"stage_id": "orientation-map", "expression_id": "control-state", "artifact_note": "Controls teach the topology.", "responsive_behavior": "Controls remain labeled."},
+                    {"stage_id": "inspection-proof", "expression_id": "proof-trace", "artifact_note": "Evidence activates one route.", "responsive_behavior": "The route becomes a trace."},
+                    {"stage_id": "quiet-route", "expression_id": "quiet-field", "artifact_note": "The field removes urgency.", "responsive_behavior": "Quiet state retains topology."},
+                    {"stage_id": "closure-boundary", "expression_id": "closed-route", "artifact_note": "Authority closes the route.", "responsive_behavior": "The boundary remains explicit."}
                 ]},
                 "interaction_motion_system": {"strategy_id": "interaction-spatial-trace", "mode": "direct-manipulation", "semantic_purpose": "Trace source to consequence.", "reduced_motion": "Update state without interpolation.", "static_fallback": "Render the complete labeled route."},
                 "journey_stages": study_journey,
@@ -781,6 +795,12 @@ class DesignLifecycleTests(unittest.TestCase):
         incomplete_congruence_manifest.write_text(json.dumps(incomplete_congruence_value), encoding="utf-8")
         with self.assertRaisesRegex(design.DesignError, "every required editorial-issue behavior"):
             design.concept_validate(self.root, self.config, incomplete_congruence_manifest)
+        shallow_journey_manifest = self.root / "concept-shallow-deep-journey.json"
+        shallow_journey_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        shallow_journey_value["concepts"][0]["journey_structure_review"]["assignments"].pop()
+        shallow_journey_manifest.write_text(json.dumps(shallow_journey_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "cover every stage exactly once"):
+            design.concept_validate(self.root, self.config, shallow_journey_manifest)
         validated = design.concept_validate(self.root, self.config, concept_manifest)
         self.assertEqual(validated["status"], "awaiting-feedback")
         self.assertEqual(validated["impact_review_status"], "passed")
@@ -1821,7 +1841,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 json.dumps({"stage": "concept", "status": "passed"}),
             )
             strategy, family, art_family, composition, grammar, interaction, strength = concept_range[direction_id]
-            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed"})
+            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
 
         checkpoints = []
         for checkpoint_id in ("brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "concept-directions"):
@@ -1930,7 +1950,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "seed": {"audience": "founder-operator", "posture": "calm-authority", "hero": "morning-decision-surface", "references": ["Linear", "Palantir Foundry"], "edge_case": "healthy-but-unauthorized"},
             "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
             "checkpoints": checkpoints,
-            "concepts": [{"direction_id": "morning-brief", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": "type-reflective-serif", "typography_family": "serif", "art_direction_family": "photographic", "composition_family": "cinematic-chapters", "page_grammar_family": "editorial-issue", "interaction_motion_strategy_id": "motion-witness", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "compelling", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed"}],
+            "concepts": [{"direction_id": "morning-brief", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "typography_strategy_id": "type-reflective-serif", "typography_family": "serif", "art_direction_family": "photographic", "composition_family": "cinematic-chapters", "page_grammar_family": "editorial-issue", "interaction_motion_strategy_id": "motion-witness", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "compelling", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"}],
             "selection": {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]},
             "prototype_validation": prototype,
             "approval": {"actor_type": "human", **{key: approval_value[key] for key in ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")}, "record": approval_record},

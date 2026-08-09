@@ -1,5 +1,5 @@
 {
-  "benchmark_id": "continuity-design-homepage-v5",
+  "benchmark_id": "continuity-design-homepage-v6",
   "brief_path": "continuity-homepage-challenge.md",
   "hard_failures": [
     {"rule_id": "CDHB-H001", "description": "Healthy is presented as authorized."},
@@ -12,7 +12,8 @@
     {"rule_id": "CDHB-H008", "description": "Concepts collapse into one typography, art-direction, composition, page-grammar, or interaction family; omit a complete page journey; or reuse comparison-only runtime evidence."},
     {"rule_id": "CDHB-H009", "description": "No concept passes the separate impact review as compelling, or the signature fails to control at least three journey roles."},
     {"rule_id": "CDHB-H010", "description": "Generated exploration is promoted as unexplained pixels instead of being dispositioned and extracted into a project-specific system."},
-    {"rule_id": "CDHB-H011", "description": "A declared page grammar lacks its required behaviors in the bound complete prototype or is visible in fewer than two journey stages."}
+    {"rule_id": "CDHB-H011", "description": "A declared page grammar lacks its required behaviors in the bound complete prototype or is visible in fewer than two journey stages."},
+    {"rule_id": "CDHB-H012", "description": "A deep journey repeats fewer than four structural expressions, or a single-canvas instrument lacks a persistent canvas with four distinct state recompositions."}
   ],
   "minimum_human_reviewers": 1,
   "passing_score": 75,

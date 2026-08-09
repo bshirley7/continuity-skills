@@ -119,6 +119,7 @@ GENERATED_EXTRACTION_DOMAINS = {"typography", "composition", "material", "motion
 STYLE_FRAME_METHODS = {"generated", "edited", "code-native", "project-owned"}
 IMPACT_STRENGTHS = {"credible", "compelling"}
 IMPACT_REVIEWER_TYPES = {"agent-multimodal", "human"}
+JOURNEY_STRUCTURE_MODES = {"structural-variety", "persistent-state-variation"}
 IMPROVEMENT_PASS_STATUSES = {"planned", "implemented", "validated", "awaiting-human", "accepted", "changes-requested"}
 JOURNEY_STAGE_ROLES = {
     "opening", "orientation", "proof", "system-model", "interaction", "quiet-state",
@@ -3542,6 +3543,43 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             for stage_id in behavior["journey_stage_ids"]:
                 if f'data-continuity-stage="{stage_id}"' not in prototype_source:
                     raise DesignError(f"Concept {concept_id} prototype does not expose journey stage {stage_id} for grammar review")
+        journey_structure = concept.get("journey_structure_review")
+        if not isinstance(journey_structure, dict) or journey_structure.get("status") != "passed":
+            raise DesignError(f"Concept {concept_id} requires a passed deep-journey structure review")
+        structure_mode = journey_structure.get("mode")
+        if structure_mode not in JOURNEY_STRUCTURE_MODES:
+            raise DesignError(f"Concept {concept_id} requires a supported deep-journey structure mode")
+        if structure_mode == "persistent-state-variation" and grammar_family != "single-canvas-instrument":
+            raise DesignError("Persistent state variation is reserved for a single-canvas instrument grammar")
+        for field in ("deepest_signature_change", "repeated_pattern_risk"):
+            if not isinstance(journey_structure.get(field), str) or not journey_structure[field].strip():
+                raise DesignError(f"Concept {concept_id} deep-journey structure review requires {field}")
+        assignments = journey_structure.get("assignments")
+        if not isinstance(assignments, list) or {item.get("stage_id") for item in assignments if isinstance(item, dict)} != stage_ids:
+            raise DesignError(f"Concept {concept_id} deep-journey structure review must cover every stage exactly once")
+        normalized_assignments: list[dict[str, str]] = []
+        expression_ids: set[str] = set()
+        for assignment in assignments:
+            expression_id = _identifier(str(assignment.get("expression_id", "")), "journey expression ID")
+            if any(not isinstance(assignment.get(field), str) or not assignment[field].strip() for field in ("artifact_note", "responsive_behavior")):
+                raise DesignError(f"Concept {concept_id} journey expressions require artifact and responsive behavior notes")
+            expression_ids.add(expression_id)
+            normalized_assignments.append({
+                "stage_id": assignment["stage_id"], "expression_id": expression_id,
+                "artifact_note": assignment["artifact_note"].strip(),
+                "responsive_behavior": assignment["responsive_behavior"].strip(),
+            })
+        if len(expression_ids) < 4 or journey_structure.get("distinct_expression_count") != len(expression_ids):
+            raise DesignError(f"Concept {concept_id} deep journey requires at least four distinct structural or state expressions")
+        if structure_mode == "persistent-state-variation":
+            if 'data-continuity-persistent-canvas="true"' not in prototype_source:
+                raise DesignError(f"Concept {concept_id} does not implement the claimed persistent canvas")
+            marker_name = "data-continuity-instrument-state"
+        else:
+            marker_name = "data-continuity-journey-structure"
+        for expression_id in expression_ids:
+            if f'{marker_name}="{expression_id}"' not in prototype_source:
+                raise DesignError(f"Concept {concept_id} prototype does not implement journey expression {expression_id}")
         generated_lineage = [item for item in lineage if laboratory_seeds[item]["medium"] in GENERATED_IMAGE_MEDIA]
         generated_disposition = concept.get("generated_media_disposition")
         if not isinstance(generated_disposition, dict):
@@ -3646,6 +3684,13 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
                 "strongest_match": grammar_congruence["strongest_match"].strip(),
                 "weakest_mismatch": grammar_congruence["weakest_mismatch"].strip(),
                 "behaviors": normalized_grammar_behaviors,
+            },
+            "journey_structure_review": {
+                "status": "passed", "mode": structure_mode,
+                "distinct_expression_count": len(expression_ids),
+                "deepest_signature_change": journey_structure["deepest_signature_change"].strip(),
+                "repeated_pattern_risk": journey_structure["repeated_pattern_risk"].strip(),
+                "assignments": normalized_assignments,
             },
             "interaction_motion_system": {"strategy_id": interaction_strategy_id, "mode": interaction_mode, **{key: interaction_system[key].strip() for key in interaction_fields}},
             "journey_stages": normalized_stages, "runtime_probes": normalized_runtime_probes,
@@ -3910,7 +3955,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
     }
     record.update({"status": "awaiting-feedback", "concept_evidence": evidence})
     _write_json(design_dir / "draft.json", record)
-    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
 
 
 def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
