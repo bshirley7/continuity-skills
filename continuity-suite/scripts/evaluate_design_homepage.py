@@ -50,7 +50,7 @@ def _definition(path: Path) -> dict[str, Any]:
     }
     if set(value) != required or value.get("schema_version") != 1:
         raise ValueError("Benchmark definition has an unsupported shape")
-    if value.get("benchmark_id") != "continuity-design-homepage-v4" or value.get("workflow") != "$continuity-design":
+    if value.get("benchmark_id") != "continuity-design-homepage-v5" or value.get("workflow") != "$continuity-design":
         raise ValueError("Benchmark definition identity is invalid")
     return value
 
@@ -191,6 +191,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
             raise ValueError(f"Concept {direction_id} lacks a passed impact review")
         if concept.get("comparison_depth_status") != "passed" or concept.get("generated_media_extraction_status") not in {"passed", "not-applicable"}:
             raise ValueError(f"Concept {direction_id} lacks comparison-depth or generated-media disposition evidence")
+        if concept.get("grammar_congruence_status") != "passed":
+            raise ValueError(f"Concept {direction_id} lacks page-grammar congruence evidence")
         typography_strategies.add(concept["typography_strategy_id"])
         typography_families.add(concept["typography_family"])
         art_direction_families.add(concept["art_direction_family"])
@@ -319,6 +321,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "art_direction_family_count": len(art_direction_families),
         "composition_family_count": len(composition_families),
         "page_grammar_family_count": len(page_grammar_families),
+        "grammar_congruence_status": "passed",
         "interaction_motion_strategy_count": len(interaction_motion_strategies),
         "compelling_concept_count": sum(concept.get("impact_strength") == "compelling" for concept in concepts),
         "checkpoint_count": len(normalized_checkpoints),

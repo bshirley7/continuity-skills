@@ -105,6 +105,15 @@ PAGE_GRAMMAR_FAMILIES = {
     "longform-narrative", "single-canvas-instrument", "navigable-artifact", "editorial-issue",
     "cinematic-sequence", "modular-system", "spatial-journey",
 }
+PAGE_GRAMMAR_REQUIRED_BEHAVIORS = {
+    "longform-narrative": {"narrative-progression", "section-rhythm", "returning-carrier"},
+    "single-canvas-instrument": {"persistent-canvas", "state-recomposition", "control-continuity"},
+    "navigable-artifact": {"artifact-index", "nonlinear-entry", "custody-relationship"},
+    "editorial-issue": {"issue-spread-variation", "cross-spread-carrier", "article-sequencing"},
+    "cinematic-sequence": {"chapter-transition", "shot-continuity", "static-chapter-fallback"},
+    "modular-system": {"module-variation", "system-relationship", "nonuniform-emphasis"},
+    "spatial-journey": {"spatial-topology", "path-progression", "node-to-evidence"},
+}
 INTERACTION_MOTION_MODES = {"static", "native-disclosure", "direct-manipulation", "spatial-transition", "cinematic", "mixed"}
 GENERATED_EXTRACTION_DOMAINS = {"typography", "composition", "material", "motion", "code-native", "imagery"}
 STYLE_FRAME_METHODS = {"generated", "edited", "code-native", "project-owned"}
@@ -3471,6 +3480,37 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             stage_roles.add(role_name)
         if not {"opening", "proof", "closure"} <= stage_roles or not stage_roles.intersection({"quiet-state", "edge-state"}):
             raise DesignError(f"Concept {concept_id} journey must include opening, proof, quiet or edge, and closure stages")
+        grammar_congruence = concept.get("grammar_congruence")
+        if not isinstance(grammar_congruence, dict) or grammar_congruence.get("status") != "passed":
+            raise DesignError(f"Concept {concept_id} requires a passed page-grammar congruence review")
+        if grammar_congruence.get("reviewer_type") not in IMPACT_REVIEWER_TYPES:
+            raise DesignError(f"Concept {concept_id} page-grammar congruence requires a human or agent-multimodal reviewer")
+        for field in ("reviewer", "reviewed_at", "strongest_match", "weakest_mismatch"):
+            if not isinstance(grammar_congruence.get(field), str) or not grammar_congruence[field].strip():
+                raise DesignError(f"Concept {concept_id} page-grammar congruence requires {field}")
+        behavior_evidence = grammar_congruence.get("behaviors")
+        required_behaviors = PAGE_GRAMMAR_REQUIRED_BEHAVIORS[grammar_family]
+        if not isinstance(behavior_evidence, list) or {
+            item.get("behavior_id") for item in behavior_evidence if isinstance(item, dict)
+        } != required_behaviors:
+            raise DesignError(f"Concept {concept_id} page-grammar congruence must evidence every required {grammar_family} behavior")
+        normalized_grammar_behaviors: list[dict[str, Any]] = []
+        for behavior in behavior_evidence:
+            behavior_id = behavior.get("behavior_id")
+            visible_stages = behavior.get("journey_stage_ids")
+            if (
+                not isinstance(visible_stages, list)
+                or len(set(visible_stages)) < 2
+                or not set(visible_stages) <= stage_ids
+                or not isinstance(behavior.get("artifact_note"), str)
+                or not behavior["artifact_note"].strip()
+            ):
+                raise DesignError(f"Concept {concept_id} grammar behavior {behavior_id} requires two journey stages and a concrete artifact note")
+            normalized_grammar_behaviors.append({
+                "behavior_id": behavior_id,
+                "journey_stage_ids": visible_stages,
+                "artifact_note": behavior["artifact_note"].strip(),
+            })
         comparison_coverage = concept.get("comparison_coverage")
         if not isinstance(comparison_coverage, dict):
             raise DesignError(f"Concept {concept_id} requires full-page comparison coverage")
@@ -3494,6 +3534,14 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         deep_actual = hashlib.sha256(deep_path.read_bytes()).hexdigest() if deep_path.is_file() else ""
         if deep_path.suffix.lower() != ".html" or not deep_actual or deep_link.get("sha256") != deep_actual:
             raise DesignError(f"Concept comparison deep link is missing or changed: {deep_relative}")
+        prototype_source = deep_path.read_text(encoding="utf-8", errors="replace")
+        for behavior in normalized_grammar_behaviors:
+            marker = f'data-continuity-grammar-behavior="{behavior["behavior_id"]}"'
+            if marker not in prototype_source:
+                raise DesignError(f"Concept {concept_id} prototype does not implement grammar behavior {behavior['behavior_id']}")
+            for stage_id in behavior["journey_stage_ids"]:
+                if f'data-continuity-stage="{stage_id}"' not in prototype_source:
+                    raise DesignError(f"Concept {concept_id} prototype does not expose journey stage {stage_id} for grammar review")
         generated_lineage = [item for item in lineage if laboratory_seeds[item]["medium"] in GENERATED_IMAGE_MEDIA]
         generated_disposition = concept.get("generated_media_disposition")
         if not isinstance(generated_disposition, dict):
@@ -3592,6 +3640,13 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             "media_system": {"art_direction_family": media_system["art_direction_family"], "primary_role": media_system["primary_role"].strip(), "asset_mix": asset_mix, "quiet_state": media_system["quiet_state"].strip(), "fallback": media_system["fallback"].strip()},
             "composition_family": composition_family,
             "page_grammar": {"grammar_id": grammar_id, "family": grammar_family, **{key: page_grammar[key].strip() for key in grammar_fields}},
+            "grammar_congruence": {
+                "status": "passed", "reviewer_type": grammar_congruence["reviewer_type"],
+                "reviewer": grammar_congruence["reviewer"].strip(), "reviewed_at": grammar_congruence["reviewed_at"].strip(),
+                "strongest_match": grammar_congruence["strongest_match"].strip(),
+                "weakest_mismatch": grammar_congruence["weakest_mismatch"].strip(),
+                "behaviors": normalized_grammar_behaviors,
+            },
             "interaction_motion_system": {"strategy_id": interaction_strategy_id, "mode": interaction_mode, **{key: interaction_system[key].strip() for key in interaction_fields}},
             "journey_stages": normalized_stages, "runtime_probes": normalized_runtime_probes,
             "comparison_coverage": {"full_page_strip": {"path": strip_relative, "sha256": strip_actual, "width": strip_width, "height": strip_height}, "chapter_index": chapter_index, "deep_link": {"path": deep_relative, "sha256": deep_actual}},
@@ -3855,7 +3910,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
     }
     record.update({"status": "awaiting-feedback", "concept_evidence": evidence})
     _write_json(design_dir / "draft.json", record)
-    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
 
 
 def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:

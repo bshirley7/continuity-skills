@@ -5,7 +5,7 @@
   "required": ["schema_version", "benchmark_id", "workflow", "run_id", "status", "definition_sha256", "brief_sha256", "source", "seed", "doctor", "checkpoints", "concepts", "selection", "prototype_validation", "approval", "evidence", "reviews", "hard_failure_reviews", "execution_authorized"],
   "properties": {
     "schema_version": {"const": 1},
-    "benchmark_id": {"const": "continuity-design-homepage-v4"},
+    "benchmark_id": {"const": "continuity-design-homepage-v5"},
     "workflow": {"const": "$continuity-design"},
     "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
     "status": {"enum": ["directions", "selected", "prototype-validated", "approved", "scored"]},
