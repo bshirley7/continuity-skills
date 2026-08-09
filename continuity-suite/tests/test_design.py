@@ -436,6 +436,8 @@ class DesignLifecycleTests(unittest.TestCase):
             }
             if number > 1:
                 value["moodboard_quality"] = {"tile_count": 10, "direct_reference_tile_count": 4, "clear_tile_count": 9, "unresolved_weak_tile_ids": [], "reviewer": "design reviewer", "reviewed_at": "2026-08-09T12:00:00Z"}
+                if number > 2:
+                    value["moodboard_quality"]["focal_crop_count"] = 4
                 value["concept_mechanics"] = [
                     {"concept_id": f"concept-{number}-a", "metaphor": "instrument", "unique_interaction": "turn a bounded dial", "product_job": "Separate observed state from authority."},
                     {"concept_id": f"concept-{number}-b", "metaphor": "manual", "unique_interaction": "unfold an evidence procedure", "product_job": "Keep proof beside the step it qualifies."},
@@ -451,6 +453,16 @@ class DesignLifecycleTests(unittest.TestCase):
                         "justified_recurrences": ["A literal authority label is a product-truth requirement, not visual styling."],
                         "reviewer": "design reviewer",
                         "reviewed_at": "2026-08-09T12:30:00Z",
+                    }
+                    value["category_reflex_review"] = {
+                        "category_defaults": ["generic organic branching", "decorative particle field", "dance photography as atmosphere"],
+                        "avoided_defaults": ["dance photography as atmosphere"],
+                        "intentional_risks": [
+                            {"pattern": "generic organic branching", "rationale": "Lineage is made literal and terminates at a human pruning point.", "product_job": "Trace evidence lineage."},
+                            {"pattern": "decorative particle field", "rationale": "Density changes only with evidence relevance and preserves the authority void.", "product_job": "Gather qualified evidence."},
+                        ],
+                        "reviewer": "design reviewer",
+                        "reviewed_at": "2026-08-09T12:35:00Z",
                     }
             return value
 
@@ -514,6 +526,20 @@ class DesignLifecycleTests(unittest.TestCase):
         house_tell_path.write_text(json.dumps(house_tell_free), encoding="utf-8")
         with self.assertRaisesRegex(design.DesignError, "house-tell review"):
             design.improvement_cycle(self.root, self.config, house_tell_path)
+
+        weak_crop = json.loads(json.dumps(complete_series))
+        weak_crop["passes"][2]["experiment"]["moodboard_quality"]["focal_crop_count"] = 2
+        weak_crop_path = self.root / "fresh-series-weak-crop.json"
+        weak_crop_path.write_text(json.dumps(weak_crop), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "strong focal crops"):
+            design.improvement_cycle(self.root, self.config, weak_crop_path)
+
+        undisposed_category = json.loads(json.dumps(complete_series))
+        undisposed_category["passes"][2]["experiment"]["category_reflex_review"]["avoided_defaults"] = []
+        category_path = self.root / "fresh-series-undisposed-category.json"
+        category_path.write_text(json.dumps(undisposed_category), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "disposition every reference-category default"):
+            design.improvement_cycle(self.root, self.config, category_path)
 
         invalid = json.loads(json.dumps(cycle))
         invalid["passes"][1]["experiment"]["moodboard"] = invalid["passes"][0]["experiment"]["moodboard"]

@@ -4082,6 +4082,7 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                 tile_count = moodboard_quality.get("tile_count")
                 direct_count = moodboard_quality.get("direct_reference_tile_count")
                 clear_count = moodboard_quality.get("clear_tile_count")
+                focal_crop_count = moodboard_quality.get("focal_crop_count")
                 unresolved = moodboard_quality.get("unresolved_weak_tile_ids")
                 if (
                     not isinstance(tile_count, int) or tile_count < 8
@@ -4092,9 +4093,16 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                     or not isinstance(moodboard_quality.get("reviewed_at"), str) or not moodboard_quality["reviewed_at"].strip()
                 ):
                     raise DesignError(f"Fresh-design pass {index} moodboard contains unresolved or unclear captures")
+                if index > 2 and (
+                    not isinstance(focal_crop_count, int)
+                    or focal_crop_count > direct_count
+                    or focal_crop_count / direct_count < 0.8
+                ):
+                    raise DesignError(f"Fresh-design pass {index} moodboard requires strong focal crops for direct references")
                 normalized_quality = {
                     "tile_count": tile_count, "direct_reference_tile_count": direct_count,
                     "clear_tile_count": clear_count, "unresolved_weak_tile_ids": [],
+                    "focal_crop_count": focal_crop_count if index > 2 else None,
                     "reviewer": moodboard_quality["reviewer"].strip(), "reviewed_at": moodboard_quality["reviewed_at"].strip(),
                 }
                 if not isinstance(concept_mechanics, list) or len(concept_mechanics) < 3:
@@ -4124,6 +4132,7 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                         "journey_roles": [value.strip() for value in journey_roles],
                     })
             house_tell_review: dict[str, Any] | None = None
+            category_reflex_review: dict[str, Any] | None = None
             if index > 2:
                 required_dimensions = {"typography", "media", "composition", "page grammar", "interaction", "emotional register"}
                 actual_dimensions = {str(value).strip().lower() for value in changed_dimensions}
@@ -4156,6 +4165,42 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                     "reviewer": raw_house_tells["reviewer"].strip(),
                     "reviewed_at": raw_house_tells["reviewed_at"].strip(),
                 }
+                raw_category_reflexes = raw_experiment.get("category_reflex_review")
+                if not isinstance(raw_category_reflexes, dict):
+                    raise DesignError(f"Fresh-design pass {index} requires a reference-category reflex review")
+                category_defaults = raw_category_reflexes.get("category_defaults")
+                avoided_defaults = raw_category_reflexes.get("avoided_defaults")
+                intentional_risks = raw_category_reflexes.get("intentional_risks")
+                if (
+                    not isinstance(category_defaults, list) or len(category_defaults) < 2
+                    or any(not isinstance(value, str) or not value.strip() for value in category_defaults)
+                    or not isinstance(avoided_defaults, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in avoided_defaults)
+                    or not isinstance(intentional_risks, list)
+                    or not isinstance(raw_category_reflexes.get("reviewer"), str) or not raw_category_reflexes["reviewer"].strip()
+                    or not isinstance(raw_category_reflexes.get("reviewed_at"), str) or not raw_category_reflexes["reviewed_at"].strip()
+                ):
+                    raise DesignError(f"Fresh-design pass {index} reference-category reflex review is incomplete")
+                default_ids = {value.strip().lower() for value in category_defaults}
+                disposition_ids = {value.strip().lower() for value in avoided_defaults}
+                normalized_risks = []
+                for risk in intentional_risks:
+                    if (
+                        not isinstance(risk, dict)
+                        or any(not isinstance(risk.get(key), str) or not risk[key].strip() for key in ("pattern", "rationale", "product_job"))
+                    ):
+                        raise DesignError(f"Fresh-design pass {index} intentional category risks require rationale and product jobs")
+                    disposition_ids.add(risk["pattern"].strip().lower())
+                    normalized_risks.append({key: risk[key].strip() for key in ("pattern", "rationale", "product_job")})
+                if disposition_ids != default_ids:
+                    raise DesignError(f"Fresh-design pass {index} must disposition every reference-category default")
+                category_reflex_review = {
+                    "category_defaults": [value.strip() for value in category_defaults],
+                    "avoided_defaults": [value.strip() for value in avoided_defaults],
+                    "intentional_risks": normalized_risks,
+                    "reviewer": raw_category_reflexes["reviewer"].strip(),
+                    "reviewed_at": raw_category_reflexes["reviewed_at"].strip(),
+                }
             experiment = {
                 "experiment_id": experiment_id,
                 "source": experiment_source,
@@ -4165,6 +4210,7 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                 "moodboard_quality": normalized_quality,
                 "concept_mechanics": normalized_mechanics,
                 "house_tell_review": house_tell_review,
+                "category_reflex_review": category_reflex_review,
                 "novelty_review": {
                     "compared_to_passes": expected_comparisons,
                     "changed_dimensions": changed_dimensions,

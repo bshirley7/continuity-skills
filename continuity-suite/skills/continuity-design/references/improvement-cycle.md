@@ -18,6 +18,8 @@ Use the improvement cycle to repeat diagnose, change, benchmark, critique, and h
 9. Require every shortlisted concept to name a different metaphor-enabled interaction and the product job it performs. A metaphor that changes only the hero treatment does not count as a new design system.
 10. Beginning with the third experiment, prove that each unique interaction survives at least three named journey roles. Also change the full expressive system: typography, media, composition, page grammar, interaction, and emotional register, against every prior experiment.
 11. Beginning with the third experiment, complete a house-tell review against every prior output. Name the patterns that were avoided, any that recur, and the project-specific reason each recurrence remains appropriate. An inherited Continuity habit is not diversity merely because its content changed.
+12. Beginning with the third experiment, require strong focal crops for at least eighty percent of direct-reference tiles. A whole page may be readable yet still fail when its useful subject is too small to drive visual synthesis.
+13. Beginning with the third experiment, name the default reflexes of the new reference category itself. Every reflex must be avoided or retained as an intentional risk with a project-specific rationale and product job. Escaping generic software does not justify generic organic systems, choreography, installations, or other fashionable source categories.
 
 Record and validate the loop with:
 
