@@ -429,7 +429,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 "reference_families": references,
                 "novelty_review": {
                     "compared_to_passes": list(range(1, number)),
-                    "changed_dimensions": ["typography", "media", "composition", "page grammar", "interaction"],
+                    "changed_dimensions": ["typography", "media", "composition", "page grammar", "interaction"] + (["emotional register"] if number > 2 else []),
                     "inherited_constraints": ["Human authority remains explicit."],
                     "novel_conclusions": [f"Experiment {number} reveals a new workflow conclusion."],
                 },
@@ -441,6 +441,17 @@ class DesignLifecycleTests(unittest.TestCase):
                     {"concept_id": f"concept-{number}-b", "metaphor": "manual", "unique_interaction": "unfold an evidence procedure", "product_job": "Keep proof beside the step it qualifies."},
                     {"concept_id": f"concept-{number}-c", "metaphor": "signal tape", "unique_interaction": "scrub a custody trace", "product_job": "Show when work stopped and why."},
                 ]
+                if number > 2:
+                    for mechanic in value["concept_mechanics"]:
+                        mechanic["journey_roles"] = ["orientation", "evidence", "authority stop"]
+                    value["house_tell_review"] = {
+                        "compared_to_passes": list(range(1, number)),
+                        "avoided_tells": ["editorial rules", "dark control surfaces"],
+                        "recurring_tells": ["literal authority label"],
+                        "justified_recurrences": ["A literal authority label is a product-truth requirement, not visual styling."],
+                        "reviewer": "design reviewer",
+                        "reviewed_at": "2026-08-09T12:30:00Z",
+                    }
             return value
 
         changed_one = artifact("series-change-one.json", json.dumps({"change": 1}))
@@ -449,6 +460,9 @@ class DesignLifecycleTests(unittest.TestCase):
         evaluation_two = artifact("series-evaluation-two.json", json.dumps({"stage_valid": True, "status": "directions"}))
         assessment_one = artifact("series-assessment-one.md", "Fresh experiment one assessment.")
         assessment_two = artifact("series-assessment-two.md", "Fresh experiment two assessment.")
+        changed_three = artifact("series-change-three.json", json.dumps({"change": 3}))
+        evaluation_three = artifact("series-evaluation-three.json", json.dumps({"stage_valid": True, "status": "directions"}))
+        assessment_three = artifact("series-assessment-three.md", "Fresh experiment three assessment.")
         finding = lambda number: [{"finding_id": f"finding-{number}", "category": "workflow", "observation": "One output cannot establish generality.", "action": "Run an independent design experiment.", "success_metric": "The experiment uses new evidence and yields a novel conclusion."}]
         changes = lambda number, changed: [{"finding_ids": [f"finding-{number}"], "description": "Applied a workflow finding before the independent experiment.", "artifacts": [changed]}]
         validation = lambda evaluation, assessment: {"passed": True, "benchmark_evaluation": evaluation, "self_assessment": assessment, "source_tests": [{"name": "fresh experiment checks", "status": "passed"}]}
@@ -470,6 +484,36 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(result["next_gate"], "diagnose-and-run-experiment-3")
         persisted = json.loads((self.root / result["record_path"]).read_text(encoding="utf-8"))
         self.assertEqual(persisted["passes"][1]["experiment"]["novelty_review"]["compared_to_passes"], [1])
+
+        complete_series = json.loads(json.dumps(cycle))
+        complete_series["passes"].append({
+            "pass_number": 3,
+            "status": "awaiting-human",
+            "experiment": experiment(3, ["botanical growth", "choreographic notation"]),
+            "findings": finding(3),
+            "changes": changes(3, changed_three),
+            "validation": validation(evaluation_three, assessment_three),
+            "human_gate": {"required": True, "status": "pending"},
+        })
+        complete_path = self.root / "fresh-series-complete.json"
+        complete_path.write_text(json.dumps(complete_series), encoding="utf-8")
+        complete_result = design.improvement_cycle(self.root, self.config, complete_path)
+        self.assertEqual(complete_result["next_gate"], "human-cross-cycle-review")
+        self.assertFalse(complete_result["execution_authorized"])
+
+        shallow = json.loads(json.dumps(complete_series))
+        shallow["passes"][2]["experiment"]["concept_mechanics"][0]["journey_roles"] = ["hero", "hero", "hero"]
+        shallow_path = self.root / "fresh-series-shallow.json"
+        shallow_path.write_text(json.dumps(shallow), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "three journey roles"):
+            design.improvement_cycle(self.root, self.config, shallow_path)
+
+        house_tell_free = json.loads(json.dumps(complete_series))
+        house_tell_free["passes"][2]["experiment"].pop("house_tell_review")
+        house_tell_path = self.root / "fresh-series-house-tell-free.json"
+        house_tell_path.write_text(json.dumps(house_tell_free), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "house-tell review"):
+            design.improvement_cycle(self.root, self.config, house_tell_path)
 
         invalid = json.loads(json.dumps(cycle))
         invalid["passes"][1]["experiment"]["moodboard"] = invalid["passes"][0]["experiment"]["moodboard"]

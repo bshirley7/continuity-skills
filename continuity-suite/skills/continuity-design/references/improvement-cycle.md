@@ -16,6 +16,8 @@ Use the improvement cycle to repeat diagnose, change, benchmark, critique, and h
 7. For fresh experiments, compare every new output with all prior outputs. Change at least five design dimensions, preserve only product-truth constraints, and record conclusions that could improve the workflow rather than the individual design.
 8. Beginning with the second experiment, validate moodboard capture legibility before synthesis. At least eighty percent of tiles must be clear, at least two must be direct references, and no weak tile may remain unresolved. A technically successful screenshot with blank focal content, tiny evidence, overlays, or dominant site chrome does not pass.
 9. Require every shortlisted concept to name a different metaphor-enabled interaction and the product job it performs. A metaphor that changes only the hero treatment does not count as a new design system.
+10. Beginning with the third experiment, prove that each unique interaction survives at least three named journey roles. Also change the full expressive system: typography, media, composition, page grammar, interaction, and emotional register, against every prior experiment.
+11. Beginning with the third experiment, complete a house-tell review against every prior output. Name the patterns that were avoided, any that recur, and the project-specific reason each recurrence remains appropriate. An inherited Continuity habit is not diversity merely because its content changed.
 
 Record and validate the loop with:
 

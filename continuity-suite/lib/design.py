@@ -4075,7 +4075,7 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
             moodboard_quality = raw_experiment.get("moodboard_quality")
             concept_mechanics = raw_experiment.get("concept_mechanics")
             normalized_quality: dict[str, Any] | None = None
-            normalized_mechanics: list[dict[str, str]] = []
+            normalized_mechanics: list[dict[str, Any]] = []
             if index > 1:
                 if not isinstance(moodboard_quality, dict):
                     raise DesignError(f"Fresh-design pass {index} requires moodboard capture-quality evidence")
@@ -4111,7 +4111,51 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                         raise DesignError(f"Fresh-design pass {index} concepts must enable different interactions")
                     mechanic_ids.add(concept_id)
                     interaction_ids.add(interaction_id)
-                    normalized_mechanics.append({"concept_id": concept_id, **{key: mechanic[key].strip() for key in fields[1:]}})
+                    journey_roles = mechanic.get("journey_roles", [])
+                    if index > 2 and (
+                        not isinstance(journey_roles, list)
+                        or len({str(value).strip().lower() for value in journey_roles}) < 3
+                        or any(not isinstance(value, str) or not value.strip() for value in journey_roles)
+                    ):
+                        raise DesignError(f"Fresh-design pass {index} concept interactions must survive at least three journey roles")
+                    normalized_mechanics.append({
+                        "concept_id": concept_id,
+                        **{key: mechanic[key].strip() for key in fields[1:]},
+                        "journey_roles": [value.strip() for value in journey_roles],
+                    })
+            house_tell_review: dict[str, Any] | None = None
+            if index > 2:
+                required_dimensions = {"typography", "media", "composition", "page grammar", "interaction", "emotional register"}
+                actual_dimensions = {str(value).strip().lower() for value in changed_dimensions}
+                if not required_dimensions <= actual_dimensions:
+                    raise DesignError(f"Fresh-design pass {index} must change the full design system against prior experiments")
+                raw_house_tells = raw_experiment.get("house_tell_review")
+                if not isinstance(raw_house_tells, dict) or raw_house_tells.get("compared_to_passes") != expected_comparisons:
+                    raise DesignError(f"Fresh-design pass {index} requires a house-tell review against every prior experiment")
+                avoided_tells = raw_house_tells.get("avoided_tells")
+                recurring_tells = raw_house_tells.get("recurring_tells")
+                justified = raw_house_tells.get("justified_recurrences")
+                if (
+                    not isinstance(avoided_tells, list) or not avoided_tells
+                    or any(not isinstance(value, str) or not value.strip() for value in avoided_tells)
+                    or not isinstance(recurring_tells, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in recurring_tells)
+                    or not isinstance(justified, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in justified)
+                    or not isinstance(raw_house_tells.get("reviewer"), str) or not raw_house_tells["reviewer"].strip()
+                    or not isinstance(raw_house_tells.get("reviewed_at"), str) or not raw_house_tells["reviewed_at"].strip()
+                ):
+                    raise DesignError(f"Fresh-design pass {index} house-tell review is incomplete")
+                if recurring_tells and not justified:
+                    raise DesignError(f"Fresh-design pass {index} must justify every recurring house tell")
+                house_tell_review = {
+                    "compared_to_passes": expected_comparisons,
+                    "avoided_tells": [value.strip() for value in avoided_tells],
+                    "recurring_tells": [value.strip() for value in recurring_tells],
+                    "justified_recurrences": [value.strip() for value in justified],
+                    "reviewer": raw_house_tells["reviewer"].strip(),
+                    "reviewed_at": raw_house_tells["reviewed_at"].strip(),
+                }
             experiment = {
                 "experiment_id": experiment_id,
                 "source": experiment_source,
@@ -4120,6 +4164,7 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                 "reference_families": normalized_references,
                 "moodboard_quality": normalized_quality,
                 "concept_mechanics": normalized_mechanics,
+                "house_tell_review": house_tell_review,
                 "novelty_review": {
                     "compared_to_passes": expected_comparisons,
                     "changed_dimensions": changed_dimensions,
