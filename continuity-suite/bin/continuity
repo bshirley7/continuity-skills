@@ -6278,7 +6278,10 @@ def decrypt_and_verify_state_archive(root: Path, config: dict[str, Any], archive
             safe_extract_tar(tar, extracted, "Backup archive")
     except (tarfile.TarError, OSError, EOFError) as exc:
         raise ContinuityError(f"Backup archive is unreadable: {exc}") from exc
-    manifest = json_load(extracted / "backup-manifest.json", {})
+    try:
+        manifest = json_load(extracted / "backup-manifest.json", {})
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ContinuityError(f"Backup manifest is unreadable: {exc}") from exc
     try:
         runtime_lib.validate_schema_file(manifest, CONTROL_ROOT / "schemas" / "backup-manifest.schema.json", "backup manifest")
     except runtime_lib.RuntimeIntegrityError as exc:

@@ -3340,6 +3340,15 @@ unresolved_gaps: []
             rewrite_archive(invalid_signature, alter_manifest)
             self.cli("state", "verify", "--archive", str(invalid_signature), "--identity", str(identity), expected=2)
 
+            malformed_manifest = self.root.parent / "malformed-manifest.tar.gz.age"
+            def break_manifest_json(name: str, data: bytes) -> bytes:
+                if name == "backup-manifest.json":
+                    return b'{"format": "continuity-age-tar-v1", "files": '
+                return data
+            rewrite_archive(malformed_manifest, break_manifest_json)
+            malformed_result = self.cli("state", "verify", "--archive", str(malformed_manifest), "--identity", str(identity), expected=2)
+            self.assertIn("Backup manifest is unreadable", malformed_result.stderr)
+
             incomplete = self.root.parent / "incomplete-backup.tar.gz.age"
             removed_payload = False
             def remove_payload(name: str, data: bytes) -> bytes | None:
