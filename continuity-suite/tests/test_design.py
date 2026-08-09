@@ -402,6 +402,74 @@ class DesignLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(design.DesignError, "identified human"):
             design.improvement_cycle(self.root, self.config, invalid_path)
 
+    def test_fresh_design_experiment_cycle_requires_new_inputs_and_allows_independent_passes(self):
+        baseline_eval = self.root / "series-baseline-evaluation.json"
+        baseline_eval.write_text(json.dumps({"stage_valid": True, "status": "directions"}), encoding="utf-8")
+        baseline_assessment = self.root / "series-baseline-assessment.md"
+        baseline_assessment.write_text("Test the workflow across unrelated creative systems.", encoding="utf-8")
+        ref = lambda path: {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        def artifact(name, content):
+            path = self.root / name
+            path.write_text(content, encoding="utf-8")
+            return ref(path)
+
+        def experiment(number, references):
+            prefix = f"experiment-{number}"
+            return {
+                "experiment_id": prefix,
+                "source": {"commit": str(number) * 40, "skill_sha256": str(number + 1) * 64},
+                "brief": artifact(f"{prefix}-brief.md", f"brief {number}"),
+                "research": artifact(f"{prefix}-research.json", json.dumps({"experiment": number})),
+                "moodboard": artifact(f"{prefix}-moodboard.html", f"<h1>moodboard {number}</h1>"),
+                "generative_laboratory": artifact(f"{prefix}-laboratory.json", json.dumps({"experiment": number, "seeds": [number]})),
+                "concept_manifest": artifact(f"{prefix}-concepts.json", json.dumps({"experiment": number, "concepts": [number]})),
+                "comparison": artifact(f"{prefix}-comparison.html", f"<h1>comparison {number}</h1>"),
+                "creative_seed": {"audience": f"audience {number}", "posture": f"posture {number}", "hero_mechanism": f"hero {number}", "reference_category": f"category {number}"},
+                "reference_families": references,
+                "novelty_review": {
+                    "compared_to_passes": list(range(1, number)),
+                    "changed_dimensions": ["typography", "media", "composition", "page grammar", "interaction"],
+                    "inherited_constraints": ["Human authority remains explicit."],
+                    "novel_conclusions": [f"Experiment {number} reveals a new workflow conclusion."],
+                },
+            }
+
+        changed_one = artifact("series-change-one.json", json.dumps({"change": 1}))
+        changed_two = artifact("series-change-two.json", json.dumps({"change": 2}))
+        evaluation_one = artifact("series-evaluation-one.json", json.dumps({"stage_valid": True, "status": "directions"}))
+        evaluation_two = artifact("series-evaluation-two.json", json.dumps({"stage_valid": True, "status": "directions"}))
+        assessment_one = artifact("series-assessment-one.md", "Fresh experiment one assessment.")
+        assessment_two = artifact("series-assessment-two.md", "Fresh experiment two assessment.")
+        finding = lambda number: [{"finding_id": f"finding-{number}", "category": "workflow", "observation": "One output cannot establish generality.", "action": "Run an independent design experiment.", "success_metric": "The experiment uses new evidence and yields a novel conclusion."}]
+        changes = lambda number, changed: [{"finding_ids": [f"finding-{number}"], "description": "Applied a workflow finding before the independent experiment.", "artifacts": [changed]}]
+        validation = lambda evaluation, assessment: {"passed": True, "benchmark_evaluation": evaluation, "self_assessment": assessment, "source_tests": [{"name": "fresh experiment checks", "status": "passed"}]}
+        cycle = {
+            "schema_version": 1, "cycle_id": "fresh-series", "design_id": "homepage-series", "mode": "fresh-design-experiments",
+            "objective": "Learn across diverse design outputs.", "max_passes": 3,
+            "source": {"branch": "feature/design", "commit": "a" * 40, "skill_sha256": "b" * 64},
+            "baseline": {"benchmark_evaluation": ref(baseline_eval), "self_assessment": ref(baseline_assessment)},
+            "passes": [
+                {"pass_number": 1, "status": "awaiting-human", "experiment": experiment(1, ["scientific mission", "public wayfinding"]), "findings": finding(1), "changes": changes(1, changed_one), "validation": validation(evaluation_one, assessment_one), "human_gate": {"required": True, "status": "pending"}},
+                {"pass_number": 2, "status": "awaiting-human", "experiment": experiment(2, ["physical instrument", "instruction manual"]), "findings": finding(2), "changes": changes(2, changed_two), "validation": validation(evaluation_two, assessment_two), "human_gate": {"required": True, "status": "pending"}},
+            ],
+        }
+        cycle_path = self.root / "fresh-series.json"
+        cycle_path.write_text(json.dumps(cycle), encoding="utf-8")
+        result = design.improvement_cycle(self.root, self.config, cycle_path)
+        self.assertEqual(result["mode"], "fresh-design-experiments")
+        self.assertEqual(result["pass_count"], 2)
+        self.assertEqual(result["next_gate"], "diagnose-and-run-experiment-3")
+        persisted = json.loads((self.root / result["record_path"]).read_text(encoding="utf-8"))
+        self.assertEqual(persisted["passes"][1]["experiment"]["novelty_review"]["compared_to_passes"], [1])
+
+        invalid = json.loads(json.dumps(cycle))
+        invalid["passes"][1]["experiment"]["moodboard"] = invalid["passes"][0]["experiment"]["moodboard"]
+        invalid_path = self.root / "fresh-series-invalid.json"
+        invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "new moodboard"):
+            design.improvement_cycle(self.root, self.config, invalid_path)
+
     def test_private_renderer_supports_moodboards_concepts_and_visual_deltas(self):
         wide = self.root / "render-wide.png"
         narrow = self.root / "render-narrow.png"

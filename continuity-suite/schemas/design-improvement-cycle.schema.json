@@ -8,6 +8,7 @@
     "cycle_id": {"type": "string", "minLength": 1},
     "design_id": {"type": "string", "minLength": 1},
     "objective": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["artifact-refinement", "fresh-design-experiments"]},
     "max_passes": {"type": "integer", "minimum": 1, "maximum": 8},
     "source": {
       "type": "object",
@@ -33,6 +34,7 @@
         "properties": {
           "pass_number": {"type": "integer", "minimum": 1},
           "status": {"enum": ["planned", "implemented", "validated", "awaiting-human", "accepted", "changes-requested"]},
+          "experiment": {"oneOf": [{"$ref": "#/$defs/experiment"}, {"type": "null"}]},
           "findings": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["finding_id", "category", "observation", "action", "success_metric"], "properties": {"finding_id": {"type": "string", "minLength": 1}, "category": {"type": "string", "minLength": 1}, "observation": {"type": "string", "minLength": 1}, "action": {"type": "string", "minLength": 1}, "success_metric": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
           "changes": {"type": "array", "items": {"type": "object", "required": ["finding_ids", "description", "artifacts"], "properties": {"finding_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "description": {"type": "string", "minLength": 1}, "artifacts": {"type": "array", "items": {"$ref": "#/$defs/file"}}}, "additionalProperties": false}},
           "validation": {"type": ["object", "null"]},
@@ -42,6 +44,26 @@
       }
     }
   },
-  "$defs": {"file": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false}},
+  "$defs": {
+    "file": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},
+    "experiment": {
+      "type": "object",
+      "required": ["experiment_id", "source", "brief", "research", "moodboard", "generative_laboratory", "concept_manifest", "comparison", "creative_seed", "reference_families", "novelty_review"],
+      "properties": {
+        "experiment_id": {"type": "string", "minLength": 1},
+        "source": {"type": "object", "required": ["commit", "skill_sha256"], "properties": {"commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"}, "skill_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},
+        "brief": {"$ref": "#/$defs/file"},
+        "research": {"$ref": "#/$defs/file"},
+        "moodboard": {"$ref": "#/$defs/file"},
+        "generative_laboratory": {"$ref": "#/$defs/file"},
+        "concept_manifest": {"$ref": "#/$defs/file"},
+        "comparison": {"$ref": "#/$defs/file"},
+        "creative_seed": {"type": "object", "required": ["audience", "posture", "hero_mechanism", "reference_category"], "properties": {"audience": {"type": "string", "minLength": 1}, "posture": {"type": "string", "minLength": 1}, "hero_mechanism": {"type": "string", "minLength": 1}, "reference_category": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+        "reference_families": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}},
+        "novelty_review": {"type": "object", "required": ["compared_to_passes", "changed_dimensions", "inherited_constraints", "novel_conclusions"], "properties": {"compared_to_passes": {"type": "array", "items": {"type": "integer", "minimum": 1}}, "changed_dimensions": {"type": "array", "minItems": 5, "items": {"type": "string", "minLength": 1}}, "inherited_constraints": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "novel_conclusions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false}
+      },
+      "additionalProperties": false
+    }
+  },
   "additionalProperties": false
 }

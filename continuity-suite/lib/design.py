@@ -3966,6 +3966,9 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
         raise DesignError("Design improvement cycles require schema_version 1")
     cycle_id = _identifier(str(payload.get("cycle_id", "")), "design improvement cycle ID")
     design_id = _identifier(str(payload.get("design_id", "")), "design ID")
+    mode = payload.get("mode", "artifact-refinement")
+    if mode not in {"artifact-refinement", "fresh-design-experiments"}:
+        raise DesignError("Design improvement cycles require a supported mode")
     objective = payload.get("objective")
     max_passes = payload.get("max_passes")
     if not isinstance(objective, str) or not objective.strip() or not isinstance(max_passes, int) or not 1 <= max_passes <= 8:
@@ -3998,12 +4001,90 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
         raise DesignError("Design improvement cycle passes must be an array within max_passes")
     normalized_passes: list[dict[str, Any]] = []
     previous_status: str | None = None
+    experiment_hashes: dict[str, set[str]] = {
+        key: set() for key in ("brief", "research", "moodboard", "generative_laboratory", "concept_manifest", "comparison")
+    }
+    experiment_seeds: set[tuple[str, str, str, str]] = set()
+    experiment_reference_sets: list[frozenset[str]] = []
     for index, item in enumerate(passes, 1):
         if not isinstance(item, dict) or item.get("pass_number") != index or item.get("status") not in IMPROVEMENT_PASS_STATUSES:
             raise DesignError("Design improvement passes must be sequential and use supported statuses")
         status = item["status"]
-        if previous_status not in {None, "changes-requested"}:
+        if mode == "artifact-refinement" and previous_status not in {None, "changes-requested"}:
             raise DesignError("A new improvement pass can start only after human-requested changes")
+        experiment: dict[str, Any] | None = None
+        if mode == "fresh-design-experiments":
+            raw_experiment = item.get("experiment")
+            if not isinstance(raw_experiment, dict):
+                raise DesignError(f"Fresh-design pass {index} requires experiment evidence")
+            experiment_id = _identifier(str(raw_experiment.get("experiment_id", "")), "design experiment ID")
+            experiment_source = raw_experiment.get("source")
+            if (
+                not isinstance(experiment_source, dict)
+                or set(experiment_source) != {"commit", "skill_sha256"}
+                or not re.fullmatch(r"[a-f0-9]{40}", str(experiment_source.get("commit", "")))
+                or not re.fullmatch(r"[a-f0-9]{64}", str(experiment_source.get("skill_sha256", "")))
+            ):
+                raise DesignError(f"Fresh-design pass {index} requires an exact source commit and skill hash")
+            artifacts: dict[str, dict[str, str]] = {}
+            for key, suffixes in {
+                "brief": {".json", ".md"}, "research": {".json"}, "moodboard": {".html"},
+                "generative_laboratory": {".json"}, "concept_manifest": {".json"}, "comparison": {".html"},
+            }.items():
+                artifact = verified_artifact(raw_experiment.get(key), f"Fresh-design pass {index} {key.replace('_', ' ')}", suffixes)
+                if artifact["sha256"] in experiment_hashes[key]:
+                    raise DesignError(f"Fresh-design pass {index} must use a new {key.replace('_', ' ')}")
+                experiment_hashes[key].add(artifact["sha256"])
+                artifacts[key] = artifact
+            seed = raw_experiment.get("creative_seed")
+            seed_keys = ("audience", "posture", "hero_mechanism", "reference_category")
+            if not isinstance(seed, dict) or set(seed) != set(seed_keys) or any(not isinstance(seed.get(key), str) or not seed[key].strip() for key in seed_keys):
+                raise DesignError(f"Fresh-design pass {index} requires a complete creative seed")
+            normalized_seed = {key: seed[key].strip() for key in seed_keys}
+            seed_tuple = tuple(normalized_seed[key].lower() for key in seed_keys)
+            if seed_tuple in experiment_seeds:
+                raise DesignError(f"Fresh-design pass {index} must use a new creative seed")
+            experiment_seeds.add(seed_tuple)
+            reference_families = raw_experiment.get("reference_families")
+            if (
+                not isinstance(reference_families, list) or len(reference_families) < 2
+                or any(not isinstance(value, str) or not value.strip() for value in reference_families)
+            ):
+                raise DesignError(f"Fresh-design pass {index} requires at least two reference families")
+            normalized_references = [value.strip() for value in reference_families]
+            reference_set = frozenset(value.lower() for value in normalized_references)
+            if len(reference_set) != len(normalized_references) or reference_set in experiment_reference_sets:
+                raise DesignError(f"Fresh-design pass {index} must use a distinct reference-family set")
+            experiment_reference_sets.append(reference_set)
+            novelty = raw_experiment.get("novelty_review")
+            expected_comparisons = list(range(1, index))
+            if not isinstance(novelty, dict) or novelty.get("compared_to_passes") != expected_comparisons:
+                raise DesignError(f"Fresh-design pass {index} must compare against every prior experiment")
+            changed_dimensions = novelty.get("changed_dimensions")
+            conclusions = novelty.get("novel_conclusions")
+            inherited = novelty.get("inherited_constraints")
+            if (
+                not isinstance(changed_dimensions, list) or len({str(value).strip().lower() for value in changed_dimensions}) < 5
+                or any(not isinstance(value, str) or not value.strip() for value in changed_dimensions)
+                or not isinstance(conclusions, list) or not conclusions
+                or any(not isinstance(value, str) or not value.strip() for value in conclusions)
+                or not isinstance(inherited, list) or not inherited
+                or any(not isinstance(value, str) or not value.strip() for value in inherited)
+            ):
+                raise DesignError(f"Fresh-design pass {index} requires a concrete cross-cycle novelty review")
+            experiment = {
+                "experiment_id": experiment_id,
+                "source": experiment_source,
+                **artifacts,
+                "creative_seed": normalized_seed,
+                "reference_families": normalized_references,
+                "novelty_review": {
+                    "compared_to_passes": expected_comparisons,
+                    "changed_dimensions": changed_dimensions,
+                    "inherited_constraints": inherited,
+                    "novel_conclusions": conclusions,
+                },
+            }
         findings = item.get("findings")
         if not isinstance(findings, list) or not findings:
             raise DesignError(f"Improvement pass {index} requires concrete findings")
@@ -4051,7 +4132,7 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                 raise DesignError("Accepted or changes-requested passes require an identified human disposition")
         elif human_gate.get("status") != "pending":
             raise DesignError("Unfinished improvement passes must keep the human gate pending")
-        normalized_passes.append({"pass_number": index, "status": status, "findings": normalized_findings, "changes": normalized_changes, "validation": normalized_validation, "human_gate": human_gate})
+        normalized_passes.append({"pass_number": index, "status": status, "experiment": experiment, "findings": normalized_findings, "changes": normalized_changes, "validation": normalized_validation, "human_gate": human_gate})
         previous_status = status
     if not normalized_passes:
         status = "active"
@@ -4059,17 +4140,20 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
     else:
         last = normalized_passes[-1]
         status = "complete" if last["status"] == "accepted" else "active"
-        next_gate = {
-            "planned": "implement-pass",
-            "implemented": "validate-pass",
-            "validated": "human-feedback",
-            "awaiting-human": "human-feedback",
-            "changes-requested": "cycle-limit-reached" if len(normalized_passes) >= max_passes else f"diagnose-and-plan-pass-{len(normalized_passes) + 1}",
-            "accepted": "complete",
-        }[last["status"]]
+        if mode == "fresh-design-experiments" and last["status"] == "awaiting-human":
+            next_gate = "human-cross-cycle-review" if len(normalized_passes) >= max_passes else f"diagnose-and-run-experiment-{len(normalized_passes) + 1}"
+        else:
+            next_gate = {
+                "planned": "implement-pass",
+                "implemented": "validate-pass",
+                "validated": "human-feedback",
+                "awaiting-human": "human-feedback",
+                "changes-requested": "cycle-limit-reached" if len(normalized_passes) >= max_passes else f"diagnose-and-plan-pass-{len(normalized_passes) + 1}",
+                "accepted": "complete",
+            }[last["status"]]
     normalized = {
         "schema_version": 1, "cycle_id": cycle_id, "design_id": design_id,
-        "objective": objective.strip(), "max_passes": max_passes, "source": source,
+        "objective": objective.strip(), "max_passes": max_passes, "mode": mode, "source": source,
         "baseline": {"benchmark_evaluation": baseline_evaluation, "self_assessment": baseline_assessment},
         "passes": normalized_passes, "status": status, "next_gate": next_gate,
         "updated_at": _now(), "execution_authorized": False,
@@ -4077,7 +4161,7 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
     normalized["cycle_hash"] = _canonical_hash(normalized)
     relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "cycles" / cycle_id / "cycle.json"
     _write_json(root / relative, normalized)
-    return {"cycle_id": cycle_id, "status": status, "pass_count": len(normalized_passes), "max_passes": max_passes, "next_gate": next_gate, "cycle_hash": normalized["cycle_hash"], "record_path": relative.as_posix(), "execution_authorized": False}
+    return {"cycle_id": cycle_id, "mode": mode, "status": status, "pass_count": len(normalized_passes), "max_passes": max_passes, "next_gate": next_gate, "cycle_hash": normalized["cycle_hash"], "record_path": relative.as_posix(), "execution_authorized": False}
 
 
 def feedback_record(root: Path, config: dict[str, Any], design_id: str, input_path: Path) -> dict[str, Any]:
