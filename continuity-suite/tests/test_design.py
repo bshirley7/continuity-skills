@@ -416,7 +416,7 @@ class DesignLifecycleTests(unittest.TestCase):
 
         def experiment(number, references):
             prefix = f"experiment-{number}"
-            return {
+            value = {
                 "experiment_id": prefix,
                 "source": {"commit": str(number) * 40, "skill_sha256": str(number + 1) * 64},
                 "brief": artifact(f"{prefix}-brief.md", f"brief {number}"),
@@ -434,6 +434,14 @@ class DesignLifecycleTests(unittest.TestCase):
                     "novel_conclusions": [f"Experiment {number} reveals a new workflow conclusion."],
                 },
             }
+            if number > 1:
+                value["moodboard_quality"] = {"tile_count": 10, "direct_reference_tile_count": 4, "clear_tile_count": 9, "unresolved_weak_tile_ids": [], "reviewer": "design reviewer", "reviewed_at": "2026-08-09T12:00:00Z"}
+                value["concept_mechanics"] = [
+                    {"concept_id": f"concept-{number}-a", "metaphor": "instrument", "unique_interaction": "turn a bounded dial", "product_job": "Separate observed state from authority."},
+                    {"concept_id": f"concept-{number}-b", "metaphor": "manual", "unique_interaction": "unfold an evidence procedure", "product_job": "Keep proof beside the step it qualifies."},
+                    {"concept_id": f"concept-{number}-c", "metaphor": "signal tape", "unique_interaction": "scrub a custody trace", "product_job": "Show when work stopped and why."},
+                ]
+            return value
 
         changed_one = artifact("series-change-one.json", json.dumps({"change": 1}))
         changed_two = artifact("series-change-two.json", json.dumps({"change": 2}))
@@ -469,6 +477,13 @@ class DesignLifecycleTests(unittest.TestCase):
         invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
         with self.assertRaisesRegex(design.DesignError, "new moodboard"):
             design.improvement_cycle(self.root, self.config, invalid_path)
+
+        unclear = json.loads(json.dumps(cycle))
+        unclear["passes"][1]["experiment"]["moodboard_quality"]["clear_tile_count"] = 6
+        unclear_path = self.root / "fresh-series-unclear.json"
+        unclear_path.write_text(json.dumps(unclear), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "unresolved or unclear captures"):
+            design.improvement_cycle(self.root, self.config, unclear_path)
 
     def test_private_renderer_supports_moodboards_concepts_and_visual_deltas(self):
         wide = self.root / "render-wide.png"

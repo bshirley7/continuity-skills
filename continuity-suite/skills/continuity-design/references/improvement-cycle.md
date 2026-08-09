@@ -14,6 +14,8 @@ Use the improvement cycle to repeat diagnose, change, benchmark, critique, and h
 5. Stop at the human gate. The cycle may report `awaiting-human`; it cannot mark its own work accepted, select a direction, approve a design, merge a branch, or authorize implementation.
 6. In `artifact-refinement`, wait for human-requested changes before another pass. In `fresh-design-experiments`, continue with an independent experiment while every prior design remains pending human review; do not treat the next experiment as acceptance or refinement of the previous one.
 7. For fresh experiments, compare every new output with all prior outputs. Change at least five design dimensions, preserve only product-truth constraints, and record conclusions that could improve the workflow rather than the individual design.
+8. Beginning with the second experiment, validate moodboard capture legibility before synthesis. At least eighty percent of tiles must be clear, at least two must be direct references, and no weak tile may remain unresolved. A technically successful screenshot with blank focal content, tiny evidence, overlays, or dominant site chrome does not pass.
+9. Require every shortlisted concept to name a different metaphor-enabled interaction and the product job it performs. A metaphor that changes only the hero treatment does not count as a new design system.
 
 Record and validate the loop with:
 

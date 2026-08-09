@@ -4072,12 +4072,54 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
                 or any(not isinstance(value, str) or not value.strip() for value in inherited)
             ):
                 raise DesignError(f"Fresh-design pass {index} requires a concrete cross-cycle novelty review")
+            moodboard_quality = raw_experiment.get("moodboard_quality")
+            concept_mechanics = raw_experiment.get("concept_mechanics")
+            normalized_quality: dict[str, Any] | None = None
+            normalized_mechanics: list[dict[str, str]] = []
+            if index > 1:
+                if not isinstance(moodboard_quality, dict):
+                    raise DesignError(f"Fresh-design pass {index} requires moodboard capture-quality evidence")
+                tile_count = moodboard_quality.get("tile_count")
+                direct_count = moodboard_quality.get("direct_reference_tile_count")
+                clear_count = moodboard_quality.get("clear_tile_count")
+                unresolved = moodboard_quality.get("unresolved_weak_tile_ids")
+                if (
+                    not isinstance(tile_count, int) or tile_count < 8
+                    or not isinstance(direct_count, int) or direct_count < 2 or direct_count > tile_count
+                    or not isinstance(clear_count, int) or clear_count > tile_count or clear_count / tile_count < 0.8
+                    or unresolved != []
+                    or not isinstance(moodboard_quality.get("reviewer"), str) or not moodboard_quality["reviewer"].strip()
+                    or not isinstance(moodboard_quality.get("reviewed_at"), str) or not moodboard_quality["reviewed_at"].strip()
+                ):
+                    raise DesignError(f"Fresh-design pass {index} moodboard contains unresolved or unclear captures")
+                normalized_quality = {
+                    "tile_count": tile_count, "direct_reference_tile_count": direct_count,
+                    "clear_tile_count": clear_count, "unresolved_weak_tile_ids": [],
+                    "reviewer": moodboard_quality["reviewer"].strip(), "reviewed_at": moodboard_quality["reviewed_at"].strip(),
+                }
+                if not isinstance(concept_mechanics, list) or len(concept_mechanics) < 3:
+                    raise DesignError(f"Fresh-design pass {index} requires unique concept-mechanic evidence")
+                mechanic_ids: set[str] = set()
+                interaction_ids: set[str] = set()
+                for mechanic in concept_mechanics:
+                    fields = ("concept_id", "metaphor", "unique_interaction", "product_job")
+                    if not isinstance(mechanic, dict) or any(not isinstance(mechanic.get(key), str) or not mechanic[key].strip() for key in fields):
+                        raise DesignError(f"Fresh-design pass {index} concept mechanics are incomplete")
+                    concept_id = _identifier(mechanic["concept_id"], "fresh-design concept ID")
+                    interaction_id = mechanic["unique_interaction"].strip().lower()
+                    if concept_id in mechanic_ids or interaction_id in interaction_ids:
+                        raise DesignError(f"Fresh-design pass {index} concepts must enable different interactions")
+                    mechanic_ids.add(concept_id)
+                    interaction_ids.add(interaction_id)
+                    normalized_mechanics.append({"concept_id": concept_id, **{key: mechanic[key].strip() for key in fields[1:]}})
             experiment = {
                 "experiment_id": experiment_id,
                 "source": experiment_source,
                 **artifacts,
                 "creative_seed": normalized_seed,
                 "reference_families": normalized_references,
+                "moodboard_quality": normalized_quality,
+                "concept_mechanics": normalized_mechanics,
                 "novelty_review": {
                     "compared_to_passes": expected_comparisons,
                     "changed_dimensions": changed_dimensions,
