@@ -987,10 +987,12 @@ class DesignLifecycleTests(unittest.TestCase):
             "read_ahead_review_complete": False,
             "claims_provenance_complete": False,
             "capture_integrity_verified": False,
+            "copy_readability_verified": False,
+            "data_readability_verified": False,
         }))
         self.assertEqual(result["status"], "failed")
         self.assertEqual(
-            {"CDS-D035", "CDS-D036", "CDS-D037", "CDS-D038", "CDS-D039", "CDS-H008", "CDS-H009"},
+            {"CDS-D035", "CDS-D036", "CDS-D037", "CDS-D038", "CDS-D039", "CDS-H008", "CDS-H009", "CDS-H010"},
             {item["rule_id"] for item in result["findings"]},
         )
         self.assertEqual(result["presentation_fidelity"]["slide_role_count"], 2)
@@ -1007,6 +1009,8 @@ class DesignLifecycleTests(unittest.TestCase):
             "read_ahead_review_complete": True,
             "claims_provenance_complete": True,
             "capture_integrity_verified": True,
+            "copy_readability_verified": True,
+            "data_readability_verified": True,
         }))
         self.assertEqual(result["status"], "passed")
 
@@ -1213,6 +1217,9 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("data-continuity-signature-role", source)
         self.assertIn("interaction_invariants", source)
         self.assertIn("viewport_intersection_ratio", source)
+        self.assertIn("data-continuity-slide", source)
+        self.assertIn("data-continuity-data", source)
+        self.assertIn("presentation_readability_passed", source)
 
     def test_probe_prepare_binds_typescript_alias_source_closure(self):
         source_root = self.root / "src"
@@ -2662,7 +2669,10 @@ class DesignLifecycleTests(unittest.TestCase):
                 "direction_id": direction_id,
                 "board": artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>"),
                 "contact_sheet": artifact(f"concepts/{direction_id}.png", png_bytes(1200, 800)),
-                "slop_report": artifact(f"concepts/{direction_id}-slop.json", json.dumps({"stage": "concept", "status": "passed"})),
+                "slop_report": artifact(f"concepts/{direction_id}-slop.json", json.dumps({
+                    "stage": "concept", "status": "passed",
+                    "presentation_fidelity": {"copy_readability_verified": True, "data_readability_verified": True},
+                })),
                 "generative_laboratory_hash": laboratory_hash,
                 "reference_translation_hash": translation_hash,
                 "creative_range_status": "passed",
@@ -2678,6 +2688,8 @@ class DesignLifecycleTests(unittest.TestCase):
                 "read_ahead_review_status": "passed",
                 "claims_provenance_complete": True,
                 "capture_integrity_verified": True,
+                "copy_readability_verified": True,
+                "data_readability_verified": True,
                 "runtime_probe_count": 3,
                 "typography_family": typography,
                 "art_direction_family": art_family,
@@ -2751,6 +2763,13 @@ class DesignLifecycleTests(unittest.TestCase):
             "reduced-motion": ("application/json", json.dumps({"reduced_motion": True}), None),
             "accessibility": ("text/markdown", "# Accessibility evidence", None),
             "capture-integrity": ("application/json", json.dumps({"status": "passed", "individual_frames_verified": True, "contact_sheet_source": "verified-individual-frames"}), None),
+            "readability-audit": ("application/json", json.dumps({
+                "status": "passed", "slide_count": 10, "all_copy_readable": True, "all_data_readable": True,
+                "viewports": [
+                    {"viewport_width": width, "slide_count": 10, "all_copy_readable": True, "all_data_readable": True, "browser_probe_passed": True}
+                    for width in (1440, 768, 390)
+                ],
+            }), None),
         }
         evidence = []
         for role, (media_type, content, viewport_width) in evidence_specs.items():
@@ -2771,6 +2790,18 @@ class DesignLifecycleTests(unittest.TestCase):
         tablet_item["sha256"] = __import__("hashlib").sha256(tablet_path.read_bytes()).hexdigest()
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "required viewport"):
+            PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        tablet_path.write_bytes(png_bytes(768, 1024))
+        tablet_item["sha256"] = __import__("hashlib").sha256(tablet_path.read_bytes()).hexdigest()
+        readability_item = next(item for item in manifest["evidence"] if item["role"] == "readability-audit")
+        readability_path = self.root / readability_item["path"]
+        readability_value = json.loads(readability_path.read_text(encoding="utf-8"))
+        readability_value["viewports"][1]["all_data_readable"] = False
+        readability_path.write_text(json.dumps(readability_value), encoding="utf-8")
+        readability_item["sha256"] = __import__("hashlib").sha256(readability_path.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "readable copy and data"):
             PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
 
     def test_homepage_benchmark_passes_only_after_approval_and_human_score(self):

@@ -48,7 +48,7 @@ Develop one to three genuinely distinct sequence concepts. Every direction must 
 
 Use image generation or editing as concept development. At least one direction must use owned, supplied, or generated media to form its thesis, composition, and sequence. Extract at least three repeatable non-image rules from that material.
 
-Reject generic investor templates, repeated title-and-body slides, fake metrics, decorative charts, gratuitous quote slides, tiny unreadable type, purple-gradient AI styling, black-neon terminal reflexes, and imagery used only as wallpaper.
+Reject generic investor templates, repeated title-and-body slides, fake metrics, decorative charts, gratuitous quote slides, tiny unreadable type, clipped or obscured copy, illegible data and source lines, purple-gradient AI styling, black-neon terminal reflexes, and imagery used only as wallpaper. Every audience-facing word and every data-bearing mark must be visibly present and readable on its slide at the required viewport; shorten copy or change composition before shrinking it.
 
 ## Required outputs
 
@@ -61,7 +61,7 @@ Reject generic investor templates, repeated title-and-body slides, fake metrics,
 7. Explicit human direction selection or combination.
 8. A resolved private responsive deck after selection.
 9. Individually verified desktop projection, tablet read-ahead, and mobile read-ahead captures.
-10. Keyboard, touch, reduced-motion, accessibility, claim-provenance, and capture-integrity evidence.
+10. Keyboard, touch, reduced-motion, accessibility, claim-provenance, capture-integrity, and slide-by-slide copy/data readability evidence.
 11. Native AI-slop reports using `translation_fidelity`, `portfolio_diversity`, and `presentation_fidelity`.
 12. Final self-critique and exact design approval request.
 

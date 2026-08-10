@@ -182,6 +182,13 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop["path"], f"Concept slop report {direction_id}")
         if slop_value.get("status") != "passed" or slop_value.get("stage") != "concept":
             raise ValueError(f"Presentation concept {direction_id} lacks a passed concept slop report")
+        presentation_fidelity = slop_value.get("presentation_fidelity")
+        if (
+            not isinstance(presentation_fidelity, dict)
+            or presentation_fidelity.get("copy_readability_verified") is not True
+            or presentation_fidelity.get("data_readability_verified") is not True
+        ):
+            raise ValueError(f"Presentation concept {direction_id} lacks passed copy and data readability evidence")
         if concept.get("generative_laboratory_hash") != laboratory_hash or concept.get("reference_translation_hash") != translation_hash:
             raise ValueError(f"Presentation concept {direction_id} is not bound to the laboratory and translation evidence")
         if concept.get("creative_range_status") != "passed" or concept.get("impact_review_status") != "passed":
@@ -207,6 +214,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
             or concept.get("read_ahead_review_status") != "passed"
             or concept.get("claims_provenance_complete") is not True
             or concept.get("capture_integrity_verified") is not True
+            or concept.get("copy_readability_verified") is not True
+            or concept.get("data_readability_verified") is not True
             or concept.get("runtime_probe_count") != 3
         ):
             raise ValueError(f"Presentation concept {direction_id} lacks role, pacing, mode, claim, or capture evidence")
@@ -300,6 +309,27 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         integrity = _read(run_root / normalized_evidence["capture-integrity"]["path"], "Capture integrity evidence")
         if integrity.get("status") != "passed" or integrity.get("individual_frames_verified") is not True or integrity.get("contact_sheet_source") != "verified-individual-frames":
             raise ValueError("Presentation capture-integrity evidence does not prove verified individual frames")
+        readability = _read(run_root / normalized_evidence["readability-audit"]["path"], "Presentation readability evidence")
+        viewport_reviews = readability.get("viewports")
+        if (
+            readability.get("status") != "passed"
+            or readability.get("all_copy_readable") is not True
+            or readability.get("all_data_readable") is not True
+            or not isinstance(readability.get("slide_count"), int)
+            or readability.get("slide_count", 0) < 1
+            or not isinstance(viewport_reviews, list)
+            or {item.get("viewport_width") for item in viewport_reviews if isinstance(item, dict)} != set(VIEWPORT_WIDTHS.values())
+            or any(
+                item.get("slide_count") != readability["slide_count"]
+                or item.get("all_copy_readable") is not True
+                or item.get("all_data_readable") is not True
+                or item.get("browser_probe_passed") is not True
+                for item in viewport_reviews
+                if isinstance(item, dict)
+            )
+            or len(viewport_reviews) != len(VIEWPORT_WIDTHS)
+        ):
+            raise ValueError("Presentation readability evidence does not prove readable copy and data on every slide and required viewport")
     elif prototype_validation is not None or manifest.get("evidence") != []:
         raise ValueError("Pre-prototype presentation stages cannot claim prototype evidence")
 

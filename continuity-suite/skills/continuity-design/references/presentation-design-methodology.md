@@ -79,6 +79,17 @@ Change the variable under test rather than redesigning indiscriminately. Useful 
 
 Render every slide individually at the settled presentation viewport. Verify encoded media type, dimensions, viewport, slide identity, and source hash before accepting a capture. Assemble the contact sheet only from verified individual frames. Do not treat a scrolling full-page stitch as deck evidence when snapping, sticky frames, transforms, or lazy rendering may duplicate or omit slides.
 
+Treat legibility as a hard content-preservation gate, not a polish preference. Mark each frame with `data-continuity-slide` and each table, chart label group, metric, source line, or other data-bearing region with `data-continuity-data`. At every required viewport, the unmodified browser probe must establish that every audience-facing title, body line, label, value, source, and visible qualification:
+
+- exists in the rendered frame and remains inside its slide bounds;
+- is neither clipped nor hidden and does not depend on animation to appear;
+- uses a readable effective size after transforms or responsive scaling;
+- passes applicable contrast checks against its actual surface;
+- renders only after its intended fonts load;
+- remains intelligible at full-slide viewing size, not only when zoomed into a crop.
+
+For desktop projection, use at least 44 CSS pixels for slide titles, 20 pixels for ordinary body copy, and 18 pixels for data labels and source lines. For tablet and mobile read-ahead, use at least 28 pixels for titles and 16 pixels for copy and data. These are minimum gates, not layout targets. Shorten copy or change the composition before reducing type. Every slide requires an individual readability record; a readable contact sheet does not substitute for readable slides.
+
 Review at minimum:
 
 - desktop projection at the intended aspect ratio;
@@ -87,6 +98,7 @@ Review at minimum:
 - keyboard and touch navigation;
 - reduced-motion behavior;
 - semantic labels, focus behavior, contrast, reading order, and image alternatives.
+- copy and data readability for every slide at every required viewport.
 
 The mobile or tablet document may reflow instead of preserving one projected frame per viewport. Preserve argument, hierarchy, identity, and evidence while adapting density and sequence.
 
@@ -102,6 +114,8 @@ Supply `presentation_fidelity` to `continuity design slop-check`:
 - `read_ahead_review_complete`;
 - `claims_provenance_complete`;
 - `capture_integrity_verified`.
+- `copy_readability_verified`;
+- `data_readability_verified`.
 
 Use [presentation-slop-context.example.json](presentation-slop-context.example.json) as the presentation-specific fragment inside the normal [slop manifest](slop-manifest.example.json).
 

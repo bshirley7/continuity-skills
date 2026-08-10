@@ -190,6 +190,64 @@
     const required = large ? 3 : 4.5;
     if (ratio + 0.01 < required) add("color-contrast", "error", element, `${ratio.toFixed(2)}:1 contrast; requires ${required}:1`);
   }
+  const presentationSlides = [...document.querySelectorAll("[data-continuity-slide]")].map((slide, slideIndex) => {
+    const slideRect = slide.getBoundingClientRect();
+    const textSelector = "h1, h2, h3, h4, p, li, dt, dd, blockquote, figcaption, th, td, [data-continuity-copy], [data-continuity-data]";
+    const textElements = [...slide.querySelectorAll(textSelector)].filter((element) => {
+      if (!element.textContent.trim()) return false;
+      return ![...element.children].some((child) => child.matches?.(textSelector) && child.textContent.trim());
+    });
+    const issues = [];
+    let copyCount = 0;
+    let dataCount = 0;
+    for (const element of textElements) {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      const isData = element.matches("th, td, [data-continuity-data]") || Boolean(element.closest("[data-continuity-data]"));
+      if (isData) dataCount += 1;
+      else copyCount += 1;
+      const scaleX = element.offsetWidth > 0 ? rect.width / element.offsetWidth : 1;
+      const scaleY = element.offsetHeight > 0 ? rect.height / element.offsetHeight : 1;
+      const effectiveFontSize = Number.parseFloat(style.fontSize) * Math.min(scaleX || 1, scaleY || 1);
+      const title = element.matches("h1, h2, [data-continuity-slide-title]");
+      const minimumFontSize = viewport.width >= 1200 ? (title ? 44 : isData ? 18 : 20) : (title ? 28 : 16);
+      const insideSlide = rect.left >= slideRect.left - 1 && rect.top >= slideRect.top - 1 && rect.right <= slideRect.right + 1 && rect.bottom <= slideRect.bottom + 1;
+      const clips = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+      const foreground = rgba(style.color);
+      const background = opaqueBackground(element);
+      const ratio = foreground && foreground.a >= 0.95 && background ? contrast(foreground, background) : null;
+      const large = effectiveFontSize >= 24 || (effectiveFontSize >= 18.66 && (Number.parseInt(style.fontWeight, 10) || 400) >= 700);
+      const minimumContrast = large ? 3 : 4.5;
+      const elementIssues = [];
+      if (!visible(element)) elementIssues.push("hidden");
+      if (!insideSlide) elementIssues.push("outside-slide");
+      if (clips) elementIssues.push("clipped");
+      if (effectiveFontSize + 0.01 < minimumFontSize) elementIssues.push(`font-${effectiveFontSize.toFixed(1)}px-below-${minimumFontSize}px`);
+      if (ratio !== null && ratio + 0.01 < minimumContrast) elementIssues.push(`contrast-${ratio.toFixed(2)}-below-${minimumContrast}`);
+      if (document.fonts.status !== "loaded") elementIssues.push("fonts-not-loaded");
+      if (elementIssues.length) {
+        const item = { selector: selector(element), kind: isData ? "data" : "copy", issues: elementIssues };
+        issues.push(item);
+        add("presentation-copy-data-readability", "error", element, `${item.kind}: ${elementIssues.join(", ")}`);
+      }
+    }
+    const copyReadable = copyCount > 0 && !issues.some((item) => item.kind === "copy");
+    const dataReadable = !issues.some((item) => item.kind === "data");
+    if (!copyCount) {
+      issues.push({ selector: selector(slide), kind: "copy", issues: ["no-audience-facing-copy"] });
+      add("presentation-copy-data-readability", "error", slide, "slide contains no audience-facing copy");
+    }
+    return {
+      slide_id: slide.getAttribute("data-continuity-slide") || `slide-${slideIndex + 1}`,
+      copy_element_count: copyCount,
+      data_element_count: dataCount,
+      copy_readable: copyReadable,
+      data_readable: dataReadable,
+      issues,
+      rect: { x: slideRect.x, y: slideRect.y, width: slideRect.width, height: slideRect.height },
+    };
+  });
+  const presentationReadabilityPassed = presentationSlides.length === 0 || presentationSlides.every((slide) => slide.copy_readable && slide.data_readable);
   for (const element of [...document.querySelectorAll('[role="button"], [onclick]')].filter(visible)) {
     if (!element.matches("button, a[href], input[type=button], input[type=submit]")) {
       add("semantic-control", "error", element, "Clickable behavior is not represented by a native interactive control");
@@ -227,10 +285,12 @@
     typography_transfers: typographyTransfers,
     signature_elements: signatureElements,
     interaction_invariants: interactionInvariants,
+    presentation_slides: presentationSlides,
+    presentation_readability_passed: presentationReadabilityPassed,
     document: { scroll_width: root.scrollWidth, client_width: root.clientWidth },
     horizontal_overflow: horizontalOverflow,
     sticky_or_fixed_obstructions: obstructions,
     craft_findings: findings,
-    passed: !horizontalOverflow && obstructions.length === 0 && !findings.some((item) => item.severity === "error" || item.severity === "critical"),
+    passed: presentationReadabilityPassed && !horizontalOverflow && obstructions.length === 0 && !findings.some((item) => item.severity === "error" || item.severity === "critical"),
   };
 })();

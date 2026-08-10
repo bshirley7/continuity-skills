@@ -13,7 +13,8 @@
     {"rule_id": "CDPB-H009", "description": "A capture's encoded media type, dimensions, viewport, frame identity, or source hash is unverified, or a scrolling stitch substitutes for individual slide evidence."},
     {"rule_id": "CDPB-H010", "description": "Reference mechanics are hybridized without exact individual baselines, independent review, and controlled project transformation."},
     {"rule_id": "CDPB-H011", "description": "An autonomous craft pass lacks a bound hypothesis, visual delta, preserved-strength record, self-assessment, or affected evidence rerun."},
-    {"rule_id": "CDPB-H012", "description": "No concept passes the multimodal impact review as compelling."}
+    {"rule_id": "CDPB-H012", "description": "No concept passes the multimodal impact review as compelling."},
+    {"rule_id": "CDPB-H013", "description": "Any audience-facing title, body line, label, value, source, or qualification is hidden, clipped, out of frame, undersized, low-contrast, font-fallback, or otherwise unreadable on a required slide or viewport."}
   ],
   "minimum_human_reviewers": 1,
   "minimum_refinement_passes": 3,
@@ -39,7 +40,8 @@
     "interaction": ["application/json", "text/html"],
     "reduced-motion": ["application/json", "image/png"],
     "accessibility": ["application/json", "text/markdown"],
-    "capture-integrity": ["application/json"]
+    "capture-integrity": ["application/json"],
+    "readability-audit": ["application/json"]
   },
   "rubric": [
     {"dimension": "product-understanding-and-claim-truthfulness", "weight": 14},

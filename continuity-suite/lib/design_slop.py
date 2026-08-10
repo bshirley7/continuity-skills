@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-RULESET_VERSION = "1.5.0"
+RULESET_VERSION = "1.6.0"
 SEVERITIES = {"info", "warning", "error", "critical"}
 DISPOSITIONS = {"open", "resolved", "not-applicable", "accepted-intentional"}
 SCANNABLE_SUFFIXES = {
@@ -28,6 +28,7 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-H007": {"class": "hard-failure", "severity": "critical", "title": "Third-party reference promoted", "remediation": "Keep third-party references private and replace the shipping asset with owned or licensed material."},
     "CDS-H008": {"class": "hard-failure", "severity": "error", "title": "Presentation claims lack provenance", "remediation": "Remove invented metrics or bind every factual, testimonial, customer, traction, and performance claim to current evidence with visible qualification."},
     "CDS-H009": {"class": "hard-failure", "severity": "error", "title": "Presentation capture evidence is invalid", "remediation": "Recapture every required viewport and slide, verify the encoded media type and dimensions, and rebuild the contact sheet from the verified individual frames."},
+    "CDS-H010": {"class": "hard-failure", "severity": "error", "title": "Presentation copy or data is unreadable", "remediation": "Shorten the copy or change the composition so every title, body line, label, value, source, and qualification is visible, unclipped, sufficiently large, and contrast-safe on every slide and required viewport."},
     "CDS-D001": {"class": "default-risk", "severity": "warning", "title": "Reflexive purple-blue gradient", "remediation": "Explain the project-specific role or replace it with a palette derived from the approved identity."},
     "CDS-D002": {"class": "default-risk", "severity": "warning", "title": "Gradient headline text", "remediation": "Use hierarchy, language, or material treatment instead of default gradient display type."},
     "CDS-D003": {"class": "default-risk", "severity": "warning", "title": "Reflexive warm cream", "remediation": "Record why the warm neutral is specific to this project or choose an evidenced surface color."},
@@ -312,6 +313,8 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
         findings.append(_finding("CDS-H008", first_location, 0, "one or more presentation claims lack current source evidence or visible qualification", source="context"))
     if presentation.get("capture_integrity_verified") is False:
         findings.append(_finding("CDS-H009", first_location, 0, "one or more required captures have an unverified media type, dimension, viewport, or frame identity", source="context"))
+    if presentation.get("copy_readability_verified") is False or presentation.get("data_readability_verified") is False:
+        findings.append(_finding("CDS-H010", first_location, 0, "one or more slides contain copy or data that is hidden, clipped, too small, low-contrast, or otherwise unreadable", source="context"))
     for item in manifest.get("generated_claims", []):
         if isinstance(item, dict) and (not item.get("visible_qualification") or not item.get("provenance")):
             findings.append(_finding("CDS-H006", str(item.get("location", "manifest")), 0, "generated or illustrative claim lacks visible qualification or provenance", source="context"))

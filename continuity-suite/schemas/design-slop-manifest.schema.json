@@ -74,7 +74,9 @@
         "live_presentation_review_complete": {"type": "boolean"},
         "read_ahead_review_complete": {"type": "boolean"},
         "claims_provenance_complete": {"type": "boolean"},
-        "capture_integrity_verified": {"type": "boolean"}
+        "capture_integrity_verified": {"type": "boolean"},
+        "copy_readability_verified": {"type": "boolean"},
+        "data_readability_verified": {"type": "boolean"}
       },
       "additionalProperties": false
     },

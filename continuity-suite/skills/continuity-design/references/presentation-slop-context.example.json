@@ -7,6 +7,8 @@
     "live_presentation_review_complete": true,
     "read_ahead_review_complete": true,
     "claims_provenance_complete": true,
-    "capture_integrity_verified": true
+    "capture_integrity_verified": true,
+    "copy_readability_verified": true,
+    "data_readability_verified": true
   }
 }
