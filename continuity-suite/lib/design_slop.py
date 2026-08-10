@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-RULESET_VERSION = "1.3.0"
+RULESET_VERSION = "1.4.0"
 SEVERITIES = {"info", "warning", "error", "critical"}
 DISPOSITIONS = {"open", "resolved", "not-applicable", "accepted-intentional"}
 SCANNABLE_SUFFIXES = {
@@ -58,6 +58,8 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-D030": {"class": "default-risk", "severity": "warning", "title": "Mobile comparison is incomplete", "remediation": "Show source, reconstruction, literal substitution, and adaptation together at the narrow viewport."},
     "CDS-D031": {"class": "default-risk", "severity": "warning", "title": "Reference lineage is weak", "remediation": "Restore the source role mapping and make the preserved relationship visible within five seconds."},
     "CDS-D032": {"class": "default-risk", "severity": "warning", "title": "Variable image contrast is unresolved", "remediation": "Move, contain, or protect overlaid type so contrast remains dependable across the actual image range."},
+    "CDS-D033": {"class": "default-risk", "severity": "warning", "title": "Compositional depth flattened", "remediation": "Separate the scene into registered background, live-content, and alpha-bearing foreground planes so the intended occlusion remains editable."},
+    "CDS-D034": {"class": "default-risk", "severity": "warning", "title": "Typographic character approximated", "remediation": "Use the intended licensed face or a measured project-specific transformation and prove the loaded family and rendered silhouette with real copy."},
     "CDS-P001": {"class": "project-drift", "severity": "error", "title": "Unapproved design token", "remediation": "Return to the approved font, color, spacing, radius, motion, or opening-pattern family."},
     "CDS-P002": {"class": "project-drift", "severity": "error", "title": "Signature absent beyond hero", "remediation": "Carry the approved signature into body, mobile, quiet, error, and reduced-motion states."},
     "CDS-P003": {"class": "project-drift", "severity": "error", "title": "Reference imitation", "remediation": "Adapt the recorded mechanic through the project-specific transformation instead of copying identity."},
@@ -71,6 +73,8 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-P011": {"class": "project-drift", "severity": "error", "title": "Adaptation distance collapsed", "remediation": "Produce and measure both a recognizably close study and a materially far study."},
     "CDS-P012": {"class": "project-drift", "severity": "error", "title": "Reference difficulty unresolved", "remediation": "Pass the evidence thresholds for the reference's photographic, diagrammatic, editorial, motion, or product-object class."},
     "CDS-P013": {"class": "project-drift", "severity": "error", "title": "Journey evidence is hero-only", "remediation": "Carry the signature through downstream proof, quiet or edge, closure, responsive, and motion or explicit no-motion states."},
+    "CDS-P014": {"class": "project-drift", "severity": "error", "title": "Approved composition planes collapsed", "remediation": "Restore the approved registered asset planes and their DOM order; a flattened composite cannot stand in for editable depth."},
+    "CDS-P015": {"class": "project-drift", "severity": "error", "title": "Approved typographic character lost", "remediation": "Restore the approved face, rendered proportions, line breaks, and type-to-media relationship, then rerun the font probe."},
 }
 
 
@@ -247,6 +251,10 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
         ("mobile_comparison_complete", False, "CDS-D030", "the narrow comparison does not show the full translation ladder"),
         ("reference_lineage_visible", False, "CDS-D031", "the preserved reference mechanic is not visibly traceable"),
         ("variable_contrast_resolved", False, "CDS-D032", "display content crosses variable imagery without dependable contrast"),
+        ("editable_depth_preserved", False, "CDS-D033", "the intended subject and type relationship was flattened into one image or generic overlay"),
+        ("font_transfer_verified", False, "CDS-D034", "the declared display character was approximated without loaded-font and silhouette evidence"),
+        ("approved_layer_plan_present", False, "CDS-P014", "the approved background, live-content, and foreground plane plan is absent"),
+        ("approved_typographic_character_present", False, "CDS-P015", "the approved typographic character or type-to-media relationship is absent"),
     )
     for key, failing_value, rule_id, evidence in translation_checks:
         if key in translation and translation.get(key) is failing_value:
@@ -337,6 +345,7 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
         "status": "passed" if not unresolved else "failed",
         "unresolved_finding_ids": unresolved,
         "visual_review": manifest.get("visual_review", {}),
+        "translation_fidelity": translation,
     }
     report["report_hash"] = hashlib.sha256(json.dumps(report, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     return report

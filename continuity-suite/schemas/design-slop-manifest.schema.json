@@ -43,7 +43,11 @@
         "independent_review": {"type": "boolean"},
         "mobile_comparison_complete": {"type": "boolean"},
         "reference_lineage_visible": {"type": "boolean"},
-        "variable_contrast_resolved": {"type": "boolean"}
+        "variable_contrast_resolved": {"type": "boolean"},
+        "editable_depth_preserved": {"type": "boolean"},
+        "font_transfer_verified": {"type": "boolean"},
+        "approved_layer_plan_present": {"type": "boolean"},
+        "approved_typographic_character_present": {"type": "boolean"}
       },
       "additionalProperties": false
     },

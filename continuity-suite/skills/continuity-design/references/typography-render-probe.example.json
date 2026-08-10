@@ -1,0 +1,31 @@
+{
+  "schema_version": 3,
+  "probe_kind": "continuity-artifact-browser-probe",
+  "document_url": "file:///project/.continuity/private/designs/example/1/concept-a.html",
+  "target_document_path": ".continuity/private/designs/example/1/concept-a.html",
+  "target_document_sha256": "0000000000000000000000000000000000000000000000000000000000000062",
+  "source_bundle_sha256": "0000000000000000000000000000000000000000000000000000000000000064",
+  "passed": true,
+  "viewport": {"width": 1440, "height": 1000},
+  "document_fonts_status": "loaded",
+  "typography_transfers": [{
+    "transfer_id": "proof-moves",
+    "selector": "h1.proof-moves",
+    "rendered_copy": "PROOF MOVES",
+    "computed_family": "\"Six Caps\", sans-serif",
+    "font_loaded": true,
+    "font_face_status": "loaded",
+    "cap_height_ratio": 0.72,
+    "word_width_ratio": 0.41,
+    "line_count": 2,
+    "rect": {"x": 312, "y": 80, "width": 516, "height": 540}
+  }],
+  "composition_planes": [
+    {"plane_id": "hero-background", "selector": "img.hero-background", "computed_z_index": 1, "visible": true, "asset_url": "file:///project/assets/background.png", "load_complete": true, "rect": {"x": 0, "y": 0, "width": 1440, "height": 1000}},
+    {"plane_id": "hero-type", "selector": "h1.proof-moves", "computed_z_index": 2, "visible": true, "asset_url": null, "load_complete": true, "rect": {"x": 312, "y": 80, "width": 516, "height": 540}},
+    {"plane_id": "hero-subject", "selector": "img.hero-subject", "computed_z_index": 3, "visible": true, "asset_url": "file:///project/assets/foreground.png", "load_complete": true, "rect": {"x": 0, "y": 0, "width": 1440, "height": 1000}}
+  ],
+  "horizontal_overflow": false,
+  "sticky_or_fixed_obstructions": [],
+  "craft_findings": []
+}

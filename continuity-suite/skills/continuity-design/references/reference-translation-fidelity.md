@@ -14,7 +14,7 @@ Privately rebuild the selected frame and its responsive behavior in HTML/CSS. Co
 
 Create a combined source/reconstruction comparison at both viewports. Complete at least two correction passes. Locate every mismatch on the comparison, apply a named correction, and finish with a passed comparison. The first three elements noticed must survive in the same order.
 
-The reconstruction is a calibration instrument. If it cannot reproduce the reference's defining behavior at desktop and mobile widths, the team does not yet understand the mechanic well enough to adapt it.
+The reconstruction is a calibration instrument. If it cannot reproduce the reference's defining behavior at desktop and mobile widths, the team does not yet understand the mechanic well enough to adapt it. When that behavior depends on occlusion, rebuild registered background, live-type, and alpha foreground planes. When it depends on typographic silhouette, declare the reconstruction's full `runtime_source_files` closure, run the shipped browser probe against the passed desktop reconstruction, and bind `typography_render_probe` inside that exact reference study. The probe's source-bundle fingerprint must cover the HTML and every linked local script, style, and component source; later concepts use that exact evidence as their metric baseline. “Similar condensed font” is not a measurement.
 
 ## 3. Compile an executable design grammar
 
@@ -54,4 +54,4 @@ Workflow v3 uses precision manifest schema v2 and remains in `developing-referen
 
 ## 7. Recheck during slop review
 
-Supply `translation_fidelity` to each slop manifest. The native gate also reports primary material demotion, typographic grammar substitution, source hybridization, self-certified fidelity, incomplete mobile comparison, weak lineage, and unresolved variable-image contrast. Default-risk findings require disposition. Lost approved constraints are project drift and cannot be waived.
+Supply `translation_fidelity` to each slop manifest. The native gate also reports primary material demotion, typographic grammar substitution, flattened compositional depth, unverified font transfer, source hybridization, self-certified fidelity, incomplete mobile comparison, weak lineage, and unresolved variable-image contrast. Collapsed approved planes or typographic character are project drift and cannot be waived. Default-risk findings require disposition.

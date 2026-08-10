@@ -18,6 +18,50 @@
   const add = (rule_id, severity, element, evidence) => findings.push({
     rule_id, severity, status: "open", location: selector(element), evidence,
   });
+  const compositionPlanes = [...document.querySelectorAll("[data-continuity-composition-plane]")].map((element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    const image = element instanceof HTMLImageElement ? element : null;
+    const video = element instanceof HTMLVideoElement ? element : null;
+    const backgroundMatch = style.backgroundImage.match(/^url\(["']?(.*?)["']?\)$/);
+    return {
+      plane_id: element.getAttribute("data-continuity-composition-plane"),
+      selector: selector(element),
+      tag_name: element.tagName.toLowerCase(),
+      computed_z_index: Number.parseInt(style.zIndex, 10),
+      visible: visible(element),
+      asset_url: image?.currentSrc || image?.src || video?.currentSrc || video?.src || backgroundMatch?.[1] || null,
+      load_complete: image ? image.complete && image.naturalWidth > 0 : video ? video.readyState >= 1 : true,
+      natural_width: image?.naturalWidth || video?.videoWidth || null,
+      natural_height: image?.naturalHeight || video?.videoHeight || null,
+      object_position: style.objectPosition,
+      background_position: style.backgroundPosition,
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    };
+  });
+  const typographyTransfers = [...document.querySelectorAll("[data-continuity-type-transfer]")].map((element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    const copy = element.textContent.trim();
+    const fontSize = Number.parseFloat(style.fontSize);
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    measureContext.font = style.font;
+    const cap = measureContext.measureText("H");
+    const requestedFamily = style.fontFamily.split(",")[0].trim().replace(/^['"]|['"]$/g, "");
+    const matchingFaces = [...document.fonts].filter((face) => face.family.replace(/^['"]|['"]$/g, "") === requestedFamily);
+    return {
+      transfer_id: element.getAttribute("data-continuity-type-transfer"),
+      selector: selector(element),
+      rendered_copy: copy,
+      computed_family: style.fontFamily,
+      font_loaded: document.fonts.check(style.font, copy),
+      font_face_status: matchingFaces.length === 1 ? matchingFaces[0].status : "missing-or-ambiguous",
+      cap_height_ratio: fontSize > 0 ? cap.actualBoundingBoxAscent / fontSize : 0,
+      word_width_ratio: viewport.width > 0 ? measureContext.measureText(copy).width / viewport.width : 0,
+      line_count: lineHeight > 0 ? Math.round(rect.height / lineHeight) : 1,
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    };
+  });
   const rgba = (value) => {
     const match = value.match(/rgba?\(([^)]+)\)/);
     if (!match) return null;
@@ -132,8 +176,16 @@
     }
   }
   return {
-    schema_version: 2,
+    schema_version: 3,
+    probe_kind: "continuity-artifact-browser-probe",
+    document_url: window.location.href,
+    target_document_path: document.querySelector('meta[name="continuity-probe-target-path"]')?.content || null,
+    target_document_sha256: document.querySelector('meta[name="continuity-probe-target-sha256"]')?.content || null,
+    source_bundle_sha256: document.querySelector('meta[name="continuity-probe-source-bundle-sha256"]')?.content || null,
     viewport,
+    document_fonts_status: document.fonts.status,
+    composition_planes: compositionPlanes,
+    typography_transfers: typographyTransfers,
     document: { scroll_width: root.scrollWidth, client_width: root.clientWidth },
     horizontal_overflow: horizontalOverflow,
     sticky_or_fixed_obstructions: obstructions,

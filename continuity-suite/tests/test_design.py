@@ -58,6 +58,19 @@ def png_bytes(width, height, color=(238, 240, 234, 255)):
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row * height)) + chunk(b"IEND", b"")
 
 
+def alpha_subject_png_bytes(width, height):
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+    rows = []
+    for y in range(height):
+        pixels = bytearray()
+        for x in range(width):
+            inside = width // 4 <= x < width * 3 // 4 and height // 4 <= y < height * 3 // 4
+            pixels.extend((80, 70, 60, 255 if inside else 0))
+        rows.append(b"\x00" + bytes(pixels))
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b"")
+
+
 def input_value(**overrides):
     value = {
         "design_id": "design-test",
@@ -939,6 +952,172 @@ class DesignLifecycleTests(unittest.TestCase):
             {f"CDS-P{number:03d}" for number in range(7, 14)},
             {item["rule_id"] for item in result["findings"]},
         )
+
+    def test_layered_composition_and_typographic_transfer_are_executable(self):
+        background = self.root / "assets" / "background.png"
+        foreground = self.root / "assets" / "foreground.png"
+        background.parent.mkdir()
+        background.write_bytes(png_bytes(12, 8, (20, 40, 60, 255)))
+        foreground.write_bytes(alpha_subject_png_bytes(12, 8))
+        probe = self.root / "type-probe.json"
+        probe.write_text(json.dumps({
+            "schema_version": 3, "probe_kind": "continuity-artifact-browser-probe", "passed": True,
+            "viewport": {"width": 1440, "height": 900}, "document_fonts_status": "loaded", "requested_family": "Six Caps",
+            "typography_transfers": [{"transfer_id": "proof-moves", "selector": "h1.proof-type", "rendered_copy": "PROOF MOVES", "computed_family": '"Six Caps", sans-serif', "font_loaded": True, "font_face_status": "loaded", "cap_height_ratio": 0.72, "word_width_ratio": 0.41, "line_count": 2, "rect": {"x": 300, "y": 100, "width": 500, "height": 220}}],
+            "composition_planes": [
+                {"plane_id": "hero-background", "selector": "img.hero-background", "computed_z_index": 1, "visible": True, "asset_url": "file:///project/assets/background.png", "load_complete": True, "rect": {"x": 0, "y": 0, "width": 1200, "height": 800}},
+                {"plane_id": "hero-type", "selector": "proof-type", "computed_z_index": 2, "visible": True, "asset_url": None, "load_complete": True, "rect": {"x": 300, "y": 100, "width": 500, "height": 220}},
+                {"plane_id": "hero-subject", "selector": "img.hero-subject", "computed_z_index": 3, "visible": True, "asset_url": "file:///project/assets/foreground.png", "load_complete": True, "rect": {"x": 0, "y": 0, "width": 1200, "height": 800}},
+            ],
+            "horizontal_overflow": False, "sticky_or_fixed_obstructions": [], "craft_findings": [],
+            "reference_metrics": {"cap_height_ratio": 0.74, "word_width_ratio": 0.39, "line_count": 2},
+            "tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+        }), encoding="utf-8")
+        reference_probe = self.root / "reference-type-probe.json"
+        reference_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        reference_probe_value["typography_transfers"][0]["cap_height_ratio"] = 0.74
+        reference_probe_value["typography_transfers"][0]["word_width_ratio"] = 0.39
+        reference_probe.write_text(json.dumps(reference_probe_value), encoding="utf-8")
+        ref = lambda path: {"path": path.relative_to(self.root).as_posix(), "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+        prototype = (
+            '<section data-continuity-composition-plane="hero-background">assets/background.png'
+            '<h1 class="proof-type" data-continuity-composition-plane="hero-type" '
+            'data-continuity-type-transfer="proof-moves">PROOF MOVES</h1>'
+            '<img data-continuity-composition-plane="hero-subject" src="assets/foreground.png"></section>'
+        )
+        transfer = design._validate_typographic_transfer(self.root, "proof", {
+            "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+            "source": "SIL Open Font License", "license_evidence": "OFL-1.1",
+            "source_character": "Very narrow, tall, blunt display silhouette.",
+            "project_transformation": "Continuity proof language replaces the source identity.",
+            "type_media_relation": "behind-subject", "narrow_behavior": "Two lines retain subject occlusion.",
+            "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+            "reference_render_probe": ref(reference_probe), "render_probe": ref(probe),
+        }, prototype)
+        target_document = self.root / "concept-target.html"
+        runtime_script = self.root / "concept-target.js"
+        runtime_script.write_text('document.documentElement.dataset.runtime = "proof";', encoding="utf-8")
+        target_document.write_text('<meta name="continuity-probe-target-sha256" content="pending"><meta name="continuity-probe-source-bundle-sha256" content="pending"><h1>PROOF MOVES</h1><script src="concept-target.js"></script>', encoding="utf-8")
+        target_bundle = design._verified_runtime_source_bundle(
+            self.root, target_document, [ref(target_document), ref(runtime_script)], "Concept proof",
+        )
+        target_fingerprint = target_bundle["target_document_sha256"]
+        bound_probe = self.root / "bound-type-probe.json"
+        bound_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        bound_probe_value.update({"document_url": target_document.resolve().as_uri(), "target_document_path": target_document.name, "target_document_sha256": target_fingerprint, "source_bundle_sha256": target_bundle["source_bundle_sha256"]})
+        bound_probe.write_text(json.dumps(bound_probe_value), encoding="utf-8")
+        bound_transfer = {
+            "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+            "source": "SIL Open Font License", "license_evidence": "OFL-1.1", "source_character": "Tall narrow display.",
+            "project_transformation": "Continuity copy.", "type_media_relation": "behind-subject", "narrow_behavior": "Two lines.",
+            "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+            "reference_render_probe": ref(reference_probe), "render_probe": ref(bound_probe),
+        }
+        design._validate_typographic_transfer(self.root, "proof", bound_transfer, prototype, None, {"path": target_document.name, "sha256": target_fingerprint, "source_bundle_sha256": target_bundle["source_bundle_sha256"]})
+        runtime_script.write_text('document.documentElement.dataset.runtime = "flattened";', encoding="utf-8")
+        changed_bundle = design._verified_runtime_source_bundle(
+            self.root, target_document, [ref(target_document), ref(runtime_script)], "Concept proof",
+        )
+        with self.assertRaisesRegex(design.DesignError, "stale for its target document"):
+            design._validate_typographic_transfer(self.root, "proof", bound_transfer, prototype, None, {"path": target_document.name, "sha256": changed_bundle["target_document_sha256"], "source_bundle_sha256": changed_bundle["source_bundle_sha256"]})
+        with self.assertRaisesRegex(design.DesignError, "not bound to its validated reference study"):
+            design._validate_typographic_transfer(self.root, "proof", {
+                "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+                "source": "SIL Open Font License", "license_evidence": "OFL-1.1", "source_character": "Tall narrow display.",
+                "project_transformation": "Continuity copy.", "type_media_relation": "behind-subject", "narrow_behavior": "Two lines.",
+                "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+                "reference_render_probe": ref(reference_probe), "render_probe": ref(probe),
+            }, prototype, ref(probe))
+        plan = {
+            "plan_id": "proof-planes", "type_media_relation": "behind-subject",
+            "registration_basis": "Shared 12 by 8 canvas and focal anchor.",
+            "planes": [
+                {"plane_id": "hero-background", "role": "background", "source_kind": "raster", "z_index": 1, "crop_anchor": "50% 50%", "responsive_behavior": "Keep the field registered.", "asset": ref(background)},
+                {"plane_id": "hero-type", "role": "live-type", "source_kind": "live-html", "z_index": 2, "crop_anchor": "display baseline", "responsive_behavior": "Keep two lines.", "selector": "proof-type"},
+                {"plane_id": "hero-subject", "role": "foreground", "source_kind": "raster", "z_index": 3, "crop_anchor": "50% 50%", "responsive_behavior": "Keep the subject crossing both lines.", "asset": ref(foreground)},
+            ],
+        }
+        validated = design._validate_composition_asset_plan(self.root, "proof", plan, prototype, transfer["type_media_relation"], ref(probe))
+        self.assertGreater(validated["planes"][2]["alpha"]["transparent_pixels"], 0)
+        self.assertEqual(validated["planes"][2]["alpha"]["transparent_corners"], 4)
+        missing_plane_probe = self.root / "missing-plane-probe.json"
+        missing_plane_value = json.loads(probe.read_text(encoding="utf-8"))
+        missing_plane_value["composition_planes"] = missing_plane_value["composition_planes"][1:]
+        missing_plane_probe.write_text(json.dumps(missing_plane_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "does not render plane hero-background"):
+            design._validate_composition_asset_plan(self.root, "proof", plan, prototype, "behind-subject", ref(missing_plane_probe))
+        broken = json.loads(json.dumps(plan))
+        broken["planes"][2]["asset"] = ref(background)
+        broken_probe = self.root / "broken-layer-probe.json"
+        broken_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        broken_probe_value["composition_planes"][2]["asset_url"] = "file:///project/assets/background.png"
+        broken_probe.write_text(json.dumps(broken_probe_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "usable alpha"):
+            design._validate_composition_asset_plan(self.root, "proof", broken, prototype, "behind-subject", ref(broken_probe))
+        bad_probe = json.loads(probe.read_text(encoding="utf-8"))
+        bad_probe["typography_transfers"][0]["font_face_status"] = "missing-or-ambiguous"
+        probe.write_text(json.dumps(bad_probe), encoding="utf-8")
+        transfer_value = {
+            "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+            "source": "SIL Open Font License", "license_evidence": "OFL-1.1", "source_character": "Tall narrow display.",
+            "project_transformation": "Continuity copy.", "type_media_relation": "behind-subject", "narrow_behavior": "Two lines.", "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05}, "reference_render_probe": ref(reference_probe), "render_probe": ref(probe),
+        }
+        with self.assertRaisesRegex(design.DesignError, "does not prove"):
+            design._validate_typographic_transfer(self.root, "proof", transfer_value, prototype)
+
+    def test_probe_prepare_binds_typescript_alias_source_closure(self):
+        source_root = self.root / "src"
+        component_root = source_root / "components"
+        component_root.mkdir(parents=True)
+        (self.root / "tsconfig.json").write_text(json.dumps({
+            "compilerOptions": {"baseUrl": ".", "paths": {"@/*": ["src/*"]}},
+        }), encoding="utf-8")
+        hero = component_root / "Hero.tsx"
+        hero.write_text('require("./proof.js");\nexport const Hero = () => <h1>Proof moves</h1>;', encoding="utf-8")
+        commonjs = component_root / "proof.js"
+        commonjs.write_text('module.exports = "bound proof";', encoding="utf-8")
+        main = source_root / "main.tsx"
+        main.write_text('import { Hero } from "@/components/Hero";\nnew Worker(new URL("./worker.ts", import.meta.url), {type: "module"});\nimport.meta.glob("./pages/*.tsx", {eager: true});\nvoid Hero;', encoding="utf-8")
+        pages = source_root / "pages"
+        pages.mkdir()
+        page = pages / "Proof.tsx"
+        page.write_text('export default () => <article>Bound proof</article>;', encoding="utf-8")
+        worker = source_root / "worker.ts"
+        worker.write_text('importScripts("./worker-a.js", "./worker-b.js");\nself.postMessage("proof");', encoding="utf-8")
+        worker_a = source_root / "worker-a.js"
+        worker_b = source_root / "worker-b.js"
+        worker_a.write_text('self.proofA = true;', encoding="utf-8")
+        worker_b.write_text('self.proofB = true;', encoding="utf-8")
+        target = self.root / "index.html"
+        target.write_text('<!doctype html><html><head><title>Proof</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>', encoding="utf-8")
+        prepared = design.probe_prepare(self.root, self.config, target)
+        self.assertEqual(
+            {"index.html", "src/main.tsx", "src/worker.ts", "src/worker-a.js", "src/worker-b.js", "src/pages/Proof.tsx", "src/components/Hero.tsx", "src/components/proof.js"},
+            {item["path"] for item in prepared["runtime_source_files"]},
+        )
+        document = target.read_text(encoding="utf-8")
+        self.assertIn(prepared["source_bundle_sha256"], document)
+        previous_bundle = prepared["source_bundle_sha256"]
+        hero.write_text('export const Hero = () => <main>Flattened fallback</main>;', encoding="utf-8")
+        changed = design.probe_prepare(self.root, self.config, target)
+        self.assertNotEqual(previous_bundle, changed["source_bundle_sha256"])
+
+    def test_slop_check_detects_flattened_layers_and_font_approximation(self):
+        source = self.root / "layer-drift.html"
+        source.write_text("<main><h1>Project proof</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(translation_fidelity={
+            "editable_depth_preserved": False,
+            "font_transfer_verified": False,
+            "approved_layer_plan_present": False,
+            "approved_typographic_character_present": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual({"CDS-D033", "CDS-D034", "CDS-P014", "CDS-P015"}, {item["rule_id"] for item in result["findings"]})
+        draft_dir = self.root / ".continuity" / "private" / "design" / "layer-gate"
+        draft_dir.mkdir(parents=True)
+        (draft_dir / "draft.json").write_text(json.dumps({"workflow_version": 3}), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "require passed editable-depth"):
+            design.slop_check(self.root, self.config, source, self.write_slop_manifest(design_id="layer-gate", revision=1))
 
     def test_portfolio_review_hash_binds_generations_and_recurring_tells(self):
         artifacts = []

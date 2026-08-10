@@ -11834,6 +11834,8 @@ def design_command(args: argparse.Namespace) -> Any:
             return design_lib.visual_atlas(root, config, catalog_path, Path(args.input).expanduser().resolve())
         if args.command == "visual-render":
             return design_lib.visual_render(root, config, Path(args.input).expanduser().resolve())
+        if args.command == "probe-prepare":
+            return design_lib.probe_prepare(root, config, Path(args.target).expanduser().resolve())
         if args.command == "concept-lab-validate":
             return design_lib.concept_lab_validate(root, config, Path(args.input).expanduser().resolve())
         if args.command == "reference-validate":
@@ -12225,6 +12227,9 @@ def build_parser() -> argparse.ArgumentParser:
     design_visual_render = design_sub.add_parser("visual-render")
     design_visual_render.add_argument("--input", required=True)
     design_visual_render.set_defaults(handler=design_command)
+    design_probe_prepare = design_sub.add_parser("probe-prepare")
+    design_probe_prepare.add_argument("--target", required=True)
+    design_probe_prepare.set_defaults(handler=design_command)
     design_concept_lab_validate = design_sub.add_parser("concept-lab-validate")
     design_concept_lab_validate.add_argument("--input", required=True)
     design_concept_lab_validate.set_defaults(handler=design_command)

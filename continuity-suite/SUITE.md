@@ -123,6 +123,7 @@ continuity design concept-lab-validate --input <laboratory.json>
 continuity design reference-validate --manifest <reference-translation.json>
 continuity design portfolio-validate --manifest <portfolio-review.json>
 continuity design visual-render --input <render.json>
+continuity design probe-prepare --target <prototype.html>
 continuity design slop-check --target <file-or-directory> --manifest <slop-manifest.json>
 continuity design concept-validate --manifest <concept-manifest.json>
 continuity design feedback-record <design-id> --input <feedback.json>

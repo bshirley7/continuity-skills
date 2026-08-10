@@ -2859,6 +2859,12 @@ def select(root: Path, config: dict[str, Any], design_id: str, direction_ids: li
         }
         if record.get("workflow_version", 1) >= 3:
             bundle["reference_translation_hash"] = record["concept_evidence"].get("reference_translation_hash")
+            selected_concepts = [
+                concept for concept in record["concept_evidence"]["concepts"]
+                if concept["direction_id"] in requested
+            ]
+            bundle["typographic_transfer_hashes"] = [_canonical_hash(concept["typographic_transfer"]) for concept in selected_concepts]
+            bundle["composition_asset_plan_hashes"] = [_canonical_hash(concept["composition_asset_plan"]) for concept in selected_concepts]
         update.update({"approval_bundle": bundle, "approval_bundle_hash": _canonical_hash(bundle), "prototype_slop_evidence": None})
     record.update(update)
     _write_json(design_dir / "draft.json", record)
@@ -2941,11 +2947,14 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         })
         if record.get("workflow_version", 1) >= 3:
             approval["reference_translation_hash"] = record["approval_bundle"].get("reference_translation_hash")
+            approval["approval_bundle"] = record["approval_bundle"]
     _write_json(design_dir / "approval.json", approval)
     shared = {key: approval[key] for key in ("schema_version", "design_id", "revision", "design_hash", "approved_by", "approved_at", "execution_authorized")}
     for key in ("visual_reference_hash", "approval_bundle_hash", "reference_translation_hash", "slop_ruleset_version", "slop_ruleset_hash"):
         if key in approval:
             shared[key] = approval[key]
+    if "approval_bundle" in approval:
+        shared["approval_bundle"] = approval["approval_bundle"]
     selected = [item for item in record["directions"] if item["direction_id"] in record["selected_direction_ids"]]
     alignment_contract = {
         "selected_direction_ids": record["selected_direction_ids"],
@@ -3051,6 +3060,257 @@ def _artifact_relative_path(root: Path, value: Any) -> tuple[str, Path]:
     except ValueError as exc:
         raise DesignError("Artifact path escapes the project root") from exc
     return candidate.as_posix(), resolved
+
+
+def _document_probe_fingerprint(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    normalized = text
+    for name, placeholder in (
+        ("continuity-probe-target-sha256", "PROBE_TARGET_FINGERPRINT"),
+        ("continuity-probe-source-bundle-sha256", "PROBE_SOURCE_BUNDLE_FINGERPRINT"),
+    ):
+        normalized = re.sub(
+            rf'(<meta\s+name=["\']{name}["\']\s+content=["\'])[^"\']*(["\']\s*/?>)',
+            rf"\g<1>{placeholder}\g<2>", normalized, flags=re.IGNORECASE,
+        )
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+RUNTIME_SOURCE_SUFFIXES = {".html", ".htm", ".css", ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx"}
+_RUNTIME_DEPENDENCY_PATTERNS = (
+    re.compile(r'(?:src|href)\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE),
+    re.compile(r'(?:import|export)\s+(?:[^"\']*?\s+from\s+)?["\']([^"\']+)["\']'),
+    re.compile(r'import\s*\(\s*["\']([^"\']+)["\']\s*\)'),
+    re.compile(r'require(?:\.resolve)?\s*\(\s*["\']([^"\']+)["\']\s*\)'),
+    re.compile(r'new\s+URL\s*\(\s*["\']([^"\']+)["\']\s*,\s*import\.meta\.url\s*\)'),
+    re.compile(r'new\s+(?:Shared)?Worker\s*\(\s*["\']([^"\']+)["\']'),
+    re.compile(r'import\.meta\.glob(?:Eager)?\s*\(\s*["\']([^"\']+)["\']\s*(?:,|\))'),
+    re.compile(r'@import\s+(?:url\(\s*)?["\']?([^"\')\s;]+)', re.IGNORECASE),
+)
+
+
+def _runtime_alias_roots(root: Path, source: Path, reference: str) -> tuple[list[Path], bool]:
+    candidates: list[Path] = []
+    matched = False
+    if reference.startswith("@/"):
+        candidates.extend((root / "src" / reference[2:], root / reference[2:]))
+        matched = True
+    current = source.parent.resolve()
+    root_resolved = root.resolve()
+    while True:
+        for name in ("tsconfig.json", "jsconfig.json"):
+            config_path = current / name
+            if not config_path.is_file():
+                continue
+            try:
+                config_text = config_path.read_text(encoding="utf-8")
+                config_text = re.sub(r"/\*.*?\*/", "", config_text, flags=re.DOTALL)
+                config_text = re.sub(r"(^|\s)//.*$", r"\1", config_text, flags=re.MULTILINE)
+                config_text = re.sub(r",\s*([}\]])", r"\1", config_text)
+                options = json.loads(config_text).get("compilerOptions", {})
+            except (OSError, json.JSONDecodeError, AttributeError):
+                continue
+            base = (current / str(options.get("baseUrl", "."))).resolve()
+            paths = options.get("paths", {})
+            if not isinstance(paths, dict):
+                continue
+            for alias, replacements in paths.items():
+                if not isinstance(alias, str) or not isinstance(replacements, list):
+                    continue
+                if "*" in alias:
+                    prefix, suffix = alias.split("*", 1)
+                    if not reference.startswith(prefix) or (suffix and not reference.endswith(suffix)):
+                        continue
+                    wildcard = reference[len(prefix):len(reference) - len(suffix) if suffix else None]
+                elif reference == alias:
+                    wildcard = ""
+                else:
+                    continue
+                matched = True
+                for replacement in replacements:
+                    if isinstance(replacement, str):
+                        candidates.append(base / replacement.replace("*", wildcard))
+        if current == root_resolved or root_resolved not in current.parents:
+            break
+        current = current.parent
+    return candidates, matched
+
+
+def _resolve_runtime_dependency(root: Path, source: Path, reference: str, *, strict: bool) -> Path | None:
+    clean = reference.split("?", 1)[0].split("#", 1)[0].strip()
+    if not clean or clean.startswith(("data:", "http:", "https:", "//", "#")):
+        return None
+    alias_candidates, alias_matched = _runtime_alias_roots(root, source, clean)
+    raw_candidates = alias_candidates or [
+        (root / clean.lstrip("/")) if clean.startswith("/") else (source.parent / clean)
+    ]
+    candidates: list[Path] = []
+    for raw in raw_candidates:
+        candidates.append(raw)
+        if not raw.suffix:
+            candidates.extend(raw.with_suffix(suffix) for suffix in RUNTIME_SOURCE_SUFFIXES)
+            candidates.extend(raw / f"index{suffix}" for suffix in RUNTIME_SOURCE_SUFFIXES)
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        try:
+            resolved.relative_to(root.resolve())
+        except ValueError:
+            continue
+        if resolved.is_file() and resolved.suffix.lower() in RUNTIME_SOURCE_SUFFIXES:
+            return resolved
+    if (clean.startswith((".", "/")) or alias_matched) and (strict or Path(clean).suffix.lower() in RUNTIME_SOURCE_SUFFIXES or alias_matched):
+        raise DesignError(f"Runtime source dependency is missing: {reference}")
+    return None
+
+
+def _runtime_source_closure(root: Path, target_document: Path) -> list[Path]:
+    queue = [target_document.resolve()]
+    found: set[Path] = set()
+    while queue:
+        source = queue.pop()
+        if source in found:
+            continue
+        try:
+            source.relative_to(root.resolve())
+        except ValueError as exc:
+            raise DesignError("Runtime source closure escapes the project root") from exc
+        if not source.is_file() or source.suffix.lower() not in RUNTIME_SOURCE_SUFFIXES:
+            raise DesignError(f"Runtime source is missing or unsupported: {source}")
+        found.add(source)
+        text = source.read_text(encoding="utf-8", errors="replace")
+        for arguments in re.findall(r'importScripts\s*\(([^)]*)\)', text):
+            references = re.findall(r'["\']([^"\']+)["\']', arguments)
+            if not references:
+                raise DesignError("importScripts runtime dependencies must use static local URLs")
+            for reference in references:
+                dependency = _resolve_runtime_dependency(root, source, reference, strict=True)
+                if dependency is not None and dependency not in found:
+                    queue.append(dependency)
+        for arguments in re.findall(r'import\.meta\.glob(?:Eager)?\s*\(\s*\[([^\]]+)\]', text):
+            references = re.findall(r'["\']([^"\']+)["\']', arguments)
+            if not references:
+                raise DesignError("import.meta.glob runtime dependencies must use static local patterns")
+            for reference in references:
+                if not reference.startswith((".", "/")):
+                    raise DesignError(f"Runtime source glob must be relative or project-rooted: {reference}")
+                glob_root = root.resolve() if reference.startswith("/") else source.parent
+                matches = [
+                    item.resolve() for item in glob_root.glob(reference.lstrip("/"))
+                    if item.is_file() and item.suffix.lower() in RUNTIME_SOURCE_SUFFIXES
+                ]
+                if not matches:
+                    raise DesignError(f"Runtime source glob has no supported matches: {reference}")
+                queue.extend(item for item in matches if item not in found)
+        for pattern_index, pattern in enumerate(_RUNTIME_DEPENDENCY_PATTERNS):
+            for reference in pattern.findall(text):
+                clean_reference = reference.split("?", 1)[0].split("#", 1)[0]
+                if any(character in clean_reference for character in "*?["):
+                    if not clean_reference.startswith((".", "/")):
+                        raise DesignError(f"Runtime source glob must be relative or project-rooted: {reference}")
+                    glob_root = root.resolve() if clean_reference.startswith("/") else source.parent
+                    matches = [
+                        item.resolve() for item in glob_root.glob(clean_reference.lstrip("/"))
+                        if item.is_file() and item.suffix.lower() in RUNTIME_SOURCE_SUFFIXES
+                    ]
+                    if not matches:
+                        raise DesignError(f"Runtime source glob has no supported matches: {reference}")
+                    queue.extend(item for item in matches if item not in found)
+                    continue
+                dependency = _resolve_runtime_dependency(root, source, reference, strict=pattern_index > 0)
+                if dependency is not None and dependency not in found:
+                    queue.append(dependency)
+    return sorted(found, key=lambda item: item.relative_to(root.resolve()).as_posix())
+
+
+def _verified_runtime_source_bundle(root: Path, target_document: Path, declared: Any, label: str) -> dict[str, Any]:
+    if not isinstance(declared, list) or not declared:
+        raise DesignError(f"{label} requires hash-bound runtime source files")
+    closure = _runtime_source_closure(root, target_document)
+    closure_paths = {item.relative_to(root.resolve()).as_posix() for item in closure}
+    normalized: list[dict[str, str]] = []
+    declared_paths: set[str] = set()
+    for item in declared:
+        verified = _verified_reference_file(root, item, f"{label} runtime source", RUNTIME_SOURCE_SUFFIXES)
+        if verified["path"] in declared_paths:
+            raise DesignError(f"{label} runtime source files contain duplicates")
+        normalized.append(verified)
+        declared_paths.add(verified["path"])
+    if declared_paths != closure_paths:
+        missing = sorted(closure_paths - declared_paths)
+        extra = sorted(declared_paths - closure_paths)
+        raise DesignError(f"{label} runtime source closure does not match its declaration; missing={missing}, extra={extra}")
+    target_relative = target_document.resolve().relative_to(root.resolve()).as_posix()
+    entries = [
+        {
+            "path": item["path"],
+            "sha256": _document_probe_fingerprint(target_document) if item["path"] == target_relative else item["sha256"],
+        }
+        for item in sorted(normalized, key=lambda value: value["path"])
+    ]
+    return {
+        "target_document_path": target_relative,
+        "target_document_sha256": _document_probe_fingerprint(target_document),
+        "source_files": normalized,
+        "source_bundle_sha256": _canonical_hash({"target_document_path": target_relative, "sources": entries}),
+    }
+
+
+def _set_probe_meta(document: str, name: str, content: str) -> str:
+    tag = '<meta name="{}" content="{}">'.format(name, content)
+    pattern = re.compile(
+        rf'<meta\s+name=["\']{re.escape(name)}["\']\s+content=["\'][^"\']*["\']\s*/?>',
+        re.IGNORECASE,
+    )
+    if pattern.search(document):
+        return pattern.sub(tag, document, count=1)
+    head_end = re.search(r"</head\s*>", document, re.IGNORECASE)
+    if not head_end:
+        raise DesignError("Probe preparation requires an HTML document with a head element")
+    return document[:head_end.start()] + f"  {tag}\n" + document[head_end.start():]
+
+
+def probe_prepare(root: Path, config: dict[str, Any], target_path: Path) -> dict[str, Any]:
+    """Bind an HTML target and its complete local runtime source closure for browser evidence."""
+    _enabled(config)
+    target = target_path.resolve()
+    try:
+        target_relative = target.relative_to(root.resolve()).as_posix()
+    except ValueError as exc:
+        raise DesignError("Probe target must remain inside the project root") from exc
+    if not target.is_file() or target.suffix.lower() not in {".html", ".htm"}:
+        raise DesignError("Probe target must be an existing HTML document")
+    document = target.read_text(encoding="utf-8")
+    document = _set_probe_meta(document, "continuity-probe-target-path", target_relative)
+    document = _set_probe_meta(document, "continuity-probe-target-sha256", "pending")
+    document = _set_probe_meta(document, "continuity-probe-source-bundle-sha256", "pending")
+    target.write_text(document, encoding="utf-8")
+    closure = _runtime_source_closure(root, target)
+    declared = [
+        {"path": item.relative_to(root.resolve()).as_posix(), "sha256": hashlib.sha256(item.read_bytes()).hexdigest()}
+        for item in closure
+    ]
+    prepared = _verified_runtime_source_bundle(root, target, declared, "Browser probe")
+    document = target.read_text(encoding="utf-8")
+    document = _set_probe_meta(document, "continuity-probe-target-sha256", prepared["target_document_sha256"])
+    document = _set_probe_meta(document, "continuity-probe-source-bundle-sha256", prepared["source_bundle_sha256"])
+    target.write_text(document, encoding="utf-8")
+    closure = _runtime_source_closure(root, target)
+    final_declared = [
+        {"path": item.relative_to(root.resolve()).as_posix(), "sha256": hashlib.sha256(item.read_bytes()).hexdigest()}
+        for item in closure
+    ]
+    final = _verified_runtime_source_bundle(root, target, final_declared, "Browser probe")
+    if final["source_bundle_sha256"] != prepared["source_bundle_sha256"]:
+        raise DesignError("Probe source-bundle fingerprint did not stabilize")
+    return {
+        "schema_version": 1,
+        "target_document": {"path": target_relative, "sha256": hashlib.sha256(target.read_bytes()).hexdigest()},
+        "target_document_fingerprint": final["target_document_sha256"],
+        "source_bundle_sha256": final["source_bundle_sha256"],
+        "runtime_source_files": final["source_files"],
+        "next_action": "Run artifact-browser-probe.js in the rendered desktop document without editing its output",
+        "execution_authorized": False,
+    }
 
 
 VISUAL_REVIEW_QUESTIONS = {
@@ -3254,6 +3514,14 @@ def slop_check(root: Path, config: dict[str, Any], target_path: Path, manifest_p
     stage = manifest.get("stage")
     if stage not in {"concept", "prototype", "implementation"}:
         raise DesignError("Slop-check manifest requires concept, prototype, or implementation stage")
+    design_id = manifest.get("design_id")
+    if isinstance(design_id, str) and design_id.strip():
+        draft_path = root / config.get("private_dir", ".continuity/private") / "design" / _identifier(design_id, "design ID") / "draft.json"
+        if draft_path.is_file() and _read_json(draft_path).get("workflow_version", 1) >= 3:
+            fidelity = manifest.get("translation_fidelity")
+            required_fidelity = {"editable_depth_preserved", "font_transfer_verified", "approved_layer_plan_present", "approved_typographic_character_present"}
+            if not isinstance(fidelity, dict) or any(fidelity.get(key) is not True for key in required_fidelity):
+                raise DesignError("Workflow version 3 slop checks require passed editable-depth, font-transfer, layer-plan, and typographic-character evidence")
     review, review_failures = _normalize_visual_review(root, manifest.get("visual_review"))
     manifest["visual_review"] = review
     if review_failures:
@@ -3334,7 +3602,7 @@ def _verified_browser_probe(root: Path, value: Any, viewport: str, screenshot_wi
     probe_viewport = probe.get("viewport")
     findings = probe.get("craft_findings")
     if (
-        probe.get("schema_version") != 2
+        probe.get("schema_version") not in {2, 3}
         or probe.get("passed") is not True
         or not isinstance(probe_viewport, dict)
         or probe_viewport.get("width") != screenshot_width
@@ -3344,7 +3612,7 @@ def _verified_browser_probe(root: Path, value: Any, viewport: str, screenshot_wi
         or any(isinstance(item, dict) and item.get("severity") in {"error", "critical"} for item in findings)
     ):
         raise DesignError(f"Browser probe did not supply passing machine evidence: {relative}")
-    return {"viewport": viewport, "path": relative, "sha256": actual_hash, "schema_version": 2, "status": "passed"}
+    return {"viewport": viewport, "path": relative, "sha256": actual_hash, "schema_version": probe["schema_version"], "status": "passed"}
 
 
 def _verified_reference_file(root: Path, value: Any, label: str, suffixes: set[str]) -> dict[str, str]:
@@ -3355,6 +3623,249 @@ def _verified_reference_file(root: Path, value: Any, label: str, suffixes: set[s
     if path.suffix.lower() not in suffixes or not actual or value.get("sha256") != actual:
         raise DesignError(f"{label} is missing or changed: {relative}")
     return {"path": relative, "sha256": actual}
+
+
+def _png_alpha_stats(path: Path) -> dict[str, int | bool]:
+    """Return deterministic alpha evidence for an 8-bit, non-interlaced RGBA PNG."""
+    data = path.read_bytes()
+    if len(data) < 45 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise DesignError(f"Invalid PNG artifact: {path}")
+    offset = 8
+    width = height = 0
+    bit_depth = color_type = interlace = -1
+    compressed = bytearray()
+    while offset + 12 <= len(data):
+        length = struct.unpack(">I", data[offset:offset + 4])[0]
+        kind = data[offset + 4:offset + 8]
+        start = offset + 8
+        end = start + length
+        crc_end = end + 4
+        if crc_end > len(data) or zlib.crc32(kind + data[start:end]) & 0xFFFFFFFF != struct.unpack(">I", data[end:crc_end])[0]:
+            raise DesignError(f"Invalid PNG chunk: {path}")
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type, _, _, interlace = struct.unpack(">IIBBBBB", data[start:end])
+        elif kind == b"IDAT":
+            compressed.extend(data[start:end])
+        elif kind == b"IEND":
+            break
+        offset = crc_end
+    if bit_depth != 8 or color_type != 6 or interlace != 0 or width < 1 or height < 1:
+        raise DesignError(f"Foreground plane must be an 8-bit non-interlaced RGBA PNG: {path}")
+    try:
+        raw = zlib.decompress(bytes(compressed))
+    except zlib.error as exc:
+        raise DesignError(f"Invalid PNG image data: {path}") from exc
+    stride = width * 4
+    if len(raw) != height * (stride + 1):
+        raise DesignError(f"Unexpected PNG scanline data: {path}")
+    rows: list[bytearray] = []
+    cursor = 0
+    previous = bytearray(stride)
+    for _ in range(height):
+        filter_type = raw[cursor]
+        cursor += 1
+        encoded = raw[cursor:cursor + stride]
+        cursor += stride
+        row = bytearray(stride)
+        for index, value in enumerate(encoded):
+            left = row[index - 4] if index >= 4 else 0
+            up = previous[index]
+            up_left = previous[index - 4] if index >= 4 else 0
+            if filter_type == 0:
+                predictor = 0
+            elif filter_type == 1:
+                predictor = left
+            elif filter_type == 2:
+                predictor = up
+            elif filter_type == 3:
+                predictor = (left + up) // 2
+            elif filter_type == 4:
+                p = left + up - up_left
+                pa, pb, pc = abs(p - left), abs(p - up), abs(p - up_left)
+                predictor = left if pa <= pb and pa <= pc else up if pb <= pc else up_left
+            else:
+                raise DesignError(f"Unsupported PNG filter: {path}")
+            row[index] = (value + predictor) & 0xFF
+        rows.append(row)
+        previous = row
+    alphas = [row[index] for row in rows for index in range(3, stride, 4)]
+    corner_alphas = (rows[0][3], rows[0][stride - 1], rows[-1][3], rows[-1][stride - 1])
+    return {
+        "width": width, "height": height,
+        "transparent_pixels": sum(alpha == 0 for alpha in alphas),
+        "partial_pixels": sum(0 < alpha < 255 for alpha in alphas),
+        "opaque_pixels": sum(alpha == 255 for alpha in alphas),
+        "transparent_corners": sum(alpha == 0 for alpha in corner_alphas),
+    }
+
+
+def _validate_typographic_transfer(root: Path, concept_id: str, value: Any, prototype_source: str, expected_reference_probe: Any = None, expected_target_document: Any = None) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires executable typographic transfer evidence")
+    transfer_id = _identifier(str(value.get("transfer_id", "")), "typographic transfer ID")
+    required_text = ("rendered_copy", "font_family", "source", "license_evidence", "source_character", "project_transformation", "narrow_behavior")
+    if any(not isinstance(value.get(field), str) or not value[field].strip() for field in required_text):
+        raise DesignError(f"Concept {concept_id} typographic transfer lacks source, license, character, transformation, or responsive evidence")
+    relation = value.get("type_media_relation")
+    if relation not in {"separate", "behind-subject", "interleaved", "foreground-over-type"}:
+        raise DesignError(f"Concept {concept_id} requires a supported type-to-media relation")
+    reference_probe_ref = _verified_reference_file(root, value.get("reference_render_probe"), f"Concept {concept_id} reference typography browser probe", {".json"})
+    if expected_reference_probe is not None and reference_probe_ref != expected_reference_probe:
+        raise DesignError(f"Concept {concept_id} reference typography probe is not bound to its validated reference study")
+    _, reference_probe_path = _artifact_relative_path(root, reference_probe_ref["path"])
+    reference_probe = _read_json(reference_probe_path)
+    probe_ref = _verified_reference_file(root, value.get("render_probe"), f"Concept {concept_id} typography render probe", {".json"})
+    _, probe_path = _artifact_relative_path(root, probe_ref["path"])
+    probe = _read_json(probe_path)
+    if expected_target_document is not None and (
+        not isinstance(expected_target_document, dict)
+        or not isinstance(expected_target_document.get("source_bundle_sha256"), str)
+        or len(expected_target_document["source_bundle_sha256"]) != 64
+        or probe.get("target_document_path") != expected_target_document.get("path")
+        or probe.get("target_document_sha256") != expected_target_document.get("sha256")
+        or probe.get("source_bundle_sha256") != expected_target_document.get("source_bundle_sha256")
+        or not isinstance(probe.get("document_url"), str)
+        or not probe["document_url"].split("?", 1)[0].endswith(expected_target_document.get("path", ""))
+    ):
+        raise DesignError(f"Concept {concept_id} typography browser probe is stale for its target document")
+    transfers = probe.get("typography_transfers")
+    if not isinstance(transfers, list):
+        raise DesignError(f"Concept {concept_id} typography evidence must come from the rendered browser probe")
+    matching = [item for item in transfers if isinstance(item, dict) and item.get("transfer_id") == transfer_id]
+    if len(matching) != 1:
+        raise DesignError(f"Concept {concept_id} rendered browser probe must locate typographic transfer {transfer_id} exactly once")
+    rendered = matching[0]
+    metrics = {key: rendered.get(key) for key in ("cap_height_ratio", "word_width_ratio", "line_count")}
+    reference_transfers = reference_probe.get("typography_transfers")
+    reference_matching = [item for item in reference_transfers if isinstance(item, dict) and item.get("transfer_id") == transfer_id] if isinstance(reference_transfers, list) else []
+    reference_rendered = reference_matching[0] if len(reference_matching) == 1 else {}
+    reference_metrics = {key: reference_rendered.get(key) for key in ("cap_height_ratio", "word_width_ratio", "line_count")}
+    tolerances = value.get("metric_tolerances")
+    computed_families = {
+        item.strip().strip("'\"").casefold()
+        for item in str(rendered.get("computed_family", "")).split(",") if item.strip()
+    }
+    if (
+        probe.get("schema_version") != 3 or probe.get("probe_kind") != "continuity-artifact-browser-probe"
+        or probe.get("passed") is not True or probe.get("document_fonts_status") != "loaded"
+        or not isinstance(probe.get("viewport"), dict) or probe["viewport"].get("width") != 1440
+        or reference_probe.get("schema_version") != 3 or reference_probe.get("probe_kind") != "continuity-artifact-browser-probe"
+        or reference_probe.get("passed") is not True or len(reference_matching) != 1
+        or value["font_family"].casefold() not in computed_families
+        or rendered.get("font_loaded") is not True
+        or rendered.get("font_face_status") != "loaded"
+        or rendered.get("rendered_copy") != value["rendered_copy"]
+        or not isinstance(metrics, dict)
+        or any(not isinstance(metrics.get(key), (int, float)) or metrics[key] <= 0 for key in ("cap_height_ratio", "word_width_ratio", "line_count"))
+        or not isinstance(reference_metrics, dict)
+        or any(not isinstance(reference_metrics.get(key), (int, float)) or reference_metrics[key] <= 0 for key in ("cap_height_ratio", "word_width_ratio", "line_count"))
+        or not isinstance(tolerances, dict)
+        or not isinstance(tolerances.get("cap_height_ratio"), (int, float)) or not 0 < tolerances["cap_height_ratio"] <= 0.08
+        or not isinstance(tolerances.get("word_width_ratio"), (int, float)) or not 0 < tolerances["word_width_ratio"] <= 0.10
+        or abs(metrics["cap_height_ratio"] - reference_metrics["cap_height_ratio"]) > tolerances["cap_height_ratio"]
+        or abs(metrics["word_width_ratio"] - reference_metrics["word_width_ratio"]) > tolerances["word_width_ratio"]
+        or metrics["line_count"] != reference_metrics["line_count"]
+    ):
+        raise DesignError(f"Concept {concept_id} typography render probe does not prove the declared face and rendered silhouette")
+    return {field: value[field].strip() for field in required_text} | {
+        "transfer_id": transfer_id, "type_media_relation": relation, "reference_render_probe": reference_probe_ref, "render_probe": probe_ref,
+        "metric_tolerances": {key: tolerances[key] for key in ("cap_height_ratio", "word_width_ratio")},
+        "metrics": {key: metrics[key] for key in ("cap_height_ratio", "word_width_ratio", "line_count")},
+        "reference_metrics": {key: reference_metrics[key] for key in ("cap_height_ratio", "word_width_ratio", "line_count")},
+        "tolerances": {key: tolerances[key] for key in ("cap_height_ratio", "word_width_ratio")},
+    }
+
+
+def _validate_composition_asset_plan(root: Path, concept_id: str, value: Any, prototype_source: str, type_media_relation: str, render_probe: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires an executable composition asset plan")
+    plan_id = _identifier(str(value.get("plan_id", "")), "composition asset plan ID")
+    if value.get("type_media_relation") != type_media_relation:
+        raise DesignError(f"Concept {concept_id} composition and typography must agree on their type-to-media relation")
+    registration_basis = value.get("registration_basis")
+    if not isinstance(registration_basis, str) or not registration_basis.strip():
+        raise DesignError(f"Concept {concept_id} composition asset plan requires a registration basis")
+    planes = value.get("planes")
+    if not isinstance(planes, list) or len(planes) < 2:
+        raise DesignError(f"Concept {concept_id} composition asset plan requires at least two editable planes")
+    normalized: list[dict[str, Any]] = []
+    probe_ref = _verified_reference_file(root, render_probe, f"Concept {concept_id} composition browser probe", {".json"})
+    _, probe_path = _artifact_relative_path(root, probe_ref["path"])
+    probe = _read_json(probe_path)
+    rendered_planes = probe.get("composition_planes")
+    if probe.get("schema_version") != 3 or probe.get("probe_kind") != "continuity-artifact-browser-probe" or probe.get("passed") is not True or not isinstance(rendered_planes, list):
+        raise DesignError(f"Concept {concept_id} composition evidence must come from a passed rendered browser probe")
+    ids: set[str] = set()
+    z_indexes: set[int] = set()
+    roles: dict[str, dict[str, Any]] = {}
+    for plane in planes:
+        if not isinstance(plane, dict):
+            raise DesignError(f"Concept {concept_id} composition planes must be objects")
+        plane_id = _identifier(str(plane.get("plane_id", "")), "composition plane ID")
+        role = plane.get("role")
+        source_kind = plane.get("source_kind")
+        z_index = plane.get("z_index")
+        if plane_id in ids or role not in {"background", "midground", "live-type", "foreground", "annotation"} or source_kind not in {"raster", "live-html", "svg", "video"} or not isinstance(z_index, int) or z_index in z_indexes:
+            raise DesignError(f"Concept {concept_id} composition planes require unique IDs, z-indexes, and supported roles")
+        for field in ("crop_anchor", "responsive_behavior"):
+            if not isinstance(plane.get(field), str) or not plane[field].strip():
+                raise DesignError(f"Concept {concept_id} plane {plane_id} requires crop and responsive behavior")
+        item: dict[str, Any] = {"plane_id": plane_id, "role": role, "source_kind": source_kind, "z_index": z_index, "crop_anchor": plane["crop_anchor"].strip(), "responsive_behavior": plane["responsive_behavior"].strip()}
+        rendered_matches = [entry for entry in rendered_planes if isinstance(entry, dict) and entry.get("plane_id") == plane_id]
+        if len(rendered_matches) != 1 or rendered_matches[0].get("visible") is not True or rendered_matches[0].get("computed_z_index") != z_index:
+            raise DesignError(f"Concept {concept_id} browser probe does not render plane {plane_id} once at its declared z-index")
+        rendered_plane = rendered_matches[0]
+        if source_kind == "live-html":
+            selector = plane.get("selector")
+            if not isinstance(selector, str) or not selector.strip() or rendered_plane.get("selector") != selector.strip():
+                raise DesignError(f"Concept {concept_id} live plane {plane_id} is not consumed by the prototype")
+            item["selector"] = selector.strip()
+        else:
+            asset = _verified_reference_file(root, plane.get("asset"), f"Concept {concept_id} plane {plane_id}", {".png", ".svg", ".webp", ".jpg", ".jpeg", ".mp4", ".webm"})
+            asset_url = rendered_plane.get("asset_url")
+            if not isinstance(asset_url, str) or not asset_url.split("?", 1)[0].endswith(asset["path"]) or rendered_plane.get("load_complete") is not True:
+                raise DesignError(f"Concept {concept_id} prototype does not consume plane asset {asset['path']}")
+            item["asset"] = asset
+            if Path(asset["path"]).suffix.lower() == ".png":
+                _, asset_path = _artifact_relative_path(root, asset["path"])
+                item["dimensions"] = dict(zip(("width", "height"), _png_dimensions(asset_path)))
+                if role == "foreground":
+                    alpha = _png_alpha_stats(asset_path)
+                    if alpha["transparent_pixels"] == 0 or alpha["opaque_pixels"] == 0 or alpha["transparent_corners"] < 4:
+                        raise DesignError(f"Concept {concept_id} foreground plane {plane_id} must contain usable alpha with four transparent corners")
+                    item["alpha"] = alpha
+        ids.add(plane_id)
+        z_indexes.add(z_index)
+        if role in {"background", "live-type", "foreground"} and role in roles:
+            raise DesignError(f"Concept {concept_id} composition asset plan can declare only one {role} plane")
+        roles[role] = item
+        normalized.append(item)
+    if type_media_relation in {"behind-subject", "interleaved", "foreground-over-type"}:
+        if not {"background", "live-type", "foreground"} <= set(roles):
+            raise DesignError(f"Concept {concept_id} layered type-to-media relation requires background, live-type, and alpha foreground planes")
+        if not roles["background"].get("dimensions") or not roles["foreground"].get("dimensions") or roles["background"]["dimensions"] != roles["foreground"]["dimensions"]:
+            raise DesignError(f"Concept {concept_id} background and foreground planes must share exact crop registration")
+        if Path(roles["background"]["asset"]["path"]).suffix.lower() != ".png" or Path(roles["foreground"]["asset"]["path"]).suffix.lower() != ".png":
+            raise DesignError(f"Concept {concept_id} registered layered planes must use PNG assets")
+        if roles["background"]["crop_anchor"] != roles["foreground"]["crop_anchor"]:
+            raise DesignError(f"Concept {concept_id} background and foreground planes must share the same crop anchor")
+        if not roles["background"]["z_index"] < roles["live-type"]["z_index"] < roles["foreground"]["z_index"]:
+            raise DesignError(f"Concept {concept_id} declared type-to-media depth is not reflected in plane order")
+        if roles["background"]["asset"]["sha256"] == roles["foreground"]["asset"]["sha256"]:
+            raise DesignError(f"Concept {concept_id} background and foreground must be independently editable assets")
+        rendered_by_id = {item["plane_id"]: item for item in rendered_planes if isinstance(item, dict) and item.get("plane_id")}
+        background_rect = rendered_by_id[roles["background"]["plane_id"]].get("rect")
+        type_rect = rendered_by_id[roles["live-type"]["plane_id"]].get("rect")
+        foreground_rect = rendered_by_id[roles["foreground"]["plane_id"]].get("rect")
+        if not all(isinstance(rect, dict) and all(isinstance(rect.get(key), (int, float)) for key in ("x", "y", "width", "height")) for rect in (background_rect, type_rect, foreground_rect)):
+            raise DesignError(f"Concept {concept_id} browser probe lacks rendered plane geometry")
+        if any(abs(background_rect[key] - foreground_rect[key]) > 1 for key in ("x", "y", "width", "height")):
+            raise DesignError(f"Concept {concept_id} background and foreground planes are not registered in rendered geometry")
+        overlap_width = min(type_rect["x"] + type_rect["width"], foreground_rect["x"] + foreground_rect["width"]) - max(type_rect["x"], foreground_rect["x"])
+        overlap_height = min(type_rect["y"] + type_rect["height"], foreground_rect["y"] + foreground_rect["height"]) - max(type_rect["y"], foreground_rect["y"])
+        if overlap_width <= 0 or overlap_height <= 0:
+            raise DesignError(f"Concept {concept_id} foreground plane does not visibly intersect the live type region")
+    return {"plan_id": plan_id, "type_media_relation": type_media_relation, "registration_basis": registration_basis.strip(), "planes": normalized}
 
 
 def _verified_reference_visual(root: Path, value: Any, label: str, role: str) -> dict[str, Any]:
@@ -3600,6 +4111,31 @@ def reference_validate(root: Path, config: dict[str, Any], manifest_path: Path) 
         html_artifact = _verified_reference_file(root, reconstruction.get("html"), f"Reference study {study_id} reconstruction", {".html", ".htm"})
         wide = _verified_reference_visual(root, reconstruction.get("wide"), f"Reference study {study_id} wide reconstruction", "wide")
         narrow = _verified_reference_visual(root, reconstruction.get("narrow"), f"Reference study {study_id} narrow reconstruction", "narrow")
+        typography_probe = None
+        runtime_source_bundle = None
+        if reconstruction.get("typography_render_probe") is not None:
+            runtime_source_bundle = _verified_runtime_source_bundle(
+                root, root / html_artifact["path"], reconstruction.get("runtime_source_files"),
+                f"Reference study {study_id} reconstruction",
+            )
+            typography_probe = _verified_reference_file(root, reconstruction.get("typography_render_probe"), f"Reference study {study_id} typography browser probe", {".json"})
+            _, typography_probe_path = _artifact_relative_path(root, typography_probe["path"])
+            typography_probe_value = _read_json(typography_probe_path)
+            if (
+                typography_probe_value.get("schema_version") != 3
+                or typography_probe_value.get("probe_kind") != "continuity-artifact-browser-probe"
+                or typography_probe_value.get("passed") is not True
+                or not isinstance(typography_probe_value.get("viewport"), dict)
+                or typography_probe_value["viewport"].get("width") != 1440
+                or not isinstance(typography_probe_value.get("typography_transfers"), list)
+                or not typography_probe_value["typography_transfers"]
+                or typography_probe_value.get("target_document_path") != html_artifact["path"]
+                or typography_probe_value.get("target_document_sha256") != _document_probe_fingerprint(root / html_artifact["path"])
+                or typography_probe_value.get("source_bundle_sha256") != runtime_source_bundle["source_bundle_sha256"]
+                or not isinstance(typography_probe_value.get("document_url"), str)
+                or not typography_probe_value["document_url"].split("?", 1)[0].endswith(html_artifact["path"])
+            ):
+                raise DesignError(f"Reference study {study_id} typography browser probe is not passed desktop evidence")
         if wide["sha256"] in reconstruction_visual_hashes or narrow["sha256"] in reconstruction_visual_hashes:
             raise DesignError("Every reference reconstruction requires distinct wide and narrow visual evidence")
         reconstruction_visual_hashes.update({wide["sha256"], narrow["sha256"]})
@@ -3669,7 +4205,7 @@ def reference_validate(root: Path, config: dict[str, Any], manifest_path: Path) 
         normalized_studies.append({
             "study_id": study_id, "source_identity": source_identity.strip(), "source_tile_ids": tile_ids, "source_evidence": normalized_sources,
             "reference_class": reference_class, "difficulty_evidence": normalized_difficulty,
-            "reconstruction": {"html": html_artifact, "wide": wide, "narrow": narrow},
+            "reconstruction": {"html": html_artifact, "wide": wide, "narrow": narrow, "typography_render_probe": typography_probe, "runtime_source_files": runtime_source_bundle["source_files"] if runtime_source_bundle else None},
             "copy_adaptation_ledger": normalized_copy_ledger,
             "correction_passes": normalized_passes, "salience_order": normalized_salience, "constraints": normalized_constraints,
         })
@@ -4157,6 +4693,28 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         if deep_path.suffix.lower() != ".html" or not deep_actual or deep_link.get("sha256") != deep_actual:
             raise DesignError(f"Concept comparison deep link is missing or changed: {deep_relative}")
         prototype_source = deep_path.read_text(encoding="utf-8", errors="replace")
+        if record.get("workflow_version", 1) >= 3:
+            runtime_source_bundle = _verified_runtime_source_bundle(
+                root, deep_path, concept.get("runtime_source_files"), f"Concept {concept_id}",
+            )
+            adaptation_study_id = known_reference_adaptations[reference_adaptation_id]["study_ids"][0]
+            linked_reference_study = next(item for item in reference_translation["reference_studies"] if item["study_id"] == adaptation_study_id)
+            expected_reference_probe = linked_reference_study["reconstruction"].get("typography_render_probe")
+            if not expected_reference_probe:
+                raise DesignError(f"Concept {concept_id} requires typography browser evidence in its validated reference study")
+            normalized_typographic_transfer = _validate_typographic_transfer(
+                root, concept_id, concept.get("typographic_transfer"), prototype_source, expected_reference_probe,
+                {"path": deep_relative, "sha256": runtime_source_bundle["target_document_sha256"], "source_bundle_sha256": runtime_source_bundle["source_bundle_sha256"]},
+            )
+            normalized_composition_asset_plan = _validate_composition_asset_plan(
+                root, concept_id, concept.get("composition_asset_plan"), prototype_source,
+                normalized_typographic_transfer["type_media_relation"],
+                concept.get("typographic_transfer", {}).get("render_probe"),
+            )
+        else:
+            runtime_source_bundle = None
+            normalized_typographic_transfer = None
+            normalized_composition_asset_plan = None
         for behavior in normalized_grammar_behaviors:
             marker = f'data-continuity-grammar-behavior="{behavior["behavior_id"]}"'
             if marker not in prototype_source:
@@ -4256,11 +4814,20 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             if viewport not in expected_widths or viewport in runtime_viewports:
                 raise DesignError(f"Concept {concept_id} runtime probes require unique mobile, tablet, and desktop evidence")
             normalized_probe = _verified_browser_probe(root, probe, viewport, expected_widths[viewport])
+            if record.get("workflow_version", 1) >= 3 and normalized_probe["schema_version"] != 3:
+                raise DesignError(f"Concept {concept_id} workflow version 3 requires browser probe schema 3 at every viewport")
             if normalized_probe["sha256"] in concept_runtime_probe_hashes:
                 raise DesignError("Every concept requires its own runtime probe artifacts")
             concept_runtime_probe_hashes.add(normalized_probe["sha256"])
             normalized_runtime_probes.append(normalized_probe)
             runtime_viewports.add(viewport)
+        if record.get("workflow_version", 1) >= 3 and not any(
+            item["viewport"] == "desktop"
+            and item["path"] == normalized_typographic_transfer["render_probe"]["path"]
+            and item["sha256"] == normalized_typographic_transfer["render_probe"]["sha256"]
+            for item in normalized_runtime_probes
+        ):
+            raise DesignError(f"Concept {concept_id} typographic transfer must use one of its three validated runtime probes")
         fidelity.add(level.strip())
         visuals: dict[str, dict[str, str]] = {}
         for visual_role in ("wide_composition", "narrow_transformation"):
@@ -4280,6 +4847,10 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         slop = _verified_private_report(root, concept.get("slop_report"), stage="concept")
         _, slop_path = _artifact_relative_path(root, slop["path"])
         slop_report = _read_json(slop_path)
+        if record.get("workflow_version", 1) >= 3:
+            fidelity_context = slop_report.get("translation_fidelity")
+            if not isinstance(fidelity_context, dict) or any(fidelity_context.get(key) is not True for key in ("editable_depth_preserved", "font_transfer_verified", "approved_layer_plan_present", "approved_typographic_character_present")):
+                raise DesignError(f"Concept {concept_id} slop report does not carry passed layer and typography fidelity")
         reviewed_visual_hashes = {
             artifact.get("sha256")
             for answer in slop_report.get("visual_review", {}).values()
@@ -4300,7 +4871,10 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             "seed_lineage": lineage, "system_extractions": [item.strip() for item in extractions], "palette": palette,
             "type_specimen": specimen,
             "typography_system": {"strategy_id": strategy_id, "family": typography_family, **{key: typography_system[key].strip() for key in typography_text_fields}},
+            "typographic_transfer": normalized_typographic_transfer,
+            "runtime_source_files": runtime_source_bundle["source_files"] if runtime_source_bundle else None,
             "media_system": {"art_direction_family": media_system["art_direction_family"], "primary_role": media_system["primary_role"].strip(), "asset_mix": asset_mix, "quiet_state": media_system["quiet_state"].strip(), "fallback": media_system["fallback"].strip(), "concept_role": concept_role, **media_effects},
+            "composition_asset_plan": normalized_composition_asset_plan,
             "composition_family": composition_family,
             "page_grammar": {"grammar_id": grammar_id, "family": grammar_family, **{key: page_grammar[key].strip() for key in grammar_fields}},
             "grammar_congruence": {
@@ -5159,6 +5733,10 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
     for key in ("design_id", "revision", "design_hash"):
         if manifest.get(key) != approved.get(key):
             raise DesignError(f"Artifact manifest {key} does not match the approved design")
+    approval_bundle = approved.get("approval_bundle", {})
+    for key in ("typographic_transfer_hashes", "composition_asset_plan_hashes"):
+        if key in approval_bundle and manifest.get(key) != approval_bundle[key]:
+            raise DesignError(f"Artifact manifest {key} does not preserve the selected composition and type evidence")
     artifact_id = _identifier(str(manifest.get("artifact_id", "")), "artifact ID")
     maturity = manifest.get("maturity")
     if maturity not in ARTIFACT_MATURITY:
@@ -5205,6 +5783,60 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
             screenshot_roles.add(role)
         verified_files.append(verified)
         file_paths.add(relative)
+    if "typographic_transfer_hashes" in approval_bundle:
+        current_probe = _verified_reference_file(root, manifest.get("fidelity_runtime_probe"), "Artifact composition and typography browser probe", {".json"})
+        if not any(item["path"] == current_probe["path"] and item["sha256"] == current_probe["sha256"] for item in verified_files):
+            raise DesignError("Artifact fidelity runtime probe must be one of the manifest's hash-bound files")
+        _, current_probe_path = _artifact_relative_path(root, current_probe["path"])
+        current_probe_value = _read_json(current_probe_path)
+        target_file = next((
+            item
+            for item in verified_files
+            if item["media_type"] == "text/html"
+            and current_probe_value.get("target_document_path") == item["path"]
+            and current_probe_value.get("target_document_sha256") == _document_probe_fingerprint(root / item["path"])
+        ), None)
+        target_document = None
+        if target_file is not None:
+            closure_paths = {
+                item.relative_to(root.resolve()).as_posix()
+                for item in _runtime_source_closure(root, root / target_file["path"])
+            }
+            declared_runtime_sources = [item for item in verified_files if item["path"] in closure_paths]
+            runtime_source_bundle = _verified_runtime_source_bundle(
+                root, root / target_file["path"], declared_runtime_sources, "Artifact fidelity",
+            )
+            target_document = {
+                "path": target_file["path"],
+                "sha256": runtime_source_bundle["target_document_sha256"],
+                "source_bundle_sha256": runtime_source_bundle["source_bundle_sha256"],
+            }
+        if (
+            target_document is None
+            or current_probe_value.get("source_bundle_sha256") != target_document["source_bundle_sha256"]
+            or not isinstance(current_probe_value.get("document_url"), str)
+            or not current_probe_value["document_url"].split("?", 1)[0].endswith(target_document["path"])
+        ):
+            raise DesignError("Artifact fidelity runtime probe is stale for the current HTML artifact")
+        contract = approved.get("alignment_contract", {})
+        concept_evidence = contract.get("concept_evidence") if isinstance(contract, dict) else None
+        selected_ids = contract.get("selected_direction_ids", []) if isinstance(contract, dict) else []
+        selected_concepts = [
+            item for item in concept_evidence.get("concepts", [])
+            if isinstance(item, dict) and item.get("direction_id") in selected_ids
+        ] if isinstance(concept_evidence, dict) else []
+        if not selected_concepts:
+            raise DesignError("Artifact fidelity validation requires the selected concept contract")
+        for concept in selected_concepts:
+            transfer = dict(concept["typographic_transfer"])
+            transfer["render_probe"] = current_probe
+            validated_transfer = _validate_typographic_transfer(
+                root, concept["concept_id"], transfer, "", concept["typographic_transfer"]["reference_render_probe"], target_document,
+            )
+            _validate_composition_asset_plan(
+                root, concept["concept_id"], concept["composition_asset_plan"], "",
+                validated_transfer["type_media_relation"], current_probe,
+            )
     validations = manifest.get("validation_results", [])
     if not isinstance(validations, list):
         raise DesignError("Artifact validation_results must be an array")
@@ -5489,7 +6121,8 @@ def validate_candidate_artifact(root: Path, config: dict[str, Any], manifest_pat
     candidate_record = {
         "design_id": draft["design_id"], "revision": draft["revision"], "design_hash": draft["design_hash"],
         "approval_bundle_hash": draft.get("approval_bundle_hash"),
-        "alignment_contract": alignment_contract,
+        "approval_bundle": draft.get("approval_bundle", {}),
+        "alignment_contract": {**alignment_contract, "concept_evidence": draft.get("concept_evidence")},
     }
     result = _validate_artifact_against_record(root, manifest, candidate_record, candidate=True)
     if draft.get("workflow_version", 1) >= 2:

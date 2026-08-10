@@ -30,7 +30,9 @@
     "reconstruction": {
       "html": {"path": ".continuity/private/designs/example/1/reconstruction.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000003"},
       "wide": {"path": ".continuity/private/designs/example/1/reconstruction-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000004"},
-      "narrow": {"path": ".continuity/private/designs/example/1/reconstruction-narrow.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000005"}
+      "narrow": {"path": ".continuity/private/designs/example/1/reconstruction-narrow.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000005"},
+      "runtime_source_files": [{"path": ".continuity/private/designs/example/1/reconstruction.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000003"}],
+      "typography_render_probe": {"path": ".continuity/private/designs/example/1/reconstruction-desktop-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000099"}
     },
     "correction_passes": [
       {"pass_number": 1, "status": "changes-required", "combined_wide": {"path": ".continuity/private/designs/example/1/pass-1-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000006"}, "combined_narrow": {"path": ".continuity/private/designs/example/1/pass-1-narrow.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000007"}, "findings": [{"dimension": "scale", "evidence_region": "opening subject", "finding": "The reconstructed subject is underscaled.", "correction": "Increase subject area and restore protected space."}], "changes": ["Increased subject area from 48 to 64 percent."]},
