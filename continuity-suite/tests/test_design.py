@@ -1220,6 +1220,8 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertIn("data-continuity-slide", source)
         self.assertIn("data-continuity-data", source)
         self.assertIn("presentation_readability_passed", source)
+        self.assertIn("effectiveScale", source)
+        self.assertIn("clipsX", source)
 
     def test_probe_prepare_binds_typescript_alias_source_closure(self):
         source_root = self.root / "src"

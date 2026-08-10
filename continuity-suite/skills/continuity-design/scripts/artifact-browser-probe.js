@@ -208,11 +208,15 @@
       else copyCount += 1;
       const scaleX = element.offsetWidth > 0 ? rect.width / element.offsetWidth : 1;
       const scaleY = element.offsetHeight > 0 ? rect.height / element.offsetHeight : 1;
-      const effectiveFontSize = Number.parseFloat(style.fontSize) * Math.min(scaleX || 1, scaleY || 1);
+      const measuredScale = Math.min(scaleX || 1, scaleY || 1);
+      const effectiveScale = Math.abs(measuredScale - 1) < 0.03 ? 1 : measuredScale;
+      const effectiveFontSize = Number.parseFloat(style.fontSize) * effectiveScale;
       const title = element.matches("h1, h2, [data-continuity-slide-title]");
       const minimumFontSize = viewport.width >= 1200 ? (title ? 44 : isData ? 18 : 20) : (title ? 28 : 16);
       const insideSlide = rect.left >= slideRect.left - 1 && rect.top >= slideRect.top - 1 && rect.right <= slideRect.right + 1 && rect.bottom <= slideRect.bottom + 1;
-      const clips = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+      const clipsX = ["hidden", "clip", "auto", "scroll"].includes(style.overflowX);
+      const clipsY = ["hidden", "clip", "auto", "scroll"].includes(style.overflowY);
+      const clips = (clipsX && element.scrollWidth > element.clientWidth + 1) || (clipsY && element.scrollHeight > element.clientHeight + 1);
       const foreground = rgba(style.color);
       const background = opaqueBackground(element);
       const ratio = foreground && foreground.a >= 0.95 && background ? contrast(foreground, background) : null;
