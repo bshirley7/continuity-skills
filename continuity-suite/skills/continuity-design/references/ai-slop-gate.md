@@ -52,3 +52,5 @@ Answer all eight questions in `visual_review`. Each answer requires `result`, `r
 8. Does every decorative choice perform a necessary job?
 
 Use `critical`, `error`, `warning`, and `info` proportionally. Re-run the gate whenever a source file, visual reference, design hash, approval bundle, or affected feedback decision changes.
+
+For workflow-v3 concepts, visual answers are necessary but not sufficient. `concept-validate` separately requires browser-measured signature coverage across opening, proof, interaction, quiet-or-edge, and closure, including initial desktop and mobile visibility, plus protected interaction semantics captured before and after a material state change. A self-authored `pass` cannot override a missing carrier or a changed authority label.

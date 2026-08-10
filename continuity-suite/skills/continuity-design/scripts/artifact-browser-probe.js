@@ -5,7 +5,13 @@
   const visible = (element) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    return style.display !== "none" && style.visibility !== "hidden" && Number.parseFloat(style.opacity) > 0.01 && rect.width > 0 && rect.height > 0;
+  };
+  const viewportIntersectionRatio = (rect) => {
+    const width = Math.max(0, Math.min(rect.right, viewport.width) - Math.max(rect.left, 0));
+    const height = Math.max(0, Math.min(rect.bottom, viewport.height) - Math.max(rect.top, 0));
+    const area = Math.max(rect.width * rect.height, 1);
+    return (width * height) / area;
   };
   const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   const selector = (element) => {
@@ -60,6 +66,35 @@
       word_width_ratio: viewport.width > 0 ? measureContext.measureText(copy).width / viewport.width : 0,
       line_count: lineHeight > 0 ? Math.round(rect.height / lineHeight) : 1,
       rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    };
+  });
+  const signatureElements = [...document.querySelectorAll("[data-continuity-signature]")].map((element) => {
+    const rect = element.getBoundingClientRect();
+    const roles = (element.getAttribute("data-continuity-signature-role") || "")
+      .split(/\s+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return {
+      signature_id: element.getAttribute("data-continuity-signature"),
+      roles,
+      selector: selector(element),
+      visible: visible(element),
+      viewport_intersection_ratio: viewportIntersectionRatio(rect),
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    };
+  });
+  const interactionInvariants = [...document.querySelectorAll("[data-continuity-invariant]")].map((element) => {
+    const style = getComputedStyle(element);
+    return {
+      invariant_id: element.getAttribute("data-continuity-invariant"),
+      selector: selector(element),
+      text: element.textContent.trim(),
+      aria_label: element.getAttribute("aria-label"),
+      aria_pressed: element.getAttribute("aria-pressed"),
+      aria_selected: element.getAttribute("aria-selected"),
+      disabled: Boolean(element.disabled),
+      hidden: element.hidden || style.display === "none" || style.visibility === "hidden",
+      value: "value" in element ? element.value : null,
     };
   });
   const rgba = (value) => {
@@ -184,8 +219,11 @@
     source_bundle_sha256: document.querySelector('meta[name="continuity-probe-source-bundle-sha256"]')?.content || null,
     viewport,
     document_fonts_status: document.fonts.status,
+    media_preferences: { reduced_motion: window.matchMedia("(prefers-reduced-motion: reduce)").matches },
     composition_planes: compositionPlanes,
     typography_transfers: typographyTransfers,
+    signature_elements: signatureElements,
+    interaction_invariants: interactionInvariants,
     document: { scroll_width: root.scrollWidth, client_width: root.clientWidth },
     horizontal_overflow: horizontalOverflow,
     sticky_or_fixed_obstructions: obstructions,

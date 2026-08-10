@@ -3455,12 +3455,12 @@ def visual_atlas(root: Path, config: dict[str, Any], catalog_path: Path, input_p
 
 
 def visual_render(root: Path, config: dict[str, Any], input_path: Path) -> dict[str, Any]:
-    """Render private moodboard, concept-comparison, or visual-delta evidence."""
+    """Render private moodboard, concept, reference-transfer, or visual-delta evidence."""
     _enabled(config)
     request = _read_json(input_path)
     kind = request.get("kind")
-    if kind not in {"moodboard", "concept-comparison", "visual-delta"}:
-        raise DesignError("Visual render kind must be moodboard, concept-comparison, or visual-delta")
+    if kind not in {"moodboard", "concept-comparison", "reference-transfer", "visual-delta"}:
+        raise DesignError("Visual render kind must be moodboard, concept-comparison, reference-transfer, or visual-delta")
     title = request.get("title")
     items = request.get("items")
     if not isinstance(title, str) or not title.strip() or not isinstance(items, list) or not items or len(items) > 20:
@@ -3469,20 +3469,43 @@ def visual_render(root: Path, config: dict[str, Any], input_path: Path) -> dict[
     for index, item in enumerate(items, 1):
         if not isinstance(item, dict) or not isinstance(item.get("title"), str) or not item["title"].strip():
             raise DesignError("Each visual render item requires a title")
-        def image_markup(field: str, label: str) -> str:
-            relative, path = _artifact_relative_path(root, item.get(field))
+        def image_markup(field: str, label: str, source_item: dict[str, Any] | None = None, css_class: str = "") -> str:
+            payload = source_item or item
+            relative, path = _artifact_relative_path(root, payload.get(field))
             if not path.is_file():
                 raise DesignError(f"Visual render image is missing: {relative}")
             if path.suffix.lower() not in {".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"}:
                 raise DesignError(f"Visual render {field} must be an image")
             if path.suffix.lower() == ".png":
                 _png_dimensions(path)
-            alt_text = html.escape(str(item.get(f"{field}_alt", item.get("alt", f"{item['title']} — {label}"))))
-            return f'<figure><img src="{html.escape(path.as_uri())}" alt="{alt_text}"><figcaption>{html.escape(label)}</figcaption></figure>'
+            alt_text = html.escape(str(payload.get(f"{field}_alt", payload.get("alt", f"{item['title']} — {label}"))))
+            return f'<figure class="{html.escape(css_class)}"><img src="{html.escape(path.as_uri())}" alt="{alt_text}"><figcaption>{html.escape(label)}</figcaption></figure>'
         if kind == "moodboard":
             visuals = image_markup("image_path", "Reference capture")
         elif kind == "concept-comparison":
-            visuals = image_markup("wide_image_path", "Wide composition") + image_markup("narrow_image_path", "Narrow transformation")
+            role_images = item.get("role_images")
+            if role_images is not None:
+                required_roles = {"opening", "proof", "interaction", "quiet-or-edge", "closure", "overview"}
+                if (
+                    not isinstance(role_images, list)
+                    or len(role_images) != len(required_roles)
+                    or any(not isinstance(entry, dict) for entry in role_images)
+                    or {entry.get("role") for entry in role_images} != required_roles
+                ):
+                    raise DesignError("Journey comparison requires exactly opening, proof, interaction, quiet-or-edge, closure, and overview images")
+                visuals = "".join(
+                    image_markup("image_path", str(entry["role"]).replace("-", " ").title(), entry, "overview" if entry["role"] == "overview" else "journey-crop")
+                    for entry in role_images
+                )
+            else:
+                visuals = image_markup("wide_image_path", "Wide composition") + image_markup("narrow_image_path", "Narrow transformation")
+        elif kind == "reference-transfer":
+            visuals = "".join([
+                image_markup("source_image_path", "01 · Source", css_class="transfer-frame"),
+                image_markup("reconstruction_image_path", "02 · Reconstruction", css_class="transfer-frame"),
+                image_markup("literal_image_path", "03 · Literal substitution", css_class="transfer-frame"),
+                image_markup("adaptation_image_path", "04 · Controlled adaptation", css_class="transfer-frame"),
+            ])
         else:
             visuals = image_markup("before_image_path", "Before") + image_markup("after_image_path", "After")
         summary = html.escape(str(item.get("summary", "")))
@@ -3491,7 +3514,7 @@ def visual_render(root: Path, config: dict[str, Any], input_path: Path) -> dict[
         label = html.escape(str(item.get("number", index)))
         cards.append(f'<article><div class="visual">{visuals}</div><div class="copy"><span>{label}</span><h2>{html.escape(item["title"])}</h2><p>{summary}</p><p class="lesson">{lesson}</p><small>{source}</small></div></article>')
     document = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>
-    *{{box-sizing:border-box}}body{{margin:0;background:#f3f3f0;color:#171917;font-family:ui-sans-serif,system-ui,sans-serif}}main{{max-width:1600px;margin:auto;padding:clamp(20px,4vw,64px)}}header{{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:38px;border-bottom:1px solid #252925;padding-bottom:20px}}h1{{font:600 clamp(34px,6vw,76px)/.94 system-ui,sans-serif;letter-spacing:-.04em;margin:0}}header p{{max-width:48ch;color:#525a53}}section{{display:grid;gap:32px}}article{{background:#fff;color:#18201e;display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,.7fr);border-top:4px solid #18201e}}.visual{{min-height:320px;background:#d9ded9;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));overflow:hidden}}figure{{margin:0;position:relative;min-height:280px;background:#d9ded9}}img{{width:100%;height:100%;position:absolute;inset:0;object-fit:contain}}figcaption{{position:absolute;left:10px;bottom:10px;background:#111;color:#fff;padding:5px 7px;font-size:11px}}.copy{{padding:24px;display:flex;flex-direction:column}}.copy>span{{font:700 11px ui-monospace,monospace;letter-spacing:.16em}}h2{{font:600 clamp(24px,3vw,40px)/.98 system-ui,sans-serif;margin:18px 0}}p{{line-height:1.45}}.lesson{{border-top:1px solid #9ea7a1;padding-top:12px}}small{{margin-top:auto;color:#5c6862;word-break:break-word}}@media(max-width:820px){{header,article{{display:grid;grid-template-columns:1fr}}.visual{{grid-template-columns:1fr}}figure{{min-height:240px}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important}}}}</style></head><body><main><header><h1>{html.escape(title)}</h1><p>{html.escape(kind.replace('-', ' ').title())}. Neutral comparison chrome keeps the project visuals—not Continuity styling—in control.</p></header><section>{''.join(cards)}</section></main></body></html>'''
+    *{{box-sizing:border-box}}body{{margin:0;background:#f3f3f0;color:#171917;font-family:ui-sans-serif,system-ui,sans-serif}}main{{max-width:1800px;margin:auto;padding:clamp(20px,4vw,64px)}}header{{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:38px;border-bottom:1px solid #252925;padding-bottom:20px}}h1{{font:600 clamp(34px,6vw,76px)/.94 system-ui,sans-serif;letter-spacing:-.04em;margin:0}}header p{{max-width:48ch;color:#525a53}}section{{display:grid;gap:32px}}article{{background:#fff;color:#18201e;display:grid;grid-template-columns:minmax(0,2.4fr) minmax(260px,.6fr);border-top:4px solid #18201e}}.visual{{min-height:320px;background:#d9ded9;display:grid;grid-template-columns:repeat(2,minmax(320px,1fr));overflow:hidden}}figure{{margin:0;position:relative;min-height:360px;background:#d9ded9;border:1px solid #bdc5bf}}figure.journey-crop{{min-height:420px}}figure.overview{{grid-row:span 2;min-height:860px}}figure.transfer-frame{{min-height:520px}}img{{width:100%;height:100%;position:absolute;inset:0;object-fit:contain}}figure.journey-crop img{{object-fit:cover;object-position:top}}figcaption{{position:absolute;left:10px;bottom:10px;background:#111;color:#fff;padding:5px 7px;font-size:11px}}.copy{{padding:24px;display:flex;flex-direction:column}}.copy>span{{font:700 11px ui-monospace,monospace;letter-spacing:.16em}}h2{{font:600 clamp(24px,3vw,40px)/.98 system-ui,sans-serif;margin:18px 0}}p{{line-height:1.45}}.lesson{{border-top:1px solid #9ea7a1;padding-top:12px}}small{{margin-top:auto;color:#5c6862;word-break:break-word}}@media(max-width:1000px){{header,article{{display:grid;grid-template-columns:1fr}}}}@media(max-width:720px){{.visual{{grid-template-columns:1fr}}figure,figure.journey-crop,figure.overview,figure.transfer-frame{{min-height:320px;grid-row:auto}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important}}}}</style></head><body><main><header><h1>{html.escape(title)}</h1><p>{html.escape(kind.replace('-', ' ').title())}. Neutral comparison chrome keeps the project visuals—not Continuity styling—in control.</p></header><section>{''.join(cards)}</section></main></body></html>'''
     request_hash = _canonical_hash(request)
     relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "visual-renders" / kind / f"{request_hash}.html"
     output = root / relative
@@ -3613,6 +3636,125 @@ def _verified_browser_probe(root: Path, value: Any, viewport: str, screenshot_wi
     ):
         raise DesignError(f"Browser probe did not supply passing machine evidence: {relative}")
     return {"viewport": viewport, "path": relative, "sha256": actual_hash, "schema_version": probe["schema_version"], "status": "passed"}
+
+
+SIGNATURE_COVERAGE_ROLES = {"opening", "proof", "interaction", "quiet-state", "edge-state", "closure"}
+INVARIANT_SNAPSHOT_FIELDS = ("text", "aria_label", "aria_pressed", "aria_selected", "disabled", "hidden", "value")
+
+
+def _browser_probe_payload(root: Path, evidence: dict[str, Any]) -> dict[str, Any]:
+    """Read an already hash-verified browser probe without accepting an author-authored summary."""
+    _, path = _artifact_relative_path(root, evidence.get("path"))
+    return _read_json(path)
+
+
+def _validate_signature_coverage(concept_id: str, value: Any, probes: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires browser-measured signature coverage")
+    signature_id = _identifier(str(value.get("signature_id", "")), "signature coverage ID")
+    required_roles = value.get("required_roles")
+    if (
+        not isinstance(required_roles, list)
+        or len(required_roles) != len(set(required_roles))
+        or any(role not in SIGNATURE_COVERAGE_ROLES for role in required_roles)
+        or not {"opening", "proof", "interaction", "closure"} <= set(required_roles)
+        or not {"quiet-state", "edge-state"}.intersection(required_roles)
+    ):
+        raise DesignError(f"Concept {concept_id} signature coverage requires opening, proof, interaction, closure, and quiet or edge roles")
+    normalized_viewports: list[dict[str, Any]] = []
+    for viewport in ("mobile", "tablet", "desktop", "reduced-motion"):
+        probe = probes.get(viewport)
+        elements = probe.get("signature_elements") if isinstance(probe, dict) else None
+        if not isinstance(elements, list):
+            raise DesignError(f"Concept {concept_id} {viewport} probe lacks executable signature evidence")
+        matching = [
+            item for item in elements
+            if isinstance(item, dict) and item.get("signature_id") == signature_id and item.get("visible") is True
+        ]
+        roles_present = {
+            role for item in matching for role in item.get("roles", [])
+            if isinstance(role, str) and role in SIGNATURE_COVERAGE_ROLES
+        }
+        missing = set(required_roles) - roles_present
+        if missing:
+            raise DesignError(f"Concept {concept_id} signature disappears from {viewport} roles: {sorted(missing)}")
+        if len(matching) < 4:
+            raise DesignError(f"Concept {concept_id} signature coverage must be expressed by at least four rendered elements")
+        opening_visible = any(
+            "opening" in item.get("roles", [])
+            and isinstance(item.get("viewport_intersection_ratio"), (int, float))
+            and item["viewport_intersection_ratio"] >= 0.1
+            for item in matching
+        )
+        if viewport in {"mobile", "desktop", "reduced-motion"} and not opening_visible:
+            raise DesignError(f"Concept {concept_id} signature is not identifiable in the initial {viewport} viewport")
+        normalized_viewports.append({
+            "viewport": viewport,
+            "roles": sorted(roles_present),
+            "element_count": len(matching),
+            "opening_in_initial_viewport": opening_visible,
+        })
+    return {"signature_id": signature_id, "required_roles": required_roles, "viewports": normalized_viewports}
+
+
+def _validate_interaction_invariants(
+    root: Path,
+    concept_id: str,
+    value: Any,
+    expected_target: dict[str, str],
+    interaction_mode: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires interaction-state invariant evidence")
+    required_ids = value.get("required_ids")
+    if not isinstance(required_ids, list) or not required_ids or len(required_ids) != len(set(required_ids)):
+        raise DesignError(f"Concept {concept_id} interaction invariants require unique required IDs")
+    normalized_ids = [_identifier(str(item), "interaction invariant ID") for item in required_ids]
+    states = value.get("states")
+    minimum_states = 1 if interaction_mode == "static" else 2
+    if not isinstance(states, list) or len(states) < minimum_states:
+        raise DesignError(f"Concept {concept_id} interaction invariants require at least {minimum_states} captured states")
+    baseline: dict[str, dict[str, Any]] | None = None
+    normalized_states: list[dict[str, Any]] = []
+    state_ids: set[str] = set()
+    for state in states:
+        if not isinstance(state, dict):
+            raise DesignError(f"Concept {concept_id} interaction states must be objects")
+        state_id = _identifier(str(state.get("state_id", "")), "interaction state ID")
+        if state_id in state_ids:
+            raise DesignError(f"Concept {concept_id} interaction state IDs must be unique")
+        evidence = _verified_reference_file(root, state.get("probe"), f"Concept {concept_id} interaction state probe", {".json"})
+        probe = _browser_probe_payload(root, evidence)
+        if (
+            probe.get("schema_version") != 3
+            or probe.get("probe_kind") != "continuity-artifact-browser-probe"
+            or probe.get("passed") is not True
+            or probe.get("target_document_path") != expected_target["path"]
+            or probe.get("target_document_sha256") != expected_target["sha256"]
+            or probe.get("source_bundle_sha256") != expected_target["source_bundle_sha256"]
+        ):
+            raise DesignError(f"Concept {concept_id} interaction state {state_id} is stale or belongs to another artifact")
+        raw = probe.get("interaction_invariants")
+        if not isinstance(raw, list):
+            raise DesignError(f"Concept {concept_id} interaction state {state_id} lacks invariant snapshots")
+        by_id: dict[str, dict[str, Any]] = {}
+        for item in raw:
+            invariant_id = item.get("invariant_id") if isinstance(item, dict) else None
+            if invariant_id in normalized_ids:
+                if invariant_id in by_id:
+                    raise DesignError(f"Concept {concept_id} interaction state {state_id} repeats invariant {invariant_id}")
+                by_id[invariant_id] = {field: item.get(field) for field in INVARIANT_SNAPSHOT_FIELDS}
+        missing = set(normalized_ids) - set(by_id)
+        if missing:
+            raise DesignError(f"Concept {concept_id} interaction state {state_id} is missing invariants: {sorted(missing)}")
+        if baseline is None:
+            baseline = by_id
+        elif by_id != baseline:
+            changed = sorted(item for item in normalized_ids if by_id[item] != baseline[item])
+            raise DesignError(f"Concept {concept_id} interaction changed protected semantics: {changed}")
+        normalized_states.append({"state_id": state_id, "probe": evidence})
+        state_ids.add(state_id)
+    return {"required_ids": normalized_ids, "states": normalized_states, "baseline_hash": _canonical_hash(baseline)}
 
 
 def _verified_reference_file(root: Path, value: Any, label: str, suffixes: set[str]) -> dict[str, str]:
@@ -4807,6 +4949,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
         if not isinstance(runtime_probes, list) or len(runtime_probes) != 3:
             raise DesignError(f"Concept {concept_id} requires mobile, tablet, and desktop runtime probes")
         normalized_runtime_probes: list[dict[str, Any]] = []
+        runtime_probe_payloads: dict[str, dict[str, Any]] = {}
         runtime_viewports: set[str] = set()
         expected_widths = {"mobile": 390, "tablet": 768, "desktop": 1440}
         for probe in runtime_probes:
@@ -4820,6 +4963,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
                 raise DesignError("Every concept requires its own runtime probe artifacts")
             concept_runtime_probe_hashes.add(normalized_probe["sha256"])
             normalized_runtime_probes.append(normalized_probe)
+            runtime_probe_payloads[viewport] = _browser_probe_payload(root, normalized_probe)
             runtime_viewports.add(viewport)
         if record.get("workflow_version", 1) >= 3 and not any(
             item["viewport"] == "desktop"
@@ -4828,6 +4972,44 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             for item in normalized_runtime_probes
         ):
             raise DesignError(f"Concept {concept_id} typographic transfer must use one of its three validated runtime probes")
+        if record.get("workflow_version", 1) >= 3:
+            signature_value = concept.get("signature_coverage")
+            reduced_motion_ref = _verified_reference_file(
+                root,
+                signature_value.get("reduced_motion_probe") if isinstance(signature_value, dict) else None,
+                f"Concept {concept_id} reduced-motion signature probe",
+                {".json"},
+            )
+            reduced_motion_probe = _browser_probe_payload(root, reduced_motion_ref)
+            if (
+                reduced_motion_probe.get("schema_version") != 3
+                or reduced_motion_probe.get("probe_kind") != "continuity-artifact-browser-probe"
+                or reduced_motion_probe.get("passed") is not True
+                or reduced_motion_probe.get("target_document_path") != deep_relative
+                or reduced_motion_probe.get("target_document_sha256") != runtime_source_bundle["target_document_sha256"]
+                or reduced_motion_probe.get("source_bundle_sha256") != runtime_source_bundle["source_bundle_sha256"]
+                or reduced_motion_probe.get("media_preferences", {}).get("reduced_motion") is not True
+            ):
+                raise DesignError(f"Concept {concept_id} reduced-motion signature probe is stale, unbound, or did not emulate reduced motion")
+            runtime_probe_payloads["reduced-motion"] = reduced_motion_probe
+            signature_coverage = _validate_signature_coverage(
+                concept_id, signature_value, runtime_probe_payloads,
+            )
+            signature_coverage["reduced_motion_probe"] = reduced_motion_ref
+            interaction_invariants = _validate_interaction_invariants(
+                root,
+                concept_id,
+                concept.get("interaction_invariants"),
+                {
+                    "path": deep_relative,
+                    "sha256": runtime_source_bundle["target_document_sha256"],
+                    "source_bundle_sha256": runtime_source_bundle["source_bundle_sha256"],
+                },
+                interaction_mode,
+            )
+        else:
+            signature_coverage = None
+            interaction_invariants = None
         fidelity.add(level.strip())
         visuals: dict[str, dict[str, str]] = {}
         for visual_role in ("wide_composition", "narrow_transformation"):
@@ -4894,6 +5076,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             "interaction_motion_system": {"strategy_id": interaction_strategy_id, "mode": interaction_mode, "decision": motion_decision, "storyboard": motion_storyboard, "atmosphere_contribution": atmosphere_contribution, "state_transition": state_transition, **{key: interaction_system[key].strip() for key in interaction_fields}},
             "portfolio_fingerprint": portfolio_fingerprints[concept_id],
             "journey_stages": normalized_stages, "runtime_probes": normalized_runtime_probes,
+            "signature_coverage": signature_coverage, "interaction_invariants": interaction_invariants,
             "comparison_coverage": {"full_page_strip": {"path": strip_relative, "sha256": strip_actual, "width": strip_width, "height": strip_height}, "chapter_index": chapter_index, "deep_link": {"path": deep_relative, "sha256": deep_actual}},
             "generated_media_disposition": normalized_generated_disposition,
             "reference_adaptation_id": reference_adaptation_id if record.get("workflow_version", 1) >= 3 else None,

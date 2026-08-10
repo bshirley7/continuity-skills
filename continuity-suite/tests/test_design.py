@@ -730,7 +730,7 @@ class DesignLifecycleTests(unittest.TestCase):
         wide.write_bytes(png_bytes(1200, 800, (238, 240, 234, 255)))
         narrow.write_bytes(png_bytes(390, 800, (219, 226, 221, 255)))
         changed.write_bytes(png_bytes(1200, 800, (225, 231, 235, 255)))
-        for kind in ("moodboard", "concept-comparison", "visual-delta"):
+        for kind in ("moodboard", "concept-comparison", "reference-transfer", "visual-delta"):
             with self.subTest(kind=kind):
                 request = self.root / f"{kind}.json"
                 item = {"number": 1, "title": "Evidence rail", "summary": "A structural study", "lesson": "Keep proof attached", "source": "project-owned study"}
@@ -738,6 +738,8 @@ class DesignLifecycleTests(unittest.TestCase):
                     item["image_path"] = wide.name
                 elif kind == "concept-comparison":
                     item.update({"wide_image_path": wide.name, "narrow_image_path": narrow.name})
+                elif kind == "reference-transfer":
+                    item.update({"source_image_path": wide.name, "reconstruction_image_path": changed.name, "literal_image_path": wide.name, "adaptation_image_path": changed.name})
                 else:
                     item.update({"before_image_path": wide.name, "after_image_path": changed.name})
                 request.write_text(json.dumps({"kind": kind, "title": f"{kind} evidence", "items": [item]}), encoding="utf-8")
@@ -747,6 +749,19 @@ class DesignLifecycleTests(unittest.TestCase):
                 self.assertFalse(result["network_used"])
                 self.assertIn("Evidence rail", rendered)
                 self.assertIn("Neutral comparison chrome", rendered)
+        journey_request = self.root / "concept-journey-comparison.json"
+        journey_request.write_text(json.dumps({
+            "kind": "concept-comparison", "title": "Journey evidence", "items": [{
+                "title": "Authority field", "role_images": [
+                    {"role": role, "image_path": narrow.name if role != "overview" else wide.name}
+                    for role in ("opening", "proof", "interaction", "quiet-or-edge", "closure", "overview")
+                ],
+            }],
+        }), encoding="utf-8")
+        journey_result = design.visual_render(self.root, self.config, journey_request)
+        journey_html = (self.root / journey_result["path"]).read_text(encoding="utf-8")
+        self.assertIn("Quiet Or Edge", journey_html)
+        self.assertIn("Overview", journey_html)
 
     def test_slop_check_detects_hard_and_default_risks(self):
         source = self.root / "risk.css"
@@ -1064,6 +1079,84 @@ class DesignLifecycleTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(design.DesignError, "does not prove"):
             design._validate_typographic_transfer(self.root, "proof", transfer_value, prototype)
+
+    def test_signature_coverage_is_measured_across_journey_and_mobile(self):
+        def probe(opening_ratio=0.7, *, omit_role=None):
+            roles = ["opening", "proof", "interaction", "edge-state", "closure"]
+            return {
+                "signature_elements": [
+                    {
+                        "signature_id": "authority-field", "roles": [role], "selector": f"#{role}",
+                        "visible": True, "viewport_intersection_ratio": opening_ratio if role == "opening" else 0,
+                    }
+                    for role in roles if role != omit_role
+                ]
+            }
+
+        evidence = {viewport: probe() for viewport in ("mobile", "tablet", "desktop")}
+        evidence["reduced-motion"] = probe()
+        result = design._validate_signature_coverage("proof", {
+            "signature_id": "authority-field",
+            "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"],
+        }, evidence)
+        self.assertEqual(result["viewports"][0]["viewport"], "mobile")
+        self.assertTrue(result["viewports"][0]["opening_in_initial_viewport"])
+
+        missing_mobile = dict(evidence)
+        missing_mobile["mobile"] = probe(omit_role="interaction")
+        with self.assertRaisesRegex(design.DesignError, "disappears from mobile roles"):
+            design._validate_signature_coverage("proof", {
+                "signature_id": "authority-field",
+                "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"],
+            }, missing_mobile)
+
+        below_fold_mobile = dict(evidence)
+        below_fold_mobile["mobile"] = probe(opening_ratio=0)
+        with self.assertRaisesRegex(design.DesignError, "initial mobile viewport"):
+            design._validate_signature_coverage("proof", {
+                "signature_id": "authority-field",
+                "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"],
+            }, below_fold_mobile)
+
+    def test_interaction_invariants_reject_semantic_rewrites(self):
+        expected_target = {"path": "concept.html", "sha256": "a" * 64, "source_bundle_sha256": "b" * 64}
+
+        def write_probe(name, human_label):
+            path = self.root / name
+            path.write_text(json.dumps({
+                "schema_version": 3,
+                "probe_kind": "continuity-artifact-browser-probe",
+                "passed": True,
+                "target_document_path": expected_target["path"],
+                "target_document_sha256": expected_target["sha256"],
+                "source_bundle_sha256": expected_target["source_bundle_sha256"],
+                "interaction_invariants": [
+                    {"invariant_id": "human-only", "text": human_label, "aria_label": None, "aria_pressed": None, "aria_selected": None, "disabled": False, "hidden": False, "value": None},
+                    {"invariant_id": "execution-locked", "text": "Execution locked", "aria_label": None, "aria_pressed": None, "aria_selected": None, "disabled": True, "hidden": False, "value": None},
+                ],
+            }), encoding="utf-8")
+            return {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        baseline = write_probe("default.json", "Human only")
+        stable = write_probe("review.json", "Human only")
+        result = design._validate_interaction_invariants(self.root, "instrument", {
+            "required_ids": ["human-only", "execution-locked"],
+            "states": [{"state_id": "default", "probe": baseline}, {"state_id": "review", "probe": stable}],
+        }, expected_target, "direct-manipulation")
+        self.assertEqual(len(result["states"]), 2)
+
+        rewritten = write_probe("broken.json", "Inspect")
+        with self.assertRaisesRegex(design.DesignError, "changed protected semantics"):
+            design._validate_interaction_invariants(self.root, "instrument", {
+                "required_ids": ["human-only", "execution-locked"],
+                "states": [{"state_id": "default", "probe": baseline}, {"state_id": "review", "probe": rewritten}],
+            }, expected_target, "direct-manipulation")
+
+    def test_browser_probe_collects_signature_and_invariant_evidence(self):
+        source = (SUITE / "skills" / "continuity-design" / "scripts" / "artifact-browser-probe.js").read_text(encoding="utf-8")
+        self.assertIn("data-continuity-signature-role", source)
+        self.assertIn("interaction_invariants", source)
+        self.assertIn("viewport_intersection_ratio", source)
 
     def test_probe_prepare_binds_typescript_alias_source_closure(self):
         source_root = self.root / "src"

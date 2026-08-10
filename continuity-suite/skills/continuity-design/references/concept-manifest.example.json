@@ -49,6 +49,8 @@
         {"viewport": "tablet", "path": ".continuity/private/designs/example/1/concept-a-probe-tablet.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000012"},
         {"viewport": "desktop", "path": ".continuity/private/designs/example/1/concept-a-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000013"}
       ],
+      "signature_coverage": {"signature_id": "evidence-seam", "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"], "reduced_motion_probe": {"path": ".continuity/private/designs/example/1/concept-a-probe-reduced-motion.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000015"}},
+      "interaction_invariants": {"required_ids": ["human-approval-boundary", "execution-locked"], "states": [{"state_id": "default", "probe": {"path": ".continuity/private/designs/example/1/concept-a-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000013"}}, {"state_id": "proof-expanded", "probe": {"path": ".continuity/private/designs/example/1/concept-a-proof-expanded-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000014"}}]},
       "wide_composition": {"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
       "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-a-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
       "imagery_treatment": "Owned operational material with visible provenance.",
@@ -98,6 +100,8 @@
         {"viewport": "tablet", "path": ".continuity/private/designs/example/1/concept-b-probe-tablet.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000022"},
         {"viewport": "desktop", "path": ".continuity/private/designs/example/1/concept-b-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000023"}
       ],
+      "signature_coverage": {"signature_id": "inspection-field", "required_roles": ["opening", "proof", "interaction", "quiet-state", "closure"], "reduced_motion_probe": {"path": ".continuity/private/designs/example/1/concept-b-probe-reduced-motion.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000025"}},
+      "interaction_invariants": {"required_ids": ["human-approval-boundary", "execution-locked"], "states": [{"state_id": "default", "probe": {"path": ".continuity/private/designs/example/1/concept-b-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000023"}}, {"state_id": "trace-selected", "probe": {"path": ".continuity/private/designs/example/1/concept-b-trace-selected-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000024"}}]},
       "wide_composition": {"path": ".continuity/private/designs/example/1/concept-b-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
       "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-b-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
       "imagery_treatment": "Owned infrastructure detail with annotated scale.",

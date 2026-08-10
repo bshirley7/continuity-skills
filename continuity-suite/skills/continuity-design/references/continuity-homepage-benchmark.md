@@ -25,6 +25,8 @@ Hash the definition, brief, source `SKILL.md`, every checkpoint, and every evide
 
 The evaluator validates evidence binding and stage completeness. It does not generate creative work, select a direction, approve a design, or manufacture reviewer judgment.
 
+Treat informal visual explorations as `exploratory` runs in notes and reporting. They may diagnose the workflow, but they are not stage-valid benchmark evidence unless the frozen run uses exactly two references and completes every checkpoint required for its claimed stage. Do not describe screenshots, a passed slop scan, or an agent self-assessment alone as a benchmark pass.
+
 ## Seed strategy
 
 Keep product truth, fixture data, constraints, deliverables, hard failures, and rubric fixed. Vary only audience, posture, hero mechanism, two references, and one edge case. For diversity testing, run six benchmark seeds and require at least four composition families, four art-direction families, four typography families, and three hero mechanisms across the batch. For reliability, repeat one unchanged benchmark seed three times. For sensitivity, change only one seed dimension.
