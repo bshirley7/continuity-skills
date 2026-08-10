@@ -978,7 +978,7 @@ class DesignLifecycleTests(unittest.TestCase):
         probe.write_text(json.dumps({
             "schema_version": 3, "probe_kind": "continuity-artifact-browser-probe", "passed": True,
             "viewport": {"width": 1440, "height": 900}, "document_fonts_status": "loaded", "requested_family": "Six Caps",
-            "typography_transfers": [{"transfer_id": "proof-moves", "selector": "h1.proof-type", "rendered_copy": "PROOF MOVES", "computed_family": '"Six Caps", sans-serif', "font_loaded": True, "font_face_status": "loaded", "cap_height_ratio": 0.72, "word_width_ratio": 0.41, "line_count": 2, "rect": {"x": 300, "y": 100, "width": 500, "height": 220}}],
+            "typography_transfers": [{"transfer_id": "proof-moves", "selector": "h1.proof-type", "rendered_copy": "PROOF MOVES", "computed_family": '"Six Caps", sans-serif', "font_loaded": True, "font_face_status": "loaded", "measurement_method": "canvas-2d", "cap_height_ratio": 0.72, "word_width_ratio": 0.41, "line_count": 2, "rect": {"x": 300, "y": 100, "width": 500, "height": 220}}],
             "composition_planes": [
                 {"plane_id": "hero-background", "selector": "img.hero-background", "computed_z_index": 1, "visible": True, "asset_url": "file:///project/assets/background.png", "load_complete": True, "rect": {"x": 0, "y": 0, "width": 1200, "height": 800}},
                 {"plane_id": "hero-type", "selector": "proof-type", "computed_z_index": 2, "visible": True, "asset_url": None, "load_complete": True, "rect": {"x": 300, "y": 100, "width": 500, "height": 220}},
@@ -1009,6 +1009,20 @@ class DesignLifecycleTests(unittest.TestCase):
             "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
             "reference_render_probe": ref(reference_probe), "render_probe": ref(probe),
         }, prototype)
+        unavailable_probe = self.root / "unavailable-type-probe.json"
+        unavailable_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        unavailable_probe_value["typography_transfers"][0]["measurement_method"] = "unavailable"
+        unavailable_probe.write_text(json.dumps(unavailable_probe_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "does not prove"):
+            design._validate_typographic_transfer(self.root, "proof", {
+                "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+                "source": "SIL Open Font License", "license_evidence": "OFL-1.1",
+                "source_character": "Very narrow, tall, blunt display silhouette.",
+                "project_transformation": "Continuity proof language replaces the source identity.",
+                "type_media_relation": "behind-subject", "narrow_behavior": "Two lines retain subject occlusion.",
+                "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+                "reference_render_probe": ref(reference_probe), "render_probe": ref(unavailable_probe),
+            }, prototype)
         target_document = self.root / "concept-target.html"
         runtime_script = self.root / "concept-target.js"
         runtime_script.write_text('document.documentElement.dataset.runtime = "proof";', encoding="utf-8")

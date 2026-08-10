@@ -20,7 +20,9 @@
     return `${element.tagName.toLowerCase()}${classes}`;
   };
   const findings = [];
-  const measureContext = document.createElement("canvas").getContext("2d");
+  const measureContext = typeof document.createElement === "function"
+    ? document.createElement("canvas").getContext("2d")
+    : null;
   const add = (rule_id, severity, element, evidence) => findings.push({
     rule_id, severity, status: "open", location: selector(element), evidence,
   });
@@ -51,8 +53,8 @@
     const copy = element.textContent.trim();
     const fontSize = Number.parseFloat(style.fontSize);
     const lineHeight = Number.parseFloat(style.lineHeight);
-    measureContext.font = style.font;
-    const cap = measureContext.measureText("H");
+    if (measureContext) measureContext.font = style.font;
+    const cap = measureContext?.measureText("H");
     const requestedFamily = style.fontFamily.split(",")[0].trim().replace(/^['"]|['"]$/g, "");
     const matchingFaces = [...document.fonts].filter((face) => face.family.replace(/^['"]|['"]$/g, "") === requestedFamily);
     return {
@@ -62,8 +64,9 @@
       computed_family: style.fontFamily,
       font_loaded: document.fonts.check(style.font, copy),
       font_face_status: matchingFaces.length === 1 ? matchingFaces[0].status : "missing-or-ambiguous",
-      cap_height_ratio: fontSize > 0 ? cap.actualBoundingBoxAscent / fontSize : 0,
-      word_width_ratio: viewport.width > 0 ? measureContext.measureText(copy).width / viewport.width : 0,
+      measurement_method: measureContext ? "canvas-2d" : "unavailable",
+      cap_height_ratio: measureContext && fontSize > 0 ? cap.actualBoundingBoxAscent / fontSize : null,
+      word_width_ratio: measureContext && viewport.width > 0 ? measureContext.measureText(copy).width / viewport.width : null,
       line_count: lineHeight > 0 ? Math.round(rect.height / lineHeight) : 1,
       rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
     };
@@ -160,10 +163,10 @@
     if (/^H[1-3]$/.test(element.tagName) && Number.parseFloat(style.letterSpacing) < -0.04 * fontSize) {
       add("display-tracking", "warning", element, `${style.letterSpacing} tracking at ${fontSize}px font size`);
     }
-    measureContext.font = style.font;
-    const characterWidth = measureContext.measureText("0").width;
-    const characterMeasure = rect.width / Math.max(characterWidth, 1);
-    if ((element.tagName === "P" || element.tagName === "LI") && lineCount >= 3 && characterMeasure > 75) {
+    if (measureContext) measureContext.font = style.font;
+    const characterWidth = measureContext?.measureText("0").width;
+    const characterMeasure = characterWidth ? rect.width / Math.max(characterWidth, 1) : null;
+    if ((element.tagName === "P" || element.tagName === "LI") && lineCount >= 3 && characterMeasure !== null && characterMeasure > 75) {
       add("body-measure", "warning", element, `approximately ${characterMeasure.toFixed(1)}ch across`);
     }
   }

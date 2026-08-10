@@ -15,6 +15,7 @@
     "computed_family": "\"Six Caps\", sans-serif",
     "font_loaded": true,
     "font_face_status": "loaded",
+    "measurement_method": "canvas-2d",
     "cap_height_ratio": 0.72,
     "word_width_ratio": 0.41,
     "line_count": 2,

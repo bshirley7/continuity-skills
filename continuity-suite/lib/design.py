@@ -3894,6 +3894,8 @@ def _validate_typographic_transfer(root: Path, concept_id: str, value: Any, prot
         or reference_probe.get("schema_version") != 3 or reference_probe.get("probe_kind") != "continuity-artifact-browser-probe"
         or reference_probe.get("passed") is not True or len(reference_matching) != 1
         or value["font_family"].casefold() not in computed_families
+        or rendered.get("measurement_method") != "canvas-2d"
+        or reference_rendered.get("measurement_method") != "canvas-2d"
         or rendered.get("font_loaded") is not True
         or rendered.get("font_face_status") != "loaded"
         or rendered.get("rendered_copy") != value["rendered_copy"]
