@@ -46,7 +46,7 @@ No customer logos, testimonials, market size, revenue, traction, performance, sa
 
 Develop one to three genuinely distinct sequence concepts. Every direction must differ in narrative organization, slide-role system, typography, art direction, composition, and media behavior—not only its cover.
 
-Use image generation or editing as concept development. At least one direction must use owned, supplied, or generated media to form its thesis, composition, and sequence. Extract at least three repeatable non-image rules from that material.
+Use image generation or editing as concept development. At least one direction must use owned, supplied, or generated media to form its thesis, composition, and sequence. Extract at least three repeatable non-image rules from that material. If the human selects a direction because of a particular image's impact, retain that image or a provenance-preserving edit at equal or greater capability. Verify its actual alpha or background pixels and reject blend, filter, crop, mask, or overlay treatments that erase the material contrast that made it preferable.
 
 Reject generic investor templates, repeated title-and-body slides, fake metrics, decorative charts, gratuitous quote slides, tiny unreadable type, clipped or obscured copy, illegible data and source lines, purple-gradient AI styling, black-neon terminal reflexes, and imagery used only as wallpaper. Every audience-facing word and every data-bearing mark must be visibly present and readable on its slide at the required viewport; shorten copy or change composition before shrinking it.
 
@@ -61,8 +61,8 @@ Reject generic investor templates, repeated title-and-body slides, fake metrics,
 7. Explicit human direction selection or combination.
 8. A resolved private responsive deck after selection.
 9. Individually verified desktop projection, tablet read-ahead, and mobile read-ahead captures.
-10. Keyboard, touch, reduced-motion, accessibility, claim-provenance, capture-integrity, and slide-by-slide copy/data readability evidence.
-11. Native AI-slop reports using `translation_fidelity`, `portfolio_diversity`, and `presentation_fidelity`.
+10. Keyboard, touch, reduced-motion, accessibility, claim-provenance, capture-integrity, slide-by-slide copy/data readability, and selected-media before/integration/after fidelity evidence.
+11. Native AI-slop reports using `translation_fidelity`, `portfolio_diversity`, and `presentation_fidelity`, including selected-media, background-integration, and material-contrast dispositions for media-led directions.
 12. Final self-critique and exact design approval request.
 
 Stop after exact design approval. Do not implement Continuity, publish the deck, or treat the benchmark as authorization for external use.

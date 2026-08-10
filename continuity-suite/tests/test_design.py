@@ -872,6 +872,20 @@ class DesignLifecycleTests(unittest.TestCase):
             {"CDS-D021", "CDS-D022", "CDS-D023", "CDS-D024", "CDS-D025", "CDS-D026", "CDS-D027", "CDS-D028", "CDS-D029", "CDS-D030", "CDS-D031", "CDS-D032", "CDS-P006"},
         )
 
+    def test_selected_media_fidelity_checks_background_and_material_preservation(self):
+        source = self.root / "downgraded-media.html"
+        source.write_text("<main><h1>Selected media integration</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(translation_fidelity={
+            "selected_media_fidelity_preserved": False,
+            "background_integration_verified": False,
+            "material_contrast_preserved": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {item["rule_id"] for item in result["findings"]},
+            {"CDS-P016", "CDS-D040", "CDS-D041"},
+        )
+
     def test_default_risk_can_be_intentionally_accepted_with_contract_evidence(self):
         source = self.root / "approved.css"
         source.write_text(".signal { background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
@@ -938,6 +952,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "not_category_reflex": "CDS-D017",
             "directions_structurally_distinct": "CDS-D019",
             "decoration_has_job": "CDS-D020",
+            "media_fidelity_preserved": "CDS-P016",
         }
         for question, rule_id in mappings.items():
             with self.subTest(question=question):

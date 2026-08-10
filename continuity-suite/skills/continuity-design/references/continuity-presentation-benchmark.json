@@ -14,7 +14,8 @@
     {"rule_id": "CDPB-H010", "description": "Reference mechanics are hybridized without exact individual baselines, independent review, and controlled project transformation."},
     {"rule_id": "CDPB-H011", "description": "An autonomous craft pass lacks a bound hypothesis, visual delta, preserved-strength record, self-assessment, or affected evidence rerun."},
     {"rule_id": "CDPB-H012", "description": "No concept passes the multimodal impact review as compelling."},
-    {"rule_id": "CDPB-H013", "description": "Any audience-facing title, body line, label, value, source, or qualification is hidden, clipped, out of frame, undersized, low-contrast, font-fallback, or otherwise unreadable on a required slide or viewport."}
+    {"rule_id": "CDPB-H013", "description": "Any audience-facing title, body line, label, value, source, or qualification is hidden, clipped, out of frame, undersized, low-contrast, font-fallback, or otherwise unreadable on a required slide or viewport."},
+    {"rule_id": "CDPB-H014", "description": "Human-selected concept-forming media is replaced by a lower-capability derivative, its real alpha or background behavior is unverified, or its integration materially suppresses the visual impact that caused it to be selected."}
   ],
   "minimum_human_reviewers": 1,
   "minimum_refinement_passes": 3,

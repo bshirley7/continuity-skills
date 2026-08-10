@@ -34,19 +34,21 @@ Also review translation collapse: source-defining media replaced by primitive CS
 
 Ruleset 1.6 adds presentation-specific review for repeated title-and-body templates, fewer than four structural slide roles, missing narrative peaks, missing quiet or rest states, collapsed projected and read-ahead modes, unsupported deck claims, invalid capture evidence, and unreadable copy or data. These rules apply only when `presentation_fidelity` is supplied; a web page is not treated as a presentation merely because it uses sections.
 
+Ruleset 1.7 adds selected-media fidelity. It detects a human-selected concept-forming image being replaced by a lower-capability derivative, background or alpha integration that was never verified, and blend, filter, crop, mask, or overlay treatments that suppress the defining material contrast. The check protects why the asset was selected, not merely whether a similarly named object remains.
+
 ## Project drift
 
 Review unapproved tokens or patterns, a signature that disappears beyond the hero, reference imitation without transformation, reintroduced rejected choices, component-library retreat, Continuity house tells that dominate the approved project identity, and loss of a mechanic already passed by the reference-translation gate.
 
 Supply deterministic context markers in `project_context`: `unapproved_markers`, `required_signature_markers`, `reference_transformations`, `rejected_choices`, and `continuity_house_tells`. These are literal contract-derived markers, not arbitrary regex suppressions. Add rendered judgments that cannot be expressed as markers to `context_findings` with a stable project-drift rule ID.
 
-Supply `portfolio_diversity` booleans for the current portfolio audit, house-overlap limit, strongest-prior challenge, concept-forming media, close/far distance, reference-class difficulty, and journey/state depth. For reference-led concepts, also supply `translation_fidelity` booleans for editable depth, verified font transfer, the approved layer plan, and approved typographic character. A false approved-state value emits blocking project drift; omitting these fields is supported only for legacy workflow records.
+Supply `portfolio_diversity` booleans for the current portfolio audit, house-overlap limit, strongest-prior challenge, concept-forming media, close/far distance, reference-class difficulty, and journey/state depth. For reference-led or media-led concepts, also supply `translation_fidelity` booleans for editable depth, verified font transfer, the approved layer plan, approved typographic character, selected-media fidelity, verified background integration, and preserved material contrast. A false approved-state value emits blocking project drift; omitting these fields is supported only for legacy workflow records.
 
 For presentation or pitch-deck work, supply `presentation_fidelity`: measured slide-role count, repeated-template ratio, narrative-peak and quiet-state evidence, separate live-presentation and read-ahead reviews, claim provenance, capture-integrity verification, and passed copy/data readability verification for every slide and required viewport. Build contact sheets from verified individual frames. Do not trust a scrolling full-page stitch when slide snapping, sticky frames, or transforms can duplicate or omit slides.
 
 ## Required visual review
 
-Answer all eight questions in `visual_review`. Each answer requires `result`, `reviewer`, `reviewed_at`, and one or more hashed PNG evidence objects with a named region. A failed answer requires a finding and automatically creates the mapped slop finding. An unsupported prose assertion is invalid.
+Answer all nine questions in `visual_review`. Each answer requires `result`, `reviewer`, `reviewed_at`, and one or more hashed PNG evidence objects with a named region. A failed answer requires a finding and automatically creates the mapped slop finding. An unsupported prose assertion is invalid.
 
 1. Can the signature be identified within five seconds?
 2. Does the identity remain project-specific when the product name is removed?
@@ -56,6 +58,7 @@ Answer all eight questions in `visual_review`. Each answer requires `result`, `r
 6. Does the signature survive mobile, quiet, error, and reduced-motion states?
 7. Is a reference mechanic transformed rather than its identity copied?
 8. Does every decorative choice perform a necessary job?
+9. Does selected concept-forming media retain or increase its defining material impact after background, alpha, blend, crop, and responsive treatment?
 
 Use `critical`, `error`, `warning`, and `info` proportionally. Re-run the gate whenever a source file, visual reference, design hash, approval bundle, or affected feedback decision changes.
 

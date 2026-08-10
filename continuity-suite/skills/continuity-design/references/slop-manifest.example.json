@@ -1,6 +1,6 @@
 {
   "stage": "concept",
-  "ruleset_version": "1.6.0",
+  "ruleset_version": "1.7.0",
   "design_id": "example-direction",
   "revision": 1,
   "visual_review": {
@@ -11,7 +11,8 @@
     "not_library_default": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "composition"}]},
     "signature_survives_states": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "inline-proof-seam"}]},
     "reference_transformed": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "evidence-relationship"}]},
-    "decoration_has_job": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]}
+    "decoration_has_job": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]},
+    "media_fidelity_preserved": {"result": "pass", "finding": "", "rationale": "The selected generated subject retains its material contrast and compositional role after background integration.", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "concept-forming-media"}]}
   },
   "visual_findings": [],
   "context_findings": [],
@@ -39,7 +40,10 @@
     "editable_depth_preserved": true,
     "font_transfer_verified": true,
     "approved_layer_plan_present": true,
-    "approved_typographic_character_present": true
+    "approved_typographic_character_present": true,
+    "selected_media_fidelity_preserved": true,
+    "background_integration_verified": true,
+    "material_contrast_preserved": true
   },
   "portfolio_diversity": {
     "portfolio_audit_current": true,

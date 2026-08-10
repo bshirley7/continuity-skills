@@ -12,7 +12,7 @@
     "approval_bundle_hash": {"type": "string"},
     "visual_review": {
       "type": "object",
-      "required": ["signature_identifiable", "identity_specific", "not_category_reflex", "directions_structurally_distinct", "not_library_default", "signature_survives_states", "reference_transformed", "decoration_has_job"],
+      "required": ["signature_identifiable", "identity_specific", "not_category_reflex", "directions_structurally_distinct", "not_library_default", "signature_survives_states", "reference_transformed", "decoration_has_job", "media_fidelity_preserved"],
       "properties": {
         "signature_identifiable": {"$ref": "#/$defs/reviewAnswer"},
         "identity_specific": {"$ref": "#/$defs/reviewAnswer"},
@@ -21,7 +21,8 @@
         "not_library_default": {"$ref": "#/$defs/reviewAnswer"},
         "signature_survives_states": {"$ref": "#/$defs/reviewAnswer"},
         "reference_transformed": {"$ref": "#/$defs/reviewAnswer"},
-        "decoration_has_job": {"$ref": "#/$defs/reviewAnswer"}
+        "decoration_has_job": {"$ref": "#/$defs/reviewAnswer"},
+        "media_fidelity_preserved": {"$ref": "#/$defs/reviewAnswer"}
       },
       "additionalProperties": false
     },
@@ -47,7 +48,10 @@
         "editable_depth_preserved": {"type": "boolean"},
         "font_transfer_verified": {"type": "boolean"},
         "approved_layer_plan_present": {"type": "boolean"},
-        "approved_typographic_character_present": {"type": "boolean"}
+        "approved_typographic_character_present": {"type": "boolean"},
+        "selected_media_fidelity_preserved": {"type": "boolean"},
+        "background_integration_verified": {"type": "boolean"},
+        "material_contrast_preserved": {"type": "boolean"}
       },
       "additionalProperties": false
     },

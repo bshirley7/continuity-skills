@@ -3322,6 +3322,7 @@ VISUAL_REVIEW_QUESTIONS = {
     "signature_survives_states": "Does the signature survive mobile, quiet states, errors, and reduced motion?",
     "reference_transformed": "Does the output adapt a mechanic instead of copying a reference identity?",
     "decoration_has_job": "Is each decorative choice doing work content, hierarchy, or subject material cannot do?",
+    "media_fidelity_preserved": "Does selected concept-forming media retain or increase its defining material impact after background, alpha, blend, crop, and responsive treatment?",
 }
 VISUAL_REVIEW_FAILURE_RULES = {
     "signature_identifiable": "CDS-P002",
@@ -3332,6 +3333,7 @@ VISUAL_REVIEW_FAILURE_RULES = {
     "signature_survives_states": "CDS-P002",
     "reference_transformed": "CDS-P003",
     "decoration_has_job": "CDS-D020",
+    "media_fidelity_preserved": "CDS-P016",
 }
 
 

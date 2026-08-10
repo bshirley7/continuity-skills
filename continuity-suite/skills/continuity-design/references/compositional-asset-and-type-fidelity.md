@@ -17,6 +17,14 @@ When type and subject overlap, use image generation or editing to produce a regi
 
 Generate at the intended slot dimensions. Inspect the alpha result, edges, crop, and occlusion. A checkerboard preview, written claim of transparency, or two identical composites does not prove separate planes. Third-party moodboard imagery remains private and non-shipping.
 
+## Preserve selected-media impact
+
+When a human prefers one concept because its generated or supplied media is more visually impactful, that preference binds the media—not merely its subject label. Retain the selected file or create a provenance-preserving edit at equal or greater visual capability. A simplified SVG, generic vector reconstruction, CSS primitive, or flatter substitute is drift even when it depicts the same object.
+
+Inspect the asset's actual channels and corner pixels before choosing an integration method. A visible checkerboard can be baked into RGB pixels rather than alpha. Use one of three explicit strategies: retain the image in its native frame, use a verified alpha-bearing asset, or make a background-matched edit that preserves the subject and its provenance. Do not use `mix-blend-mode`, filters, masks, overlays, or aggressive crops merely to hide a bad background when they also suppress the color, texture, depth, shadow, scale, or material contrast that made the asset concept-forming.
+
+Bind a comparable-crop triptych of the selected source, first integration, and final integration. Review it at every affected viewport and record whether the subject's defining material impact was retained or strengthened. If the integration changes, invalidate the prior visual review and slop report and rerun them.
+
 ## Prove implementation consumption
 
 Every workflow-v3 concept records a `composition_asset_plan`. For a layered relationship it includes independently hash-bound background, live-type, and foreground planes; unique z-indexes; identical background and foreground dimensions; an RGBA foreground with transparent and opaque pixels and four transparent corners; and responsive crop behavior. The complete prototype exposes every plane with `data-continuity-composition-plane` and consumes each asset path. Declaring a layer without using it fails validation.
@@ -31,4 +39,4 @@ A font that merely belongs to the same category does not pass when the direction
 
 ## Review as composition, not inventory
 
-Compare the source, close reconstruction, adapted composition, and narrow result together. Ask whether the subject still organizes the frame, live type participates in depth rather than floating over a backdrop, the type silhouette carries the intended energy, and the project message continues the same visual grammar. Then run the AI-slop gate with editable-depth, font-transfer, approved-layer-plan, and approved-typographic-character findings explicitly dispositioned. Selection binds the type-transfer and composition-plan hashes into the approval bundle; prototype and implementation manifests must carry those exact hashes so later stages cannot silently flatten the approved direction.
+Compare the source, close reconstruction, adapted composition, and narrow result together. Ask whether the subject still organizes the frame, live type participates in depth rather than floating over a backdrop, the type silhouette carries the intended energy, the selected media retains its defining material impact after integration, and the project message continues the same visual grammar. Then run the AI-slop gate with editable-depth, font-transfer, approved-layer-plan, approved-typographic-character, selected-media-fidelity, background-integration, and material-contrast findings explicitly dispositioned. Selection binds the type-transfer and composition-plan hashes into the approval bundle; prototype and implementation manifests must carry those exact hashes so later stages cannot silently flatten the approved direction.

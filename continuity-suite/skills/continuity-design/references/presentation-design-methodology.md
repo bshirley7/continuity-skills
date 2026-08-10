@@ -75,6 +75,8 @@ Before asking for direction feedback, an agent may run up to three self-directed
 
 Change the variable under test rather than redesigning indiscriminately. Useful pass order is narrative truth, proof depth, then rhythm and peak hierarchy. These passes improve the candidate; they never select, approve, or claim that taste improved without human or blinded comparison evidence.
 
+When the human selects a direction because its generated or supplied image is more impactful than an alternate SVG, diagram, or primitive, preserve the selected image as a binding creative decision through refinement. Inspect its real alpha channel and background pixels before integration. A baked checkerboard is not transparency. Use the native frame, a verified alpha edit, or a provenance-preserving background-matched edit; do not hide integration defects with blend modes or filters that drain the subject's color, texture, depth, or material contrast. Compare the selected source, first integration, and final integration at the same crop and rerun affected viewport, readability, and slop evidence.
+
 ## 6. Validate the artifact, not the source claim
 
 Render every slide individually at the settled presentation viewport. Verify encoded media type, dimensions, viewport, slide identity, and source hash before accepting a capture. Assemble the contact sheet only from verified individual frames. Do not treat a scrolling full-page stitch as deck evidence when snapping, sticky frames, transforms, or lazy rendering may duplicate or omit slides.
@@ -116,6 +118,8 @@ Supply `presentation_fidelity` to `continuity design slop-check`:
 - `capture_integrity_verified`.
 - `copy_readability_verified`;
 - `data_readability_verified`.
+
+For a media-led direction, also supply `translation_fidelity.selected_media_fidelity_preserved`, `translation_fidelity.background_integration_verified`, and `translation_fidelity.material_contrast_preserved`. A human-selected image replaced by a lower-capability derivative is blocking project drift. Unverified background integration and material-loss treatments remain unresolved default-risk findings until corrected or explicitly dispositioned with contract-bound evidence.
 
 Use [presentation-slop-context.example.json](presentation-slop-context.example.json) as the presentation-specific fragment inside the normal [slop manifest](slop-manifest.example.json).
 

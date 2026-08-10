@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-RULESET_VERSION = "1.6.0"
+RULESET_VERSION = "1.7.0"
 SEVERITIES = {"info", "warning", "error", "critical"}
 DISPOSITIONS = {"open", "resolved", "not-applicable", "accepted-intentional"}
 SCANNABLE_SUFFIXES = {
@@ -68,6 +68,8 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-D037": {"class": "default-risk", "severity": "warning", "title": "Presentation lacks a narrative peak", "remediation": "Give one consequential idea a visibly stronger rhetorical and compositional moment instead of keeping every slide at the same intensity."},
     "CDS-D038": {"class": "default-risk", "severity": "warning", "title": "Presentation lacks a quiet or rest state", "remediation": "Add a deliberate quiet, evidence, or transition role so pacing is not uniformly loud or dense."},
     "CDS-D039": {"class": "default-risk", "severity": "warning", "title": "Projected and read-ahead modes are collapsed", "remediation": "Review live projection and independent reading separately; preserve the same truth while allowing each mode to use an appropriate density and sequence."},
+    "CDS-D040": {"class": "default-risk", "severity": "warning", "title": "Generated-media background integration is unverified", "remediation": "Verify the actual alpha channel and background pixels, then use a native frame, verified alpha asset, or provenance-preserving background edit with bound before-and-after evidence."},
+    "CDS-D041": {"class": "default-risk", "severity": "warning", "title": "Media treatment suppresses material contrast", "remediation": "Remove or revise blend, filter, crop, or overlay treatment that erases the color, depth, texture, or scale that made the selected media concept-forming."},
     "CDS-P001": {"class": "project-drift", "severity": "error", "title": "Unapproved design token", "remediation": "Return to the approved font, color, spacing, radius, motion, or opening-pattern family."},
     "CDS-P002": {"class": "project-drift", "severity": "error", "title": "Signature absent beyond hero", "remediation": "Carry the approved signature into body, mobile, quiet, error, and reduced-motion states."},
     "CDS-P003": {"class": "project-drift", "severity": "error", "title": "Reference imitation", "remediation": "Adapt the recorded mechanic through the project-specific transformation instead of copying identity."},
@@ -83,6 +85,7 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-P013": {"class": "project-drift", "severity": "error", "title": "Journey evidence is hero-only", "remediation": "Carry the signature through downstream proof, quiet or edge, closure, responsive, and motion or explicit no-motion states."},
     "CDS-P014": {"class": "project-drift", "severity": "error", "title": "Approved composition planes collapsed", "remediation": "Restore the approved registered asset planes and their DOM order; a flattened composite cannot stand in for editable depth."},
     "CDS-P015": {"class": "project-drift", "severity": "error", "title": "Approved typographic character lost", "remediation": "Restore the approved face, rendered proportions, line breaks, and type-to-media relationship, then rerun the font probe."},
+    "CDS-P016": {"class": "project-drift", "severity": "error", "title": "Selected concept-forming media downgraded", "remediation": "Restore the selected media or a provenance-preserving edit at equal or greater visual capability; a simplified SVG or primitive reconstruction cannot replace its defining material impact."},
 }
 
 
@@ -263,6 +266,9 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
         ("font_transfer_verified", False, "CDS-D034", "the declared display character was approximated without loaded-font and silhouette evidence"),
         ("approved_layer_plan_present", False, "CDS-P014", "the approved background, live-content, and foreground plane plan is absent"),
         ("approved_typographic_character_present", False, "CDS-P015", "the approved typographic character or type-to-media relationship is absent"),
+        ("selected_media_fidelity_preserved", False, "CDS-P016", "selected concept-forming media was replaced by a lower-capability derivative"),
+        ("background_integration_verified", False, "CDS-D040", "the asset's actual alpha or background behavior was not verified before integration"),
+        ("material_contrast_preserved", False, "CDS-D041", "blend, filter, crop, or overlay treatment suppressed the selected media's defining material contrast"),
     )
     for key, failing_value, rule_id, evidence in translation_checks:
         if key in translation and translation.get(key) is failing_value:
