@@ -6278,7 +6278,10 @@ def decrypt_and_verify_state_archive(root: Path, config: dict[str, Any], archive
             safe_extract_tar(tar, extracted, "Backup archive")
     except (tarfile.TarError, OSError, EOFError) as exc:
         raise ContinuityError(f"Backup archive is unreadable: {exc}") from exc
-    manifest = json_load(extracted / "backup-manifest.json", {})
+    try:
+        manifest = json_load(extracted / "backup-manifest.json", {})
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ContinuityError(f"Backup manifest is unreadable: {exc}") from exc
     try:
         runtime_lib.validate_schema_file(manifest, CONTROL_ROOT / "schemas" / "backup-manifest.schema.json", "backup manifest")
     except runtime_lib.RuntimeIntegrityError as exc:
@@ -11827,6 +11830,26 @@ def design_command(args: argparse.Namespace) -> Any:
             return design_lib.catalog_summary(config, catalog_path, args.axis)
         if args.command == "draft":
             return design_lib.draft(root, config, catalog_path, Path(args.input).expanduser().resolve())
+        if args.command == "visual-atlas":
+            return design_lib.visual_atlas(root, config, catalog_path, Path(args.input).expanduser().resolve())
+        if args.command == "visual-render":
+            return design_lib.visual_render(root, config, Path(args.input).expanduser().resolve())
+        if args.command == "probe-prepare":
+            return design_lib.probe_prepare(root, config, Path(args.target).expanduser().resolve())
+        if args.command == "concept-lab-validate":
+            return design_lib.concept_lab_validate(root, config, Path(args.input).expanduser().resolve())
+        if args.command == "reference-validate":
+            return design_lib.reference_validate(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "portfolio-validate":
+            return design_lib.portfolio_validate(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "concept-validate":
+            return design_lib.concept_validate(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "improvement-cycle":
+            return design_lib.improvement_cycle(root, config, Path(args.manifest).expanduser().resolve())
+        if args.command == "feedback-record":
+            return design_lib.feedback_record(root, config, args.design_id, Path(args.input).expanduser().resolve())
+        if args.command == "slop-check":
+            return design_lib.slop_check(root, config, Path(args.target).expanduser().resolve(), Path(args.manifest).expanduser().resolve())
         if args.command == "select":
             return design_lib.select(root, config, args.design_id, [args.direction, *(args.combine or [])], args.actor)
         if args.command == "approve":
@@ -12198,6 +12221,38 @@ def build_parser() -> argparse.ArgumentParser:
     design_draft = design_sub.add_parser("draft")
     design_draft.add_argument("--input", required=True)
     design_draft.set_defaults(handler=design_command)
+    design_visual_atlas = design_sub.add_parser("visual-atlas")
+    design_visual_atlas.add_argument("--input", required=True)
+    design_visual_atlas.set_defaults(handler=design_command)
+    design_visual_render = design_sub.add_parser("visual-render")
+    design_visual_render.add_argument("--input", required=True)
+    design_visual_render.set_defaults(handler=design_command)
+    design_probe_prepare = design_sub.add_parser("probe-prepare")
+    design_probe_prepare.add_argument("--target", required=True)
+    design_probe_prepare.set_defaults(handler=design_command)
+    design_concept_lab_validate = design_sub.add_parser("concept-lab-validate")
+    design_concept_lab_validate.add_argument("--input", required=True)
+    design_concept_lab_validate.set_defaults(handler=design_command)
+    design_reference_validate = design_sub.add_parser("reference-validate")
+    design_reference_validate.add_argument("--manifest", required=True)
+    design_reference_validate.set_defaults(handler=design_command)
+    design_portfolio_validate = design_sub.add_parser("portfolio-validate")
+    design_portfolio_validate.add_argument("--manifest", required=True)
+    design_portfolio_validate.set_defaults(handler=design_command)
+    design_concept_validate = design_sub.add_parser("concept-validate")
+    design_concept_validate.add_argument("--manifest", required=True)
+    design_concept_validate.set_defaults(handler=design_command)
+    design_improvement_cycle = design_sub.add_parser("improvement-cycle")
+    design_improvement_cycle.add_argument("--manifest", required=True)
+    design_improvement_cycle.set_defaults(handler=design_command)
+    design_feedback_record = design_sub.add_parser("feedback-record")
+    design_feedback_record.add_argument("design_id")
+    design_feedback_record.add_argument("--input", required=True)
+    design_feedback_record.set_defaults(handler=design_command)
+    design_slop_check = design_sub.add_parser("slop-check")
+    design_slop_check.add_argument("--target", required=True)
+    design_slop_check.add_argument("--manifest", required=True)
+    design_slop_check.set_defaults(handler=design_command)
     design_select = design_sub.add_parser("select")
     design_select.add_argument("design_id")
     design_select.add_argument("--direction", required=True)

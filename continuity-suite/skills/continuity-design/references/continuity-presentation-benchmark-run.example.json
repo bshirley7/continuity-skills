@@ -1,0 +1,33 @@
+{
+  "approval": null,
+  "benchmark_id": "continuity-design-presentation-v1",
+  "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "checkpoints": [],
+  "concepts": [],
+  "definition_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "doctor": {"path": "evidence/doctor.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "evidence": [],
+  "execution_authorized": false,
+  "hard_failure_reviews": [],
+  "prototype_validation": null,
+  "refinement_passes": [],
+  "reviews": [],
+  "run_id": "presentation-premerge-001",
+  "schema_version": 1,
+  "seed": {
+    "audience": "engineering-leader",
+    "narrative": "handoff-loss-to-durable-record",
+    "posture": "system-cartography",
+    "read_mode": "mixed",
+    "references": ["editorial-publication", "technical-cartography"]
+  },
+  "selection": null,
+  "source": {
+    "branch": "feature/continuity-design-creative-director",
+    "commit": "0000000000000000000000000000000000000000",
+    "skill_path": "skills/continuity-design/SKILL.md",
+    "skill_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "status": "directions",
+  "workflow": "$continuity-design"
+}

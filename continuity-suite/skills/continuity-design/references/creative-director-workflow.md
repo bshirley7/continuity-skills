@@ -1,0 +1,66 @@
+# Creative-director workflow
+
+Use this workflow when the user needs a direction, not only a contract. One sentence is enough to begin. Tell the user they may react to visuals instead of supplying design vocabulary.
+
+## 1. Diagnose
+
+- Inspect the product, current implementation, brand material, audiences, strengths, debt, constraints, and behavior to preserve.
+- Infer `guided`, `collaborative`, or `creative-peer`. Ask one calibration question only when the working relationship remains materially unclear. Apply the corresponding collaboration contract to recommendation posture, explanation depth, feedback scope, and challenge style.
+- Infer `brand-marketing`, `product-system`, `document-editorial`, `image-art-direction`, `cinematic-experience`, or `mixed`.
+- When the document is a deck or keynote-style narrative, apply [presentation design methodology](presentation-design-methodology.md) and distinguish live presentation from read-ahead use even when HTML/CSS is the carrier.
+- Preserve the user's exact language as feedback evidence; translate it into private design decisions without making the user learn a taxonomy.
+
+## 2. Analyze and research
+
+Default to a short adaptive research pass. Announce the pass and offer an opt-out. Use `offline`, `user-supplied-only`, or `declined` when appropriate. The agent may use web or image search, but the shared runtime never performs network access.
+
+For named references, record a provisional decomposition of composition, typography, density, imagery, motion, and voice. State the likely appeal and a project-specific transformation. Never silently imitate the reference.
+
+Build a private moodboard of 12–20 numbered tiles across two or three axes:
+
+- subject or material;
+- treatment or light;
+- graphic or spatial language.
+
+Save and hash each captured image. For every tile, identify the concrete details worth copying during private study—such as crop, type placement, scale ratio, spacing rhythm, material treatment, interaction, or transition. Record where each detail appears, how the private reconstruction will copy it, how project content will replace its role, and what must change before shipping. The moodboard is a working extraction surface, not a gallery of vague inspiration. Use at least two axes and three sources; duplicate captures do not count. Keep third-party screenshots, copied calibration work, and moodboards private and non-shipping. Render the board with `continuity design visual-render --input <moodboard.json>` and later disposition every copy candidate against a reconstruction and concept.
+
+## 3. Teach visually
+
+Render only the useful contrasts with `continuity design visual-atlas --input <request.json>`. Supply the same real project copy to every plate. Each self-contained private plate must change the organizing idea, type roles, composition, density, surface, motion intent, responsive transformation, and counterexample—not merely palette. Ask the user to react to plate numbers.
+
+## 4. Generative concept laboratory
+
+Before composing web pages or polished boards, run the [generative concept laboratory](generative-concept-laboratory.md). First declare a range plan spanning at least four art-direction families, three typography strategies in three families, three composition families, and five page-depth roles. Generate eight to twelve inexpensive experiments across four to eight project-derived lenses and at least three media when available. Image generation and editing are ideation tools: use them to discover hierarchy, material, cropping, type, motion, interaction, and deeper-page relationships, not merely to decorate a chosen concept. Cross-pollinate at least two seed pairs, shortlist three to six, and validate the hash-bound record with `concept-lab-validate`.
+
+Delay responsive HTML until seeds are clustered. This prevents every divergent idea from inheriting the same layout, type pairing, rules, and restrained palette. If generated imagery contributes to a direction, extract at least three repeatable non-image system decisions from it.
+
+## 5. Concept
+
+Before complete concept expansion, rebuild each named reference separately as private responsive HTML/CSS. Complete two located visual-difference corrections, compile at least eight measured grammar constraints, build a literal Continuity substitution while freezing those relationships, and then record one to four controlled divergence dimensions. A reviewer distinct from the preparer compares source, reconstruction, literal baseline, and adaptation at wide and narrow widths. Preserve real or generated media when it carries the material behavior; blended baselines, self-certification, and primitive decoration are not equivalent translation. Validate the set with `reference-validate` and bind each concept to one adaptation. See [precision reference translation](reference-translation-fidelity.md).
+
+- If material direction is unclear, create two or three equally developed boards and preselect no winner.
+- If direction is clear, create one selectable recommended board and one or two non-selectable contrast studies that each test a named uncertainty.
+- Keep fidelity comparable. A palette or font swap is not a new direction.
+
+Every board must contain a thesis, impact thesis, primary carrier, emotional register, seed lineage, system extractions, one signature move, palette, real-copy type specimen, a planned typography system, a planned media system, a distinct composition family, a journey of at least five stages, concept-specific mobile/tablet/desktop runtime probes, distinct PNG wide composition, distinct PNG narrow transformation, imagery or material treatment, motion storyboard or explicit no-motion decision, preservation promise, tradeoff, anti-reference, and passed concept-stage slop report bound to those exact renders. Before slop review, pass the separate creative-range gate: unique five-second reactions, every pair different in at least three material dimensions, distinct type/art/composition systems, an adversarial pass per concept, and an explicit house-tell review where project identity wins. Show each tall full-page capture as a journey ribbon in the comparison. Then perform page-grammar congruence review against the complete prototype: the prototype must mark every behavior required by its grammar family, each behavior must span at least two declared journey stages, and the reviewer must record both the strongest match and weakest mismatch. A written grammar claim without those artifact markers fails. Review deep-journey structure separately: bind every stage to an artifact-marked expression, require at least four expressions, and record the deepest signature change and repeated-pattern risk. A single-canvas instrument uses at least four marked state variations on one marked persistent canvas instead of unrelated section structures. Render comparisons with `visual-render`, then validate the manifest with `concept-validate`.
+
+For presentation boards, the comparable-fidelity requirement applies to the complete sequence, not just covers. Show a narrative spine, four or more structural slide roles and silhouettes, a sequence contact sheet, one peak, one quiet or rest state, concept-forming media lineage, and both projected and read-ahead transformations. Run up to three self-directed craft passes only when autonomous refinement was requested; preserve each hypothesis, visual delta, assessment, and invalidated evidence.
+
+For atlases, moodboards, concept comparisons, visual deltas, and every individual concept, capture valid browser-rendered PNG evidence at mobile, tablet, and desktop widths. Save the JSON returned by `scripts/artifact-browser-probe.js` in each viewport and bind its file hash; free-form claims that the probe passed are invalid. Review each concept's three captures together, then review the comparison set. Reusing the comparison probe as concept evidence is invalid. A source-valid HTML page without inspected browser output is not complete visual evidence.
+
+## 6. Feedback and refinement
+
+Ask for reactions against numbered elements: `keep`, `change`, `avoid`, or `uncertain`, plus why. Render a visual delta showing what changed, what stayed, and why. Record it with `feedback-record`.
+
+Preserve accepted, rejected, and unresolved decisions in the active revision as well as its archive. Every `change` or `avoid` reaction is material unless refreshed evidence proves otherwise; it creates a new revision, clears prior selection, and invalidates affected concept and slop evidence. Redraft the same invalidated revision so feedback is carried forward rather than incrementing twice. Continue until the user explicitly marks the refreshed concept set ready for selection; do not optimize for the fewest turns.
+
+## 7. Approve, version, and scale
+
+Run the slop gate on every concept, the selected private prototype, and the implementation-facing artifact. Selection requires ready concept evidence. Exact approval requires a passed prototype report and binds:
+
+- design-document hash;
+- approved visual-reference hash;
+- slop ruleset version and hash;
+- combined approval-bundle hash.
+
+Promote only project-owned, supplied-with-rights, or generated references into `docs/design/references/`. Preserve rejected choices in the durable alignment contract. Design approval still never authorizes implementation.

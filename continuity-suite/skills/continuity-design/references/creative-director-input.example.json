@@ -1,0 +1,128 @@
+{
+  "workflow_version": 3,
+  "design_id": "example-direction",
+  "title": "Example direction",
+  "intent": "Give operators a distinctive evidence-first review experience.",
+  "audiences": ["Operators"],
+  "targets": ["ui"],
+  "collaboration_profile": "guided",
+  "specialization": "product-system",
+  "concept_presentation_mode": "director-led",
+  "research": {
+    "mode": "adaptive-live",
+    "status": "in-progress",
+    "announced": true,
+    "opt_out_offered": true,
+    "moodboard": []
+  },
+  "generative_exploration": {
+    "status": "complete",
+    "mode": "mixed-media",
+    "required_for_directioning": true,
+    "range_plan": {
+      "art_direction_families": ["photographic", "diagrammatic", "typographic", "spatial", "illustrative", "documentary", "interaction-led"],
+      "typography_hypotheses": [
+        {"strategy_id": "type-reflective-serif", "family": "serif", "source": "open-licensed", "role_relationship": "Reflective claims meet literal utility labels.", "responsive_behavior": "The display measure narrows before its scale reduces.", "anti_default": "Do not use a generic compressed-sans launch headline.", "customization": "Use an asymmetric italic axis and shortened display measure.", "license_evidence": "OFL evidence retained beside the private specimen.", "behavior_tests": ["display", "text", "narrow"], "specimen": {"path": ".continuity/private/designs/example/1/type/reflective-serif.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000031"}},
+        {"strategy_id": "type-humanist-proof", "family": "humanist-sans", "source": "project-supplied", "role_relationship": "Humanist text carries explanation while proof labels remain compact.", "responsive_behavior": "Proof moves directly after its claim on narrow screens.", "anti_default": "Do not default to an interchangeable neo-grotesk stack.", "customization": "Use tabular proof labels against sentence-case explanations.", "license_evidence": "Project asset inventory records usage rights.", "behavior_tests": ["display", "text", "narrow"], "specimen": {"path": ".continuity/private/designs/example/1/type/humanist-proof.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000032"}},
+        {"strategy_id": "type-vernacular-state", "family": "vernacular-display", "source": "custom-lettering", "role_relationship": "State language becomes an authored display voice without losing literal labels.", "responsive_behavior": "State words become section markers instead of shrinking into badges.", "anti_default": "Do not imitate fashionable grotesk editorial sites.", "customization": "Draw four state words as project-specific display forms.", "license_evidence": "First-party lettering generated for this design study.", "behavior_tests": ["display", "narrow", "custom-letterform"], "specimen": {"path": ".continuity/private/designs/example/1/type/vernacular-state.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000033"}},
+        {"strategy_id": "type-mono-coordinate", "family": "monospaced", "source": "system", "role_relationship": "Coordinates and provenance structure the field while prose remains readable.", "responsive_behavior": "Spatial coordinates become a sequential index on mobile.", "anti_default": "Do not turn the product into a black-neon terminal costume.", "customization": "Restrict mono to coordinates and evidence state.", "license_evidence": "System stack; no shipped font asset.", "behavior_tests": ["display", "text", "narrow"], "specimen": {"path": ".continuity/private/designs/example/1/type/mono-coordinate.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000034"}}
+      ],
+      "composition_families": ["editorial-sequence", "spatial-field", "typographic-poster", "cinematic-chapters", "modular-system"],
+      "page_depth_roles": ["opening", "orientation", "proof", "edge-state", "quiet-state", "closure"],
+      "page_grammar_hypotheses": [
+        {"grammar_id": "grammar-issue", "family": "editorial-issue", "hypothesis": "The homepage reads as a dated evidence issue.", "responsive_behavior": "The issue index becomes an inline chapter rail.", "depth_proof": "Opening, evidence folios, disputed state, and closure retain distinct rhythms.", "risk": "Could become passive editorial."},
+        {"grammar_id": "grammar-instrument", "family": "single-canvas-instrument", "hypothesis": "Authority changes one inspectable operating field.", "responsive_behavior": "The field becomes a sequenced state inspector.", "depth_proof": "Orientation, proof, edge, and decision remain accessible without a generic section stack.", "risk": "Could become diagrammatic."},
+        {"grammar_id": "grammar-artifact", "family": "navigable-artifact", "hypothesis": "The page behaves like an evidence packet the reader can open.", "responsive_behavior": "Packet folds become an anchored linear index.", "depth_proof": "Each fold carries a different evidence relationship.", "risk": "Could hide content behind interaction."},
+        {"grammar_id": "grammar-sequence", "family": "cinematic-sequence", "hypothesis": "Threshold, proof, and authority resolve as a staged sequence.", "responsive_behavior": "Motion cues become static adjacent frames.", "depth_proof": "Every chapter advances a product truth rather than repeating a reveal.", "risk": "Could let spectacle outrun truth."}
+      ],
+      "interaction_motion_hypotheses": [
+        {"strategy_id": "motion-witness", "mode": "native-disclosure", "semantic_purpose": "Reveal exact evidence beside a consequential claim.", "reduced_motion": "Open in place without animated travel.", "static_fallback": "All claims and source states remain visible in document order.", "risk": "Disclosure could hide essential content.", "prototype": {"path": ".continuity/private/designs/example/1/motion/witness.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000041"}},
+        {"strategy_id": "motion-topology", "mode": "spatial-transition", "semantic_purpose": "Show authority changing the relationship between source and action.", "reduced_motion": "Swap labeled topology states without interpolation.", "static_fallback": "Render both states as adjacent diagrams.", "risk": "Could become decorative node motion.", "prototype": {"path": ".continuity/private/designs/example/1/motion/topology.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000042"}},
+        {"strategy_id": "motion-state-type", "mode": "direct-manipulation", "semantic_purpose": "Let an operator compare lifecycle states through typographic recomposition.", "reduced_motion": "Change state instantly while preserving focus.", "static_fallback": "Use a visible ordered state specimen.", "risk": "Could confuse state with styling.", "prototype": {"path": ".continuity/private/designs/example/1/motion/state-type.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000043"}}
+      ],
+      "intentional_convergence": "All studies preserve evidence and authority truth; their visual identities, reading models, and media roles remain deliberately divergent."
+    },
+    "lenses": [
+      {"lens_id": "authority-as-structure", "thesis": "Let authority reshape the composition.", "product_truth": "Healthy state does not create authorization."},
+      {"lens_id": "evidence-as-material", "thesis": "Make evidence a physical seam rather than a badge.", "product_truth": "Every consequential claim needs local proof."},
+      {"lens_id": "time-as-interface", "thesis": "Use lifecycle change as the primary reading model.", "product_truth": "Review readiness and completion are different states."},
+      {"lens_id": "portfolio-as-place", "thesis": "Let relationships create a navigable spatial model.", "product_truth": "Private project state cannot leak into aggregate views."}
+    ],
+    "seeds": [
+      {"seed_id": "authority-image", "lens_id": "authority-as-structure", "medium": "image-generation", "art_direction_family": "photographic", "typography_strategy_id": "type-reflective-serif", "composition_family": "cinematic-chapters", "page_depth_roles": ["opening"], "hypothesis": "A threshold image can make authorization feel like a boundary.", "project_specificity": "The threshold opens only when authority evidence exists.", "surprising_quality": "The absent permission changes the negative space.", "transferable_mechanics": ["Authorization changes crop and composition."], "risk": "Could become cinematic decoration.", "provenance": "generated", "artifact": {"path": ".continuity/private/designs/example/1/seeds/authority-image.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000001"}},
+      {"seed_id": "evidence-svg", "lens_id": "evidence-as-material", "medium": "svg", "art_direction_family": "diagrammatic", "typography_strategy_id": "type-humanist-proof", "composition_family": "editorial-sequence", "page_depth_roles": ["proof"], "hypothesis": "Proof seams can interrupt claims at the point of consequence.", "project_specificity": "The seam carries inspected, missing, changed, and disputed states.", "surprising_quality": "The proof object changes line length.", "transferable_mechanics": ["Evidence state controls measure and alignment."], "risk": "Could resemble an editorial rule.", "provenance": "derived-study", "artifact": {"path": ".continuity/private/designs/example/1/seeds/evidence.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000002"}},
+      {"seed_id": "time-type", "lens_id": "time-as-interface", "medium": "typography", "art_direction_family": "typographic", "typography_strategy_id": "type-vernacular-state", "composition_family": "typographic-poster", "page_depth_roles": ["orientation"], "hypothesis": "Lifecycle can be expressed through typographic tempo.", "project_specificity": "Ready, selected, approved, and executed keep distinct rhythms.", "surprising_quality": "State changes alter cadence without adding containers.", "transferable_mechanics": ["Type rhythm encodes lifecycle state."], "risk": "Dense states may lose contrast.", "provenance": "derived-study", "artifact": {"path": ".continuity/private/designs/example/1/seeds/time-type.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000003"}},
+      {"seed_id": "portfolio-motion", "lens_id": "portfolio-as-place", "medium": "motion-frame", "art_direction_family": "spatial", "typography_strategy_id": "type-mono-coordinate", "composition_family": "spatial-field", "page_depth_roles": ["edge-state"], "hypothesis": "Aggregate state can reorganize without revealing private detail.", "project_specificity": "Sanitized health changes topology, not content exposure.", "surprising_quality": "Blocked work creates distance rather than alarm color.", "transferable_mechanics": ["Topology expresses aggregate status."], "risk": "Could become a generic node map.", "provenance": "derived-study", "artifact": {"path": ".continuity/private/designs/example/1/seeds/portfolio-motion.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000004"}},
+      {"seed_id": "authority-edit", "lens_id": "authority-as-structure", "medium": "image-editing", "art_direction_family": "illustrative", "typography_strategy_id": "type-reflective-serif", "composition_family": "cinematic-chapters", "page_depth_roles": ["quiet-state"], "hypothesis": "Removing the expected doorway can make non-authority legible.", "project_specificity": "Healthy-but-unauthorized remains visibly closed.", "surprising_quality": "The edit treats absence as an active state.", "transferable_mechanics": ["Negative space becomes a permission state."], "risk": "Metaphor may overpower operations.", "provenance": "generated", "artifact": {"path": ".continuity/private/designs/example/1/seeds/authority-edit.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000005"}},
+      {"seed_id": "evidence-collage", "lens_id": "evidence-as-material", "medium": "collage", "art_direction_family": "documentary", "typography_strategy_id": "type-humanist-proof", "composition_family": "editorial-sequence", "page_depth_roles": ["proof", "closure"], "hypothesis": "Source fragments can create a verification reading order.", "project_specificity": "Each fragment exposes provenance and consequence.", "surprising_quality": "The source becomes larger than the claim.", "transferable_mechanics": ["Proof scale follows consequence."], "risk": "Could feel archival rather than operational.", "provenance": "project-owned", "artifact": {"path": ".continuity/private/designs/example/1/seeds/evidence-collage.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000006"}},
+      {"seed_id": "time-code", "lens_id": "time-as-interface", "medium": "code-sketch", "art_direction_family": "interaction-led", "typography_strategy_id": "type-mono-coordinate", "composition_family": "modular-system", "page_depth_roles": ["orientation", "quiet-state"], "hypothesis": "A state transition can recompose information without animation dependency.", "project_specificity": "Static fallback preserves every lifecycle distinction.", "surprising_quality": "The same content has different spatial syntax by state.", "transferable_mechanics": ["State selects composition, not decoration."], "risk": "Could create layout instability.", "provenance": "derived-study", "artifact": {"path": ".continuity/private/designs/example/1/seeds/time-code.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000007"}},
+      {"seed_id": "portfolio-svg", "lens_id": "portfolio-as-place", "medium": "svg", "art_direction_family": "diagrammatic", "typography_strategy_id": "type-vernacular-state", "composition_family": "spatial-field", "page_depth_roles": ["closure"], "hypothesis": "Apertures can show sanitized relationship without raw project data.", "project_specificity": "Only aggregate signals cross the project boundary.", "surprising_quality": "Privacy is expressed by occlusion rather than a lock icon.", "transferable_mechanics": ["Visibility boundaries define navigation."], "risk": "Occlusion could reduce comprehension.", "provenance": "derived-study", "artifact": {"path": ".continuity/private/designs/example/1/seeds/portfolio.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000008"}}
+    ],
+    "cross_pollinations": [
+      {"combination_id": "threshold-tempo", "seed_ids": ["authority-image", "time-type"], "hypothesis": "Let authorization state change both crop and reading tempo.", "resulting_mechanics": ["Permission changes measure, crop, and sequence together."]},
+      {"combination_id": "proof-aperture", "seed_ids": ["evidence-collage", "portfolio-svg"], "hypothesis": "Let proof open a bounded view into aggregate state.", "resulting_mechanics": ["Evidence controls how much spatial context becomes visible."]}
+    ],
+    "shortlisted_seed_ids": ["authority-image", "evidence-svg", "time-type", "portfolio-svg"],
+    "style_frame_explorations": [
+      {"exploration_id": "authority-threshold-frames", "art_direction_family": "photographic", "hypothesis": "Test whether authority is better expressed as aperture, distance, or material interruption.", "frames": [{"frame_id": "threshold-aperture", "method": "generated", "lesson": "A narrow aperture makes access conditional without a lock symbol.", "artifact": {"path": ".continuity/private/designs/example/1/frames/threshold-aperture.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000051"}}, {"frame_id": "threshold-glow", "method": "generated", "lesson": "Glow makes the threshold feel fashionable and weakens operational truth.", "artifact": {"path": ".continuity/private/designs/example/1/frames/threshold-glow.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000052"}}], "selected_frame_ids": ["threshold-aperture"], "rejected_frame_ids": ["threshold-glow"], "system_extractions": ["Use occlusion as a permission state.", "Reserve open space for evidenced authority.", "Carry aperture proportions into mobile crops."], "synthesis": "Extract the conditional aperture relationship; do not ship generated pixels."},
+      {"exploration_id": "evidence-material-frames", "art_direction_family": "diagrammatic", "hypothesis": "Test whether evidence behaves as seam or detached annotation.", "frames": [{"frame_id": "evidence-seam", "method": "code-native", "lesson": "The seam changes measure and keeps proof local.", "artifact": {"path": ".continuity/private/designs/example/1/frames/evidence-seam.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000053"}}, {"frame_id": "evidence-card", "method": "code-native", "lesson": "A detached card makes the proof interchangeable.", "artifact": {"path": ".continuity/private/designs/example/1/frames/evidence-card.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000054"}}], "selected_frame_ids": ["evidence-seam"], "rejected_frame_ids": ["evidence-card"], "system_extractions": ["Evidence changes line length.", "Evidence state controls alignment.", "Every consequential claim receives a local source path."], "synthesis": "Use the seam as structure and preserve a linear narrow-screen equivalent."}
+    ],
+    "omission_rationale": ""
+  },
+  "reference_decomposition": [],
+  "direction_assessment": {"material_ambiguities": [], "resolved_by_evidence": []},
+  "modality_assessment": {"observed_signals": ["The requested output is an interactive product surface."], "selected_targets": ["ui"], "rationale": "The work changes an operational interface.", "conflicts": []},
+  "industry": "b2b-saas",
+  "sections": ["review-approval-lifecycle"],
+  "themes": ["calm"],
+  "message_structures": ["proof-first"],
+  "constraints": [],
+  "preserve": ["Keep the operator review path direct and evidence-led."],
+  "open_questions": [],
+  "rejected_decisions": [],
+  "direction_count": 1,
+  "direction_count_basis": "The evidence-first intent is clear enough for one selectable recommendation; uncertainties move into contrast studies.",
+  "directions": [
+    {
+      "direction_id": "direction-1",
+      "name": "Proof Rail",
+      "summary": "Make the relationship between every consequential claim and its evidence the organizing visual system.",
+      "creative_signature": "A persistent, numbered proof rail intersects the content exactly where an operator must verify a claim.",
+      "creative_provenance": [
+        {
+          "provenance_id": "intent-evidence-first",
+          "classification": "supplied",
+          "observation": "The brief asks for a distinctive evidence-first review experience.",
+          "source_refs": ["design-input:intent"],
+          "design_implication": "Evidence should shape composition and navigation instead of appearing as a generic card or footer."
+        }
+      ],
+      "design_grammar": {
+        "composition": ["Use an asymmetric work surface intersected by a numbered proof rail; do not center the primary claim."],
+        "spacing_density": ["Keep the inspection field compact and make the evidence seam the dominant spacing break."],
+        "typography": ["Use a readable editorial text role for claims and a compact tabular utility role for provenance."],
+        "color": ["Use carbon and paper as the working field; reserve signal oxide for provenance state, never decoration."],
+        "shape_form": ["Use square evidence anchors and open content regions rather than a field of rounded cards."],
+        "surface_depth": ["Express hierarchy through seams, rules, and overlap; avoid decorative glass or glow."],
+        "imagery": ["Use owned operational detail only when it proves context; annotate crop and source."],
+        "iconography": ["Use restrained functional symbols paired with explicit evidence labels."],
+        "motion": ["Move the proof rail only to preserve claim-to-source continuity; provide static and reduced-motion equivalents."],
+        "voice": ["Use concrete operator verbs: inspect, compare, resolve, approve."],
+        "state_language": ["Name evidence state directly: inspected, missing, changed, or disputed."],
+        "responsive_behavior": ["Transform the side rail into an inline evidence seam immediately after each claim on narrow screens."]
+      },
+      "principles": ["Evidence is structure, not ornament."],
+      "experience_principles": ["Let an operator verify a claim without losing its context."],
+      "experience_architecture": ["Move from claim, to adjacent proof, to decision, while preserving unresolved evidence in place."],
+      "component_patterns": ["Compose installed controls into a claim-and-proof relationship rather than repeating generic containers."],
+      "implementation_guidance": ["Encode claim, proof, and disposition as semantic roles that survive every viewport and state."],
+      "validation_criteria": ["An operator can identify the project-specific signature and trace a consequential claim to its source within five seconds."],
+      "prohibited_patterns": ["Do not replace the proof rail with a generic bento grid, hero metric, glow, or card stack."],
+      "variation_levers": ["Increase rail prominence for review moments and reduce it to an inline seam for quiet utility states."],
+      "tradeoffs": ["The proof rail reduces simultaneous overview in exchange for stronger claim-to-source continuity."],
+      "content_rules": ["Distinguish inspected, supplied, inferred, and illustrative content and visibly qualify anything not evidenced."],
+      "audience_strategy": ["Explain the evidence relationship in plain language for guided users without slowing expert operators."],
+      "prototype_boundaries": ["Do not imply that unrendered states or unavailable sources were inspected."]
+    }
+  ]
+}

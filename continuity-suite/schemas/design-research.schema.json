@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity private design research record",
+  "type": "object",
+  "required": ["mode", "status", "announced", "opt_out_offered", "moodboard"],
+  "properties": {
+    "mode": {"enum": ["adaptive-live", "offline", "user-supplied-only", "declined"]},
+    "status": {"enum": ["not-started", "in-progress", "complete", "unavailable", "declined"]},
+    "announced": {"type": "boolean"},
+    "opt_out_offered": {"type": "boolean"},
+    "completed_at": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+    "moodboard": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["tile", "source", "captured_at", "intended_lesson", "axis", "project_mechanic", "ownership", "prohibited_copying", "publishable"],
+        "properties": {
+          "tile": {"type": "integer", "minimum": 1}, "source": {"type": "string", "minLength": 1},
+          "captured_at": {"type": "string", "minLength": 1}, "intended_lesson": {"type": "string", "minLength": 1},
+          "axis": {"enum": ["subject-material", "treatment-light", "graphic-spatial"]}, "project_mechanic": {"type": "string", "minLength": 1},
+          "copy_candidates": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["detail_id", "detail", "source_location", "private_copy_action", "project_adaptation", "shipping_transformation"], "properties": {"detail_id": {"type": "string", "minLength": 1}, "detail": {"type": "string", "minLength": 1}, "source_location": {"type": "string", "minLength": 1}, "private_copy_action": {"type": "string", "minLength": 1}, "project_adaptation": {"type": "string", "minLength": 1}, "shipping_transformation": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+          "shipping_boundary": {"type": "string", "minLength": 1},
+          "shipping_copy_prohibited": {"const": true},
+          "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]},
+          "prohibited_copying": {"type": "boolean"}, "publishable": {"type": "boolean"}, "local_path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

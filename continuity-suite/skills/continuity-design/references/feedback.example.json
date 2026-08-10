@@ -1,0 +1,16 @@
+{
+  "actor": "client",
+  "contract_changed": true,
+  "ready_for_selection": false,
+  "reactions": [
+    {"element_id": "1.signature", "reaction": "keep", "why": "The proof rail feels specific to the work.", "user_language": "This feels serious without trying too hard."},
+    {"element_id": "1.surface", "reaction": "change", "why": "The contrast competes with the evidence.", "user_language": "The dark panel is too loud."}
+  ],
+  "visual_delta": {
+    "changed": ["Reduced proof-rail contrast"],
+    "stayed": ["Evidence remains attached to its claim"],
+    "why": ["Preserve rigor while keeping content primary"],
+    "path": ".continuity/private/designs/example/2/visual-delta.html",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

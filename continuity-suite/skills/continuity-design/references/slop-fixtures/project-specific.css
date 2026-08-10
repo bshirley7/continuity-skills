@@ -1,0 +1,3 @@
+:root { --paper: #e9ece7; --carbon: #19211f; --evidence: #b65338; }
+.decision { display: grid; grid-template-columns: minmax(0, 1fr) 12rem; gap: 1.25rem; }
+.evidence-rail { border-inline-start: 3px solid var(--evidence); padding-inline-start: 1rem; }

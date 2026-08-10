@@ -4,3 +4,4 @@ __pycache__/
 .continuity/private/
 continuity-suite/.test-output/
 dist/
+.gstack/

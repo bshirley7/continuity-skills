@@ -13,6 +13,7 @@
       "scenario_id": "consumer-onboarding-resumption",
       "industry_group": "consumer",
       "modality": "ui",
+      "expected_collaboration_profile": "guided",
       "input": {
         "title": "A first session people can resume",
         "intent": "Help a first-time customer learn the product, reach a useful result, and resume saved work after an interruption.",
@@ -28,11 +29,14 @@
       "scenario_id": "b2b-analytical-workspace",
       "industry_group": "b2b-saas",
       "modality": "ui",
+      "expected_collaboration_profile": "creative-peer",
       "input": {
         "title": "Operational analytics workspace",
         "intent": "Help operators scan dense information, compare current metrics, and understand the state of each object in a shared workspace.",
         "audiences": ["Operations analysts"],
         "targets": ["ui"],
+        "collaboration_profile": "creative-peer",
+        "reference_decomposition": [{"reference_id": "scale-reference", "source": "scale.com", "inferred_appeal": "Dense technical credibility with clear proof hierarchy.", "project_transformation": "Attach operational evidence to each object instead of reproducing the reference identity.", "dimensions": {"composition": "Large proof-led sections", "typography": "Compact technical hierarchy", "density": "Dense evidence with quiet margins", "imagery": "Technical subject evidence", "motion": "Restrained continuity", "voice": "Direct and declarative"}}],
         "interaction_signals": ["Dense information, visual hierarchy, grouping, analytics, metrics, and object state"]
         ,"content_provenance": [{"content_id": "queue-total", "classification": "illustrative", "statement": "18 items need review", "source_refs": [], "required_qualification": "Illustrative fixture count", "allowed_uses": ["prototype"]}]
       },

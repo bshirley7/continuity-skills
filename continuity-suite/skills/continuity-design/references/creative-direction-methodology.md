@@ -22,6 +22,10 @@ Derive a provisional title, intent, audiences, target modalities, constraints, c
 
 Infer useful category references privately from project evidence. Never require the user to name an industry, theme, message structure, lens, or design system. Preserve inferred provenance in private machine state.
 
+## 2a. Explore before composing
+
+Run the [generative concept laboratory](generative-concept-laboratory.md) before direction authoring. Declare typography, art-direction, composition, and page-depth range before making seeds so one early visual reflex does not define the entire batch. Use image generation, image editing, SVG, typography, collage, motion frames, and code sketches to ask materially different questions while changes are cheap. Do not begin by generating polished website screenshots: doing so prematurely fixes the same header, hero, type hierarchy, and section grammar across every direction. Cluster the most useful relationships only after cross-pollination, then translate them into target-native compositions with explicit seed lineage, full-journey behavior, and per-concept responsive evidence.
+
 ## 3. Establish creative directions
 
 Choose the direction count from material ambiguity:

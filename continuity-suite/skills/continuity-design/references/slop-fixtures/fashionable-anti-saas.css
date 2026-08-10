@@ -1,0 +1,3 @@
+:root { --ink: #000; --signal: #39ff14; }
+.terminal { background: #000; color: neon; font-family: monospace; }
+/* Counter-default fixture: darkness, signal color, and terminal language appear together without subject evidence. */

@@ -80,7 +80,7 @@ Restraint is relational, not a universal preference for minimalism. A typographi
 Run these passes in order. Infer the relevant review perspectives from the project and context; the user does not need to name lenses or design terminology.
 
 1. **Provenance grounding:** connect the concept to inspected, supplied, or honestly inferred subject cues.
-2. **Divergent exploration:** compare materially different organizing ideas before converging.
+2. **Divergent exploration:** use the generative concept laboratory to compare materially different organizing ideas and media before converging; generated imagery must yield repeatable system decisions rather than remaining decoration.
 3. **Boundary push:** strengthen the most subject-specific move until it is visible in the concept, not merely described.
 4. **Contextual review:** inspect the concept through the perspectives that matter for this audience, modality, workflow, accessibility need, and consequence level. For every material perspective, record why it applies, a concrete finding, the design response, favorable behavior preserved, and an observable verification. A generic claim that hierarchy or usability was reviewed is not evidence of completion.
 5. **Restraint edit:** quiet competing dimensions, repair hierarchy and spacing rhythm, and remove treatments that do not reinforce the thesis.
@@ -101,6 +101,9 @@ Before building, ask:
 - Does each structural device encode something true about the content?
 - Is the copy native to the audience, or reusable editorial design language?
 - Does the narrow composition transform the idea rather than merely stack it?
+- Do typography and art direction change the reading model, or only decorate the same oversized-sans hero?
+- Does the signature survive at least five journey stages, including proof, a quiet or edge state, and closure?
+- Was each concept inspected at mobile, tablet, and desktop, or only seen inside a comparison shell?
 
 Revise any interchangeable decision before artifact generation.
 

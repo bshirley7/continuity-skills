@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import html
 import json
 import re
 import shutil
 import struct
+import zlib
 from pathlib import Path
 from typing import Any
+
+import design_slop
 
 AXES = {
     "industry": "industry",
@@ -46,6 +50,119 @@ COMPONENT_STRATEGIES = {"reuse", "compose", "extend", "custom", "missing-capabil
 WEB_ARTIFACT_QUALITY_SCENARIOS = {
     "horizontal-overflow", "sticky-action-obstruction", "color-contrast",
     "accessible-names", "semantic-controls", "reduced-motion", "intermediate-viewport",
+}
+COLLABORATION_PROFILES = {"guided", "collaborative", "creative-peer"}
+COLLABORATION_CONTRACTS = {
+    "guided": {
+        "recommendation_posture": "decisive",
+        "explanation_depth": "plain-language",
+        "feedback_scope": "three-to-five-numbered-elements",
+        "challenge_posture": "translate-design-language",
+    },
+    "collaborative": {
+        "recommendation_posture": "co-creative",
+        "explanation_depth": "tradeoff-visible",
+        "feedback_scope": "system-and-element-reactions",
+        "challenge_posture": "surface-and-test-assumptions",
+    },
+    "creative-peer": {
+        "recommendation_posture": "point-of-view-with-boundary-studies",
+        "explanation_depth": "professional-shorthand",
+        "feedback_scope": "direction-system-and-craft",
+        "challenge_posture": "direct-creative-challenge",
+    },
+}
+DESIGN_SPECIALIZATIONS = {
+    "brand-marketing", "product-system", "document-editorial",
+    "image-art-direction", "cinematic-experience", "mixed",
+}
+RESEARCH_MODES = {"adaptive-live", "offline", "user-supplied-only", "declined"}
+RESEARCH_STATUSES = {"not-started", "in-progress", "complete", "unavailable", "declined"}
+RESEARCH_AXES = {"subject-material", "treatment-light", "graphic-spatial"}
+CONCEPT_PRESENTATION_MODES = {"equal-directions", "director-led"}
+CONCEPT_ROLES = {"direction", "contrast-study"}
+RESEARCH_LINK_DISPOSITIONS = {"adopted", "transformed", "rejected", "reference-only"}
+FEEDBACK_REACTIONS = {"keep", "change", "avoid", "uncertain"}
+VISUAL_REFERENCE_OWNERSHIP = {"project-owned", "supplied-with-rights", "generated", "third-party"}
+GENERATIVE_EXPLORATION_STATUSES = {"complete", "unavailable", "declined", "deliberately-omitted"}
+GENERATIVE_EXPLORATION_MODES = {"mixed-media", "generated-media", "code-only", "omitted"}
+GENERATIVE_MEDIA = {"image-generation", "image-editing", "svg", "typography", "collage", "motion-frame", "code-sketch"}
+GENERATED_IMAGE_MEDIA = {"image-generation", "image-editing"}
+ART_DIRECTION_FAMILIES = {
+    "photographic", "documentary", "illustrative", "typographic", "material",
+    "spatial", "diagrammatic", "cinematic", "interaction-led", "mixed",
+}
+TYPOGRAPHY_FAMILIES = {
+    "serif", "humanist-sans", "grotesk-sans", "neo-grotesk-sans", "condensed-display",
+    "monospaced", "vernacular-display", "system-utility", "custom-letterform", "mixed",
+}
+TYPOGRAPHY_SOURCES = {"system", "project-supplied", "open-licensed", "licensed", "custom-lettering", "code-native"}
+COMPOSITION_FAMILIES = {
+    "editorial-sequence", "spatial-field", "cinematic-chapters", "typographic-poster",
+    "documentary-index", "interactive-instrument", "material-collage", "narrative-scroll", "modular-system",
+}
+PAGE_GRAMMAR_FAMILIES = {
+    "longform-narrative", "single-canvas-instrument", "navigable-artifact", "editorial-issue",
+    "cinematic-sequence", "modular-system", "spatial-journey",
+}
+PAGE_GRAMMAR_REQUIRED_BEHAVIORS = {
+    "longform-narrative": {"narrative-progression", "section-rhythm", "returning-carrier"},
+    "single-canvas-instrument": {"persistent-canvas", "state-recomposition", "control-continuity"},
+    "navigable-artifact": {"artifact-index", "nonlinear-entry", "custody-relationship"},
+    "editorial-issue": {"issue-spread-variation", "cross-spread-carrier", "article-sequencing"},
+    "cinematic-sequence": {"chapter-transition", "shot-continuity", "static-chapter-fallback"},
+    "modular-system": {"module-variation", "system-relationship", "nonuniform-emphasis"},
+    "spatial-journey": {"spatial-topology", "path-progression", "node-to-evidence"},
+}
+INTERACTION_MOTION_MODES = {"static", "native-disclosure", "direct-manipulation", "spatial-transition", "cinematic", "mixed"}
+GENERATED_EXTRACTION_DOMAINS = {"typography", "composition", "material", "motion", "code-native", "imagery"}
+STYLE_FRAME_METHODS = {"generated", "edited", "code-native", "project-owned"}
+IMPACT_STRENGTHS = {"credible", "compelling"}
+IMPACT_REVIEWER_TYPES = {"agent-multimodal", "human"}
+JOURNEY_STRUCTURE_MODES = {"structural-variety", "persistent-state-variation"}
+IMPROVEMENT_PASS_STATUSES = {"planned", "implemented", "validated", "awaiting-human", "accepted", "changes-requested"}
+JOURNEY_STAGE_ROLES = {
+    "opening", "orientation", "proof", "system-model", "interaction", "quiet-state",
+    "edge-state", "trust", "decision", "closure",
+}
+MEDIA_ASSET_SOURCES = {"generated", "derived", "project-owned", "supplied", "code-native", "deliberately-omitted"}
+PRIMARY_CONCEPT_CARRIERS = {"imagery", "interaction", "typography", "material", "spatial-system", "motion", "narrative"}
+CREATIVE_DISTANCE_DIMENSIONS = {
+    "organizing-idea", "primary-carrier", "emotional-register", "material-system",
+    "typography-behavior", "imagery-behavior", "motion-model", "voice", "responsive-transformation",
+}
+REFERENCE_CONSTRAINT_DIMENSIONS = {
+    "composition", "scale", "negative-space", "typography", "media", "material",
+    "color", "motion", "interaction", "content-structure", "responsive-transformation",
+}
+REFERENCE_REQUIRED_DIMENSIONS = {
+    "composition", "scale", "negative-space", "typography", "media", "responsive-transformation",
+}
+REFERENCE_MEDIA_STRATEGIES = {"generated", "project-owned", "supplied-with-rights", "code-native", "mixed"}
+REFERENCE_FIDELITY_CHECKS = (
+    "reference_mechanics_preserved", "project_identity_distinct", "material_fidelity",
+    "template_distance", "declared_visible",
+)
+REFERENCE_REVIEW_QUESTIONS = (
+    "salience_order", "spatial_tension", "typography_role", "media_dominance",
+    "mechanic_lineage", "project_distinction", "responsive_fidelity", "variable_contrast",
+)
+REFERENCE_CLASSES = {"photographic", "diagrammatic", "editorial", "motion-led", "product-object", "mixed"}
+REFERENCE_CLASS_THRESHOLDS = {
+    "photographic": {"crop-fidelity", "media-transition", "responsive-crop"},
+    "diagrammatic": {"information-density", "relationship-topology", "label-hierarchy"},
+    "editorial": {"reading-order", "typographic-rhythm", "material-texture"},
+    "motion-led": {"timing-model", "state-transition", "static-fallback"},
+    "product-object": {"object-salience", "material-detail", "responsive-object-behavior"},
+    "mixed": {"dominant-medium", "cross-medium-hierarchy", "responsive-medium-priority"},
+}
+ADAPTATION_DISTANCE_DIMENSIONS = {
+    "composition", "color", "typography", "media-role", "responsive-behavior", "interaction",
+}
+ADAPTATION_DISTANCE_ROLES = {"close-study", "far-study", "experimental-study"}
+PORTFOLIO_FINGERPRINT_DIMENSIONS = {
+    "palette-family", "typography-family", "composition-family", "label-style",
+    "status-mark-style", "signature-language", "material-system", "section-rhythm",
 }
 ASSET_RESOLUTION_STATUSES = {"resolved", "deliberately-omitted", "blocked"}
 ASSET_SOURCES = {"existing", "supplied", "generated", "derived", "deliberately-omitted"}
@@ -472,6 +589,552 @@ def _validate_strings(payload: dict[str, Any], key: str, required: bool = False)
     if required and not value:
         raise DesignError(f"{key} requires at least one value")
     return [item.strip() for item in value]
+
+
+def _infer_collaboration_profile(payload: dict[str, Any]) -> str:
+    supplied = payload.get("collaboration_profile")
+    if supplied is not None:
+        if supplied not in COLLABORATION_PROFILES:
+            raise DesignError("collaboration_profile must be guided, collaborative, or creative-peer")
+        return supplied
+    context = " ".join(
+        str(value)
+        for key in ("intent", "audiences", "workflow_signals", "evidence_inspected")
+        for value in ([payload.get(key)] if isinstance(payload.get(key), str) else payload.get(key, []))
+    ).lower()
+    if any(term in context for term in ("creative director", "design director", "art director", "creative lead", "design lead")):
+        return "creative-peer"
+    if any(term in context for term in ("co-create", "collaborate", "workshop", "design team")):
+        return "collaborative"
+    return "guided"
+
+
+def _collaboration_contract(profile: str) -> dict[str, str]:
+    return dict(COLLABORATION_CONTRACTS[profile])
+
+
+def _infer_specialization(payload: dict[str, Any]) -> str:
+    supplied = payload.get("specialization")
+    if supplied is not None:
+        if supplied not in DESIGN_SPECIALIZATIONS:
+            raise DesignError("specialization is not supported")
+        return supplied
+    targets = set(payload.get("targets", []))
+    context = " ".join([payload.get("intent", ""), *payload.get("sections", []), *payload.get("themes", [])]).lower()
+    if len(targets) > 1:
+        return "mixed"
+    if targets == {"document"}:
+        return "document-editorial"
+    if targets == {"image"}:
+        return "image-art-direction"
+    if any(term in context for term in ("film", "cinematic", "immersive", "motion experience")):
+        return "cinematic-experience"
+    if any(term in context for term in ("brand", "campaign", "marketing", "launch", "story")):
+        return "brand-marketing"
+    return "product-system"
+
+
+def _validate_reference_decomposition(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise DesignError("reference_decomposition must be an array")
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    dimensions = ("composition", "typography", "density", "imagery", "motion", "voice")
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise DesignError(f"reference_decomposition[{index}] must be an object")
+        reference_id = _identifier(str(item.get("reference_id", "")), "reference ID")
+        if reference_id in seen:
+            raise DesignError("Reference decomposition IDs must be unique")
+        source = item.get("source")
+        appeal = item.get("inferred_appeal")
+        transformation = item.get("project_transformation")
+        if not all(isinstance(text, str) and text.strip() for text in (source, appeal, transformation)):
+            raise DesignError("Reference decomposition requires source, inferred_appeal, and project_transformation")
+        breakdown = item.get("dimensions")
+        if not isinstance(breakdown, dict) or any(not isinstance(breakdown.get(key), str) or not breakdown[key].strip() for key in dimensions):
+            raise DesignError("Reference decomposition requires composition, typography, density, imagery, motion, and voice")
+        normalized.append({
+            "reference_id": reference_id,
+            "source": source.strip(),
+            "inferred_appeal": appeal.strip(),
+            "project_transformation": transformation.strip(),
+            "dimensions": {key: breakdown[key].strip() for key in dimensions},
+            "provisional": True,
+        })
+        seen.add(reference_id)
+    return normalized
+
+
+def _validate_research_record(value: Any, root: Path, *, precision: bool = False) -> dict[str, Any]:
+    if value is None:
+        return {"mode": "offline", "status": "not-started", "announced": False, "opt_out_offered": False, "moodboard": []}
+    if not isinstance(value, dict) or value.get("mode") not in RESEARCH_MODES or value.get("status") not in RESEARCH_STATUSES:
+        raise DesignError("research requires a supported mode and status")
+    announced = value.get("announced", False)
+    opt_out = value.get("opt_out_offered", False)
+    if not isinstance(announced, bool) or not isinstance(opt_out, bool):
+        raise DesignError("research announcement flags must be booleans")
+    if value["mode"] == "adaptive-live" and (not announced or not opt_out):
+        raise DesignError("Adaptive live research must be announced and offer an opt-out")
+    completed_at = value.get("completed_at")
+    if completed_at is not None and (not isinstance(completed_at, str) or not completed_at.strip()):
+        raise DesignError("research completed_at must be non-empty text when supplied")
+    tiles = value.get("moodboard", [])
+    if not isinstance(tiles, list):
+        raise DesignError("research moodboard must be an array")
+    if value["status"] == "complete" and value["mode"] == "adaptive-live" and not 12 <= len(tiles) <= 20:
+        raise DesignError("Completed live-research moodboards require 12 to 20 tiles")
+    normalized_tiles: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    seen_sources: set[str] = set()
+    seen_visuals: set[str] = set()
+    axes: set[str] = set()
+    for index, tile in enumerate(tiles):
+        if not isinstance(tile, dict) or not isinstance(tile.get("tile"), int) or tile["tile"] < 1:
+            raise DesignError(f"Moodboard tile {index + 1} requires a positive number")
+        if tile["tile"] in seen:
+            raise DesignError("Moodboard tile numbers must be unique")
+        for key in ("source", "captured_at", "intended_lesson", "axis", "project_mechanic"):
+            if not isinstance(tile.get(key), str) or not tile[key].strip():
+                raise DesignError(f"Moodboard tile {tile['tile']} requires {key}")
+        if tile["axis"] not in RESEARCH_AXES:
+            raise DesignError(f"Moodboard tile {tile['tile']} requires a supported research axis")
+        ownership = tile.get("ownership", "third-party")
+        if ownership not in VISUAL_REFERENCE_OWNERSHIP:
+            raise DesignError("Moodboard tile ownership is invalid")
+        copy_candidates = tile.get("copy_candidates", [])
+        shipping_boundary = tile.get("shipping_boundary", "")
+        if precision:
+            if not isinstance(copy_candidates, list) or not copy_candidates:
+                raise DesignError(f"Moodboard tile {tile['tile']} must identify specific details to copy privately and adapt")
+            if not isinstance(shipping_boundary, str) or not shipping_boundary.strip():
+                raise DesignError(f"Moodboard tile {tile['tile']} requires a shipping boundary")
+            if tile.get("shipping_copy_prohibited") is not True:
+                raise DesignError(f"Moodboard tile {tile['tile']} must keep source identity and pixels out of shipping work")
+        elif tile.get("prohibited_copying") is not True:
+            raise DesignError("Legacy moodboard tiles must explicitly prohibit copying")
+        normalized_candidates: list[dict[str, str]] = []
+        candidate_ids: set[str] = set()
+        for candidate in copy_candidates:
+            if not isinstance(candidate, dict):
+                raise DesignError(f"Moodboard tile {tile['tile']} copy candidates must be objects")
+            detail_id = _identifier(str(candidate.get("detail_id", "")), "moodboard copy detail ID")
+            fields = ("detail", "source_location", "private_copy_action", "project_adaptation", "shipping_transformation")
+            if detail_id in candidate_ids or any(not isinstance(candidate.get(field), str) or not candidate[field].strip() for field in fields):
+                raise DesignError(f"Moodboard tile {tile['tile']} copy candidates require unique IDs and a complete adaptation path")
+            normalized_candidates.append({"detail_id": detail_id, **{field: candidate[field].strip() for field in fields}})
+            candidate_ids.add(detail_id)
+        if ownership == "third-party" and tile.get("publishable", False):
+            raise DesignError("Third-party moodboard tiles cannot be publishable")
+        local_path = str(tile.get("local_path", "")).strip()
+        visual_hash = str(tile.get("sha256", "")).strip()
+        if value["status"] == "complete":
+            relative, path = _artifact_relative_path(root, local_path)
+            if not path.is_file() or path.suffix.lower() not in {".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"}:
+                raise DesignError(f"Moodboard tile {tile['tile']} requires a local captured image")
+            actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+            if visual_hash != actual_hash:
+                raise DesignError(f"Moodboard tile {tile['tile']} image changed or is not hash-bound")
+            local_path = relative
+            if actual_hash in seen_visuals:
+                raise DesignError("Completed moodboards cannot repeat the same captured visual")
+            seen_visuals.add(actual_hash)
+        normalized_tiles.append({
+            "tile": tile["tile"], "source": tile["source"].strip(), "captured_at": tile["captured_at"].strip(),
+            "intended_lesson": tile["intended_lesson"].strip(), "axis": tile["axis"].strip(),
+            "project_mechanic": tile["project_mechanic"].strip(),
+            "copy_candidates": normalized_candidates, "shipping_boundary": shipping_boundary.strip(),
+            "ownership": ownership, "prohibited_copying": bool(tile.get("prohibited_copying", not precision)),
+            "shipping_copy_prohibited": bool(tile.get("shipping_copy_prohibited", precision)), "publishable": bool(tile.get("publishable", False)),
+            "local_path": local_path, "sha256": visual_hash,
+        })
+        seen.add(tile["tile"])
+        seen_sources.add(tile["source"].strip())
+        axes.add(tile["axis"])
+    if value["status"] == "complete" and tiles:
+        if len(axes) < 2:
+            raise DesignError("Completed moodboards require at least two research axes")
+        if len(seen_sources) < min(3, len(tiles)):
+            raise DesignError("Completed moodboards require source diversity")
+    return {
+        "mode": value["mode"], "status": value["status"], "announced": announced,
+        "opt_out_offered": opt_out, "completed_at": completed_at, "moodboard": normalized_tiles,
+    }
+
+
+def _validate_generative_exploration(value: Any, root: Path) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError("Creative-director workflow requires an explicit generative_exploration record")
+    status = value.get("status")
+    mode = value.get("mode")
+    required = value.get("required_for_directioning")
+    if status not in GENERATIVE_EXPLORATION_STATUSES or mode not in GENERATIVE_EXPLORATION_MODES:
+        raise DesignError("generative_exploration requires a supported status and mode")
+    if not isinstance(required, bool):
+        raise DesignError("generative_exploration required_for_directioning must be boolean")
+    omission = value.get("omission_rationale", "")
+    if not isinstance(omission, str):
+        raise DesignError("generative_exploration omission_rationale must be text")
+    lenses = value.get("lenses", [])
+    seeds = value.get("seeds", [])
+    combinations = value.get("cross_pollinations", [])
+    shortlist = value.get("shortlisted_seed_ids", [])
+    style_frames = value.get("style_frame_explorations", [])
+    range_plan = value.get("range_plan", {})
+    if not all(isinstance(items, list) for items in (lenses, seeds, combinations, shortlist, style_frames)):
+        raise DesignError("generative_exploration collections must be arrays")
+    if status != "complete":
+        if mode != "omitted" or required or lenses or seeds or combinations or shortlist or style_frames or range_plan or not omission.strip():
+            raise DesignError("Unavailable, declined, or omitted concept laboratories require mode omitted, no generated work, and a rationale")
+        return {
+            "status": status, "mode": mode, "required_for_directioning": False,
+            "lenses": [], "seeds": [], "cross_pollinations": [],
+            "shortlisted_seed_ids": [], "style_frame_explorations": [], "range_plan": {}, "omission_rationale": omission.strip(),
+            "laboratory_hash": _canonical_hash({"status": status, "mode": mode, "omission_rationale": omission.strip()}),
+        }
+    if mode == "omitted" or required is not True or omission.strip():
+        raise DesignError("A completed concept laboratory must be required for directioning and cannot use omitted mode or rationale")
+    if not 4 <= len(lenses) <= 8:
+        raise DesignError("Completed concept laboratories require four to eight project-derived lenses")
+    if not isinstance(range_plan, dict):
+        raise DesignError("Completed concept laboratories require a range_plan object")
+    art_families = range_plan.get("art_direction_families")
+    typography_hypotheses = range_plan.get("typography_hypotheses")
+    composition_families = range_plan.get("composition_families")
+    page_depth_roles = range_plan.get("page_depth_roles")
+    page_grammar_hypotheses = range_plan.get("page_grammar_hypotheses")
+    interaction_motion_hypotheses = range_plan.get("interaction_motion_hypotheses")
+    intentional_convergence = range_plan.get("intentional_convergence", "")
+    if (
+        not isinstance(art_families, list) or len(set(art_families)) < 4
+        or any(item not in ART_DIRECTION_FAMILIES for item in art_families)
+    ):
+        raise DesignError("Completed concept laboratories require at least four distinct art-direction families")
+    if (
+        not isinstance(composition_families, list) or len(set(composition_families)) < 3
+        or any(item not in COMPOSITION_FAMILIES for item in composition_families)
+    ):
+        raise DesignError("Completed concept laboratories require at least three distinct composition families")
+    if (
+        not isinstance(page_depth_roles, list) or len(set(page_depth_roles)) < 5
+        or any(item not in JOURNEY_STAGE_ROLES for item in page_depth_roles)
+        or not {"opening", "proof", "closure"} <= set(page_depth_roles)
+        or not set(page_depth_roles).intersection({"quiet-state", "edge-state"})
+    ):
+        raise DesignError("Completed concept laboratories require opening, proof, quiet or edge, closure, and at least one additional page-depth role")
+    if not isinstance(typography_hypotheses, list) or not 3 <= len(typography_hypotheses) <= 6:
+        raise DesignError("Completed concept laboratories require three to six typography hypotheses")
+    normalized_typography: list[dict[str, Any]] = []
+    typography_ids: set[str] = set()
+    typography_families: set[str] = set()
+    typography_specimen_hashes: set[str] = set()
+    non_system_typography_count = 0
+    for item in typography_hypotheses:
+        if not isinstance(item, dict):
+            raise DesignError("Every typography hypothesis must be an object")
+        strategy_id = _identifier(str(item.get("strategy_id", "")), "typography strategy ID")
+        family = item.get("family")
+        if strategy_id in typography_ids or family not in TYPOGRAPHY_FAMILIES:
+            raise DesignError("Typography hypotheses require unique IDs and supported families")
+        source = item.get("source")
+        if source not in TYPOGRAPHY_SOURCES:
+            raise DesignError(f"Typography hypothesis {strategy_id} requires a supported source")
+        text_fields = ("role_relationship", "responsive_behavior", "anti_default", "customization", "license_evidence")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in text_fields):
+            raise DesignError(f"Typography hypothesis {strategy_id} lacks role, responsive, anti-default, customization, or license evidence")
+        specimen = item.get("specimen")
+        if not isinstance(specimen, dict):
+            raise DesignError(f"Typography hypothesis {strategy_id} requires a rendered specimen")
+        specimen_relative, specimen_path = _artifact_relative_path(root, specimen.get("path"))
+        specimen_actual = hashlib.sha256(specimen_path.read_bytes()).hexdigest() if specimen_path.is_file() else ""
+        if specimen_path.suffix.lower() not in {".html", ".png", ".svg"} or not specimen_actual or specimen.get("sha256") != specimen_actual:
+            raise DesignError(f"Typography specimen is missing or changed: {specimen_relative}")
+        if specimen_actual in typography_specimen_hashes:
+            raise DesignError("Every typography hypothesis requires a distinct specimen")
+        behavior_tests = item.get("behavior_tests")
+        if not isinstance(behavior_tests, list) or not {"display", "text", "narrow"} <= set(behavior_tests):
+            raise DesignError(f"Typography hypothesis {strategy_id} must test display, text, and narrow behavior")
+        normalized_typography.append({
+            "strategy_id": strategy_id, "family": family, "source": source,
+            **{key: item[key].strip() for key in text_fields},
+            "behavior_tests": list(dict.fromkeys(behavior_tests)),
+            "specimen": {"path": specimen_relative, "sha256": specimen_actual},
+        })
+        typography_ids.add(strategy_id)
+        typography_families.add(family)
+        typography_specimen_hashes.add(specimen_actual)
+        if source != "system":
+            non_system_typography_count += 1
+    if len(typography_families) < 3:
+        raise DesignError("Completed concept laboratories require at least three typography families")
+    if non_system_typography_count < 1:
+        raise DesignError("Completed concept laboratories require at least one supplied, licensed, custom-lettered, or code-native typography study")
+    if not isinstance(page_grammar_hypotheses, list) or not 4 <= len(page_grammar_hypotheses) <= 7:
+        raise DesignError("Completed concept laboratories require four to seven page-grammar hypotheses")
+    normalized_page_grammars: list[dict[str, str]] = []
+    page_grammar_ids: set[str] = set()
+    page_grammar_families: set[str] = set()
+    for item in page_grammar_hypotheses:
+        if not isinstance(item, dict):
+            raise DesignError("Every page-grammar hypothesis must be an object")
+        grammar_id = _identifier(str(item.get("grammar_id", "")), "page grammar ID")
+        family = item.get("family")
+        if grammar_id in page_grammar_ids or family not in PAGE_GRAMMAR_FAMILIES:
+            raise DesignError("Page-grammar hypotheses require unique IDs and supported families")
+        fields = ("hypothesis", "responsive_behavior", "depth_proof", "risk")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in fields):
+            raise DesignError(f"Page grammar {grammar_id} lacks hypothesis, responsive, depth, or risk evidence")
+        normalized_page_grammars.append({"grammar_id": grammar_id, "family": family, **{key: item[key].strip() for key in fields}})
+        page_grammar_ids.add(grammar_id)
+        page_grammar_families.add(family)
+    if len(page_grammar_families) < 4 or page_grammar_families == {"longform-narrative"}:
+        raise DesignError("Completed concept laboratories require at least four materially different page grammars")
+    if not isinstance(interaction_motion_hypotheses, list) or not 3 <= len(interaction_motion_hypotheses) <= 6:
+        raise DesignError("Completed concept laboratories require three to six interaction and motion hypotheses")
+    normalized_interactions: list[dict[str, Any]] = []
+    interaction_ids: set[str] = set()
+    interaction_artifact_hashes: set[str] = set()
+    for item in interaction_motion_hypotheses:
+        if not isinstance(item, dict):
+            raise DesignError("Every interaction and motion hypothesis must be an object")
+        strategy_id = _identifier(str(item.get("strategy_id", "")), "interaction and motion strategy ID")
+        interaction_mode = item.get("mode")
+        if strategy_id in interaction_ids or interaction_mode not in INTERACTION_MOTION_MODES:
+            raise DesignError("Interaction and motion hypotheses require unique IDs and supported modes")
+        fields = ("semantic_purpose", "reduced_motion", "static_fallback", "risk")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in fields):
+            raise DesignError(f"Interaction and motion hypothesis {strategy_id} lacks semantic, fallback, or risk evidence")
+        prototype = item.get("prototype")
+        if not isinstance(prototype, dict):
+            raise DesignError(f"Interaction and motion hypothesis {strategy_id} requires a prototype artifact")
+        prototype_relative, prototype_path = _artifact_relative_path(root, prototype.get("path"))
+        prototype_actual = hashlib.sha256(prototype_path.read_bytes()).hexdigest() if prototype_path.is_file() else ""
+        if prototype_path.suffix.lower() not in {".html", ".json", ".png", ".svg"} or not prototype_actual or prototype.get("sha256") != prototype_actual:
+            raise DesignError(f"Interaction and motion prototype is missing or changed: {prototype_relative}")
+        if prototype_actual in interaction_artifact_hashes:
+            raise DesignError("Every interaction and motion hypothesis requires a distinct prototype")
+        normalized_interactions.append({"strategy_id": strategy_id, "mode": interaction_mode, **{key: item[key].strip() for key in fields}, "prototype": {"path": prototype_relative, "sha256": prototype_actual}})
+        interaction_ids.add(strategy_id)
+        interaction_artifact_hashes.add(prototype_actual)
+    if not isinstance(intentional_convergence, str):
+        raise DesignError("Concept-laboratory intentional_convergence must be text")
+    normalized_range_plan = {
+        "art_direction_families": list(dict.fromkeys(art_families)),
+        "typography_hypotheses": normalized_typography,
+        "composition_families": list(dict.fromkeys(composition_families)),
+        "page_depth_roles": list(dict.fromkeys(page_depth_roles)),
+        "page_grammar_hypotheses": normalized_page_grammars,
+        "interaction_motion_hypotheses": normalized_interactions,
+        "intentional_convergence": intentional_convergence.strip(),
+    }
+    normalized_lenses: list[dict[str, str]] = []
+    lens_ids: set[str] = set()
+    for item in lenses:
+        if not isinstance(item, dict):
+            raise DesignError("Every generative lens must be an object")
+        lens_id = _identifier(str(item.get("lens_id", "")), "generative lens ID")
+        if lens_id in lens_ids:
+            raise DesignError("Generative lens IDs must be unique")
+        thesis = item.get("thesis")
+        truth = item.get("product_truth")
+        if not all(isinstance(text, str) and text.strip() for text in (thesis, truth)):
+            raise DesignError("Every generative lens requires a thesis and project-specific product truth")
+        normalized_lenses.append({"lens_id": lens_id, "thesis": thesis.strip(), "product_truth": truth.strip()})
+        lens_ids.add(lens_id)
+    if not 8 <= len(seeds) <= 12:
+        raise DesignError("Completed concept laboratories require eight to twelve inexpensive seeds")
+    normalized_seeds: list[dict[str, Any]] = []
+    seed_ids: set[str] = set()
+    artifact_hashes: set[str] = set()
+    media: set[str] = set()
+    represented_lenses: set[str] = set()
+    for item in seeds:
+        if not isinstance(item, dict):
+            raise DesignError("Every generative seed must be an object")
+        seed_id = _identifier(str(item.get("seed_id", "")), "generative seed ID")
+        lens_id = _identifier(str(item.get("lens_id", "")), "generative lens ID")
+        medium = item.get("medium")
+        if seed_id in seed_ids or lens_id not in lens_ids or medium not in GENERATIVE_MEDIA:
+            raise DesignError("Generative seeds require unique IDs, known lenses, and supported media")
+        art_family = item.get("art_direction_family")
+        typography_strategy_id = item.get("typography_strategy_id")
+        composition_family = item.get("composition_family")
+        depth_roles = item.get("page_depth_roles")
+        if art_family not in set(normalized_range_plan["art_direction_families"]):
+            raise DesignError(f"Generative seed {seed_id} requires a planned art-direction family")
+        if typography_strategy_id not in typography_ids:
+            raise DesignError(f"Generative seed {seed_id} requires a planned typography strategy")
+        if composition_family not in set(normalized_range_plan["composition_families"]):
+            raise DesignError(f"Generative seed {seed_id} requires a planned composition family")
+        if not isinstance(depth_roles, list) or not depth_roles or any(role not in set(normalized_range_plan["page_depth_roles"]) for role in depth_roles):
+            raise DesignError(f"Generative seed {seed_id} requires planned page-depth roles")
+        text_fields = ("hypothesis", "project_specificity", "surprising_quality", "risk")
+        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in text_fields):
+            raise DesignError(f"Generative seed {seed_id} lacks its hypothesis, specificity, surprise, or risk")
+        mechanics = item.get("transferable_mechanics")
+        if not isinstance(mechanics, list) or not mechanics or any(not isinstance(entry, str) or not entry.strip() for entry in mechanics):
+            raise DesignError(f"Generative seed {seed_id} requires transferable mechanics")
+        provenance = item.get("provenance")
+        if provenance not in {"generated", "project-owned", "supplied-with-rights", "derived-study"}:
+            raise DesignError(f"Generative seed {seed_id} requires supported provenance")
+        artifact = item.get("artifact")
+        if not isinstance(artifact, dict):
+            raise DesignError(f"Generative seed {seed_id} requires an artifact")
+        relative, path = _artifact_relative_path(root, artifact.get("path"))
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+        if not actual or artifact.get("sha256") != actual:
+            raise DesignError(f"Generative seed artifact is missing or changed: {relative}")
+        if actual in artifact_hashes:
+            raise DesignError("Every generative seed requires a distinct artifact")
+        normalized_seeds.append({
+            "seed_id": seed_id, "lens_id": lens_id, "medium": medium,
+            "art_direction_family": art_family, "typography_strategy_id": typography_strategy_id,
+            "composition_family": composition_family, "page_depth_roles": list(dict.fromkeys(depth_roles)),
+            **{key: item[key].strip() for key in text_fields},
+            "transferable_mechanics": [entry.strip() for entry in mechanics],
+            "provenance": provenance, "artifact": {"path": relative, "sha256": actual},
+        })
+        seed_ids.add(seed_id)
+        artifact_hashes.add(actual)
+        media.add(medium)
+        represented_lenses.add(lens_id)
+    if len(represented_lenses) < 4:
+        raise DesignError("Completed concept laboratories must explore at least four lenses")
+    if len({item["art_direction_family"] for item in normalized_seeds}) < 4:
+        raise DesignError("Completed concept laboratories must realize at least four art-direction families in seed artifacts")
+    if len({item["typography_strategy_id"] for item in normalized_seeds}) < 3:
+        raise DesignError("Completed concept laboratories must realize at least three typography strategies in seed artifacts")
+    if len({item["composition_family"] for item in normalized_seeds}) < 3:
+        raise DesignError("Completed concept laboratories must realize at least three composition families in seed artifacts")
+    if not set(normalized_range_plan["page_depth_roles"]) <= {role for item in normalized_seeds for role in item["page_depth_roles"]}:
+        raise DesignError("Completed concept laboratories must test every planned page-depth role in seed artifacts")
+    if mode == "mixed-media" and (len(media) < 3 or not media.intersection(GENERATED_IMAGE_MEDIA)):
+        raise DesignError("Mixed-media concept laboratories require at least three media including image generation or editing")
+    if mode == "generated-media" and not media.intersection(GENERATED_IMAGE_MEDIA):
+        raise DesignError("Generated-media concept laboratories require image generation or editing")
+    if mode == "code-only" and not media <= {"svg", "typography", "motion-frame", "code-sketch"}:
+        raise DesignError("Code-only concept laboratories cannot claim generated-image media")
+    generated_families = {
+        item["art_direction_family"] for item in normalized_seeds if item["medium"] in GENERATED_IMAGE_MEDIA
+    }
+    if not isinstance(style_frames, list) or len(style_frames) < max(2, len(generated_families)):
+        raise DesignError("Completed concept laboratories require multi-frame exploration for at least two promising art-direction families")
+    normalized_style_frames: list[dict[str, Any]] = []
+    style_frame_group_ids: set[str] = set()
+    explored_style_families: set[str] = set()
+    style_frame_hashes: set[str] = set()
+    for group in style_frames:
+        if not isinstance(group, dict):
+            raise DesignError("Every style-frame exploration must be an object")
+        exploration_id = _identifier(str(group.get("exploration_id", "")), "style-frame exploration ID")
+        art_family = group.get("art_direction_family")
+        if exploration_id in style_frame_group_ids or art_family not in set(normalized_range_plan["art_direction_families"]):
+            raise DesignError("Style-frame explorations require unique IDs and planned art-direction families")
+        hypothesis = group.get("hypothesis")
+        synthesis = group.get("synthesis")
+        if not isinstance(hypothesis, str) or not hypothesis.strip() or not isinstance(synthesis, str) or not synthesis.strip():
+            raise DesignError(f"Style-frame exploration {exploration_id} requires a hypothesis and synthesis")
+        frames = group.get("frames")
+        if not isinstance(frames, list) or not 2 <= len(frames) <= 4:
+            raise DesignError(f"Style-frame exploration {exploration_id} requires two to four frames")
+        normalized_frames: list[dict[str, Any]] = []
+        frame_ids: set[str] = set()
+        for frame in frames:
+            if not isinstance(frame, dict):
+                raise DesignError("Every style frame must be an object")
+            frame_id = _identifier(str(frame.get("frame_id", "")), "style frame ID")
+            method = frame.get("method")
+            lesson = frame.get("lesson")
+            if frame_id in frame_ids or method not in STYLE_FRAME_METHODS or not isinstance(lesson, str) or not lesson.strip():
+                raise DesignError("Style frames require unique IDs, supported methods, and a lesson")
+            artifact = frame.get("artifact")
+            if not isinstance(artifact, dict):
+                raise DesignError(f"Style frame {frame_id} requires an artifact")
+            relative, artifact_path = _artifact_relative_path(root, artifact.get("path"))
+            actual = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path.is_file() else ""
+            if artifact_path.suffix.lower() not in {".html", ".jpeg", ".jpg", ".png", ".svg", ".webp"} or not actual or artifact.get("sha256") != actual:
+                raise DesignError(f"Style frame is missing or changed: {relative}")
+            if actual in style_frame_hashes:
+                raise DesignError("Every style frame requires a distinct artifact")
+            normalized_frames.append({"frame_id": frame_id, "method": method, "lesson": lesson.strip(), "artifact": {"path": relative, "sha256": actual}})
+            frame_ids.add(frame_id)
+            style_frame_hashes.add(actual)
+        selected = group.get("selected_frame_ids")
+        rejected = group.get("rejected_frame_ids")
+        mechanics = group.get("system_extractions")
+        if (
+            not isinstance(selected, list) or not selected or not set(selected) <= frame_ids
+            or not isinstance(rejected, list) or not rejected or not set(rejected) <= frame_ids
+            or set(selected) & set(rejected)
+        ):
+            raise DesignError(f"Style-frame exploration {exploration_id} must explicitly select and reject frames")
+        if not isinstance(mechanics, list) or len(mechanics) < 3 or any(not isinstance(item, str) or not item.strip() for item in mechanics):
+            raise DesignError(f"Style-frame exploration {exploration_id} requires at least three system extractions")
+        normalized_style_frames.append({
+            "exploration_id": exploration_id, "art_direction_family": art_family,
+            "hypothesis": hypothesis.strip(), "frames": normalized_frames,
+            "selected_frame_ids": selected, "rejected_frame_ids": rejected,
+            "system_extractions": [item.strip() for item in mechanics], "synthesis": synthesis.strip(),
+        })
+        style_frame_group_ids.add(exploration_id)
+        explored_style_families.add(art_family)
+    if not generated_families <= explored_style_families:
+        raise DesignError("Every generated art-direction family requires a multi-frame exploration before concept commitment")
+    if len(combinations) < 2:
+        raise DesignError("Completed concept laboratories require at least two cross-pollination experiments")
+    normalized_combinations: list[dict[str, Any]] = []
+    combination_ids: set[str] = set()
+    for item in combinations:
+        if not isinstance(item, dict):
+            raise DesignError("Every cross-pollination experiment must be an object")
+        combination_id = _identifier(str(item.get("combination_id", "")), "cross-pollination ID")
+        linked = item.get("seed_ids")
+        hypothesis = item.get("hypothesis")
+        mechanics = item.get("resulting_mechanics")
+        if combination_id in combination_ids or not isinstance(linked, list) or len(set(linked)) < 2 or not set(linked) <= seed_ids:
+            raise DesignError("Cross-pollination experiments require unique IDs and at least two known seeds")
+        if not isinstance(hypothesis, str) or not hypothesis.strip() or not isinstance(mechanics, list) or not mechanics or any(not isinstance(entry, str) or not entry.strip() for entry in mechanics):
+            raise DesignError("Cross-pollination experiments require a hypothesis and resulting mechanics")
+        normalized_combinations.append({"combination_id": combination_id, "seed_ids": linked, "hypothesis": hypothesis.strip(), "resulting_mechanics": [entry.strip() for entry in mechanics]})
+        combination_ids.add(combination_id)
+    if not 3 <= len(shortlist) <= 6 or len(set(shortlist)) != len(shortlist) or not set(shortlist) <= seed_ids:
+        raise DesignError("Completed concept laboratories require three to six unique shortlisted seeds")
+    normalized = {
+        "status": status, "mode": mode, "required_for_directioning": True,
+        "lenses": normalized_lenses, "seeds": normalized_seeds,
+        "cross_pollinations": normalized_combinations, "shortlisted_seed_ids": shortlist,
+        "style_frame_explorations": normalized_style_frames,
+        "range_plan": normalized_range_plan,
+        "omission_rationale": "",
+    }
+    normalized["laboratory_hash"] = _canonical_hash(normalized)
+    return normalized
+
+
+def concept_lab_validate(root: Path, config: dict[str, Any], input_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    laboratory = _validate_generative_exploration(_read_json(input_path), root)
+    return {
+        "status": laboratory["status"], "mode": laboratory["mode"],
+        "lens_count": len(laboratory["lenses"]), "seed_count": len(laboratory["seeds"]),
+        "media_count": len({item["medium"] for item in laboratory["seeds"]}),
+        "art_direction_family_count": len({item["art_direction_family"] for item in laboratory["seeds"]}) if laboratory["status"] == "complete" else 0,
+        "typography_strategy_count": len({item["typography_strategy_id"] for item in laboratory["seeds"]}) if laboratory["status"] == "complete" else 0,
+        "typography_family_count": len({item["family"] for item in laboratory.get("range_plan", {}).get("typography_hypotheses", [])}),
+        "composition_family_count": len({item["composition_family"] for item in laboratory["seeds"]}) if laboratory["status"] == "complete" else 0,
+        "page_depth_role_count": len(laboratory.get("range_plan", {}).get("page_depth_roles", [])),
+        "page_grammar_count": len(laboratory.get("range_plan", {}).get("page_grammar_hypotheses", [])),
+        "interaction_motion_count": len(laboratory.get("range_plan", {}).get("interaction_motion_hypotheses", [])),
+        "style_frame_family_count": len({item["art_direction_family"] for item in laboratory.get("style_frame_explorations", [])}),
+        "style_frame_count": sum(len(item["frames"]) for item in laboratory.get("style_frame_explorations", [])),
+        "non_system_typography_count": sum(item.get("source") != "system" for item in laboratory.get("range_plan", {}).get("typography_hypotheses", [])),
+        "generated_seed_count": sum(item["medium"] in GENERATED_IMAGE_MEDIA for item in laboratory["seeds"]),
+        "shortlisted_seed_count": len(laboratory["shortlisted_seed_ids"]),
+        "laboratory_hash": laboratory["laboratory_hash"], "execution_authorized": False,
+    }
 
 
 def _selected_packs(payload: dict[str, Any], catalog: dict[str, Any]) -> list[dict[str, str]]:
@@ -1539,6 +2202,17 @@ def _validate_direction(value: Any, index: int, targets: list[str]) -> dict[str,
 def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Path) -> dict[str, Any]:
     _enabled(config)
     payload = _read_json(input_path)
+    requested_workflow = payload.get("workflow_version", 1)
+    if requested_workflow not in {1, 2, 3}:
+        raise DesignError("workflow_version must be 1, 2, or 3")
+    creative_director_workflow = requested_workflow >= 2
+    reference_translation_workflow = requested_workflow >= 3
+    v2_fields = {
+        "collaboration_profile", "specialization", "research", "reference_decomposition",
+        "generative_exploration", "concept_presentation_mode", "rejected_decisions",
+    }
+    if not creative_director_workflow and v2_fields.intersection(payload):
+        raise DesignError("Creative-director fields require explicit workflow_version 2 or 3")
     for key in ("title", "intent"):
         if not isinstance(payload.get(key), str) or not payload[key].strip():
             raise DesignError(f"Design input requires {key}")
@@ -1596,6 +2270,21 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         payload[key] = _validate_strings(payload, key)
     if not set(payload["targets"]).issubset(TARGETS):
         raise DesignError(f"Unknown targets: {sorted(set(payload['targets']) - TARGETS)}")
+    payload["collaboration_profile"] = _infer_collaboration_profile(payload)
+    payload["specialization"] = _infer_specialization(payload)
+    payload["research"] = _validate_research_record(payload.get("research"), root, precision=requested_workflow >= 3)
+    payload["reference_decomposition"] = _validate_reference_decomposition(payload.get("reference_decomposition"))
+    if creative_director_workflow and "generative_exploration" not in payload:
+        raise DesignError("Creative-director workflow requires an explicit generative_exploration record")
+    payload["generative_exploration"] = _validate_generative_exploration(payload.get("generative_exploration"), root) if creative_director_workflow else None
+    presentation_mode = payload.get("concept_presentation_mode")
+    if presentation_mode is not None and presentation_mode not in CONCEPT_PRESENTATION_MODES:
+        raise DesignError("concept_presentation_mode must be equal-directions or director-led")
+    payload["concept_presentation_mode"] = presentation_mode
+    rejected = payload.get("rejected_decisions", [])
+    if not isinstance(rejected, list) or any(not isinstance(item, (str, dict)) for item in rejected):
+        raise DesignError("rejected_decisions must be an array of text or decision objects")
+    payload["rejected_decisions"] = rejected
     consequence_level = payload.get("consequence_level", "moderate")
     if consequence_level not in CONSEQUENCE_LEVELS:
         raise DesignError("consequence_level must be routine, moderate, or high")
@@ -1630,6 +2319,14 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
         status = "mixed" if len(active) > 1 else next(iter(active), "not-applicable")
         evidence_application[target] = {"status": status, **groups}
     count = _direction_count(payload)
+    if payload["concept_presentation_mode"] is None:
+        payload["concept_presentation_mode"] = "equal-directions" if count > 1 and bool(payload["open_questions"]) else "director-led"
+    if creative_director_workflow and supplied is None:
+        raise DesignError("Creative-director workflow requires agent-authored project-specific directions")
+    if creative_director_workflow and payload["concept_presentation_mode"] == "director-led" and count != 1:
+        raise DesignError("Director-led workflow requires one selectable direction; contrast studies belong in concept evidence")
+    if creative_director_workflow and payload["concept_presentation_mode"] == "equal-directions" and count < 2:
+        raise DesignError("Equal-direction workflow requires two or three selectable directions")
     if supplied is not None and payload["direction_assessment"] is None:
         raise DesignError("Authored directions require direction_assessment")
     if payload["direction_assessment"]:
@@ -1651,26 +2348,65 @@ def draft(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Pa
     design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
     prior_path = design_dir / "draft.json"
     revision = 1
+    carried_feedback: list[dict[str, Any]] = []
+    carried_rejections: list[Any] = []
+    carried_decisions: list[dict[str, Any]] = []
     if prior_path.exists():
         prior = _read_json(prior_path)
-        revision = int(prior.get("revision", 0)) + 1
-        archive = design_dir / "revisions" / f"v{prior.get('revision', 1)}"
-        if archive.exists():
-            raise DesignError("Design revision archive already exists")
-        archive.mkdir(parents=True)
-        for name in ("draft.json", "design.md", "approval.json"):
-            path = design_dir / name
-            if path.exists():
-                shutil.copy2(path, archive / name)
+        carried_feedback = list(prior.get("feedback_rounds", []))
+        carried_rejections = list(prior.get("rejected_decisions", []))
+        carried_decisions = list(prior.get("decision_register", []))
+        refining_current_revision = (
+            creative_director_workflow
+            and prior.get("workflow_version", 1) >= 2
+            and prior.get("status") == "refining"
+            and isinstance(prior.get("concept_evidence"), dict)
+            and prior["concept_evidence"].get("validated") is False
+        )
+        if refining_current_revision:
+            revision = int(prior.get("revision", 1))
+        else:
+            revision = int(prior.get("revision", 0)) + 1
+            archive = design_dir / "revisions" / f"v{prior.get('revision', 1)}"
+            if archive.exists():
+                raise DesignError("Design revision archive already exists")
+            archive.mkdir(parents=True)
+            for name in ("draft.json", "design.md", "approval.json"):
+                path = design_dir / name
+                if path.exists():
+                    shutil.copy2(path, archive / name)
         (design_dir / "design.md").unlink(missing_ok=True)
         (design_dir / "approval.json").unlink(missing_ok=True)
+    merged_rejections = carried_rejections + payload["rejected_decisions"]
+    deduped_rejections: list[Any] = []
+    seen_rejections: set[str] = set()
+    for item in merged_rejections:
+        key = _canonical_hash(item)
+        if key not in seen_rejections:
+            deduped_rejections.append(item)
+            seen_rejections.add(key)
     record = {
-        "schema_version": 1,
+        "schema_version": requested_workflow,
+        "workflow_version": requested_workflow,
         "design_id": design_id,
         "revision": revision,
-        "status": "awaiting-selection",
+        "status": "developing-reference-translations" if reference_translation_workflow else ("developing-concepts" if creative_director_workflow else "awaiting-selection"),
         "title": payload["title"].strip(),
         "intent": payload["intent"].strip(),
+        "collaboration_profile": payload["collaboration_profile"],
+        "collaboration_contract": _collaboration_contract(payload["collaboration_profile"]),
+        "specialization": payload["specialization"],
+        "research": payload["research"],
+        "reference_decomposition": payload["reference_decomposition"],
+        "generative_exploration": payload["generative_exploration"],
+        "concept_presentation_mode": payload["concept_presentation_mode"],
+        "concept_evidence": None,
+        "reference_translation": None,
+        "feedback_rounds": carried_feedback,
+        "decision_register": carried_decisions,
+        "rejected_decisions": deduped_rejections,
+        "slop_ruleset_version": design_slop.RULESET_VERSION,
+        "slop_ruleset_hash": design_slop.ruleset_hash(),
         "audiences": payload["audiences"],
         "targets": payload["targets"],
         "modality_assessment": payload["modality_assessment"],
@@ -1805,6 +2541,17 @@ def _direction_markdown(draft_record: dict[str, Any], selected: list[dict[str, A
     else:
         lines.append("- No structured source uncertainties were supplied; do not infer that the source material was complete.")
     lines.append("")
+    laboratory = draft_record.get("generative_exploration")
+    if isinstance(laboratory, dict):
+        lines.extend(["## Generative concept lineage", "", f"Status: `{laboratory.get('status')}`  ", f"Laboratory hash: `{laboratory.get('laboratory_hash')}`", ""])
+        if laboratory.get("status") == "complete":
+            lines.extend(["Exploration lenses:", "", *[f"- **{item['lens_id']}:** {item['thesis']} Product truth: {item['product_truth']}" for item in laboratory.get("lenses", [])], ""])
+            lines.extend(["Shortlisted seeds:", "", *[f"- `{seed_id}`" for seed_id in laboratory.get("shortlisted_seed_ids", [])], ""])
+        else:
+            lines.extend([f"- {laboratory.get('omission_rationale') or 'No exploration rationale recorded.'}", ""])
+        range_evidence = draft_record.get("concept_evidence", {}).get("creative_range") if isinstance(draft_record.get("concept_evidence"), dict) else None
+        if range_evidence:
+            lines.extend(["Creative-range disposition:", "", f"- `{range_evidence.get('status')}` — {range_evidence.get('house_tell_review', {}).get('rationale', '')}", ""])
     architecture = draft_record.get("audience_architecture")
     lines.extend(["## Audience architecture", ""])
     if architecture:
@@ -2088,12 +2835,44 @@ def select(root: Path, config: dict[str, Any], design_id: str, direction_ids: li
     by_id = {item["direction_id"]: item for item in record["directions"]}
     if not requested or not set(requested).issubset(by_id):
         raise DesignError("Select one or more known direction IDs")
+    if record.get("workflow_version", 1) >= 2:
+        evidence = record.get("concept_evidence")
+        concept_ids = {item["direction_id"] for item in evidence.get("concepts", [])} if isinstance(evidence, dict) else set()
+        if not evidence or not evidence.get("validated") or not set(requested).issubset(concept_ids):
+            raise DesignError("Creative-director selection requires current validated concept and slop evidence")
     markdown = _direction_markdown(record, [by_id[item] for item in requested])
     design_hash = hashlib.sha256(markdown.encode()).hexdigest()
     (design_dir / "design.md").write_bytes(markdown.encode("utf-8"))
-    record.update({"status": "awaiting-approval", "selected_direction_ids": requested, "selected_by": actor, "selected_at": _now(), "design_hash": design_hash})
+    update = {"status": "awaiting-approval", "selected_direction_ids": requested, "selected_by": actor, "selected_at": _now(), "design_hash": design_hash}
+    if record.get("workflow_version", 1) >= 2:
+        bundle = {
+            "design_hash": design_hash,
+            "visual_reference_hash": record["concept_evidence"]["visual_reference_hash"],
+            "concept_manifest_hash": record["concept_evidence"]["manifest_hash"],
+            "selected_slop_report_hashes": [
+                concept["slop_report"]["report_hash"]
+                for concept in record["concept_evidence"]["concepts"]
+                if concept["direction_id"] in requested
+            ],
+            "slop_ruleset_version": record["slop_ruleset_version"],
+            "slop_ruleset_hash": record["slop_ruleset_hash"],
+        }
+        if record.get("workflow_version", 1) >= 3:
+            bundle["reference_translation_hash"] = record["concept_evidence"].get("reference_translation_hash")
+            selected_concepts = [
+                concept for concept in record["concept_evidence"]["concepts"]
+                if concept["direction_id"] in requested
+            ]
+            bundle["typographic_transfer_hashes"] = [_canonical_hash(concept["typographic_transfer"]) for concept in selected_concepts]
+            bundle["composition_asset_plan_hashes"] = [_canonical_hash(concept["composition_asset_plan"]) for concept in selected_concepts]
+        update.update({"approval_bundle": bundle, "approval_bundle_hash": _canonical_hash(bundle), "prototype_slop_evidence": None})
+    record.update(update)
     _write_json(design_dir / "draft.json", record)
-    record["required_authorization_text"] = f"Approve design {design_id} revision {record['revision']} hash {design_hash}"
+    record["required_authorization_text"] = (
+        f"Approve design {design_id} revision {record['revision']} hash {design_hash} bundle {record['approval_bundle_hash']}"
+        if record.get("approval_bundle_hash")
+        else f"Approve design {design_id} revision {record['revision']} hash {design_hash}"
+    )
     return record
 
 
@@ -2110,15 +2889,72 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
     actual_hash = hashlib.sha256(draft_path.read_bytes()).hexdigest()
     if actual_hash != record.get("design_hash"):
         raise DesignError("Private design draft changed after selection")
-    required = f"Approve design {design_id} revision {revision} hash {actual_hash}"
+    if record.get("workflow_version", 1) >= 2:
+        if _canonical_hash(record.get("approval_bundle")) != record.get("approval_bundle_hash"):
+            raise DesignError("Approval bundle changed after selection")
+        if not record.get("prototype_slop_evidence"):
+            raise DesignError("Exact approval requires a passed slop check for the selected private prototype")
+        prototype_slop = _verified_private_report(root, record["prototype_slop_evidence"], stage="prototype")
+        _, prototype_report_path = _artifact_relative_path(root, prototype_slop["path"])
+        prototype_report = _read_json(prototype_report_path)
+        for key, expected in (("design_id", design_id), ("revision", revision), ("design_hash", actual_hash), ("approval_bundle_hash", record["approval_bundle_hash"])):
+            if prototype_report.get(key) != expected:
+                raise DesignError(f"Prototype AI-slop report {key} is stale")
+        for item in prototype_report.get("files", []):
+            relative, scanned_path = _artifact_relative_path(root, item.get("path"))
+            if not scanned_path.is_file() or hashlib.sha256(scanned_path.read_bytes()).hexdigest() != item.get("sha256"):
+                raise DesignError(f"Prototype AI-slop report is stale for: {relative}")
+    required = (
+        f"Approve design {design_id} revision {revision} hash {actual_hash} bundle {record['approval_bundle_hash']}"
+        if record.get("approval_bundle_hash")
+        else f"Approve design {design_id} revision {revision} hash {actual_hash}"
+    )
     if authorization_text != required:
         raise DesignError("Authorization text must exactly match the design ID, revision, and hash")
     canonical_path = root / "docs" / "design" / "design.md"
     canonical_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(draft_path, canonical_path)
-    approval = {"schema_version": 1, "design_id": design_id, "revision": revision, "design_hash": actual_hash, "approved_by": approved_by, "approved_at": _now(), "authorization_text": authorization_text, "execution_authorized": False}
+    approved_references: list[dict[str, Any]] = []
+    if record.get("workflow_version", 1) >= 2:
+        reference_dir = root / "docs" / "design" / "references"
+        reference_dir.mkdir(parents=True, exist_ok=True)
+        for item in record.get("concept_evidence", {}).get("publishable_references", []):
+            if item["ownership"] not in {"project-owned", "supplied-with-rights", "generated"}:
+                raise DesignError("Only owned, rights-supplied, or generated references may be promoted")
+            _, source = _artifact_relative_path(root, item["path"])
+            if hashlib.sha256(source.read_bytes()).hexdigest() != item["sha256"]:
+                raise DesignError("Approved visual reference changed after concept validation")
+            destination = reference_dir / source.name
+            if destination.exists() and hashlib.sha256(destination.read_bytes()).hexdigest() != item["sha256"]:
+                raise DesignError(f"Approved visual reference name conflicts with an existing file: {source.name}")
+            shutil.copy2(source, destination)
+            approved_references.append({"path": f"docs/design/references/{source.name}", "sha256": item["sha256"], "ownership": item["ownership"]})
+        if _canonical_hash(record.get("concept_evidence", {}).get("visual_reference_material", [])) != record.get("approval_bundle", {}).get("visual_reference_hash"):
+            raise DesignError("Visual-reference bundle changed after selection")
+    approval = {
+        "schema_version": 2 if record.get("workflow_version", 1) >= 2 else 1,
+        "design_id": design_id, "revision": revision, "design_hash": actual_hash,
+        "approved_by": approved_by, "approved_at": _now(), "authorization_text": authorization_text,
+        "execution_authorized": False,
+    }
+    if record.get("workflow_version", 1) >= 2:
+        approval.update({
+            "visual_reference_hash": record["approval_bundle"]["visual_reference_hash"],
+            "approval_bundle_hash": record["approval_bundle_hash"],
+            "slop_ruleset_version": record["slop_ruleset_version"],
+            "slop_ruleset_hash": record["slop_ruleset_hash"],
+            "prototype_slop_evidence": record["prototype_slop_evidence"],
+        })
+        if record.get("workflow_version", 1) >= 3:
+            approval["reference_translation_hash"] = record["approval_bundle"].get("reference_translation_hash")
+            approval["approval_bundle"] = record["approval_bundle"]
     _write_json(design_dir / "approval.json", approval)
     shared = {key: approval[key] for key in ("schema_version", "design_id", "revision", "design_hash", "approved_by", "approved_at", "execution_authorized")}
+    for key in ("visual_reference_hash", "approval_bundle_hash", "reference_translation_hash", "slop_ruleset_version", "slop_ruleset_hash"):
+        if key in approval:
+            shared[key] = approval[key]
+    if "approval_bundle" in approval:
+        shared["approval_bundle"] = approval["approval_bundle"]
     selected = [item for item in record["directions"] if item["direction_id"] in record["selected_direction_ids"]]
     alignment_contract = {
         "selected_direction_ids": record["selected_direction_ids"],
@@ -2146,7 +2982,20 @@ def approve(root: Path, config: dict[str, Any], design_id: str, revision: int, a
         "validation_criteria": [rule for direction in selected for rule in direction["validation_criteria"]],
         "prohibited_patterns": [rule for direction in selected for rule in direction["prohibited_patterns"]],
     }
-    shared.update({"status": "approved", "document_path": "docs/design/design.md", "catalog_packs": record["catalog_packs"], "alignment_contract": alignment_contract})
+    alignment_contract.update({
+        "collaboration_profile": record.get("collaboration_profile"),
+        "collaboration_contract": record.get("collaboration_contract"),
+        "specialization": record.get("specialization"),
+        "reference_decomposition": record.get("reference_decomposition", []),
+        "research": record.get("research"),
+        "generative_exploration": record.get("generative_exploration"),
+        "decision_register": record.get("decision_register", []),
+        "rejected_decisions": record.get("rejected_decisions", []),
+        "concept_evidence": record.get("concept_evidence"),
+        "reference_translation": record.get("reference_translation"),
+        "slop_ruleset_version": record.get("slop_ruleset_version"),
+    })
+    shared.update({"status": "approved", "document_path": "docs/design/design.md", "visual_references": approved_references, "catalog_packs": record["catalog_packs"], "alignment_contract": alignment_contract})
     _write_json(root / ".continuity" / "design.json", shared)
     record["status"] = "approved"
     _write_json(design_dir / "draft.json", record)
@@ -2167,11 +3016,17 @@ def show(root: Path, config: dict[str, Any], design_id: str | None = None) -> di
 def workflow(root: Path, config: dict[str, Any], design_id: str) -> dict[str, Any]:
     record = show(root, config, design_id)
     status = record.get("status")
+    if status == "developing-reference-translations":
+        return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": False, "allowed_actions": ["rebuild-reference-mechanics", "compile-transfer-constraints", "render-project-adaptations", "validate-reference-translation"], "execution_authorized": False}
+    if status == "developing-concepts":
+        return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": False, "allowed_actions": ["render-visual-evidence", "run-concept-slop-checks", "validate-concept-set"], "execution_authorized": False}
+    if status in {"awaiting-feedback", "refining"}:
+        return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["react-to-numbered-visuals", "record-visual-delta", "mark-ready-for-selection"], "execution_authorized": False}
     if status == "awaiting-selection":
         return {"design_id": design_id, "revision": record["revision"], "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["select-or-combine"], "execution_authorized": False}
     if status == "awaiting-approval":
-        return {"design_id": design_id, "revision": record["revision"], "design_hash": record["design_hash"], "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["approve-exact-draft", "revise"], "execution_authorized": False}
-    return {"design_id": design_id, "revision": record["revision"], "design_hash": record.get("design_hash"), "status": status, "next_skill": "continuity-plan", "human_required": False, "allowed_actions": ["plan-with-design-binding", "revise-design"], "execution_authorized": False}
+        return {"design_id": design_id, "revision": record["revision"], "design_hash": record["design_hash"], "approval_bundle_hash": record.get("approval_bundle_hash"), "status": status, "next_skill": "continuity-design", "human_required": True, "allowed_actions": ["validate-selected-prototype", "approve-exact-draft", "revise"], "execution_authorized": False}
+    return {"design_id": design_id, "revision": record["revision"], "design_hash": record.get("design_hash"), "approval_bundle_hash": record.get("approval_bundle_hash"), "status": status, "next_skill": "continuity-plan", "human_required": False, "allowed_actions": ["plan-with-design-binding", "revise-design"], "execution_authorized": False}
 
 
 def bind_approved(root: Path, config: dict[str, Any], design_ids: list[str]) -> list[dict[str, Any]]:
@@ -2186,7 +3041,11 @@ def bind_approved(root: Path, config: dict[str, Any], design_ids: list[str]) -> 
     document = root / record["document_path"]
     if not document.is_file() or hashlib.sha256(document.read_bytes()).hexdigest() != record["design_hash"]:
         raise DesignError("Approved design document does not match its recorded hash")
-    return [{"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"], "alignment_contract": record.get("alignment_contract", {})}]
+    binding = {"design_id": record["design_id"], "revision": record["revision"], "design_hash": record["design_hash"], "catalog_packs": record["catalog_packs"], "alignment_contract": record.get("alignment_contract", {})}
+    for key in ("approval_bundle_hash", "visual_reference_hash", "reference_translation_hash", "slop_ruleset_version", "slop_ruleset_hash"):
+        if key in record:
+            binding[key] = record[key]
+    return [binding]
 
 
 def _artifact_relative_path(root: Path, value: Any) -> tuple[str, Path]:
@@ -2203,17 +3062,2868 @@ def _artifact_relative_path(root: Path, value: Any) -> tuple[str, Path]:
     return candidate.as_posix(), resolved
 
 
-def _png_dimensions(path: Path) -> tuple[int, int]:
-    data = path.read_bytes()[:24]
-    if len(data) != 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+def _document_probe_fingerprint(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    normalized = text
+    for name, placeholder in (
+        ("continuity-probe-target-sha256", "PROBE_TARGET_FINGERPRINT"),
+        ("continuity-probe-source-bundle-sha256", "PROBE_SOURCE_BUNDLE_FINGERPRINT"),
+    ):
+        normalized = re.sub(
+            rf'(<meta\s+name=["\']{name}["\']\s+content=["\'])[^"\']*(["\']\s*/?>)',
+            rf"\g<1>{placeholder}\g<2>", normalized, flags=re.IGNORECASE,
+        )
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+RUNTIME_SOURCE_SUFFIXES = {".html", ".htm", ".css", ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx"}
+_RUNTIME_DEPENDENCY_PATTERNS = (
+    re.compile(r'(?:src|href)\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE),
+    re.compile(r'(?:import|export)\s+(?:[^"\']*?\s+from\s+)?["\']([^"\']+)["\']'),
+    re.compile(r'import\s*\(\s*["\']([^"\']+)["\']\s*\)'),
+    re.compile(r'require(?:\.resolve)?\s*\(\s*["\']([^"\']+)["\']\s*\)'),
+    re.compile(r'new\s+URL\s*\(\s*["\']([^"\']+)["\']\s*,\s*import\.meta\.url\s*\)'),
+    re.compile(r'new\s+(?:Shared)?Worker\s*\(\s*["\']([^"\']+)["\']'),
+    re.compile(r'import\.meta\.glob(?:Eager)?\s*\(\s*["\']([^"\']+)["\']\s*(?:,|\))'),
+    re.compile(r'@import\s+(?:url\(\s*)?["\']?([^"\')\s;]+)', re.IGNORECASE),
+)
+
+
+def _runtime_alias_roots(root: Path, source: Path, reference: str) -> tuple[list[Path], bool]:
+    candidates: list[Path] = []
+    matched = False
+    if reference.startswith("@/"):
+        candidates.extend((root / "src" / reference[2:], root / reference[2:]))
+        matched = True
+    current = source.parent.resolve()
+    root_resolved = root.resolve()
+    while True:
+        for name in ("tsconfig.json", "jsconfig.json"):
+            config_path = current / name
+            if not config_path.is_file():
+                continue
+            try:
+                config_text = config_path.read_text(encoding="utf-8")
+                config_text = re.sub(r"/\*.*?\*/", "", config_text, flags=re.DOTALL)
+                config_text = re.sub(r"(^|\s)//.*$", r"\1", config_text, flags=re.MULTILINE)
+                config_text = re.sub(r",\s*([}\]])", r"\1", config_text)
+                options = json.loads(config_text).get("compilerOptions", {})
+            except (OSError, json.JSONDecodeError, AttributeError):
+                continue
+            base = (current / str(options.get("baseUrl", "."))).resolve()
+            paths = options.get("paths", {})
+            if not isinstance(paths, dict):
+                continue
+            for alias, replacements in paths.items():
+                if not isinstance(alias, str) or not isinstance(replacements, list):
+                    continue
+                if "*" in alias:
+                    prefix, suffix = alias.split("*", 1)
+                    if not reference.startswith(prefix) or (suffix and not reference.endswith(suffix)):
+                        continue
+                    wildcard = reference[len(prefix):len(reference) - len(suffix) if suffix else None]
+                elif reference == alias:
+                    wildcard = ""
+                else:
+                    continue
+                matched = True
+                for replacement in replacements:
+                    if isinstance(replacement, str):
+                        candidates.append(base / replacement.replace("*", wildcard))
+        if current == root_resolved or root_resolved not in current.parents:
+            break
+        current = current.parent
+    return candidates, matched
+
+
+def _resolve_runtime_dependency(root: Path, source: Path, reference: str, *, strict: bool) -> Path | None:
+    clean = reference.split("?", 1)[0].split("#", 1)[0].strip()
+    if not clean or clean.startswith(("data:", "http:", "https:", "//", "#")):
+        return None
+    alias_candidates, alias_matched = _runtime_alias_roots(root, source, clean)
+    raw_candidates = alias_candidates or [
+        (root / clean.lstrip("/")) if clean.startswith("/") else (source.parent / clean)
+    ]
+    candidates: list[Path] = []
+    for raw in raw_candidates:
+        candidates.append(raw)
+        if not raw.suffix:
+            candidates.extend(raw.with_suffix(suffix) for suffix in RUNTIME_SOURCE_SUFFIXES)
+            candidates.extend(raw / f"index{suffix}" for suffix in RUNTIME_SOURCE_SUFFIXES)
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        try:
+            resolved.relative_to(root.resolve())
+        except ValueError:
+            continue
+        if resolved.is_file() and resolved.suffix.lower() in RUNTIME_SOURCE_SUFFIXES:
+            return resolved
+    if (clean.startswith((".", "/")) or alias_matched) and (strict or Path(clean).suffix.lower() in RUNTIME_SOURCE_SUFFIXES or alias_matched):
+        raise DesignError(f"Runtime source dependency is missing: {reference}")
+    return None
+
+
+def _runtime_source_closure(root: Path, target_document: Path) -> list[Path]:
+    queue = [target_document.resolve()]
+    found: set[Path] = set()
+    while queue:
+        source = queue.pop()
+        if source in found:
+            continue
+        try:
+            source.relative_to(root.resolve())
+        except ValueError as exc:
+            raise DesignError("Runtime source closure escapes the project root") from exc
+        if not source.is_file() or source.suffix.lower() not in RUNTIME_SOURCE_SUFFIXES:
+            raise DesignError(f"Runtime source is missing or unsupported: {source}")
+        found.add(source)
+        text = source.read_text(encoding="utf-8", errors="replace")
+        for arguments in re.findall(r'importScripts\s*\(([^)]*)\)', text):
+            references = re.findall(r'["\']([^"\']+)["\']', arguments)
+            if not references:
+                raise DesignError("importScripts runtime dependencies must use static local URLs")
+            for reference in references:
+                dependency = _resolve_runtime_dependency(root, source, reference, strict=True)
+                if dependency is not None and dependency not in found:
+                    queue.append(dependency)
+        for arguments in re.findall(r'import\.meta\.glob(?:Eager)?\s*\(\s*\[([^\]]+)\]', text):
+            references = re.findall(r'["\']([^"\']+)["\']', arguments)
+            if not references:
+                raise DesignError("import.meta.glob runtime dependencies must use static local patterns")
+            for reference in references:
+                if not reference.startswith((".", "/")):
+                    raise DesignError(f"Runtime source glob must be relative or project-rooted: {reference}")
+                glob_root = root.resolve() if reference.startswith("/") else source.parent
+                matches = [
+                    item.resolve() for item in glob_root.glob(reference.lstrip("/"))
+                    if item.is_file() and item.suffix.lower() in RUNTIME_SOURCE_SUFFIXES
+                ]
+                if not matches:
+                    raise DesignError(f"Runtime source glob has no supported matches: {reference}")
+                queue.extend(item for item in matches if item not in found)
+        for pattern_index, pattern in enumerate(_RUNTIME_DEPENDENCY_PATTERNS):
+            for reference in pattern.findall(text):
+                clean_reference = reference.split("?", 1)[0].split("#", 1)[0]
+                if any(character in clean_reference for character in "*?["):
+                    if not clean_reference.startswith((".", "/")):
+                        raise DesignError(f"Runtime source glob must be relative or project-rooted: {reference}")
+                    glob_root = root.resolve() if clean_reference.startswith("/") else source.parent
+                    matches = [
+                        item.resolve() for item in glob_root.glob(clean_reference.lstrip("/"))
+                        if item.is_file() and item.suffix.lower() in RUNTIME_SOURCE_SUFFIXES
+                    ]
+                    if not matches:
+                        raise DesignError(f"Runtime source glob has no supported matches: {reference}")
+                    queue.extend(item for item in matches if item not in found)
+                    continue
+                dependency = _resolve_runtime_dependency(root, source, reference, strict=pattern_index > 0)
+                if dependency is not None and dependency not in found:
+                    queue.append(dependency)
+    return sorted(found, key=lambda item: item.relative_to(root.resolve()).as_posix())
+
+
+def _verified_runtime_source_bundle(root: Path, target_document: Path, declared: Any, label: str) -> dict[str, Any]:
+    if not isinstance(declared, list) or not declared:
+        raise DesignError(f"{label} requires hash-bound runtime source files")
+    closure = _runtime_source_closure(root, target_document)
+    closure_paths = {item.relative_to(root.resolve()).as_posix() for item in closure}
+    normalized: list[dict[str, str]] = []
+    declared_paths: set[str] = set()
+    for item in declared:
+        verified = _verified_reference_file(root, item, f"{label} runtime source", RUNTIME_SOURCE_SUFFIXES)
+        if verified["path"] in declared_paths:
+            raise DesignError(f"{label} runtime source files contain duplicates")
+        normalized.append(verified)
+        declared_paths.add(verified["path"])
+    if declared_paths != closure_paths:
+        missing = sorted(closure_paths - declared_paths)
+        extra = sorted(declared_paths - closure_paths)
+        raise DesignError(f"{label} runtime source closure does not match its declaration; missing={missing}, extra={extra}")
+    target_relative = target_document.resolve().relative_to(root.resolve()).as_posix()
+    entries = [
+        {
+            "path": item["path"],
+            "sha256": _document_probe_fingerprint(target_document) if item["path"] == target_relative else item["sha256"],
+        }
+        for item in sorted(normalized, key=lambda value: value["path"])
+    ]
+    return {
+        "target_document_path": target_relative,
+        "target_document_sha256": _document_probe_fingerprint(target_document),
+        "source_files": normalized,
+        "source_bundle_sha256": _canonical_hash({"target_document_path": target_relative, "sources": entries}),
+    }
+
+
+def _set_probe_meta(document: str, name: str, content: str) -> str:
+    tag = '<meta name="{}" content="{}">'.format(name, content)
+    pattern = re.compile(
+        rf'<meta\s+name=["\']{re.escape(name)}["\']\s+content=["\'][^"\']*["\']\s*/?>',
+        re.IGNORECASE,
+    )
+    if pattern.search(document):
+        return pattern.sub(tag, document, count=1)
+    head_end = re.search(r"</head\s*>", document, re.IGNORECASE)
+    if not head_end:
+        raise DesignError("Probe preparation requires an HTML document with a head element")
+    return document[:head_end.start()] + f"  {tag}\n" + document[head_end.start():]
+
+
+def probe_prepare(root: Path, config: dict[str, Any], target_path: Path) -> dict[str, Any]:
+    """Bind an HTML target and its complete local runtime source closure for browser evidence."""
+    _enabled(config)
+    target = target_path.resolve()
+    try:
+        target_relative = target.relative_to(root.resolve()).as_posix()
+    except ValueError as exc:
+        raise DesignError("Probe target must remain inside the project root") from exc
+    if not target.is_file() or target.suffix.lower() not in {".html", ".htm"}:
+        raise DesignError("Probe target must be an existing HTML document")
+    document = target.read_text(encoding="utf-8")
+    document = _set_probe_meta(document, "continuity-probe-target-path", target_relative)
+    document = _set_probe_meta(document, "continuity-probe-target-sha256", "pending")
+    document = _set_probe_meta(document, "continuity-probe-source-bundle-sha256", "pending")
+    target.write_text(document, encoding="utf-8")
+    closure = _runtime_source_closure(root, target)
+    declared = [
+        {"path": item.relative_to(root.resolve()).as_posix(), "sha256": hashlib.sha256(item.read_bytes()).hexdigest()}
+        for item in closure
+    ]
+    prepared = _verified_runtime_source_bundle(root, target, declared, "Browser probe")
+    document = target.read_text(encoding="utf-8")
+    document = _set_probe_meta(document, "continuity-probe-target-sha256", prepared["target_document_sha256"])
+    document = _set_probe_meta(document, "continuity-probe-source-bundle-sha256", prepared["source_bundle_sha256"])
+    target.write_text(document, encoding="utf-8")
+    closure = _runtime_source_closure(root, target)
+    final_declared = [
+        {"path": item.relative_to(root.resolve()).as_posix(), "sha256": hashlib.sha256(item.read_bytes()).hexdigest()}
+        for item in closure
+    ]
+    final = _verified_runtime_source_bundle(root, target, final_declared, "Browser probe")
+    if final["source_bundle_sha256"] != prepared["source_bundle_sha256"]:
+        raise DesignError("Probe source-bundle fingerprint did not stabilize")
+    return {
+        "schema_version": 1,
+        "target_document": {"path": target_relative, "sha256": hashlib.sha256(target.read_bytes()).hexdigest()},
+        "target_document_fingerprint": final["target_document_sha256"],
+        "source_bundle_sha256": final["source_bundle_sha256"],
+        "runtime_source_files": final["source_files"],
+        "next_action": "Run artifact-browser-probe.js in the rendered desktop document without editing its output",
+        "execution_authorized": False,
+    }
+
+
+VISUAL_REVIEW_QUESTIONS = {
+    "signature_identifiable": "Can the signature be identified within five seconds?",
+    "identity_specific": "Does the identity remain project-specific when the product name is removed?",
+    "not_category_reflex": "Does the result avoid both the category default and its fashionable opposite?",
+    "directions_structurally_distinct": "Are concept directions structurally different rather than cosmetically varied?",
+    "not_library_default": "Does the implementation avoid retreating to component-library defaults?",
+    "signature_survives_states": "Does the signature survive mobile, quiet states, errors, and reduced motion?",
+    "reference_transformed": "Does the output adapt a mechanic instead of copying a reference identity?",
+    "decoration_has_job": "Is each decorative choice doing work content, hierarchy, or subject material cannot do?",
+    "media_fidelity_preserved": "Does selected concept-forming media retain or increase its defining material impact after background, alpha, blend, crop, and responsive treatment?",
+}
+VISUAL_REVIEW_FAILURE_RULES = {
+    "signature_identifiable": "CDS-P002",
+    "identity_specific": "CDS-D018",
+    "not_category_reflex": "CDS-D017",
+    "directions_structurally_distinct": "CDS-D019",
+    "not_library_default": "CDS-P005",
+    "signature_survives_states": "CDS-P002",
+    "reference_transformed": "CDS-P003",
+    "decoration_has_job": "CDS-D020",
+    "media_fidelity_preserved": "CDS-P016",
+}
+
+
+def _canonical_hash(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _normalize_visual_review(root: Path, review: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    if not isinstance(review, dict) or set(review) != set(VISUAL_REVIEW_QUESTIONS):
+        raise DesignError("Slop-check requires structured answers to every visual review question")
+    normalized: dict[str, Any] = {}
+    failures: list[dict[str, Any]] = []
+    for question_id in VISUAL_REVIEW_QUESTIONS:
+        item = review.get(question_id)
+        if not isinstance(item, dict) or item.get("result") not in {"pass", "fail", "not-applicable"}:
+            raise DesignError(f"Visual review {question_id} requires pass, fail, or not-applicable")
+        reviewer = item.get("reviewer")
+        reviewed_at = item.get("reviewed_at")
+        finding = item.get("finding", "")
+        rationale = item.get("rationale", "")
+        if not isinstance(reviewer, str) or not reviewer.strip() or not isinstance(reviewed_at, str) or not reviewed_at.strip():
+            raise DesignError(f"Visual review {question_id} requires reviewer and reviewed_at")
+        if not isinstance(finding, str) or not isinstance(rationale, str):
+            raise DesignError(f"Visual review {question_id} has invalid finding or rationale")
+        evidence = item.get("evidence")
+        if not isinstance(evidence, list) or not evidence:
+            raise DesignError(f"Visual review {question_id} requires hashed screenshot evidence")
+        normalized_evidence: list[dict[str, Any]] = []
+        for artifact in evidence:
+            if not isinstance(artifact, dict):
+                raise DesignError(f"Visual review {question_id} evidence must be objects")
+            relative, path = _artifact_relative_path(root, artifact.get("path"))
+            if path.suffix.lower() != ".png" or not path.is_file():
+                raise DesignError(f"Visual review evidence must be a PNG screenshot: {relative}")
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+            if artifact.get("sha256") != actual:
+                raise DesignError(f"Visual review screenshot changed: {relative}")
+            width, height = _png_dimensions(path)
+            region = artifact.get("region", "full-frame")
+            if not isinstance(region, str) or not region.strip():
+                raise DesignError(f"Visual review evidence requires a region: {relative}")
+            normalized_evidence.append({"path": relative, "sha256": actual, "region": region.strip(), "width": width, "height": height})
+        if item["result"] == "fail" and not finding.strip():
+            raise DesignError(f"Failed visual review {question_id} requires a finding")
+        if item["result"] == "not-applicable" and not rationale.strip():
+            raise DesignError(f"Not-applicable visual review {question_id} requires a rationale")
+        normalized[question_id] = {
+            "result": item["result"], "finding": finding.strip(), "rationale": rationale.strip(),
+            "reviewer": reviewer.strip(), "reviewed_at": reviewed_at.strip(), "evidence": normalized_evidence,
+        }
+        if item["result"] == "fail":
+            first = normalized_evidence[0]
+            failures.append({
+                "rule_id": VISUAL_REVIEW_FAILURE_RULES[question_id],
+                "location": f"{first['path']}#{first['region']}",
+                "evidence": finding.strip(),
+            })
+    return normalized, failures
+
+
+def visual_atlas(root: Path, config: dict[str, Any], catalog_path: Path, input_path: Path) -> dict[str, Any]:
+    """Render a private first-party visual-language atlas without network access."""
+    _enabled(config)
+    request = _read_json(input_path)
+    title = request.get("title", "Visual language atlas")
+    if not isinstance(title, str) or not title.strip():
+        raise DesignError("Visual atlas requires a title")
+    project_copy = request.get("project_copy")
+    if not isinstance(project_copy, str) or not project_copy.strip():
+        raise DesignError("Visual atlas requires real project_copy shared across every plate")
+    contrasts = request.get("contrasts", ["quiet / expressive", "dense / spacious", "flat / material"])
+    if not isinstance(contrasts, list) or not 1 <= len(contrasts) <= 6 or any(not isinstance(item, str) or not item.strip() for item in contrasts):
+        raise DesignError("Visual atlas contrasts must contain one to six labels")
+    catalog = load_catalog(catalog_path)
+    systems = [
+        {"id": "editorial-asymmetry", "type": "high-contrast editorial roles", "density": "spacious", "surface": "paper-flat", "motion": "none; hierarchy carries the transition", "counter": "a centered headline over a generic card grid", "palette": ("#f2efe8", "#171918", "#a4432c")},
+        {"id": "technical-index", "type": "condensed index plus neutral reading face", "density": "compact", "surface": "ruled and exact", "motion": "state-led row continuity", "counter": "terminal styling used as a shortcut for technical credibility", "palette": ("#e4e9e6", "#17211e", "#276b54")},
+        {"id": "material-field", "type": "quiet grotesk with material captions", "density": "layered", "surface": "subject-led depth", "motion": "one spatial reveal with a static crop", "counter": "decorative glow pretending to be material or light", "palette": ("#ded8cc", "#231f1a", "#8d6434")},
+        {"id": "cinematic-frame", "type": "display scale paired with restrained utility", "density": "episodic", "surface": "edge-to-edge image field", "motion": "chapter transition with reduced-motion stills", "counter": "autoplay spectacle without narrative purpose", "palette": ("#d9dde0", "#12171a", "#a34b3f")},
+        {"id": "dense-ledger", "type": "tabular rhythm with emphatic evidence type", "density": "dense", "surface": "ledger and annotation", "motion": "no ambient motion; state changes only", "counter": "uniform rounded cards flattening every relationship", "palette": ("#edf0ec", "#18201e", "#3d6658")},
+        {"id": "quiet-utility", "type": "calm humanist hierarchy", "density": "measured", "surface": "minimal utility planes", "motion": "direct state replacement", "counter": "warm cream used as unexplained sophistication", "palette": ("#eef1f2", "#1b2226", "#415f72")},
+    ]
+    compositions = {
+        "editorial-asymmetry": '<div class="study editorial"><b>01</b><h3>{copy}</h3><i></i><p>Evidence remains attached to the claim.</p></div>',
+        "technical-index": '<div class="study index-grid"><b>SYS / 02</b><ul><li>{copy}</li><li>Source</li><li>Decision</li></ul><p>STATUS — REVIEW</p></div>',
+        "material-field": '<div class="study material"><div></div><h3>{copy}</h3><p>Material carries meaning before decoration.</p></div>',
+        "cinematic-frame": '<div class="study cinematic"><span>CHAPTER 04</span><h3>{copy}</h3><p>Still equivalent preserves the same narrative beat.</p></div>',
+        "dense-ledger": '<div class="study ledger"><b>{copy}</b><table><tr><td>Source</td><td>Observed</td></tr><tr><td>Decision</td><td>Pending</td></tr><tr><td>Risk</td><td>Bound</td></tr></table></div>',
+        "quiet-utility": '<div class="study utility"><small>Primary task</small><h3>{copy}</h3><button type="button">Review evidence</button></div>',
+    }
+    plate_html: list[str] = []
+    for index, contrast in enumerate(contrasts, 1):
+        system = systems[(index - 1) % len(systems)]
+        surface, ink, accent = system["palette"]
+        composition = compositions[system["id"]].format(copy=html.escape(project_copy.strip()))
+        plate_html.append(f"""
+        <article class="plate" data-system="{system['id']}" style="--surface:{surface};--ink:{ink};--accent:{accent}">
+          <div class="plate-copy"><span class="index">{index:02d}</span><h2>{html.escape(contrast)}</h2>
+          <p>System: {html.escape(system['id'].replace('-', ' '))}. Compare the same project language through a different organizing idea.</p>
+          <div class="type"><strong>{html.escape(system['type'])}</strong><span>{html.escape(project_copy.strip())}</span></div></div>
+          {composition}
+          <div class="tokens"><i style="background:var(--surface)"></i><i style="background:var(--ink)"></i><i style="background:var(--accent)"></i></div>
+          <p class="counter"><b>Counterexample:</b> {html.escape(system['counter'])}.</p>
+          <dl><div><dt>Density</dt><dd>{system['density']}</dd></div><div><dt>Surface</dt><dd>{system['surface']}</dd></div><div><dt>Motion</dt><dd>{system['motion']}</dd></div></dl>
+        </article>""")
+    document = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{html.escape(title)}</title><style>
+    *{{box-sizing:border-box}}body{{margin:0;background:#111514;color:#edf0ea;font-family:ui-sans-serif,system-ui,sans-serif}}main{{max-width:1440px;margin:auto;padding:clamp(24px,5vw,72px)}}
+    header{{display:grid;grid-template-columns:1fr 2fr;gap:32px;margin-bottom:56px}}h1{{font:600 clamp(38px,7vw,96px)/.9 ui-serif,Georgia,serif;letter-spacing:-.045em;margin:0}}header p{{max-width:58ch;margin:8px 0 0;color:#aeb8b2}}
+    .grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}}.plate{{background:var(--surface);color:var(--ink);padding:clamp(18px,3vw,36px);display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;min-height:510px}}
+    .index{{font:600 11px/1 ui-monospace,monospace;letter-spacing:.18em}}h2{{font:600 clamp(28px,4vw,52px)/.94 ui-serif,Georgia,serif;letter-spacing:-.035em;margin:18px 0}}.plate p{{line-height:1.45}}.type{{border-left:3px solid var(--accent);padding:12px;margin-top:28px;display:grid;gap:6px}}.composition{{width:100%;align-self:start}}.tokens{{display:flex;gap:5px}}.tokens i{{width:34px;height:34px;border:1px solid color-mix(in srgb,var(--ink) 25%,transparent)}}.counter{{grid-column:1/-1;border-top:1px solid color-mix(in srgb,var(--ink) 25%,transparent);padding-top:14px}}dl{{grid-column:1/-1;display:flex;gap:22px;margin:0}}dl div{{display:grid;gap:3px}}dt{{font:600 10px/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em}}dd{{margin:0;font-size:13px}}
+    .study{{min-height:270px;align-self:start;position:relative;overflow:hidden}}.study h3,.study p{{margin:0}}.editorial{{display:grid;grid-template-columns:48px 1fr;align-content:start;gap:18px}}.editorial h3{{font:600 44px/.88 Georgia,serif;letter-spacing:-.05em}}.editorial i{{grid-column:2;height:4px;background:var(--accent)}}.editorial p{{grid-column:2;max-width:25ch}}.index-grid{{border:1px solid var(--ink);padding:16px;font:12px/1.3 ui-monospace,monospace}}.index-grid ul{{list-style:none;padding:0;margin:36px 0;display:grid;gap:0}}.index-grid li{{padding:9px;border-top:1px solid var(--ink)}}.material{{background:var(--ink);color:var(--surface);padding:24px;display:grid;align-content:end}}.material div{{position:absolute;inset:20px 20px 42%;background:linear-gradient(135deg,var(--accent),transparent 62%)}}.material h3{{font:500 34px/.95 Georgia,serif;z-index:1}}.material p{{z-index:1}}.cinematic{{background:linear-gradient(155deg,var(--ink) 0 48%,var(--accent) 48% 52%,#6d7475 52%);color:var(--surface);padding:22px;display:flex;flex-direction:column;justify-content:space-between}}.cinematic h3{{font:600 42px/.9 Georgia,serif;max-width:11ch}}.ledger{{font:12px ui-monospace,monospace}}.ledger>b{{display:block;font:600 30px/.95 Georgia,serif;margin-bottom:28px}}.ledger table{{border-collapse:collapse;width:100%}}.ledger td{{border:1px solid var(--ink);padding:12px}}.utility{{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:36px;border-left:1px solid var(--ink)}}.utility h3{{font:500 36px/1.05 system-ui,sans-serif;max-width:14ch;margin:12px 0 34px}}.utility button{{border:0;background:var(--ink);color:var(--surface);padding:12px 18px}}
+    @media(max-width:760px){{header,.grid,.plate{{grid-template-columns:1fr}}.plate{{min-height:0}}dl{{flex-wrap:wrap}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important}}}}
+    </style></head><body><main><header><h1>{html.escape(title)}</h1><p>React to numbered contrasts. Each plate demonstrates type, palette, composition, density, surface, motion intent, and an explicit counterexample. Catalog {html.escape(catalog['catalog_version'])}.</p></header><section class="grid">{''.join(plate_html)}</section></main></body></html>"""
+    request_hash = _canonical_hash({"request": request, "catalog_version": catalog["catalog_version"]})
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "visual-atlas" / f"{request_hash}.html"
+    output = root / relative
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(document, encoding="utf-8")
+    return {"schema_version": 1, "private": True, "network_used": False, "path": relative.as_posix(), "sha256": hashlib.sha256(output.read_bytes()).hexdigest(), "plate_count": len(contrasts), "catalog_version": catalog["catalog_version"], "required_snapshot_viewports": ["mobile", "tablet", "desktop"]}
+
+
+def visual_render(root: Path, config: dict[str, Any], input_path: Path) -> dict[str, Any]:
+    """Render private moodboard, concept, reference-transfer, or visual-delta evidence."""
+    _enabled(config)
+    request = _read_json(input_path)
+    kind = request.get("kind")
+    if kind not in {"moodboard", "concept-comparison", "reference-transfer", "visual-delta"}:
+        raise DesignError("Visual render kind must be moodboard, concept-comparison, reference-transfer, or visual-delta")
+    title = request.get("title")
+    items = request.get("items")
+    if not isinstance(title, str) or not title.strip() or not isinstance(items, list) or not items or len(items) > 20:
+        raise DesignError("Visual render requires a title and one to twenty items")
+    cards: list[str] = []
+    for index, item in enumerate(items, 1):
+        if not isinstance(item, dict) or not isinstance(item.get("title"), str) or not item["title"].strip():
+            raise DesignError("Each visual render item requires a title")
+        def image_markup(field: str, label: str, source_item: dict[str, Any] | None = None, css_class: str = "") -> str:
+            payload = source_item or item
+            relative, path = _artifact_relative_path(root, payload.get(field))
+            if not path.is_file():
+                raise DesignError(f"Visual render image is missing: {relative}")
+            if path.suffix.lower() not in {".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"}:
+                raise DesignError(f"Visual render {field} must be an image")
+            if path.suffix.lower() == ".png":
+                _png_dimensions(path)
+            alt_text = html.escape(str(payload.get(f"{field}_alt", payload.get("alt", f"{item['title']} — {label}"))))
+            return f'<figure class="{html.escape(css_class)}"><img src="{html.escape(path.as_uri())}" alt="{alt_text}"><figcaption>{html.escape(label)}</figcaption></figure>'
+        if kind == "moodboard":
+            visuals = image_markup("image_path", "Reference capture")
+        elif kind == "concept-comparison":
+            role_images = item.get("role_images")
+            if role_images is not None:
+                required_roles = {"opening", "proof", "interaction", "quiet-or-edge", "closure", "overview"}
+                if (
+                    not isinstance(role_images, list)
+                    or len(role_images) != len(required_roles)
+                    or any(not isinstance(entry, dict) for entry in role_images)
+                    or {entry.get("role") for entry in role_images} != required_roles
+                ):
+                    raise DesignError("Journey comparison requires exactly opening, proof, interaction, quiet-or-edge, closure, and overview images")
+                visuals = "".join(
+                    image_markup("image_path", str(entry["role"]).replace("-", " ").title(), entry, "overview" if entry["role"] == "overview" else "journey-crop")
+                    for entry in role_images
+                )
+            else:
+                visuals = image_markup("wide_image_path", "Wide composition") + image_markup("narrow_image_path", "Narrow transformation")
+        elif kind == "reference-transfer":
+            visuals = "".join([
+                image_markup("source_image_path", "01 · Source", css_class="transfer-frame"),
+                image_markup("reconstruction_image_path", "02 · Reconstruction", css_class="transfer-frame"),
+                image_markup("literal_image_path", "03 · Literal substitution", css_class="transfer-frame"),
+                image_markup("adaptation_image_path", "04 · Controlled adaptation", css_class="transfer-frame"),
+            ])
+        else:
+            visuals = image_markup("before_image_path", "Before") + image_markup("after_image_path", "After")
+        summary = html.escape(str(item.get("summary", "")))
+        lesson = html.escape(str(item.get("lesson", "")))
+        source = html.escape(str(item.get("source", "")))
+        label = html.escape(str(item.get("number", index)))
+        cards.append(f'<article><div class="visual">{visuals}</div><div class="copy"><span>{label}</span><h2>{html.escape(item["title"])}</h2><p>{summary}</p><p class="lesson">{lesson}</p><small>{source}</small></div></article>')
+    document = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>
+    *{{box-sizing:border-box}}body{{margin:0;background:#f3f3f0;color:#171917;font-family:ui-sans-serif,system-ui,sans-serif}}main{{max-width:1800px;margin:auto;padding:clamp(20px,4vw,64px)}}header{{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:38px;border-bottom:1px solid #252925;padding-bottom:20px}}h1{{font:600 clamp(34px,6vw,76px)/.94 system-ui,sans-serif;letter-spacing:-.04em;margin:0}}header p{{max-width:48ch;color:#525a53}}section{{display:grid;gap:32px}}article{{background:#fff;color:#18201e;display:grid;grid-template-columns:minmax(0,2.4fr) minmax(260px,.6fr);border-top:4px solid #18201e}}.visual{{min-height:320px;background:#d9ded9;display:grid;grid-template-columns:repeat(2,minmax(320px,1fr));overflow:hidden}}figure{{margin:0;position:relative;min-height:360px;background:#d9ded9;border:1px solid #bdc5bf}}figure.journey-crop{{min-height:420px}}figure.overview{{grid-row:span 2;min-height:860px}}figure.transfer-frame{{min-height:520px}}img{{width:100%;height:100%;position:absolute;inset:0;object-fit:contain}}figure.journey-crop img{{object-fit:cover;object-position:top}}figcaption{{position:absolute;left:10px;bottom:10px;background:#111;color:#fff;padding:5px 7px;font-size:11px}}.copy{{padding:24px;display:flex;flex-direction:column}}.copy>span{{font:700 11px ui-monospace,monospace;letter-spacing:.16em}}h2{{font:600 clamp(24px,3vw,40px)/.98 system-ui,sans-serif;margin:18px 0}}p{{line-height:1.45}}.lesson{{border-top:1px solid #9ea7a1;padding-top:12px}}small{{margin-top:auto;color:#5c6862;word-break:break-word}}@media(max-width:1000px){{header,article{{display:grid;grid-template-columns:1fr}}}}@media(max-width:720px){{.visual{{grid-template-columns:1fr}}figure,figure.journey-crop,figure.overview,figure.transfer-frame{{min-height:320px;grid-row:auto}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important}}}}</style></head><body><main><header><h1>{html.escape(title)}</h1><p>{html.escape(kind.replace('-', ' ').title())}. Neutral comparison chrome keeps the project visuals—not Continuity styling—in control.</p></header><section>{''.join(cards)}</section></main></body></html>'''
+    request_hash = _canonical_hash(request)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "visual-renders" / kind / f"{request_hash}.html"
+    output = root / relative
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(document, encoding="utf-8")
+    return {"schema_version": 1, "kind": kind, "private": True, "network_used": False, "path": relative.as_posix(), "sha256": hashlib.sha256(output.read_bytes()).hexdigest(), "item_count": len(items), "required_snapshot_viewports": ["mobile", "tablet", "desktop"]}
+
+
+def slop_check(root: Path, config: dict[str, Any], target_path: Path, manifest_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    resolved_root = root.resolve()
+    resolved_target = target_path.resolve()
+    try:
+        resolved_target.relative_to(resolved_root)
+    except ValueError as exc:
+        raise DesignError("Slop-check target must remain inside the project root") from exc
+    manifest = _read_json(manifest_path)
+    if manifest.get("ruleset_version", design_slop.RULESET_VERSION) != design_slop.RULESET_VERSION:
+        raise DesignError("Slop-check manifest ruleset version is stale")
+    stage = manifest.get("stage")
+    if stage not in {"concept", "prototype", "implementation"}:
+        raise DesignError("Slop-check manifest requires concept, prototype, or implementation stage")
+    design_id = manifest.get("design_id")
+    if isinstance(design_id, str) and design_id.strip():
+        draft_path = root / config.get("private_dir", ".continuity/private") / "design" / _identifier(design_id, "design ID") / "draft.json"
+        if draft_path.is_file() and _read_json(draft_path).get("workflow_version", 1) >= 3:
+            fidelity = manifest.get("translation_fidelity")
+            required_fidelity = {"editable_depth_preserved", "font_transfer_verified", "approved_layer_plan_present", "approved_typographic_character_present"}
+            if not isinstance(fidelity, dict) or any(fidelity.get(key) is not True for key in required_fidelity):
+                raise DesignError("Workflow version 3 slop checks require passed editable-depth, font-transfer, layer-plan, and typographic-character evidence")
+    review, review_failures = _normalize_visual_review(root, manifest.get("visual_review"))
+    manifest["visual_review"] = review
+    if review_failures:
+        visual_findings = manifest.get("visual_findings", [])
+        if not isinstance(visual_findings, list):
+            raise DesignError("visual_findings must be an array")
+        manifest["visual_findings"] = [*visual_findings, *review_failures]
+    if "craft_findings" in manifest and "dispositions" not in manifest:
+        dispositions: list[dict[str, Any]] = []
+        for item in manifest["craft_findings"]:
+            if not isinstance(item, dict):
+                raise DesignError("Slop craft findings must be objects")
+            dispositions.append({
+                "rule_id": item.get("rule_id"), "status": item.get("status"),
+                "rationale": item.get("override_rationale", item.get("response", "")),
+                "contract_reference": item.get("contract_reference", item.get("artifact_ref", "")),
+                "evidence": item.get("evidence", ""),
+            })
+        manifest["dispositions"] = dispositions
+    try:
+        report = design_slop.inspect(resolved_target, resolved_root, manifest)
+    except (OSError, ValueError) as exc:
+        raise DesignError(str(exc)) from exc
+    report.update({
+        "stage": stage,
+        "design_id": manifest.get("design_id"),
+        "revision": manifest.get("revision"),
+        "design_hash": manifest.get("design_hash"),
+        "approval_bundle_hash": manifest.get("approval_bundle_hash"),
+        "visual_review_questions": VISUAL_REVIEW_QUESTIONS,
+        "checked_at": _now(),
+    })
+    report.pop("report_hash", None)
+    report["report_hash"] = _canonical_hash(report)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "slop" / f"{report['report_hash']}.json"
+    _write_json(root / relative, report)
+    return {**report, "report_path": relative.as_posix()}
+
+
+def _verified_private_report(root: Path, value: Any, *, stage: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError("Concept direction requires a slop report reference")
+    relative, path = _artifact_relative_path(root, value.get("path"))
+    if not path.is_file():
+        raise DesignError("Concept slop report is missing")
+    report = _read_json(path)
+    actual = _canonical_hash({key: item for key, item in report.items() if key != "report_hash"})
+    if value.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest() or report.get("report_hash") != actual:
+        raise DesignError("Concept slop report hash is invalid")
+    if (
+        report.get("stage") != stage
+        or report.get("status") != "passed"
+        or report.get("ruleset_version") != design_slop.RULESET_VERSION
+        or report.get("ruleset_hash") != design_slop.ruleset_hash()
+    ):
+        raise DesignError("Concept slop report is stale or did not pass")
+    dispositions_hash = _canonical_hash(report.get("dispositions", []))
+    expected_manifest = {
+        "report_hash": report["report_hash"], "ruleset_version": report["ruleset_version"],
+        "counts_by_severity": report.get("counts_by_severity", {}), "dispositions_hash": dispositions_hash,
+        "status": report["status"],
+    }
+    if any(value.get(key) != expected for key, expected in expected_manifest.items()):
+        raise DesignError("Slop report manifest summary does not match the bound report")
+    return {"path": relative, "sha256": value["sha256"], **expected_manifest}
+
+
+def _verified_browser_probe(root: Path, value: Any, viewport: str, screenshot_width: int) -> dict[str, Any]:
+    if not isinstance(value, dict) or value.get("viewport") != viewport:
+        raise DesignError("Browser probe viewport does not match its screenshot")
+    relative, path = _artifact_relative_path(root, value.get("path"))
+    if not path.is_file() or path.suffix.lower() != ".json":
+        raise DesignError(f"Browser probe evidence is missing: {relative}")
+    actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    if value.get("sha256") != actual_hash:
+        raise DesignError(f"Browser probe evidence changed: {relative}")
+    probe = _read_json(path)
+    probe_viewport = probe.get("viewport")
+    findings = probe.get("craft_findings")
+    if (
+        probe.get("schema_version") not in {2, 3}
+        or probe.get("passed") is not True
+        or not isinstance(probe_viewport, dict)
+        or probe_viewport.get("width") != screenshot_width
+        or probe.get("horizontal_overflow") is not False
+        or probe.get("sticky_or_fixed_obstructions") != []
+        or not isinstance(findings, list)
+        or any(isinstance(item, dict) and item.get("severity") in {"error", "critical"} for item in findings)
+    ):
+        raise DesignError(f"Browser probe did not supply passing machine evidence: {relative}")
+    return {"viewport": viewport, "path": relative, "sha256": actual_hash, "schema_version": probe["schema_version"], "status": "passed"}
+
+
+SIGNATURE_COVERAGE_ROLES = {"opening", "proof", "interaction", "quiet-state", "edge-state", "closure"}
+INVARIANT_SNAPSHOT_FIELDS = ("text", "aria_label", "aria_pressed", "aria_selected", "disabled", "hidden", "value")
+
+
+def _browser_probe_payload(root: Path, evidence: dict[str, Any]) -> dict[str, Any]:
+    """Read an already hash-verified browser probe without accepting an author-authored summary."""
+    _, path = _artifact_relative_path(root, evidence.get("path"))
+    return _read_json(path)
+
+
+def _validate_signature_coverage(concept_id: str, value: Any, probes: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires browser-measured signature coverage")
+    signature_id = _identifier(str(value.get("signature_id", "")), "signature coverage ID")
+    required_roles = value.get("required_roles")
+    if (
+        not isinstance(required_roles, list)
+        or len(required_roles) != len(set(required_roles))
+        or any(role not in SIGNATURE_COVERAGE_ROLES for role in required_roles)
+        or not {"opening", "proof", "interaction", "closure"} <= set(required_roles)
+        or not {"quiet-state", "edge-state"}.intersection(required_roles)
+    ):
+        raise DesignError(f"Concept {concept_id} signature coverage requires opening, proof, interaction, closure, and quiet or edge roles")
+    normalized_viewports: list[dict[str, Any]] = []
+    for viewport in ("mobile", "tablet", "desktop", "reduced-motion"):
+        probe = probes.get(viewport)
+        elements = probe.get("signature_elements") if isinstance(probe, dict) else None
+        if not isinstance(elements, list):
+            raise DesignError(f"Concept {concept_id} {viewport} probe lacks executable signature evidence")
+        matching = [
+            item for item in elements
+            if isinstance(item, dict) and item.get("signature_id") == signature_id and item.get("visible") is True
+        ]
+        roles_present = {
+            role for item in matching for role in item.get("roles", [])
+            if isinstance(role, str) and role in SIGNATURE_COVERAGE_ROLES
+        }
+        missing = set(required_roles) - roles_present
+        if missing:
+            raise DesignError(f"Concept {concept_id} signature disappears from {viewport} roles: {sorted(missing)}")
+        if len(matching) < 4:
+            raise DesignError(f"Concept {concept_id} signature coverage must be expressed by at least four rendered elements")
+        opening_visible = any(
+            "opening" in item.get("roles", [])
+            and isinstance(item.get("viewport_intersection_ratio"), (int, float))
+            and item["viewport_intersection_ratio"] >= 0.1
+            for item in matching
+        )
+        if viewport in {"mobile", "desktop", "reduced-motion"} and not opening_visible:
+            raise DesignError(f"Concept {concept_id} signature is not identifiable in the initial {viewport} viewport")
+        normalized_viewports.append({
+            "viewport": viewport,
+            "roles": sorted(roles_present),
+            "element_count": len(matching),
+            "opening_in_initial_viewport": opening_visible,
+        })
+    return {"signature_id": signature_id, "required_roles": required_roles, "viewports": normalized_viewports}
+
+
+def _validate_interaction_invariants(
+    root: Path,
+    concept_id: str,
+    value: Any,
+    expected_target: dict[str, str],
+    interaction_mode: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires interaction-state invariant evidence")
+    required_ids = value.get("required_ids")
+    if not isinstance(required_ids, list) or not required_ids or len(required_ids) != len(set(required_ids)):
+        raise DesignError(f"Concept {concept_id} interaction invariants require unique required IDs")
+    normalized_ids = [_identifier(str(item), "interaction invariant ID") for item in required_ids]
+    states = value.get("states")
+    minimum_states = 1 if interaction_mode == "static" else 2
+    if not isinstance(states, list) or len(states) < minimum_states:
+        raise DesignError(f"Concept {concept_id} interaction invariants require at least {minimum_states} captured states")
+    baseline: dict[str, dict[str, Any]] | None = None
+    normalized_states: list[dict[str, Any]] = []
+    state_ids: set[str] = set()
+    for state in states:
+        if not isinstance(state, dict):
+            raise DesignError(f"Concept {concept_id} interaction states must be objects")
+        state_id = _identifier(str(state.get("state_id", "")), "interaction state ID")
+        if state_id in state_ids:
+            raise DesignError(f"Concept {concept_id} interaction state IDs must be unique")
+        evidence = _verified_reference_file(root, state.get("probe"), f"Concept {concept_id} interaction state probe", {".json"})
+        probe = _browser_probe_payload(root, evidence)
+        if (
+            probe.get("schema_version") != 3
+            or probe.get("probe_kind") != "continuity-artifact-browser-probe"
+            or probe.get("passed") is not True
+            or probe.get("target_document_path") != expected_target["path"]
+            or probe.get("target_document_sha256") != expected_target["sha256"]
+            or probe.get("source_bundle_sha256") != expected_target["source_bundle_sha256"]
+        ):
+            raise DesignError(f"Concept {concept_id} interaction state {state_id} is stale or belongs to another artifact")
+        raw = probe.get("interaction_invariants")
+        if not isinstance(raw, list):
+            raise DesignError(f"Concept {concept_id} interaction state {state_id} lacks invariant snapshots")
+        by_id: dict[str, dict[str, Any]] = {}
+        for item in raw:
+            invariant_id = item.get("invariant_id") if isinstance(item, dict) else None
+            if invariant_id in normalized_ids:
+                if invariant_id in by_id:
+                    raise DesignError(f"Concept {concept_id} interaction state {state_id} repeats invariant {invariant_id}")
+                by_id[invariant_id] = {field: item.get(field) for field in INVARIANT_SNAPSHOT_FIELDS}
+        missing = set(normalized_ids) - set(by_id)
+        if missing:
+            raise DesignError(f"Concept {concept_id} interaction state {state_id} is missing invariants: {sorted(missing)}")
+        if baseline is None:
+            baseline = by_id
+        elif by_id != baseline:
+            changed = sorted(item for item in normalized_ids if by_id[item] != baseline[item])
+            raise DesignError(f"Concept {concept_id} interaction changed protected semantics: {changed}")
+        normalized_states.append({"state_id": state_id, "probe": evidence})
+        state_ids.add(state_id)
+    return {"required_ids": normalized_ids, "states": normalized_states, "baseline_hash": _canonical_hash(baseline)}
+
+
+def _verified_reference_file(root: Path, value: Any, label: str, suffixes: set[str]) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise DesignError(f"{label} requires hash-bound file evidence")
+    relative, path = _artifact_relative_path(root, value.get("path"))
+    actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+    if path.suffix.lower() not in suffixes or not actual or value.get("sha256") != actual:
+        raise DesignError(f"{label} is missing or changed: {relative}")
+    return {"path": relative, "sha256": actual}
+
+
+def _png_alpha_stats(path: Path) -> dict[str, int | bool]:
+    """Return deterministic alpha evidence for an 8-bit, non-interlaced RGBA PNG."""
+    data = path.read_bytes()
+    if len(data) < 45 or data[:8] != b"\x89PNG\r\n\x1a\n":
         raise DesignError(f"Invalid PNG artifact: {path}")
-    return struct.unpack(">II", data[16:24])
+    offset = 8
+    width = height = 0
+    bit_depth = color_type = interlace = -1
+    compressed = bytearray()
+    while offset + 12 <= len(data):
+        length = struct.unpack(">I", data[offset:offset + 4])[0]
+        kind = data[offset + 4:offset + 8]
+        start = offset + 8
+        end = start + length
+        crc_end = end + 4
+        if crc_end > len(data) or zlib.crc32(kind + data[start:end]) & 0xFFFFFFFF != struct.unpack(">I", data[end:crc_end])[0]:
+            raise DesignError(f"Invalid PNG chunk: {path}")
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type, _, _, interlace = struct.unpack(">IIBBBBB", data[start:end])
+        elif kind == b"IDAT":
+            compressed.extend(data[start:end])
+        elif kind == b"IEND":
+            break
+        offset = crc_end
+    if bit_depth != 8 or color_type != 6 or interlace != 0 or width < 1 or height < 1:
+        raise DesignError(f"Foreground plane must be an 8-bit non-interlaced RGBA PNG: {path}")
+    try:
+        raw = zlib.decompress(bytes(compressed))
+    except zlib.error as exc:
+        raise DesignError(f"Invalid PNG image data: {path}") from exc
+    stride = width * 4
+    if len(raw) != height * (stride + 1):
+        raise DesignError(f"Unexpected PNG scanline data: {path}")
+    rows: list[bytearray] = []
+    cursor = 0
+    previous = bytearray(stride)
+    for _ in range(height):
+        filter_type = raw[cursor]
+        cursor += 1
+        encoded = raw[cursor:cursor + stride]
+        cursor += stride
+        row = bytearray(stride)
+        for index, value in enumerate(encoded):
+            left = row[index - 4] if index >= 4 else 0
+            up = previous[index]
+            up_left = previous[index - 4] if index >= 4 else 0
+            if filter_type == 0:
+                predictor = 0
+            elif filter_type == 1:
+                predictor = left
+            elif filter_type == 2:
+                predictor = up
+            elif filter_type == 3:
+                predictor = (left + up) // 2
+            elif filter_type == 4:
+                p = left + up - up_left
+                pa, pb, pc = abs(p - left), abs(p - up), abs(p - up_left)
+                predictor = left if pa <= pb and pa <= pc else up if pb <= pc else up_left
+            else:
+                raise DesignError(f"Unsupported PNG filter: {path}")
+            row[index] = (value + predictor) & 0xFF
+        rows.append(row)
+        previous = row
+    alphas = [row[index] for row in rows for index in range(3, stride, 4)]
+    corner_alphas = (rows[0][3], rows[0][stride - 1], rows[-1][3], rows[-1][stride - 1])
+    return {
+        "width": width, "height": height,
+        "transparent_pixels": sum(alpha == 0 for alpha in alphas),
+        "partial_pixels": sum(0 < alpha < 255 for alpha in alphas),
+        "opaque_pixels": sum(alpha == 255 for alpha in alphas),
+        "transparent_corners": sum(alpha == 0 for alpha in corner_alphas),
+    }
+
+
+def _validate_typographic_transfer(root: Path, concept_id: str, value: Any, prototype_source: str, expected_reference_probe: Any = None, expected_target_document: Any = None) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires executable typographic transfer evidence")
+    transfer_id = _identifier(str(value.get("transfer_id", "")), "typographic transfer ID")
+    required_text = ("rendered_copy", "font_family", "source", "license_evidence", "source_character", "project_transformation", "narrow_behavior")
+    if any(not isinstance(value.get(field), str) or not value[field].strip() for field in required_text):
+        raise DesignError(f"Concept {concept_id} typographic transfer lacks source, license, character, transformation, or responsive evidence")
+    relation = value.get("type_media_relation")
+    if relation not in {"separate", "behind-subject", "interleaved", "foreground-over-type"}:
+        raise DesignError(f"Concept {concept_id} requires a supported type-to-media relation")
+    reference_probe_ref = _verified_reference_file(root, value.get("reference_render_probe"), f"Concept {concept_id} reference typography browser probe", {".json"})
+    if expected_reference_probe is not None and reference_probe_ref != expected_reference_probe:
+        raise DesignError(f"Concept {concept_id} reference typography probe is not bound to its validated reference study")
+    _, reference_probe_path = _artifact_relative_path(root, reference_probe_ref["path"])
+    reference_probe = _read_json(reference_probe_path)
+    probe_ref = _verified_reference_file(root, value.get("render_probe"), f"Concept {concept_id} typography render probe", {".json"})
+    _, probe_path = _artifact_relative_path(root, probe_ref["path"])
+    probe = _read_json(probe_path)
+    if expected_target_document is not None and (
+        not isinstance(expected_target_document, dict)
+        or not isinstance(expected_target_document.get("source_bundle_sha256"), str)
+        or len(expected_target_document["source_bundle_sha256"]) != 64
+        or probe.get("target_document_path") != expected_target_document.get("path")
+        or probe.get("target_document_sha256") != expected_target_document.get("sha256")
+        or probe.get("source_bundle_sha256") != expected_target_document.get("source_bundle_sha256")
+        or not isinstance(probe.get("document_url"), str)
+        or not probe["document_url"].split("?", 1)[0].endswith(expected_target_document.get("path", ""))
+    ):
+        raise DesignError(f"Concept {concept_id} typography browser probe is stale for its target document")
+    transfers = probe.get("typography_transfers")
+    if not isinstance(transfers, list):
+        raise DesignError(f"Concept {concept_id} typography evidence must come from the rendered browser probe")
+    matching = [item for item in transfers if isinstance(item, dict) and item.get("transfer_id") == transfer_id]
+    if len(matching) != 1:
+        raise DesignError(f"Concept {concept_id} rendered browser probe must locate typographic transfer {transfer_id} exactly once")
+    rendered = matching[0]
+    metrics = {key: rendered.get(key) for key in ("cap_height_ratio", "word_width_ratio", "line_count")}
+    reference_transfers = reference_probe.get("typography_transfers")
+    reference_matching = [item for item in reference_transfers if isinstance(item, dict) and item.get("transfer_id") == transfer_id] if isinstance(reference_transfers, list) else []
+    reference_rendered = reference_matching[0] if len(reference_matching) == 1 else {}
+    reference_metrics = {key: reference_rendered.get(key) for key in ("cap_height_ratio", "word_width_ratio", "line_count")}
+    tolerances = value.get("metric_tolerances")
+    computed_families = {
+        item.strip().strip("'\"").casefold()
+        for item in str(rendered.get("computed_family", "")).split(",") if item.strip()
+    }
+    if (
+        probe.get("schema_version") != 3 or probe.get("probe_kind") != "continuity-artifact-browser-probe"
+        or probe.get("passed") is not True or probe.get("document_fonts_status") != "loaded"
+        or not isinstance(probe.get("viewport"), dict) or probe["viewport"].get("width") != 1440
+        or reference_probe.get("schema_version") != 3 or reference_probe.get("probe_kind") != "continuity-artifact-browser-probe"
+        or reference_probe.get("passed") is not True or len(reference_matching) != 1
+        or value["font_family"].casefold() not in computed_families
+        or rendered.get("measurement_method") != "canvas-2d"
+        or reference_rendered.get("measurement_method") != "canvas-2d"
+        or rendered.get("font_loaded") is not True
+        or rendered.get("font_face_status") != "loaded"
+        or rendered.get("rendered_copy") != value["rendered_copy"]
+        or not isinstance(metrics, dict)
+        or any(not isinstance(metrics.get(key), (int, float)) or metrics[key] <= 0 for key in ("cap_height_ratio", "word_width_ratio", "line_count"))
+        or not isinstance(reference_metrics, dict)
+        or any(not isinstance(reference_metrics.get(key), (int, float)) or reference_metrics[key] <= 0 for key in ("cap_height_ratio", "word_width_ratio", "line_count"))
+        or not isinstance(tolerances, dict)
+        or not isinstance(tolerances.get("cap_height_ratio"), (int, float)) or not 0 < tolerances["cap_height_ratio"] <= 0.08
+        or not isinstance(tolerances.get("word_width_ratio"), (int, float)) or not 0 < tolerances["word_width_ratio"] <= 0.10
+        or abs(metrics["cap_height_ratio"] - reference_metrics["cap_height_ratio"]) > tolerances["cap_height_ratio"]
+        or abs(metrics["word_width_ratio"] - reference_metrics["word_width_ratio"]) > tolerances["word_width_ratio"]
+        or metrics["line_count"] != reference_metrics["line_count"]
+    ):
+        raise DesignError(f"Concept {concept_id} typography render probe does not prove the declared face and rendered silhouette")
+    return {field: value[field].strip() for field in required_text} | {
+        "transfer_id": transfer_id, "type_media_relation": relation, "reference_render_probe": reference_probe_ref, "render_probe": probe_ref,
+        "metric_tolerances": {key: tolerances[key] for key in ("cap_height_ratio", "word_width_ratio")},
+        "metrics": {key: metrics[key] for key in ("cap_height_ratio", "word_width_ratio", "line_count")},
+        "reference_metrics": {key: reference_metrics[key] for key in ("cap_height_ratio", "word_width_ratio", "line_count")},
+        "tolerances": {key: tolerances[key] for key in ("cap_height_ratio", "word_width_ratio")},
+    }
+
+
+def _validate_composition_asset_plan(root: Path, concept_id: str, value: Any, prototype_source: str, type_media_relation: str, render_probe: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError(f"Concept {concept_id} requires an executable composition asset plan")
+    plan_id = _identifier(str(value.get("plan_id", "")), "composition asset plan ID")
+    if value.get("type_media_relation") != type_media_relation:
+        raise DesignError(f"Concept {concept_id} composition and typography must agree on their type-to-media relation")
+    registration_basis = value.get("registration_basis")
+    if not isinstance(registration_basis, str) or not registration_basis.strip():
+        raise DesignError(f"Concept {concept_id} composition asset plan requires a registration basis")
+    planes = value.get("planes")
+    if not isinstance(planes, list) or len(planes) < 2:
+        raise DesignError(f"Concept {concept_id} composition asset plan requires at least two editable planes")
+    normalized: list[dict[str, Any]] = []
+    probe_ref = _verified_reference_file(root, render_probe, f"Concept {concept_id} composition browser probe", {".json"})
+    _, probe_path = _artifact_relative_path(root, probe_ref["path"])
+    probe = _read_json(probe_path)
+    rendered_planes = probe.get("composition_planes")
+    if probe.get("schema_version") != 3 or probe.get("probe_kind") != "continuity-artifact-browser-probe" or probe.get("passed") is not True or not isinstance(rendered_planes, list):
+        raise DesignError(f"Concept {concept_id} composition evidence must come from a passed rendered browser probe")
+    ids: set[str] = set()
+    z_indexes: set[int] = set()
+    roles: dict[str, dict[str, Any]] = {}
+    for plane in planes:
+        if not isinstance(plane, dict):
+            raise DesignError(f"Concept {concept_id} composition planes must be objects")
+        plane_id = _identifier(str(plane.get("plane_id", "")), "composition plane ID")
+        role = plane.get("role")
+        source_kind = plane.get("source_kind")
+        z_index = plane.get("z_index")
+        if plane_id in ids or role not in {"background", "midground", "live-type", "foreground", "annotation"} or source_kind not in {"raster", "live-html", "svg", "video"} or not isinstance(z_index, int) or z_index in z_indexes:
+            raise DesignError(f"Concept {concept_id} composition planes require unique IDs, z-indexes, and supported roles")
+        for field in ("crop_anchor", "responsive_behavior"):
+            if not isinstance(plane.get(field), str) or not plane[field].strip():
+                raise DesignError(f"Concept {concept_id} plane {plane_id} requires crop and responsive behavior")
+        item: dict[str, Any] = {"plane_id": plane_id, "role": role, "source_kind": source_kind, "z_index": z_index, "crop_anchor": plane["crop_anchor"].strip(), "responsive_behavior": plane["responsive_behavior"].strip()}
+        rendered_matches = [entry for entry in rendered_planes if isinstance(entry, dict) and entry.get("plane_id") == plane_id]
+        if len(rendered_matches) != 1 or rendered_matches[0].get("visible") is not True or rendered_matches[0].get("computed_z_index") != z_index:
+            raise DesignError(f"Concept {concept_id} browser probe does not render plane {plane_id} once at its declared z-index")
+        rendered_plane = rendered_matches[0]
+        if source_kind == "live-html":
+            selector = plane.get("selector")
+            if not isinstance(selector, str) or not selector.strip() or rendered_plane.get("selector") != selector.strip():
+                raise DesignError(f"Concept {concept_id} live plane {plane_id} is not consumed by the prototype")
+            item["selector"] = selector.strip()
+        else:
+            asset = _verified_reference_file(root, plane.get("asset"), f"Concept {concept_id} plane {plane_id}", {".png", ".svg", ".webp", ".jpg", ".jpeg", ".mp4", ".webm"})
+            asset_url = rendered_plane.get("asset_url")
+            if not isinstance(asset_url, str) or not asset_url.split("?", 1)[0].endswith(asset["path"]) or rendered_plane.get("load_complete") is not True:
+                raise DesignError(f"Concept {concept_id} prototype does not consume plane asset {asset['path']}")
+            item["asset"] = asset
+            if Path(asset["path"]).suffix.lower() == ".png":
+                _, asset_path = _artifact_relative_path(root, asset["path"])
+                item["dimensions"] = dict(zip(("width", "height"), _png_dimensions(asset_path)))
+                if role == "foreground":
+                    alpha = _png_alpha_stats(asset_path)
+                    if alpha["transparent_pixels"] == 0 or alpha["opaque_pixels"] == 0 or alpha["transparent_corners"] < 4:
+                        raise DesignError(f"Concept {concept_id} foreground plane {plane_id} must contain usable alpha with four transparent corners")
+                    item["alpha"] = alpha
+        ids.add(plane_id)
+        z_indexes.add(z_index)
+        if role in {"background", "live-type", "foreground"} and role in roles:
+            raise DesignError(f"Concept {concept_id} composition asset plan can declare only one {role} plane")
+        roles[role] = item
+        normalized.append(item)
+    if type_media_relation in {"behind-subject", "interleaved", "foreground-over-type"}:
+        if not {"background", "live-type", "foreground"} <= set(roles):
+            raise DesignError(f"Concept {concept_id} layered type-to-media relation requires background, live-type, and alpha foreground planes")
+        if not roles["background"].get("dimensions") or not roles["foreground"].get("dimensions") or roles["background"]["dimensions"] != roles["foreground"]["dimensions"]:
+            raise DesignError(f"Concept {concept_id} background and foreground planes must share exact crop registration")
+        if Path(roles["background"]["asset"]["path"]).suffix.lower() != ".png" or Path(roles["foreground"]["asset"]["path"]).suffix.lower() != ".png":
+            raise DesignError(f"Concept {concept_id} registered layered planes must use PNG assets")
+        if roles["background"]["crop_anchor"] != roles["foreground"]["crop_anchor"]:
+            raise DesignError(f"Concept {concept_id} background and foreground planes must share the same crop anchor")
+        if not roles["background"]["z_index"] < roles["live-type"]["z_index"] < roles["foreground"]["z_index"]:
+            raise DesignError(f"Concept {concept_id} declared type-to-media depth is not reflected in plane order")
+        if roles["background"]["asset"]["sha256"] == roles["foreground"]["asset"]["sha256"]:
+            raise DesignError(f"Concept {concept_id} background and foreground must be independently editable assets")
+        rendered_by_id = {item["plane_id"]: item for item in rendered_planes if isinstance(item, dict) and item.get("plane_id")}
+        background_rect = rendered_by_id[roles["background"]["plane_id"]].get("rect")
+        type_rect = rendered_by_id[roles["live-type"]["plane_id"]].get("rect")
+        foreground_rect = rendered_by_id[roles["foreground"]["plane_id"]].get("rect")
+        if not all(isinstance(rect, dict) and all(isinstance(rect.get(key), (int, float)) for key in ("x", "y", "width", "height")) for rect in (background_rect, type_rect, foreground_rect)):
+            raise DesignError(f"Concept {concept_id} browser probe lacks rendered plane geometry")
+        if any(abs(background_rect[key] - foreground_rect[key]) > 1 for key in ("x", "y", "width", "height")):
+            raise DesignError(f"Concept {concept_id} background and foreground planes are not registered in rendered geometry")
+        overlap_width = min(type_rect["x"] + type_rect["width"], foreground_rect["x"] + foreground_rect["width"]) - max(type_rect["x"], foreground_rect["x"])
+        overlap_height = min(type_rect["y"] + type_rect["height"], foreground_rect["y"] + foreground_rect["height"]) - max(type_rect["y"], foreground_rect["y"])
+        if overlap_width <= 0 or overlap_height <= 0:
+            raise DesignError(f"Concept {concept_id} foreground plane does not visibly intersect the live type region")
+    return {"plan_id": plan_id, "type_media_relation": type_media_relation, "registration_basis": registration_basis.strip(), "planes": normalized}
+
+
+def _verified_reference_visual(root: Path, value: Any, label: str, role: str) -> dict[str, Any]:
+    result = _verified_reference_file(root, value, label, {".png"})
+    _, path = _artifact_relative_path(root, result["path"])
+    width, height = _png_dimensions(path)
+    if height < 1 or (role == "wide" and width < 1100) or (role == "narrow" and width >= 600):
+        raise DesignError(f"{label} has the wrong viewport role: {result['path']}")
+    return {**result, "width": width, "height": height}
+
+
+def portfolio_validate(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    """Validate private prior-output fingerprints used to resist Continuity house-style convergence."""
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    if manifest.get("schema_version") != 1 or manifest.get("status") != "passed":
+        raise DesignError("Design portfolio review requires schema_version 1 with passed status")
+    for field in ("portfolio_id", "reviewer", "reviewed_at", "conclusion"):
+        if not isinstance(manifest.get(field), str) or not manifest[field].strip():
+            raise DesignError(f"Design portfolio review requires {field}")
+    generations = manifest.get("generations")
+    if not isinstance(generations, list) or len(generations) > 20:
+        raise DesignError("Design portfolio review requires zero to twenty prior generations")
+    normalized_generations: list[dict[str, Any]] = []
+    generation_ids: set[str] = set()
+    artifact_hashes: set[str] = set()
+    for item in generations:
+        if not isinstance(item, dict):
+            raise DesignError("Portfolio generations must be objects")
+        generation_id = _identifier(str(item.get("generation_id", "")), "portfolio generation ID")
+        if generation_id in generation_ids:
+            raise DesignError("Portfolio generation IDs must be unique")
+        for field in ("reference_identity", "concept_name"):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise DesignError(f"Portfolio generation {generation_id} requires {field}")
+        impact = item.get("impact_score")
+        if not isinstance(impact, (int, float)) or not 0 <= impact <= 5:
+            raise DesignError(f"Portfolio generation {generation_id} impact_score must be between zero and five")
+        artifact = _verified_reference_visual(root, item.get("artifact"), f"Portfolio generation {generation_id}", "wide")
+        if artifact["sha256"] in artifact_hashes:
+            raise DesignError("Portfolio generations require distinct visual evidence")
+        fingerprint = item.get("fingerprint")
+        if not isinstance(fingerprint, dict) or set(fingerprint) != PORTFOLIO_FINGERPRINT_DIMENSIONS:
+            raise DesignError(f"Portfolio generation {generation_id} requires every fingerprint dimension")
+        if any(not isinstance(value, str) or not value.strip() for value in fingerprint.values()):
+            raise DesignError(f"Portfolio generation {generation_id} fingerprint values must be non-empty")
+        normalized_generations.append({
+            "generation_id": generation_id,
+            "reference_identity": item["reference_identity"].strip(),
+            "concept_name": item["concept_name"].strip(),
+            "impact_score": float(impact),
+            "artifact": artifact,
+            "fingerprint": {key: fingerprint[key].strip() for key in sorted(PORTFOLIO_FINGERPRINT_DIMENSIONS)},
+        })
+        generation_ids.add(generation_id)
+        artifact_hashes.add(artifact["sha256"])
+    audit_window = manifest.get("audit_window")
+    if not isinstance(audit_window, dict) or set(audit_window) != {"first_generation_index", "last_generation_index", "runs_since_last_audit"}:
+        raise DesignError("Design portfolio review requires an exact audit_window")
+    if any(not isinstance(audit_window.get(key), int) or audit_window[key] < 0 for key in audit_window):
+        raise DesignError("Design portfolio audit-window values must be non-negative integers")
+    if generations and (
+        audit_window["first_generation_index"] < 1
+        or audit_window["last_generation_index"] < audit_window["first_generation_index"]
+        or audit_window["runs_since_last_audit"] < 1
+        or audit_window["runs_since_last_audit"] > 4
+    ):
+        raise DesignError("Portfolio reviews must run at least every four generations")
+    recurring = manifest.get("recurring_tells")
+    if not isinstance(recurring, list):
+        raise DesignError("Design portfolio review recurring_tells must be an array")
+    if len(generations) >= 3 and not recurring:
+        raise DesignError("Portfolios with three or more generations must identify recurring house tells")
+    normalized_tells: list[dict[str, Any]] = []
+    tell_ids: set[str] = set()
+    for item in recurring:
+        if not isinstance(item, dict):
+            raise DesignError("Recurring house tells must be objects")
+        tell_id = _identifier(str(item.get("tell_id", "")), "house tell ID")
+        dimension = item.get("dimension")
+        members = item.get("generation_ids")
+        if tell_id in tell_ids or dimension not in PORTFOLIO_FINGERPRINT_DIMENSIONS:
+            raise DesignError("Recurring house tells require unique IDs and supported dimensions")
+        if not isinstance(members, list) or len(set(members)) < 2 or not set(members) <= generation_ids:
+            raise DesignError(f"House tell {tell_id} must cite at least two known prior generations")
+        for field in ("value", "description", "default_response"):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise DesignError(f"House tell {tell_id} requires {field}")
+        if any(next(entry for entry in normalized_generations if entry["generation_id"] == member)["fingerprint"][dimension] != item["value"] for member in members):
+            raise DesignError(f"House tell {tell_id} does not match the cited generation fingerprints")
+        normalized_tells.append({
+            "tell_id": tell_id, "dimension": dimension, "value": item["value"].strip(),
+            "description": item["description"].strip(), "generation_ids": members,
+            "default_response": item["default_response"].strip(),
+        })
+        tell_ids.add(tell_id)
+    strongest = manifest.get("strongest_prior_generation_id")
+    if normalized_generations:
+        if strongest not in generation_ids:
+            raise DesignError("Design portfolio review must identify the strongest prior generation")
+        strongest_score = next(item["impact_score"] for item in normalized_generations if item["generation_id"] == strongest)
+        if strongest_score != max(item["impact_score"] for item in normalized_generations):
+            raise DesignError("The strongest prior generation must have the portfolio's highest impact score")
+    elif strongest is not None:
+        raise DesignError("An empty portfolio cannot claim a strongest prior generation")
+    normalized = {
+        "schema_version": 1, "status": "passed", "portfolio_id": manifest["portfolio_id"].strip(),
+        "reviewer": manifest["reviewer"].strip(), "reviewed_at": manifest["reviewed_at"].strip(),
+        "conclusion": manifest["conclusion"].strip(), "audit_window": audit_window,
+        "generations": normalized_generations, "recurring_tells": normalized_tells,
+        "strongest_prior_generation_id": strongest, "validated_at": _now(),
+    }
+    normalized["report_hash"] = _canonical_hash(normalized)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "portfolio" / f"{normalized['report_hash']}.json"
+    _write_json(root / relative, normalized)
+    return {
+        "schema_version": 1, "status": "passed", "portfolio_id": normalized["portfolio_id"],
+        "generation_count": len(normalized_generations), "recurring_tell_count": len(normalized_tells),
+        "strongest_prior_generation_id": strongest, "portfolio_report_hash": normalized["report_hash"],
+        "report_path": relative.as_posix(), "execution_authorized": False,
+    }
+
+
+def _verified_portfolio_report(root: Path, value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise DesignError("Concept evidence requires a portfolio report reference")
+    relative, path = _artifact_relative_path(root, value.get("path"))
+    if not path.is_file():
+        raise DesignError("Concept portfolio report is missing")
+    report = _read_json(path)
+    actual_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    actual_hash = _canonical_hash({key: item for key, item in report.items() if key != "report_hash"})
+    if (
+        value.get("sha256") != actual_sha
+        or value.get("report_hash") != report.get("report_hash")
+        or report.get("report_hash") != actual_hash
+        or report.get("status") != "passed"
+    ):
+        raise DesignError("Concept portfolio report is stale or invalid")
+    return {"path": relative, "sha256": actual_sha, "report_hash": actual_hash, "report": report}
+
+
+def reference_validate(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    """Validate a precision-first reconstruction and controlled project adaptation ladder."""
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    if manifest.get("schema_version") != 2 or manifest.get("status") != "passed":
+        raise DesignError("Reference translation requires precision schema_version 2 with passed status")
+    design_id = _identifier(str(manifest.get("design_id", "")), "design ID")
+    design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
+    record = _read_json(design_dir / "draft.json")
+    if record.get("workflow_version", 1) < 3:
+        raise DesignError("Reference reconstruction requires workflow_version 3")
+    if manifest.get("revision") != record.get("revision"):
+        raise DesignError("Reference translation revision does not match the current draft")
+    for field in ("prepared_by", "reviewer", "reviewed_at", "set_conclusion"):
+        if not isinstance(manifest.get(field), str) or not manifest[field].strip():
+            raise DesignError(f"Reference translation requires {field}")
+    if manifest["prepared_by"].strip().casefold() == manifest["reviewer"].strip().casefold():
+        raise DesignError("Reference translation requires an independent reviewer distinct from its preparer")
+    if manifest.get("reviewer_type") not in IMPACT_REVIEWER_TYPES:
+        raise DesignError("Reference translation requires a human or agent-multimodal reviewer")
+
+    research_tiles = {item["tile"] for item in record.get("research", {}).get("moodboard", []) if isinstance(item, dict) and isinstance(item.get("tile"), int)}
+    studies = manifest.get("reference_studies")
+    if not isinstance(studies, list) or not 1 <= len(studies) <= 3:
+        raise DesignError("Reference translation requires one to three reconstructed reference studies")
+    normalized_studies: list[dict[str, Any]] = []
+    study_ids: set[str] = set()
+    constraint_by_id: dict[str, str] = {}
+    reconstruction_visual_hashes: set[str] = set()
+    for study in studies:
+        if not isinstance(study, dict):
+            raise DesignError("Reference studies must be objects")
+        study_id = _identifier(str(study.get("study_id", "")), "reference study ID")
+        if study_id in study_ids:
+            raise DesignError("Reference study IDs must be unique")
+        tile_ids = study.get("source_tile_ids", [])
+        if not isinstance(tile_ids, list) or len(set(tile_ids)) != len(tile_ids) or any(not isinstance(item, int) or item < 1 for item in tile_ids):
+            raise DesignError(f"Reference study {study_id} source_tile_ids must be unique positive integers")
+        if research_tiles and (not tile_ids or not set(tile_ids) <= research_tiles):
+            raise DesignError(f"Reference study {study_id} must link to known moodboard tiles")
+        source_identity = study.get("source_identity")
+        if not isinstance(source_identity, str) or not source_identity.strip():
+            raise DesignError(f"Reference study {study_id} requires one named source identity")
+        source_evidence = study.get("source_evidence")
+        if not isinstance(source_evidence, list) or len(source_evidence) != 2:
+            raise DesignError(f"Reference study {study_id} requires exact wide and narrow captures of one source identity")
+        normalized_sources: list[dict[str, Any]] = []
+        source_roles: set[str] = set()
+        source_ids: set[str] = set()
+        for source in source_evidence:
+            if not isinstance(source, dict) or source.get("ownership") not in VISUAL_REFERENCE_OWNERSHIP:
+                raise DesignError(f"Reference study {study_id} source evidence requires ownership")
+            role = source.get("viewport_role")
+            source_id = source.get("source_id")
+            if role not in {"wide", "narrow"} or not isinstance(source_id, str) or not source_id.strip():
+                raise DesignError(f"Reference study {study_id} source evidence requires source_id and wide or narrow viewport_role")
+            artifact = _verified_reference_visual(root, source, f"Reference study {study_id} {role} source", role)
+            publishable = bool(source.get("publishable", False))
+            if source["ownership"] == "third-party" and publishable:
+                raise DesignError("Third-party reference evidence must remain private and non-publishable")
+            normalized_sources.append({**artifact, "source_id": source_id.strip(), "viewport_role": role, "ownership": source["ownership"], "publishable": publishable})
+            source_roles.add(role)
+            source_ids.add(source_id.strip())
+        if source_roles != {"wide", "narrow"} or len(source_ids) != 1:
+            raise DesignError(f"Reference study {study_id} cannot hybridize multiple sources and must capture both target viewports")
+        reference_class = study.get("reference_class")
+        difficulty_evidence = study.get("difficulty_evidence")
+        if reference_class not in REFERENCE_CLASSES or not isinstance(difficulty_evidence, list):
+            raise DesignError(f"Reference study {study_id} requires a supported reference_class and difficulty evidence")
+        expected_difficulty = set(REFERENCE_CLASS_THRESHOLDS[reference_class])
+        if {item.get("threshold") for item in difficulty_evidence if isinstance(item, dict)} != expected_difficulty:
+            raise DesignError(f"Reference study {study_id} must pass every {reference_class} difficulty threshold")
+        normalized_difficulty: list[dict[str, str]] = []
+        for item in difficulty_evidence:
+            if (
+                item.get("status") != "pass"
+                or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("finding", "evidence_region"))
+            ):
+                raise DesignError(f"Reference study {study_id} difficulty evidence must be passing and visually located")
+            normalized_difficulty.append({
+                "threshold": item["threshold"], "status": "pass",
+                "finding": item["finding"].strip(), "evidence_region": item["evidence_region"].strip(),
+            })
+        copy_ledger = study.get("copy_adaptation_ledger")
+        if not isinstance(copy_ledger, list) or len(copy_ledger) < 3:
+            raise DesignError(f"Reference study {study_id} requires at least three concrete copy-to-adaptation decisions")
+        normalized_copy_ledger: list[dict[str, str]] = []
+        copied_detail_ids: set[str] = set()
+        for item in copy_ledger:
+            if not isinstance(item, dict):
+                raise DesignError(f"Reference study {study_id} copy ledger entries must be objects")
+            detail_id = _identifier(str(item.get("detail_id", "")), "reference copy detail ID")
+            fields = ("detail", "source_location", "private_copy_action", "project_adaptation", "shipping_boundary")
+            if detail_id in copied_detail_ids or any(not isinstance(item.get(field), str) or not item[field].strip() for field in fields):
+                raise DesignError(f"Reference study {study_id} copy ledger requires unique IDs and a complete private-to-shipping path")
+            normalized_copy_ledger.append({"detail_id": detail_id, **{field: item[field].strip() for field in fields}})
+            copied_detail_ids.add(detail_id)
+        reconstruction = study.get("reconstruction")
+        if not isinstance(reconstruction, dict):
+            raise DesignError(f"Reference study {study_id} requires a responsive HTML reconstruction")
+        html_artifact = _verified_reference_file(root, reconstruction.get("html"), f"Reference study {study_id} reconstruction", {".html", ".htm"})
+        wide = _verified_reference_visual(root, reconstruction.get("wide"), f"Reference study {study_id} wide reconstruction", "wide")
+        narrow = _verified_reference_visual(root, reconstruction.get("narrow"), f"Reference study {study_id} narrow reconstruction", "narrow")
+        typography_probe = None
+        runtime_source_bundle = None
+        if reconstruction.get("typography_render_probe") is not None:
+            runtime_source_bundle = _verified_runtime_source_bundle(
+                root, root / html_artifact["path"], reconstruction.get("runtime_source_files"),
+                f"Reference study {study_id} reconstruction",
+            )
+            typography_probe = _verified_reference_file(root, reconstruction.get("typography_render_probe"), f"Reference study {study_id} typography browser probe", {".json"})
+            _, typography_probe_path = _artifact_relative_path(root, typography_probe["path"])
+            typography_probe_value = _read_json(typography_probe_path)
+            if (
+                typography_probe_value.get("schema_version") != 3
+                or typography_probe_value.get("probe_kind") != "continuity-artifact-browser-probe"
+                or typography_probe_value.get("passed") is not True
+                or not isinstance(typography_probe_value.get("viewport"), dict)
+                or typography_probe_value["viewport"].get("width") != 1440
+                or not isinstance(typography_probe_value.get("typography_transfers"), list)
+                or not typography_probe_value["typography_transfers"]
+                or typography_probe_value.get("target_document_path") != html_artifact["path"]
+                or typography_probe_value.get("target_document_sha256") != _document_probe_fingerprint(root / html_artifact["path"])
+                or typography_probe_value.get("source_bundle_sha256") != runtime_source_bundle["source_bundle_sha256"]
+                or not isinstance(typography_probe_value.get("document_url"), str)
+                or not typography_probe_value["document_url"].split("?", 1)[0].endswith(html_artifact["path"])
+            ):
+                raise DesignError(f"Reference study {study_id} typography browser probe is not passed desktop evidence")
+        if wide["sha256"] in reconstruction_visual_hashes or narrow["sha256"] in reconstruction_visual_hashes:
+            raise DesignError("Every reference reconstruction requires distinct wide and narrow visual evidence")
+        reconstruction_visual_hashes.update({wide["sha256"], narrow["sha256"]})
+        correction_passes = study.get("correction_passes")
+        if not isinstance(correction_passes, list) or len(correction_passes) < 2:
+            raise DesignError(f"Reference study {study_id} requires at least two visual-difference correction passes")
+        normalized_passes: list[dict[str, Any]] = []
+        for index, correction in enumerate(correction_passes, 1):
+            expected_status = "passed" if index == len(correction_passes) else "changes-required"
+            if not isinstance(correction, dict) or correction.get("pass_number") != index or correction.get("status") != expected_status:
+                raise DesignError(f"Reference study {study_id} correction passes must be sequential and end in passed status")
+            findings = correction.get("findings")
+            changes = correction.get("changes")
+            if (
+                not isinstance(findings, list) or not findings
+                or not isinstance(changes, list) or not changes
+                or any(not isinstance(item, dict) or not all(isinstance(item.get(field), str) and item[field].strip() for field in ("dimension", "evidence_region", "finding", "correction")) for item in findings)
+                or any(not isinstance(item, str) or not item.strip() for item in changes)
+            ):
+                raise DesignError(f"Reference study {study_id} correction pass {index} requires located findings and applied changes")
+            normalized_passes.append({
+                "pass_number": index, "status": expected_status,
+                "combined_wide": _verified_reference_visual(root, correction.get("combined_wide"), f"Reference study {study_id} pass {index} wide comparison", "wide"),
+                "combined_narrow": _verified_reference_visual(root, correction.get("combined_narrow"), f"Reference study {study_id} pass {index} narrow comparison", "narrow"),
+                "findings": [{field: item[field].strip() for field in ("dimension", "evidence_region", "finding", "correction")} for item in findings],
+                "changes": [item.strip() for item in changes],
+            })
+        salience = study.get("salience_order")
+        if not isinstance(salience, list) or len(salience) != 3 or {item.get("rank") for item in salience if isinstance(item, dict)} != {1, 2, 3}:
+            raise DesignError(f"Reference study {study_id} requires an exact three-element salience comparison")
+        normalized_salience: list[dict[str, Any]] = []
+        for item in sorted(salience, key=lambda entry: entry["rank"]):
+            if item.get("result") != "pass" or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("source_element", "reconstruction_element", "evidence_region")):
+                raise DesignError(f"Reference study {study_id} salience order must visibly match")
+            normalized_salience.append({"rank": item["rank"], "result": "pass", **{field: item[field].strip() for field in ("source_element", "reconstruction_element", "evidence_region")}})
+        constraints = study.get("constraints")
+        if not isinstance(constraints, list) or len(constraints) < 8:
+            raise DesignError(f"Reference study {study_id} requires at least eight measured design-grammar constraints")
+        normalized_constraints: list[dict[str, Any]] = []
+        dimensions: set[str] = set()
+        for constraint in constraints:
+            if not isinstance(constraint, dict):
+                raise DesignError(f"Reference study {study_id} constraints must be objects")
+            constraint_id = _identifier(str(constraint.get("constraint_id", "")), "reference constraint ID")
+            dimension = constraint.get("dimension")
+            if constraint_id in constraint_by_id or dimension not in REFERENCE_CONSTRAINT_DIMENSIONS or dimension in dimensions:
+                raise DesignError("Reference constraints require globally unique IDs and distinct supported dimensions per study")
+            fields = ("observation", "invariant", "measurable_rule", "project_mapping", "allowed_variance", "prohibited_copying", "source_location", "reconstruction_location")
+            if any(not isinstance(constraint.get(field), str) or not constraint[field].strip() for field in fields):
+                raise DesignError(f"Reference constraint {constraint_id} requires located source and reconstruction evidence")
+            metric = constraint.get("metric")
+            if (
+                not isinstance(metric, dict)
+                or not isinstance(metric.get("name"), str) or not metric["name"].strip()
+                or not isinstance(metric.get("unit"), str) or not metric["unit"].strip()
+                or any(not isinstance(metric.get(field), (int, float)) for field in ("source_value", "reconstruction_value", "tolerance"))
+                or metric["tolerance"] < 0
+                or abs(metric["source_value"] - metric["reconstruction_value"]) > metric["tolerance"]
+                or metric.get("status") != "pass"
+            ):
+                raise DesignError(f"Reference constraint {constraint_id} requires a passing numeric source-to-reconstruction measurement")
+            normalized_constraints.append({"constraint_id": constraint_id, "dimension": dimension, **{field: constraint[field].strip() for field in fields}, "metric": {"name": metric["name"].strip(), "unit": metric["unit"].strip(), "source_value": metric["source_value"], "reconstruction_value": metric["reconstruction_value"], "tolerance": metric["tolerance"], "status": "pass"}})
+            constraint_by_id[constraint_id] = study_id
+            dimensions.add(dimension)
+        if not REFERENCE_REQUIRED_DIMENSIONS <= dimensions or not ({"interaction", "motion"} & dimensions):
+            raise DesignError(f"Reference study {study_id} must measure core spatial, typographic, media, responsive, and motion or interaction grammar")
+        normalized_studies.append({
+            "study_id": study_id, "source_identity": source_identity.strip(), "source_tile_ids": tile_ids, "source_evidence": normalized_sources,
+            "reference_class": reference_class, "difficulty_evidence": normalized_difficulty,
+            "reconstruction": {"html": html_artifact, "wide": wide, "narrow": narrow, "typography_render_probe": typography_probe, "runtime_source_files": runtime_source_bundle["source_files"] if runtime_source_bundle else None},
+            "copy_adaptation_ledger": normalized_copy_ledger,
+            "correction_passes": normalized_passes, "salience_order": normalized_salience, "constraints": normalized_constraints,
+        })
+        study_ids.add(study_id)
+
+    adaptations = manifest.get("adaptations")
+    if not isinstance(adaptations, list) or not 2 <= len(adaptations) <= 3:
+        raise DesignError("Reference translation requires two or three Continuity adaptation studies")
+    normalized_adaptations: list[dict[str, Any]] = []
+    adaptation_ids: set[str] = set()
+    adaptation_visual_hashes: set[str] = set()
+    adaptation_distance_roles: set[str] = set()
+    for adaptation in adaptations:
+        if not isinstance(adaptation, dict):
+            raise DesignError("Reference adaptations must be objects")
+        adaptation_id = _identifier(str(adaptation.get("adaptation_id", "")), "reference adaptation ID")
+        if adaptation_id in adaptation_ids:
+            raise DesignError("Reference adaptation IDs must be unique")
+        linked_studies = adaptation.get("study_ids")
+        if not isinstance(linked_studies, list) or len(linked_studies) != 1 or not set(linked_studies) <= study_ids:
+            raise DesignError(f"Reference adaptation {adaptation_id} requires one exact primary study; cross-source synthesis belongs after literal substitution")
+        html_artifact = _verified_reference_file(root, adaptation.get("html"), f"Reference adaptation {adaptation_id}", {".html", ".htm"})
+        wide = _verified_reference_visual(root, adaptation.get("wide"), f"Reference adaptation {adaptation_id} wide evidence", "wide")
+        narrow = _verified_reference_visual(root, adaptation.get("narrow"), f"Reference adaptation {adaptation_id} narrow evidence", "narrow")
+        if wide["sha256"] in adaptation_visual_hashes or narrow["sha256"] in adaptation_visual_hashes:
+            raise DesignError("Every reference adaptation requires distinct wide and narrow visual evidence")
+        adaptation_visual_hashes.update({wide["sha256"], narrow["sha256"]})
+        expected_constraints = {constraint_id for constraint_id, owner in constraint_by_id.items() if owner in linked_studies}
+        literal = adaptation.get("literal_substitution")
+        if not isinstance(literal, dict) or literal.get("study_id") not in linked_studies:
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a literal substitution baseline from one linked source")
+        literal_html = _verified_reference_file(root, literal.get("html"), f"Reference adaptation {adaptation_id} literal substitution", {".html", ".htm"})
+        literal_wide = _verified_reference_visual(root, literal.get("wide"), f"Reference adaptation {adaptation_id} literal wide evidence", "wide")
+        literal_narrow = _verified_reference_visual(root, literal.get("narrow"), f"Reference adaptation {adaptation_id} literal narrow evidence", "narrow")
+        mapping = literal.get("mapping")
+        if not isinstance(mapping, list) or {item.get("constraint_id") for item in mapping if isinstance(item, dict)} != expected_constraints:
+            raise DesignError(f"Reference adaptation {adaptation_id} literal substitution must map every linked constraint")
+        normalized_mapping: list[dict[str, str]] = []
+        for item in mapping:
+            fields = ("source_role", "project_replacement", "preserved_relationship", "source_location", "artifact_location")
+            if any(not isinstance(item.get(field), str) or not item[field].strip() for field in fields):
+                raise DesignError(f"Reference adaptation {adaptation_id} literal mappings require located role replacements")
+            normalized_mapping.append({"constraint_id": item["constraint_id"], **{field: item[field].strip() for field in fields}})
+        divergence = adaptation.get("controlled_divergence")
+        if not isinstance(divergence, dict):
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a controlled divergence ledger")
+        changes = divergence.get("changes")
+        if not isinstance(changes, list) or not 1 <= len(changes) <= 4:
+            raise DesignError(f"Reference adaptation {adaptation_id} must change one to four dimensions after literal substitution")
+        normalized_changes: list[dict[str, Any]] = []
+        changed_dimensions: set[str] = set()
+        for item in changes:
+            dimension = item.get("dimension") if isinstance(item, dict) else None
+            preserved = item.get("preserved_constraint_ids") if isinstance(item, dict) else None
+            if (
+                dimension not in REFERENCE_CONSTRAINT_DIMENSIONS or dimension in changed_dimensions
+                or not isinstance(preserved, list) or not preserved or not set(preserved) <= expected_constraints
+                or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("from", "to", "rationale"))
+            ):
+                raise DesignError(f"Reference adaptation {adaptation_id} divergence changes require unique dimensions and preserved constraints")
+            normalized_changes.append({"dimension": dimension, "from": item["from"].strip(), "to": item["to"].strip(), "rationale": item["rationale"].strip(), "preserved_constraint_ids": preserved})
+            changed_dimensions.add(dimension)
+        results = adaptation.get("constraint_results")
+        if not isinstance(results, list) or {item.get("constraint_id") for item in results if isinstance(item, dict)} != expected_constraints:
+            raise DesignError(f"Reference adaptation {adaptation_id} must disposition every linked formal constraint")
+        normalized_results: list[dict[str, str]] = []
+        for result in results:
+            if result.get("result") != "pass" or any(not isinstance(result.get(field), str) or not result[field].strip() for field in ("evidence", "artifact_location")):
+                raise DesignError(f"Reference adaptation {adaptation_id} constraint results require passing artifact evidence")
+            normalized_results.append({"constraint_id": result["constraint_id"], "result": "pass", "evidence": result["evidence"].strip(), "artifact_location": result["artifact_location"].strip()})
+        media = adaptation.get("media_strategy")
+        if not isinstance(media, dict) or media.get("source") not in REFERENCE_MEDIA_STRATEGIES or media.get("primitive_substitution") is not False:
+            raise DesignError(f"Reference adaptation {adaptation_id} cannot replace source-defining media with primitive CSS decoration")
+        if media.get("generated_media_disposition") not in {"retained", "translated", "not-applicable"} or not isinstance(media.get("rationale"), str) or not media["rationale"].strip():
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a generated-media disposition and rationale")
+        distance = adaptation.get("adaptation_distance")
+        if not isinstance(distance, dict) or distance.get("role") not in ADAPTATION_DISTANCE_ROLES:
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a close, far, or experimental distance role")
+        distance_dimensions = distance.get("dimensions")
+        if not isinstance(distance_dimensions, list) or {item.get("dimension") for item in distance_dimensions if isinstance(item, dict)} != ADAPTATION_DISTANCE_DIMENSIONS:
+            raise DesignError(f"Reference adaptation {adaptation_id} must measure every adaptation-distance dimension")
+        normalized_distance_dimensions: list[dict[str, Any]] = []
+        for item in distance_dimensions:
+            score = item.get("score")
+            if not isinstance(score, (int, float)) or not 0 <= score <= 1 or not isinstance(item.get("rationale"), str) or not item["rationale"].strip():
+                raise DesignError(f"Reference adaptation {adaptation_id} distance scores require a zero-to-one score and rationale")
+            normalized_distance_dimensions.append({"dimension": item["dimension"], "score": float(score), "rationale": item["rationale"].strip()})
+        total_score = sum(item["score"] for item in normalized_distance_dimensions) / len(normalized_distance_dimensions)
+        if not isinstance(distance.get("total_score"), (int, float)) or abs(distance["total_score"] - total_score) > 0.01:
+            raise DesignError(f"Reference adaptation {adaptation_id} distance total does not match its dimensions")
+        if distance["role"] == "close-study" and not 0.25 <= total_score <= 0.55:
+            raise DesignError(f"Reference adaptation {adaptation_id} close study must remain recognizably near the source")
+        if distance["role"] == "far-study" and (total_score < 0.55 or sum(item["score"] >= 0.5 for item in normalized_distance_dimensions) < 4):
+            raise DesignError(f"Reference adaptation {adaptation_id} far study must materially diverge in at least four dimensions")
+        review = adaptation.get("fidelity_review")
+        if not isinstance(review, dict) or review.get("status") != "passed" or any(review.get(check) != "pass" for check in REFERENCE_FIDELITY_CHECKS):
+            raise DesignError(f"Reference adaptation {adaptation_id} requires a passed translation-fidelity review")
+        for field in ("strongest_transfer", "weakest_loss", "next_action"):
+            if not isinstance(review.get(field), str) or not review[field].strip():
+                raise DesignError(f"Reference adaptation {adaptation_id} fidelity review requires {field}")
+        normalized_adaptations.append({
+            "adaptation_id": adaptation_id, "study_ids": linked_studies, "html": html_artifact,
+            "wide": wide, "narrow": narrow, "constraint_results": normalized_results,
+            "literal_substitution": {"study_id": literal["study_id"], "html": literal_html, "wide": literal_wide, "narrow": literal_narrow, "mapping": normalized_mapping},
+            "controlled_divergence": {"changes": normalized_changes},
+            "media_strategy": {"source": media["source"], "primitive_substitution": False, "generated_media_disposition": media["generated_media_disposition"], "rationale": media["rationale"].strip()},
+            "adaptation_distance": {"role": distance["role"], "total_score": round(total_score, 4), "dimensions": normalized_distance_dimensions},
+            "fidelity_review": {"status": "passed", **{check: "pass" for check in REFERENCE_FIDELITY_CHECKS}, **{field: review[field].strip() for field in ("strongest_transfer", "weakest_loss", "next_action")}},
+        })
+        adaptation_ids.add(adaptation_id)
+        adaptation_distance_roles.add(distance["role"])
+
+    if not {"close-study", "far-study"} <= adaptation_distance_roles:
+        raise DesignError("Reference adaptation sets require both a close study and a materially far study")
+
+    comparison = manifest.get("comparison")
+    if not isinstance(comparison, dict):
+        raise DesignError("Reference translation requires a side-by-side comparison artifact")
+    normalized_comparison = {
+        "html": _verified_reference_file(root, comparison.get("html"), "Reference translation comparison", {".html", ".htm"}),
+        "wide": _verified_reference_visual(root, comparison.get("wide"), "Reference translation wide comparison", "wide"),
+        "narrow": _verified_reference_visual(root, comparison.get("narrow"), "Reference translation narrow comparison", "narrow"),
+    }
+    independent = manifest.get("independent_review")
+    if (
+        not isinstance(independent, dict)
+        or independent.get("status") != "passed"
+        or independent.get("method") != "combined-visual-comparison"
+        or independent.get("reviewer") != manifest["reviewer"]
+        or independent.get("reviewer_type") != manifest["reviewer_type"]
+        or independent.get("reviewed_at") != manifest["reviewed_at"]
+    ):
+        raise DesignError("Reference translation requires a passed independent combined-visual-comparison review")
+    questions = independent.get("questions")
+    if not isinstance(questions, dict) or set(questions) != set(REFERENCE_REVIEW_QUESTIONS):
+        raise DesignError("Independent reference review must answer every precision question")
+    normalized_questions: dict[str, dict[str, str]] = {}
+    for question in REFERENCE_REVIEW_QUESTIONS:
+        answer = questions[question]
+        if not isinstance(answer, dict) or answer.get("result") != "pass" or any(not isinstance(answer.get(field), str) or not answer[field].strip() for field in ("finding", "evidence_region")):
+            raise DesignError(f"Independent reference review question {question} requires passing located evidence")
+        normalized_questions[question] = {"result": "pass", "finding": answer["finding"].strip(), "evidence_region": answer["evidence_region"].strip()}
+    review_findings = independent.get("findings")
+    if not isinstance(review_findings, list) or not review_findings:
+        raise DesignError("Independent reference review must record at least one concrete correction finding")
+    normalized_review_findings: list[dict[str, str]] = []
+    for item in review_findings:
+        if (
+            not isinstance(item, dict) or item.get("disposition") != "resolved"
+            or item.get("severity") not in {"info", "warning", "error", "critical"}
+            or any(not isinstance(item.get(field), str) or not item[field].strip() for field in ("finding_id", "description", "evidence_region", "resolution"))
+        ):
+            raise DesignError("Independent reference review findings must be located and resolved before concept expansion")
+        normalized_review_findings.append({field: item[field].strip() for field in ("finding_id", "severity", "description", "evidence_region", "disposition", "resolution")})
+    normalized = {
+        "schema_version": 2, "status": "passed", "design_id": design_id, "revision": record["revision"],
+        "prepared_by": manifest["prepared_by"].strip(),
+        "reviewer_type": manifest["reviewer_type"], "reviewer": manifest["reviewer"].strip(),
+        "reviewed_at": manifest["reviewed_at"].strip(), "set_conclusion": manifest["set_conclusion"].strip(),
+        "reference_studies": normalized_studies, "adaptations": normalized_adaptations,
+        "comparison": normalized_comparison,
+        "independent_review": {"status": "passed", "method": "combined-visual-comparison", "reviewer_type": manifest["reviewer_type"], "reviewer": manifest["reviewer"].strip(), "reviewed_at": manifest["reviewed_at"].strip(), "questions": normalized_questions, "findings": normalized_review_findings},
+        "validated_at": _now(),
+    }
+    normalized["report_hash"] = _canonical_hash(normalized)
+    record.update({"status": "developing-concepts", "reference_translation": normalized, "concept_evidence": None})
+    _write_json(design_dir / "draft.json", record)
+    return {
+        "schema_version": 2, "precision_schema_version": 2,
+        "design_id": design_id, "revision": record["revision"], "status": record["status"],
+        "reference_study_count": len(normalized_studies), "adaptation_count": len(normalized_adaptations),
+        "constraint_count": len(constraint_by_id), "correction_pass_count": sum(len(item["correction_passes"]) for item in normalized_studies),
+        "copy_detail_count": sum(len(item["copy_adaptation_ledger"]) for item in normalized_studies),
+        "literal_substitution_count": len(normalized_adaptations), "independent_review_status": "passed",
+        "reference_classes": sorted({item["reference_class"] for item in normalized_studies}),
+        "adaptation_distance_roles": sorted(adaptation_distance_roles),
+        "reference_translation_hash": normalized["report_hash"],
+        "execution_authorized": False,
+    }
+
+
+def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    manifest = _read_json(manifest_path)
+    design_id = _identifier(str(manifest.get("design_id", "")), "design ID")
+    design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
+    record = _read_json(design_dir / "draft.json")
+    if record.get("workflow_version", 1) < 2:
+        raise DesignError("Concept evidence requires a creative-director workflow draft")
+    reference_translation = record.get("reference_translation")
+    if record.get("workflow_version", 1) >= 3 and (not isinstance(reference_translation, dict) or reference_translation.get("status") != "passed"):
+        raise DesignError("Workflow version 3 requires passed reference reconstruction and adaptation evidence before concept validation")
+    portfolio = _verified_portfolio_report(root, manifest.get("portfolio_report")) if record.get("workflow_version", 1) >= 3 else None
+    portfolio_report = portfolio["report"] if portfolio else {"generations": [], "recurring_tells": [], "strongest_prior_generation_id": None}
+    if manifest.get("revision") != record.get("revision"):
+        raise DesignError("Concept manifest revision does not match the current draft")
+    mode = manifest.get("presentation_mode")
+    if mode != record.get("concept_presentation_mode") or mode not in CONCEPT_PRESENTATION_MODES:
+        raise DesignError("Concept presentation mode does not match the draft")
+    concepts = manifest.get("concepts")
+    if not isinstance(concepts, list) or not 2 <= len(concepts) <= 3:
+        raise DesignError("Creative-director concept manifests require two or three visual concepts")
+    collaboration_delivery = manifest.get("collaboration_delivery")
+    expected_collaboration = record.get("collaboration_contract")
+    if not isinstance(collaboration_delivery, dict) or collaboration_delivery.get("profile") != record.get("collaboration_profile"):
+        raise DesignError("Concept manifest must record the active collaboration profile")
+    for key, expected in expected_collaboration.items():
+        if collaboration_delivery.get(key) != expected:
+            raise DesignError(f"Concept collaboration delivery does not match {key}")
+    if not isinstance(collaboration_delivery.get("feedback_prompt"), str) or not collaboration_delivery["feedback_prompt"].strip():
+        raise DesignError("Concept collaboration delivery requires a profile-appropriate feedback prompt")
+    recommendation_count = sum(item.get("recommended") is True for item in concepts if isinstance(item, dict))
+    roles = [item.get("role") for item in concepts if isinstance(item, dict)]
+    if mode == "equal-directions" and (len(concepts) != len(record.get("directions", [])) or set(roles) != {"direction"}):
+        raise DesignError("Equal-direction concept evidence must cover every selectable direction without studies")
+    if mode == "equal-directions" and recommendation_count:
+        raise DesignError("Equal-direction concepts cannot preselect a winner")
+    if mode == "director-led" and (
+        len(record.get("directions", [])) != 1
+        or recommendation_count != 1
+        or roles.count("direction") != 1
+        or roles.count("contrast-study") != len(concepts) - 1
+    ):
+        raise DesignError("Director-led concepts require one selectable recommendation and one or two contrast studies")
+    required_text = ("thesis", "impact_thesis", "emotional_register", "signature_move", "imagery_treatment", "motion_decision", "preservation_promise", "tradeoff", "anti_reference")
+    laboratory = record.get("generative_exploration") or {}
+    laboratory_seeds = {item["seed_id"]: item for item in laboratory.get("seeds", []) if isinstance(item, dict) and item.get("seed_id")}
+    normalized: list[dict[str, Any]] = []
+    fidelity: set[str] = set()
+    concept_ids: set[str] = set()
+    reference_adaptation_ids: set[str] = set()
+    known_reference_adaptations = {
+        item["adaptation_id"]: item for item in (reference_translation or {}).get("adaptations", [])
+        if isinstance(item, dict) and item.get("adaptation_id")
+    }
+    visual_hashes: set[str] = set()
+    report_hashes: list[str] = []
+    typography_strategy_ids: set[str] = set()
+    typography_family_names: set[str] = set()
+    art_direction_family_names: set[str] = set()
+    composition_family_names: set[str] = set()
+    page_grammar_ids: set[str] = set()
+    page_grammar_families: set[str] = set()
+    interaction_strategy_ids: set[str] = set()
+    interaction_modes: set[str] = set()
+    concept_runtime_probe_hashes: set[str] = set()
+    comparison_strip_hashes: set[str] = set()
+    generated_extraction_passed = True
+    concept_forming_media_count = 0
+    portfolio_fingerprints: dict[str, dict[str, str]] = {}
+    minimum_journey_stage_count = 999
+    laboratory_complete = laboratory.get("status") == "complete"
+    planned_typography = {
+        item["strategy_id"]: item
+        for item in laboratory.get("range_plan", {}).get("typography_hypotheses", [])
+        if isinstance(item, dict) and item.get("strategy_id")
+    }
+    planned_art_families = set(laboratory.get("range_plan", {}).get("art_direction_families", []))
+    planned_composition_families = set(laboratory.get("range_plan", {}).get("composition_families", []))
+    planned_page_grammars = {
+        item["grammar_id"]: item
+        for item in laboratory.get("range_plan", {}).get("page_grammar_hypotheses", [])
+        if isinstance(item, dict) and item.get("grammar_id")
+    }
+    planned_interactions = {
+        item["strategy_id"]: item
+        for item in laboratory.get("range_plan", {}).get("interaction_motion_hypotheses", [])
+        if isinstance(item, dict) and item.get("strategy_id")
+    }
+    for index, concept in enumerate(concepts):
+        if not isinstance(concept, dict):
+            raise DesignError("Each concept must be an object")
+        role = concept.get("role")
+        if role not in CONCEPT_ROLES:
+            raise DesignError("Each concept must be a selectable direction or contrast study")
+        if role == "direction":
+            concept_id = _identifier(str(concept.get("direction_id", "")), "concept direction ID")
+            if concept_id not in {item["direction_id"] for item in record["directions"]}:
+                raise DesignError("Selectable concept direction does not belong to the draft")
+            tests_uncertainty = ""
+        else:
+            concept_id = _identifier(str(concept.get("study_id", "")), "contrast study ID")
+            tests_uncertainty = concept.get("tests_uncertainty", "")
+            if not isinstance(tests_uncertainty, str) or not tests_uncertainty.strip():
+                raise DesignError(f"Contrast study {concept_id} must test a named uncertainty")
+            if concept.get("recommended") is True:
+                raise DesignError("Contrast studies cannot be recommended or selected")
+        if concept_id in concept_ids:
+            raise DesignError("Concept and study IDs must be unique")
+        reference_adaptation_id = concept.get("reference_adaptation_id")
+        if record.get("workflow_version", 1) >= 3:
+            reference_adaptation_id = _identifier(str(reference_adaptation_id or ""), "reference adaptation ID")
+            if reference_adaptation_id not in known_reference_adaptations or reference_adaptation_id in reference_adaptation_ids:
+                raise DesignError(f"Concept {concept_id} requires its own validated reference adaptation")
+            reference_adaptation_ids.add(reference_adaptation_id)
+        if any(not isinstance(concept.get(key), str) or not concept[key].strip() for key in required_text):
+            raise DesignError(f"Concept {concept_id} lacks required creative evidence")
+        primary_carrier = concept.get("primary_carrier")
+        if primary_carrier not in PRIMARY_CONCEPT_CARRIERS:
+            raise DesignError(f"Concept {concept_id} requires a supported primary creative carrier")
+        lineage = concept.get("seed_lineage")
+        if not isinstance(lineage, list) or len(set(lineage)) != len(lineage) or any(item not in laboratory_seeds for item in lineage):
+            raise DesignError(f"Concept {concept_id} seed lineage must reference unique known laboratory seeds")
+        if laboratory.get("status") == "complete" and not lineage:
+            raise DesignError(f"Concept {concept_id} must carry lineage from the completed concept laboratory")
+        extractions = concept.get("system_extractions")
+        if not isinstance(extractions, list) or any(not isinstance(item, str) or not item.strip() for item in extractions):
+            raise DesignError(f"Concept {concept_id} system_extractions must be an array of design decisions")
+        if any(laboratory_seeds[item]["medium"] in GENERATED_IMAGE_MEDIA for item in lineage) and len(extractions) < 3:
+            raise DesignError(f"Concept {concept_id} must extract at least three non-image system decisions from generated-image lineage")
+        palette = concept.get("palette")
+        specimen = concept.get("type_specimen")
+        level = concept.get("fidelity_level")
+        if not isinstance(palette, list) or len(palette) < 3 or any(not isinstance(item, str) or not item.strip() for item in palette):
+            raise DesignError(f"Concept {concept_id} requires at least three palette roles")
+        if not isinstance(specimen, dict) or not isinstance(specimen.get("copy"), str) or not specimen["copy"].strip():
+            raise DesignError(f"Concept {concept_id} requires a real-copy type specimen")
+        if not isinstance(level, str) or not level.strip():
+            raise DesignError(f"Concept {concept_id} requires a fidelity level")
+        typography_system = concept.get("typography_system")
+        if not isinstance(typography_system, dict):
+            raise DesignError(f"Concept {concept_id} requires a typography system")
+        strategy_id = _identifier(str(typography_system.get("strategy_id", "")), "typography strategy ID")
+        typography_family = typography_system.get("family")
+        typography_text_fields = ("display_behavior", "text_behavior", "responsive_behavior", "rationale")
+        if laboratory_complete:
+            if strategy_id not in planned_typography or typography_family != planned_typography[strategy_id].get("family"):
+                raise DesignError(f"Concept {concept_id} typography must use a planned laboratory strategy and family")
+        elif typography_family not in TYPOGRAPHY_FAMILIES:
+            raise DesignError(f"Concept {concept_id} typography requires a supported family")
+        if any(not isinstance(typography_system.get(key), str) or not typography_system[key].strip() for key in typography_text_fields):
+            raise DesignError(f"Concept {concept_id} typography system lacks display, text, responsive, or rationale evidence")
+        media_system = concept.get("media_system")
+        if not isinstance(media_system, dict):
+            raise DesignError(f"Concept {concept_id} requires a media system")
+        if laboratory_complete:
+            if media_system.get("art_direction_family") not in planned_art_families:
+                raise DesignError(f"Concept {concept_id} media system must use a planned art-direction family")
+        elif media_system.get("art_direction_family") not in ART_DIRECTION_FAMILIES:
+            raise DesignError(f"Concept {concept_id} media system requires a supported art-direction family")
+        if any(not isinstance(media_system.get(key), str) or not media_system[key].strip() for key in ("primary_role", "quiet_state", "fallback")):
+            raise DesignError(f"Concept {concept_id} media system lacks primary, quiet, or fallback behavior")
+        asset_mix = media_system.get("asset_mix")
+        if not isinstance(asset_mix, list) or not asset_mix or len(set(asset_mix)) != len(asset_mix) or any(item not in MEDIA_ASSET_SOURCES for item in asset_mix):
+            raise DesignError(f"Concept {concept_id} media system requires a supported asset mix")
+        concept_role = media_system.get("concept_role", "supporting")
+        if record.get("workflow_version", 1) >= 3 and concept_role not in {"concept-forming", "supporting", "omitted"}:
+            raise DesignError(f"Concept {concept_id} media system requires an explicit concept role")
+        media_effects = {}
+        for field in ("thesis_effect", "composition_effect", "interaction_effect"):
+            value = media_system.get(field, "Legacy workflow evidence")
+            if record.get("workflow_version", 1) >= 3 and (not isinstance(value, str) or not value.strip()):
+                raise DesignError(f"Concept {concept_id} media system requires {field}")
+            media_effects[field] = str(value).strip()
+        if concept_role == "concept-forming":
+            if not set(asset_mix).intersection({"generated", "project-owned", "supplied"}):
+                raise DesignError(f"Concept {concept_id} concept-forming media must use owned, supplied, or generated material")
+            concept_forming_media_count += 1
+        composition_family = concept.get("composition_family")
+        if laboratory_complete:
+            if composition_family not in planned_composition_families:
+                raise DesignError(f"Concept {concept_id} must use a planned composition family")
+        elif composition_family not in COMPOSITION_FAMILIES:
+            raise DesignError(f"Concept {concept_id} requires a supported composition family")
+        page_grammar = concept.get("page_grammar")
+        if not isinstance(page_grammar, dict):
+            raise DesignError(f"Concept {concept_id} requires an explicit page grammar")
+        grammar_id = _identifier(str(page_grammar.get("grammar_id", "")), "page grammar ID")
+        grammar_family = page_grammar.get("family")
+        grammar_fields = ("core_behavior", "responsive_behavior", "depth_proof")
+        if laboratory_complete:
+            if grammar_id not in planned_page_grammars or grammar_family != planned_page_grammars[grammar_id].get("family"):
+                raise DesignError(f"Concept {concept_id} page grammar must use a planned laboratory hypothesis")
+        elif grammar_family not in PAGE_GRAMMAR_FAMILIES:
+            raise DesignError(f"Concept {concept_id} requires a supported page-grammar family")
+        if any(not isinstance(page_grammar.get(key), str) or not page_grammar[key].strip() for key in grammar_fields):
+            raise DesignError(f"Concept {concept_id} page grammar lacks core, responsive, or depth behavior")
+        interaction_system = concept.get("interaction_motion_system")
+        if not isinstance(interaction_system, dict):
+            raise DesignError(f"Concept {concept_id} requires an interaction and motion system")
+        interaction_strategy_id = _identifier(str(interaction_system.get("strategy_id", "")), "interaction and motion strategy ID")
+        interaction_mode = interaction_system.get("mode")
+        interaction_fields = ("semantic_purpose", "reduced_motion", "static_fallback")
+        if laboratory_complete:
+            if interaction_strategy_id not in planned_interactions or interaction_mode != planned_interactions[interaction_strategy_id].get("mode"):
+                raise DesignError(f"Concept {concept_id} interaction and motion must use a planned laboratory hypothesis")
+        elif interaction_mode not in INTERACTION_MOTION_MODES:
+            raise DesignError(f"Concept {concept_id} requires a supported interaction and motion mode")
+        if any(not isinstance(interaction_system.get(key), str) or not interaction_system[key].strip() for key in interaction_fields):
+            raise DesignError(f"Concept {concept_id} interaction and motion lacks semantic, reduced-motion, or static behavior")
+        motion_decision = interaction_system.get("decision", "explicit-no-motion" if interaction_mode == "static" else "purposeful-motion")
+        atmosphere_contribution = str(interaction_system.get("atmosphere_contribution", "Legacy workflow evidence")).strip()
+        state_transition = str(interaction_system.get("state_transition", "Legacy workflow evidence")).strip()
+        if record.get("workflow_version", 1) >= 3:
+            if (interaction_mode == "static" and motion_decision != "explicit-no-motion") or (interaction_mode != "static" and motion_decision != "purposeful-motion"):
+                raise DesignError(f"Concept {concept_id} interaction decision must match its motion mode")
+            if not atmosphere_contribution or not state_transition:
+                raise DesignError(f"Concept {concept_id} interaction system requires atmosphere and state-transition evidence")
+            motion_storyboard = _verified_reference_file(root, interaction_system.get("storyboard"), f"Concept {concept_id} motion storyboard", {".html", ".htm", ".png", ".svg"})
+        else:
+            motion_storyboard = None
+        journey_stages = concept.get("journey_stages")
+        if not isinstance(journey_stages, list) or len(journey_stages) < 5:
+            raise DesignError(f"Concept {concept_id} requires at least five journey stages")
+        normalized_stages: list[dict[str, str]] = []
+        stage_ids: set[str] = set()
+        stage_roles: set[str] = set()
+        for stage in journey_stages:
+            if not isinstance(stage, dict):
+                raise DesignError(f"Concept {concept_id} journey stages must be objects")
+            stage_id = _identifier(str(stage.get("stage_id", "")), "journey stage ID")
+            role_name = stage.get("role")
+            if stage_id in stage_ids or role_name not in JOURNEY_STAGE_ROLES:
+                raise DesignError(f"Concept {concept_id} journey stages require unique IDs and supported roles")
+            if any(not isinstance(stage.get(key), str) or not stage[key].strip() for key in ("purpose", "signature_expression")):
+                raise DesignError(f"Concept {concept_id} journey stage {stage_id} lacks purpose or signature evidence")
+            normalized_stages.append({"stage_id": stage_id, "role": role_name, "purpose": stage["purpose"].strip(), "signature_expression": stage["signature_expression"].strip()})
+            stage_ids.add(stage_id)
+            stage_roles.add(role_name)
+        if not {"opening", "proof", "closure"} <= stage_roles or not stage_roles.intersection({"quiet-state", "edge-state"}):
+            raise DesignError(f"Concept {concept_id} journey must include opening, proof, quiet or edge, and closure stages")
+        if record.get("workflow_version", 1) >= 3 and len(stage_roles - {"opening"}) < 4:
+            raise DesignError(f"Concept {concept_id} must extend its signature across at least four distinct downstream roles")
+        fingerprint = concept.get("portfolio_fingerprint")
+        if record.get("workflow_version", 1) >= 3:
+            if not isinstance(fingerprint, dict) or set(fingerprint) != PORTFOLIO_FINGERPRINT_DIMENSIONS:
+                raise DesignError(f"Concept {concept_id} requires every portfolio fingerprint dimension")
+            if any(not isinstance(value, str) or not value.strip() for value in fingerprint.values()):
+                raise DesignError(f"Concept {concept_id} portfolio fingerprint values must be non-empty")
+            portfolio_fingerprints[concept_id] = {key: fingerprint[key].strip() for key in sorted(PORTFOLIO_FINGERPRINT_DIMENSIONS)}
+        else:
+            portfolio_fingerprints[concept_id] = {}
+        grammar_congruence = concept.get("grammar_congruence")
+        if not isinstance(grammar_congruence, dict) or grammar_congruence.get("status") != "passed":
+            raise DesignError(f"Concept {concept_id} requires a passed page-grammar congruence review")
+        if grammar_congruence.get("reviewer_type") not in IMPACT_REVIEWER_TYPES:
+            raise DesignError(f"Concept {concept_id} page-grammar congruence requires a human or agent-multimodal reviewer")
+        for field in ("reviewer", "reviewed_at", "strongest_match", "weakest_mismatch"):
+            if not isinstance(grammar_congruence.get(field), str) or not grammar_congruence[field].strip():
+                raise DesignError(f"Concept {concept_id} page-grammar congruence requires {field}")
+        behavior_evidence = grammar_congruence.get("behaviors")
+        required_behaviors = PAGE_GRAMMAR_REQUIRED_BEHAVIORS[grammar_family]
+        if not isinstance(behavior_evidence, list) or {
+            item.get("behavior_id") for item in behavior_evidence if isinstance(item, dict)
+        } != required_behaviors:
+            raise DesignError(f"Concept {concept_id} page-grammar congruence must evidence every required {grammar_family} behavior")
+        normalized_grammar_behaviors: list[dict[str, Any]] = []
+        for behavior in behavior_evidence:
+            behavior_id = behavior.get("behavior_id")
+            visible_stages = behavior.get("journey_stage_ids")
+            if (
+                not isinstance(visible_stages, list)
+                or len(set(visible_stages)) < 2
+                or not set(visible_stages) <= stage_ids
+                or not isinstance(behavior.get("artifact_note"), str)
+                or not behavior["artifact_note"].strip()
+            ):
+                raise DesignError(f"Concept {concept_id} grammar behavior {behavior_id} requires two journey stages and a concrete artifact note")
+            normalized_grammar_behaviors.append({
+                "behavior_id": behavior_id,
+                "journey_stage_ids": visible_stages,
+                "artifact_note": behavior["artifact_note"].strip(),
+            })
+        comparison_coverage = concept.get("comparison_coverage")
+        if not isinstance(comparison_coverage, dict):
+            raise DesignError(f"Concept {concept_id} requires full-page comparison coverage")
+        chapter_index = comparison_coverage.get("chapter_index")
+        if chapter_index != [item["stage_id"] for item in normalized_stages]:
+            raise DesignError(f"Concept {concept_id} comparison chapter index must cover the complete journey in order")
+        strip = comparison_coverage.get("full_page_strip")
+        if not isinstance(strip, dict):
+            raise DesignError(f"Concept {concept_id} requires a full-page comparison strip")
+        strip_relative, strip_path = _artifact_relative_path(root, strip.get("path"))
+        strip_actual = hashlib.sha256(strip_path.read_bytes()).hexdigest() if strip_path.is_file() else ""
+        if strip_path.suffix.lower() != ".png" or not strip_actual or strip.get("sha256") != strip_actual:
+            raise DesignError(f"Concept comparison strip is missing or changed: {strip_relative}")
+        strip_width, strip_height = _png_dimensions(strip_path)
+        if strip_height < strip_width * 1.5 or strip_actual in comparison_strip_hashes:
+            raise DesignError("Every concept requires a distinct, genuinely full-page comparison strip")
+        deep_link = comparison_coverage.get("deep_link")
+        if not isinstance(deep_link, dict):
+            raise DesignError(f"Concept {concept_id} requires a deep link to its complete prototype")
+        deep_relative, deep_path = _artifact_relative_path(root, deep_link.get("path"))
+        deep_actual = hashlib.sha256(deep_path.read_bytes()).hexdigest() if deep_path.is_file() else ""
+        if deep_path.suffix.lower() != ".html" or not deep_actual or deep_link.get("sha256") != deep_actual:
+            raise DesignError(f"Concept comparison deep link is missing or changed: {deep_relative}")
+        prototype_source = deep_path.read_text(encoding="utf-8", errors="replace")
+        if record.get("workflow_version", 1) >= 3:
+            runtime_source_bundle = _verified_runtime_source_bundle(
+                root, deep_path, concept.get("runtime_source_files"), f"Concept {concept_id}",
+            )
+            adaptation_study_id = known_reference_adaptations[reference_adaptation_id]["study_ids"][0]
+            linked_reference_study = next(item for item in reference_translation["reference_studies"] if item["study_id"] == adaptation_study_id)
+            expected_reference_probe = linked_reference_study["reconstruction"].get("typography_render_probe")
+            if not expected_reference_probe:
+                raise DesignError(f"Concept {concept_id} requires typography browser evidence in its validated reference study")
+            normalized_typographic_transfer = _validate_typographic_transfer(
+                root, concept_id, concept.get("typographic_transfer"), prototype_source, expected_reference_probe,
+                {"path": deep_relative, "sha256": runtime_source_bundle["target_document_sha256"], "source_bundle_sha256": runtime_source_bundle["source_bundle_sha256"]},
+            )
+            normalized_composition_asset_plan = _validate_composition_asset_plan(
+                root, concept_id, concept.get("composition_asset_plan"), prototype_source,
+                normalized_typographic_transfer["type_media_relation"],
+                concept.get("typographic_transfer", {}).get("render_probe"),
+            )
+        else:
+            runtime_source_bundle = None
+            normalized_typographic_transfer = None
+            normalized_composition_asset_plan = None
+        for behavior in normalized_grammar_behaviors:
+            marker = f'data-continuity-grammar-behavior="{behavior["behavior_id"]}"'
+            if marker not in prototype_source:
+                raise DesignError(f"Concept {concept_id} prototype does not implement grammar behavior {behavior['behavior_id']}")
+            for stage_id in behavior["journey_stage_ids"]:
+                if f'data-continuity-stage="{stage_id}"' not in prototype_source:
+                    raise DesignError(f"Concept {concept_id} prototype does not expose journey stage {stage_id} for grammar review")
+        journey_structure = concept.get("journey_structure_review")
+        if not isinstance(journey_structure, dict) or journey_structure.get("status") != "passed":
+            raise DesignError(f"Concept {concept_id} requires a passed deep-journey structure review")
+        structure_mode = journey_structure.get("mode")
+        if structure_mode not in JOURNEY_STRUCTURE_MODES:
+            raise DesignError(f"Concept {concept_id} requires a supported deep-journey structure mode")
+        if structure_mode == "persistent-state-variation" and grammar_family != "single-canvas-instrument":
+            raise DesignError("Persistent state variation is reserved for a single-canvas instrument grammar")
+        for field in ("deepest_signature_change", "repeated_pattern_risk"):
+            if not isinstance(journey_structure.get(field), str) or not journey_structure[field].strip():
+                raise DesignError(f"Concept {concept_id} deep-journey structure review requires {field}")
+        assignments = journey_structure.get("assignments")
+        if not isinstance(assignments, list) or {item.get("stage_id") for item in assignments if isinstance(item, dict)} != stage_ids:
+            raise DesignError(f"Concept {concept_id} deep-journey structure review must cover every stage exactly once")
+        normalized_assignments: list[dict[str, str]] = []
+        expression_ids: set[str] = set()
+        for assignment in assignments:
+            expression_id = _identifier(str(assignment.get("expression_id", "")), "journey expression ID")
+            if any(not isinstance(assignment.get(field), str) or not assignment[field].strip() for field in ("artifact_note", "responsive_behavior")):
+                raise DesignError(f"Concept {concept_id} journey expressions require artifact and responsive behavior notes")
+            expression_ids.add(expression_id)
+            normalized_assignments.append({
+                "stage_id": assignment["stage_id"], "expression_id": expression_id,
+                "artifact_note": assignment["artifact_note"].strip(),
+                "responsive_behavior": assignment["responsive_behavior"].strip(),
+            })
+        if len(expression_ids) < 4 or journey_structure.get("distinct_expression_count") != len(expression_ids):
+            raise DesignError(f"Concept {concept_id} deep journey requires at least four distinct structural or state expressions")
+        if structure_mode == "persistent-state-variation":
+            if 'data-continuity-persistent-canvas="true"' not in prototype_source:
+                raise DesignError(f"Concept {concept_id} does not implement the claimed persistent canvas")
+            marker_name = "data-continuity-instrument-state"
+        else:
+            marker_name = "data-continuity-journey-structure"
+        for expression_id in expression_ids:
+            if f'{marker_name}="{expression_id}"' not in prototype_source:
+                raise DesignError(f"Concept {concept_id} prototype does not implement journey expression {expression_id}")
+        generated_lineage = [item for item in lineage if laboratory_seeds[item]["medium"] in GENERATED_IMAGE_MEDIA]
+        generated_disposition = concept.get("generated_media_disposition")
+        if not isinstance(generated_disposition, dict):
+            raise DesignError(f"Concept {concept_id} requires an explicit generated-media disposition")
+        normalized_generated_disposition: dict[str, Any]
+        if generated_lineage:
+            if generated_disposition.get("status") not in {"extracted", "retained-as-concept-carrier"}:
+                raise DesignError(f"Concept {concept_id} must extract generated media or retain it as an approved concept carrier")
+            if generated_disposition.get("status") == "extracted" and generated_disposition.get("pixel_promotion") is not False:
+                raise DesignError(f"Concept {concept_id} extracted media cannot promote generated pixels")
+            if generated_disposition.get("status") == "retained-as-concept-carrier" and generated_disposition.get("pixel_promotion") is not True:
+                raise DesignError(f"Concept {concept_id} retained concept media must declare pixel promotion")
+            source_seed_ids = generated_disposition.get("source_seed_ids")
+            mappings = generated_disposition.get("extractions")
+            if not isinstance(source_seed_ids, list) or not set(source_seed_ids) == set(generated_lineage):
+                raise DesignError(f"Concept {concept_id} generated-media disposition must cover every generated seed in its lineage")
+            if not isinstance(mappings, list) or len(mappings) < 3:
+                raise DesignError(f"Concept {concept_id} requires at least three generated-media extraction mappings")
+            domains: set[str] = set()
+            normalized_mappings: list[dict[str, str]] = []
+            for mapping in mappings:
+                domain = mapping.get("domain") if isinstance(mapping, dict) else None
+                rule = mapping.get("rule") if isinstance(mapping, dict) else None
+                if domain not in GENERATED_EXTRACTION_DOMAINS or domain in domains or not isinstance(rule, str) or not rule.strip():
+                    raise DesignError(f"Concept {concept_id} generated-media extractions require unique supported domains and concrete rules")
+                domains.add(domain)
+                normalized_mappings.append({"domain": domain, "rule": rule.strip()})
+            derived = generated_disposition.get("derived_artifacts")
+            if not isinstance(derived, list) or not derived:
+                raise DesignError(f"Concept {concept_id} requires at least one hash-bound artifact derived from generated exploration")
+            normalized_derived: list[dict[str, str]] = []
+            for artifact in derived:
+                relative, artifact_path = _artifact_relative_path(root, artifact.get("path") if isinstance(artifact, dict) else None)
+                actual = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path.is_file() else ""
+                if artifact_path.suffix.lower() not in {".css", ".html", ".png", ".svg"} or not actual or artifact.get("sha256") != actual:
+                    raise DesignError(f"Generated-media derived artifact is missing or changed: {relative}")
+                normalized_derived.append({"path": relative, "sha256": actual})
+            normalized_generated_disposition = {"status": generated_disposition["status"], "source_seed_ids": source_seed_ids, "pixel_promotion": generated_disposition["pixel_promotion"], "extractions": normalized_mappings, "derived_artifacts": normalized_derived}
+        else:
+            rationale = generated_disposition.get("rationale")
+            if generated_disposition.get("status") != "not-applicable" or not isinstance(rationale, str) or not rationale.strip():
+                raise DesignError(f"Concept {concept_id} without generated-image lineage must explain why generated-media extraction is not applicable")
+            normalized_generated_disposition = {"status": "not-applicable", "rationale": rationale.strip()}
+        comparison_strip_hashes.add(strip_actual)
+        runtime_probes = concept.get("runtime_probes")
+        if not isinstance(runtime_probes, list) or len(runtime_probes) != 3:
+            raise DesignError(f"Concept {concept_id} requires mobile, tablet, and desktop runtime probes")
+        normalized_runtime_probes: list[dict[str, Any]] = []
+        runtime_probe_payloads: dict[str, dict[str, Any]] = {}
+        runtime_viewports: set[str] = set()
+        expected_widths = {"mobile": 390, "tablet": 768, "desktop": 1440}
+        for probe in runtime_probes:
+            viewport = probe.get("viewport") if isinstance(probe, dict) else None
+            if viewport not in expected_widths or viewport in runtime_viewports:
+                raise DesignError(f"Concept {concept_id} runtime probes require unique mobile, tablet, and desktop evidence")
+            normalized_probe = _verified_browser_probe(root, probe, viewport, expected_widths[viewport])
+            if record.get("workflow_version", 1) >= 3 and normalized_probe["schema_version"] != 3:
+                raise DesignError(f"Concept {concept_id} workflow version 3 requires browser probe schema 3 at every viewport")
+            if normalized_probe["sha256"] in concept_runtime_probe_hashes:
+                raise DesignError("Every concept requires its own runtime probe artifacts")
+            concept_runtime_probe_hashes.add(normalized_probe["sha256"])
+            normalized_runtime_probes.append(normalized_probe)
+            runtime_probe_payloads[viewport] = _browser_probe_payload(root, normalized_probe)
+            runtime_viewports.add(viewport)
+        if record.get("workflow_version", 1) >= 3 and not any(
+            item["viewport"] == "desktop"
+            and item["path"] == normalized_typographic_transfer["render_probe"]["path"]
+            and item["sha256"] == normalized_typographic_transfer["render_probe"]["sha256"]
+            for item in normalized_runtime_probes
+        ):
+            raise DesignError(f"Concept {concept_id} typographic transfer must use one of its three validated runtime probes")
+        if record.get("workflow_version", 1) >= 3:
+            signature_value = concept.get("signature_coverage")
+            reduced_motion_ref = _verified_reference_file(
+                root,
+                signature_value.get("reduced_motion_probe") if isinstance(signature_value, dict) else None,
+                f"Concept {concept_id} reduced-motion signature probe",
+                {".json"},
+            )
+            reduced_motion_probe = _browser_probe_payload(root, reduced_motion_ref)
+            if (
+                reduced_motion_probe.get("schema_version") != 3
+                or reduced_motion_probe.get("probe_kind") != "continuity-artifact-browser-probe"
+                or reduced_motion_probe.get("passed") is not True
+                or reduced_motion_probe.get("target_document_path") != deep_relative
+                or reduced_motion_probe.get("target_document_sha256") != runtime_source_bundle["target_document_sha256"]
+                or reduced_motion_probe.get("source_bundle_sha256") != runtime_source_bundle["source_bundle_sha256"]
+                or reduced_motion_probe.get("media_preferences", {}).get("reduced_motion") is not True
+            ):
+                raise DesignError(f"Concept {concept_id} reduced-motion signature probe is stale, unbound, or did not emulate reduced motion")
+            runtime_probe_payloads["reduced-motion"] = reduced_motion_probe
+            signature_coverage = _validate_signature_coverage(
+                concept_id, signature_value, runtime_probe_payloads,
+            )
+            signature_coverage["reduced_motion_probe"] = reduced_motion_ref
+            interaction_invariants = _validate_interaction_invariants(
+                root,
+                concept_id,
+                concept.get("interaction_invariants"),
+                {
+                    "path": deep_relative,
+                    "sha256": runtime_source_bundle["target_document_sha256"],
+                    "source_bundle_sha256": runtime_source_bundle["source_bundle_sha256"],
+                },
+                interaction_mode,
+            )
+        else:
+            signature_coverage = None
+            interaction_invariants = None
+        fidelity.add(level.strip())
+        visuals: dict[str, dict[str, str]] = {}
+        for visual_role in ("wide_composition", "narrow_transformation"):
+            evidence = concept.get(visual_role)
+            if not isinstance(evidence, dict):
+                raise DesignError(f"Concept {concept_id} requires {visual_role}")
+            relative, path = _artifact_relative_path(root, evidence.get("path"))
+            if path.suffix.lower() != ".png" or not path.is_file() or evidence.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest():
+                raise DesignError(f"Concept visual evidence is missing or changed: {relative}")
+            width, height = _png_dimensions(path)
+            if (visual_role == "wide_composition" and width < 1100) or (visual_role == "narrow_transformation" and width >= 600):
+                raise DesignError(f"Concept visual evidence has the wrong viewport role: {relative}")
+            if evidence["sha256"] in visual_hashes:
+                raise DesignError("Every wide and narrow concept visual must be distinct")
+            visual_hashes.add(evidence["sha256"])
+            visuals[visual_role] = {"path": relative, "sha256": evidence["sha256"], "width": width, "height": height}
+        slop = _verified_private_report(root, concept.get("slop_report"), stage="concept")
+        _, slop_path = _artifact_relative_path(root, slop["path"])
+        slop_report = _read_json(slop_path)
+        if record.get("workflow_version", 1) >= 3:
+            fidelity_context = slop_report.get("translation_fidelity")
+            if not isinstance(fidelity_context, dict) or any(fidelity_context.get(key) is not True for key in ("editable_depth_preserved", "font_transfer_verified", "approved_layer_plan_present", "approved_typographic_character_present")):
+                raise DesignError(f"Concept {concept_id} slop report does not carry passed layer and typography fidelity")
+        reviewed_visual_hashes = {
+            artifact.get("sha256")
+            for answer in slop_report.get("visual_review", {}).values()
+            if isinstance(answer, dict)
+            for artifact in answer.get("evidence", [])
+            if isinstance(artifact, dict)
+        }
+        required_visual_hashes = {visuals["wide_composition"]["sha256"], visuals["narrow_transformation"]["sha256"]}
+        if not required_visual_hashes <= reviewed_visual_hashes:
+            raise DesignError(f"Concept {concept_id} slop review is not bound to its wide and narrow visuals")
+        report_hashes.append(slop["report_hash"])
+        normalized.append({
+            "concept_id": concept_id, "role": role,
+            "direction_id": concept_id if role == "direction" else None,
+            "study_id": concept_id if role == "contrast-study" else None,
+            "tests_uncertainty": tests_uncertainty.strip(), "recommended": bool(concept.get("recommended", False)),
+            **{key: concept[key].strip() for key in required_text}, "primary_carrier": primary_carrier,
+            "seed_lineage": lineage, "system_extractions": [item.strip() for item in extractions], "palette": palette,
+            "type_specimen": specimen,
+            "typography_system": {"strategy_id": strategy_id, "family": typography_family, **{key: typography_system[key].strip() for key in typography_text_fields}},
+            "typographic_transfer": normalized_typographic_transfer,
+            "runtime_source_files": runtime_source_bundle["source_files"] if runtime_source_bundle else None,
+            "media_system": {"art_direction_family": media_system["art_direction_family"], "primary_role": media_system["primary_role"].strip(), "asset_mix": asset_mix, "quiet_state": media_system["quiet_state"].strip(), "fallback": media_system["fallback"].strip(), "concept_role": concept_role, **media_effects},
+            "composition_asset_plan": normalized_composition_asset_plan,
+            "composition_family": composition_family,
+            "page_grammar": {"grammar_id": grammar_id, "family": grammar_family, **{key: page_grammar[key].strip() for key in grammar_fields}},
+            "grammar_congruence": {
+                "status": "passed", "reviewer_type": grammar_congruence["reviewer_type"],
+                "reviewer": grammar_congruence["reviewer"].strip(), "reviewed_at": grammar_congruence["reviewed_at"].strip(),
+                "strongest_match": grammar_congruence["strongest_match"].strip(),
+                "weakest_mismatch": grammar_congruence["weakest_mismatch"].strip(),
+                "behaviors": normalized_grammar_behaviors,
+            },
+            "journey_structure_review": {
+                "status": "passed", "mode": structure_mode,
+                "distinct_expression_count": len(expression_ids),
+                "deepest_signature_change": journey_structure["deepest_signature_change"].strip(),
+                "repeated_pattern_risk": journey_structure["repeated_pattern_risk"].strip(),
+                "assignments": normalized_assignments,
+            },
+            "interaction_motion_system": {"strategy_id": interaction_strategy_id, "mode": interaction_mode, "decision": motion_decision, "storyboard": motion_storyboard, "atmosphere_contribution": atmosphere_contribution, "state_transition": state_transition, **{key: interaction_system[key].strip() for key in interaction_fields}},
+            "portfolio_fingerprint": portfolio_fingerprints[concept_id],
+            "journey_stages": normalized_stages, "runtime_probes": normalized_runtime_probes,
+            "signature_coverage": signature_coverage, "interaction_invariants": interaction_invariants,
+            "comparison_coverage": {"full_page_strip": {"path": strip_relative, "sha256": strip_actual, "width": strip_width, "height": strip_height}, "chapter_index": chapter_index, "deep_link": {"path": deep_relative, "sha256": deep_actual}},
+            "generated_media_disposition": normalized_generated_disposition,
+            "reference_adaptation_id": reference_adaptation_id if record.get("workflow_version", 1) >= 3 else None,
+            "fidelity_level": level.strip(), **visuals, "slop_report": slop,
+        })
+        typography_strategy_ids.add(strategy_id)
+        typography_family_names.add(typography_family)
+        art_direction_family_names.add(media_system["art_direction_family"])
+        composition_family_names.add(composition_family)
+        page_grammar_ids.add(grammar_id)
+        page_grammar_families.add(grammar_family)
+        interaction_strategy_ids.add(interaction_strategy_id)
+        interaction_modes.add(interaction_mode)
+        minimum_journey_stage_count = min(minimum_journey_stage_count, len(normalized_stages))
+        concept_ids.add(concept_id)
+    if record.get("workflow_version", 1) >= 3 and reference_adaptation_ids != set(known_reference_adaptations):
+        raise DesignError("Concept set must consume every validated reference adaptation exactly once")
+    if len(fidelity) != 1:
+        raise DesignError("Concept directions must have comparable fidelity")
+    if len(set(report_hashes)) != len(normalized):
+        raise DesignError("Every concept requires its own current AI-slop report")
+    if len({(item["thesis"].casefold(), item["signature_move"].casefold()) for item in normalized}) != len(normalized):
+        raise DesignError("Concept directions must differ structurally, not only cosmetically")
+    if len(typography_strategy_ids) != len(normalized) or len(typography_family_names) < min(2, len(normalized)):
+        raise DesignError("Concept range requires a distinct typography strategy per concept and at least two typography families")
+    if len(art_direction_family_names) != len(normalized):
+        raise DesignError("Concept range requires a distinct art-direction family per concept")
+    if len(composition_family_names) != len(normalized):
+        raise DesignError("Concept range requires a distinct composition family per concept")
+    if len(page_grammar_ids) != len(normalized) or len(page_grammar_families) != len(normalized):
+        raise DesignError("Concept range requires a distinct planned page grammar per concept")
+    if len(interaction_strategy_ids) != len(normalized):
+        raise DesignError("Concept range requires a distinct interaction and motion strategy per concept")
+    if len(normalized) > 1 and interaction_modes == {"static"}:
+        raise DesignError("Multi-concept UI directioning must test at least one meaningful interaction or motion mode")
+    if record.get("workflow_version", 1) >= 3 and concept_forming_media_count < 1:
+        raise DesignError("Concept sets require at least one direction whose media forms the idea rather than decorating it")
+    creative_range = manifest.get("creative_range")
+    if not isinstance(creative_range, dict) or creative_range.get("status") != "passed":
+        raise DesignError("Concept selection requires a passed creative-range review separate from AI-slop review")
+    for key in ("reviewer", "reviewed_at"):
+        if not isinstance(creative_range.get(key), str) or not creative_range[key].strip():
+            raise DesignError(f"Creative-range review requires {key}")
+    reactions = creative_range.get("five_second_reactions")
+    if not isinstance(reactions, list) or {item.get("concept_id") for item in reactions if isinstance(item, dict)} != concept_ids:
+        raise DesignError("Creative-range review requires one five-second reaction for every concept")
+    reaction_text = []
+    for item in reactions:
+        if not isinstance(item, dict) or set(item) != {"concept_id", "reaction"} or not isinstance(item.get("reaction"), str) or not item["reaction"].strip():
+            raise DesignError("Five-second reactions require only concept_id and reaction")
+        reaction_text.append(item["reaction"].strip().casefold())
+    if len(set(reaction_text)) != len(reaction_text):
+        raise DesignError("Five-second reactions must distinguish the concepts at a glance")
+    distances = creative_range.get("pairwise_distances")
+    ordered_concept_ids = sorted(concept_ids)
+    expected_pairs = {frozenset((left, right)) for index, left in enumerate(ordered_concept_ids) for right in ordered_concept_ids[index + 1:]}
+    normalized_pairs: set[frozenset[str]] = set()
+    if not isinstance(distances, list):
+        raise DesignError("Creative-range review requires pairwise distance evidence")
+    for item in distances:
+        pair = item.get("concept_ids") if isinstance(item, dict) else None
+        dimensions = item.get("differing_dimensions") if isinstance(item, dict) else None
+        rationale = item.get("rationale") if isinstance(item, dict) else None
+        pair_set = frozenset(pair) if isinstance(pair, list) else frozenset()
+        if len(pair_set) != 2 or not pair_set <= concept_ids or pair_set in normalized_pairs:
+            raise DesignError("Creative-range pairwise evidence must cover unique known concept pairs")
+        if not isinstance(dimensions, list) or len(set(dimensions)) < 3 or not set(dimensions) <= CREATIVE_DISTANCE_DIMENSIONS:
+            raise DesignError("Every concept pair must differ across at least three material design dimensions")
+        if not isinstance(rationale, str) or not rationale.strip():
+            raise DesignError("Creative-range pairwise evidence requires rationale")
+        normalized_pairs.add(pair_set)
+    if normalized_pairs != expected_pairs:
+        raise DesignError("Creative-range review must compare every concept pair")
+    house_review = creative_range.get("house_tell_review")
+    if not isinstance(house_review, dict) or house_review.get("project_identity_wins") is not True:
+        raise DesignError("Creative-range review must show that project identity wins over Continuity house tells")
+    if portfolio and house_review.get("portfolio_report_hash") != portfolio["report_hash"]:
+        raise DesignError("House-tell review must bind the current portfolio report")
+    tells = house_review.get("recurring_tells_checked")
+    known_tells = {item["tell_id"]: item for item in portfolio_report.get("recurring_tells", [])}
+    if portfolio and (not isinstance(tells, list) or set(tells) != set(known_tells)):
+        raise DesignError("House-tell review must check every current portfolio tell with a project-specific rationale")
+    if not isinstance(tells, list) or not isinstance(house_review.get("rationale"), str) or not house_review["rationale"].strip():
+        raise DesignError("House-tell review must check every current portfolio tell with a project-specific rationale")
+    comparisons = house_review.get("concept_comparisons")
+    if portfolio and (not isinstance(comparisons, list) or {item.get("concept_id") for item in comparisons if isinstance(item, dict)} != concept_ids):
+        raise DesignError("House-tell review requires one derived comparison for every concept")
+    for item in comparisons or []:
+        concept_id = item["concept_id"]
+        derived_matches = {
+            tell_id for tell_id, tell in known_tells.items()
+            if portfolio_fingerprints[concept_id][tell["dimension"]] == tell["value"]
+        }
+        if set(item.get("matched_tell_ids", [])) != derived_matches or len(derived_matches) > 2:
+            raise DesignError(f"Concept {concept_id} repeats too many portfolio house tells or misstates its overlap")
+        changed = item.get("changed_fingerprint_dimensions")
+        strongest_id = portfolio_report.get("strongest_prior_generation_id")
+        strongest_fingerprint = next(
+            (generation["fingerprint"] for generation in portfolio_report.get("generations", []) if generation["generation_id"] == strongest_id),
+            None,
+        )
+        derived_changed = {
+            dimension for dimension in PORTFOLIO_FINGERPRINT_DIMENSIONS
+            if strongest_fingerprint is None or portfolio_fingerprints[concept_id][dimension] != strongest_fingerprint[dimension]
+        }
+        if not isinstance(changed, list) or set(changed) != derived_changed or len(derived_changed) < 3:
+            raise DesignError(f"Concept {concept_id} must deliberately change at least three portfolio fingerprint dimensions")
+        recurrences = item.get("intentional_recurrences")
+        if not isinstance(recurrences, list) or {entry.get("tell_id") for entry in recurrences if isinstance(entry, dict)} != derived_matches:
+            raise DesignError(f"Concept {concept_id} must disposition every recurring house tell it retains")
+        for entry in recurrences:
+            if any(not isinstance(entry.get(field), str) or not entry[field].strip() for field in ("rationale", "contract_reference")):
+                raise DesignError(f"Concept {concept_id} retained house tells require rationale and contract references")
+    adversarial = creative_range.get("adversarial_pass")
+    if not isinstance(adversarial, list) or {item.get("concept_id") for item in adversarial if isinstance(item, dict)} != concept_ids:
+        raise DesignError("Creative-range review requires an adversarial pass for every concept")
+    adversarial_fields = ("genericity_argument", "opposing_hypothesis", "resulting_change", "rejected_choice")
+    for item in adversarial:
+        if not isinstance(item, dict) or any(not isinstance(item.get(key), str) or not item[key].strip() for key in adversarial_fields):
+            raise DesignError("Every adversarial concept pass requires its genericity argument, opposing hypothesis, resulting change, and rejected choice")
+    range_audit = creative_range.get("range_audit")
+    actual_range_counts = {
+        "typography_strategy_count": len(typography_strategy_ids),
+        "typography_family_count": len(typography_family_names),
+        "art_direction_family_count": len(art_direction_family_names),
+        "composition_family_count": len(composition_family_names),
+        "page_grammar_count": len(page_grammar_ids),
+        "interaction_motion_strategy_count": len(interaction_strategy_ids),
+        "minimum_journey_stage_count": minimum_journey_stage_count,
+    }
+    if record.get("workflow_version", 1) >= 3:
+        actual_range_counts["concept_forming_media_count"] = concept_forming_media_count
+    if not isinstance(range_audit, dict) or range_audit.get("status") != "passed" or range_audit.get("per_concept_runtime_probes") is not True:
+        raise DesignError("Creative-range review requires a passed typography, media, depth, and per-concept runtime audit")
+    if range_audit.get("comparison_depth_coverage") is not True or range_audit.get("generated_media_extraction_passed") is not True:
+        raise DesignError("Creative-range review requires full-page comparison coverage and generated-media extraction evidence")
+    if any(range_audit.get(key) != value for key, value in actual_range_counts.items()):
+        raise DesignError("Creative-range audit counts do not match the concept evidence")
+    if not isinstance(range_audit.get("rationale"), str) or not range_audit["rationale"].strip():
+        raise DesignError("Creative-range audit requires a project-specific rationale")
+    normalized_creative_range = {
+        "status": "passed", "reviewer": creative_range["reviewer"].strip(), "reviewed_at": creative_range["reviewed_at"].strip(),
+        "five_second_reactions": reactions, "pairwise_distances": distances,
+        "house_tell_review": house_review, "adversarial_pass": adversarial,
+        "range_audit": {"status": "passed", **actual_range_counts, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "rationale": range_audit["rationale"].strip()},
+    }
+    impact_review = manifest.get("impact_review")
+    if not isinstance(impact_review, dict) or impact_review.get("status") != "passed":
+        raise DesignError("Concept selection requires a passed impact review separate from range and AI-slop review")
+    reviewer_type = impact_review.get("reviewer_type")
+    if reviewer_type not in IMPACT_REVIEWER_TYPES:
+        raise DesignError("Impact review requires a human or agent-multimodal reviewer type")
+    for key in ("reviewer", "reviewed_at", "set_conclusion"):
+        if not isinstance(impact_review.get(key), str) or not impact_review[key].strip():
+            raise DesignError(f"Impact review requires {key}")
+    impact_concepts = impact_review.get("concepts")
+    if not isinstance(impact_concepts, list) or {item.get("concept_id") for item in impact_concepts if isinstance(item, dict)} != concept_ids:
+        raise DesignError("Impact review requires one assessment for every concept")
+    normalized_impact_concepts: list[dict[str, Any]] = []
+    compelling_count = 0
+    signature_stage_minimum = 999
+    normalized_by_id = {item["concept_id"]: item for item in normalized}
+    for assessment in impact_concepts:
+        concept_id = assessment.get("concept_id")
+        concept = normalized_by_id[concept_id]
+        if assessment.get("outcome") != "passed" or assessment.get("strength") not in IMPACT_STRENGTHS:
+            raise DesignError(f"Concept {concept_id} impact review must pass with credible or compelling strength")
+        signature_stage_ids = assessment.get("signature_stage_ids")
+        stage_by_id = {item["stage_id"]: item for item in concept["journey_stages"]}
+        if (
+            not isinstance(signature_stage_ids, list) or len(set(signature_stage_ids)) < 3
+            or not set(signature_stage_ids) <= set(stage_by_id)
+            or len({stage_by_id[item]["role"] for item in signature_stage_ids}) < 3
+        ):
+            raise DesignError(f"Concept {concept_id} signature must materially control at least three different journey roles")
+        checks = ("identity_specificity", "emotional_resonance", "craft_coherence")
+        if any(assessment.get(key) != "pass" for key in checks):
+            raise DesignError(f"Concept {concept_id} impact review must pass identity, resonance, and craft checks")
+        fields = ("rationale", "weakest_moment", "refinement_priority")
+        if any(not isinstance(assessment.get(key), str) or not assessment[key].strip() for key in fields):
+            raise DesignError(f"Concept {concept_id} impact review requires rationale, weakest moment, and refinement priority")
+        impact_evidence = assessment.get("evidence")
+        if not isinstance(impact_evidence, list) or len(impact_evidence) < 2:
+            raise DesignError(f"Concept {concept_id} impact review requires wide and narrow visual evidence")
+        normalized_impact_evidence: list[dict[str, str]] = []
+        impact_hashes: set[str] = set()
+        for artifact in impact_evidence:
+            relative, artifact_path = _artifact_relative_path(root, artifact.get("path") if isinstance(artifact, dict) else None)
+            actual = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path.is_file() else ""
+            if artifact_path.suffix.lower() != ".png" or not actual or artifact.get("sha256") != actual:
+                raise DesignError(f"Impact-review evidence is missing or changed: {relative}")
+            normalized_impact_evidence.append({"path": relative, "sha256": actual})
+            impact_hashes.add(actual)
+        if not {concept["wide_composition"]["sha256"], concept["narrow_transformation"]["sha256"]} <= impact_hashes:
+            raise DesignError(f"Concept {concept_id} impact review is not bound to its wide and narrow visuals")
+        if assessment["strength"] == "compelling":
+            compelling_count += 1
+        signature_stage_minimum = min(signature_stage_minimum, len(set(signature_stage_ids)))
+        normalized_impact_concepts.append({
+            "concept_id": concept_id, "outcome": "passed", "strength": assessment["strength"],
+            "signature_stage_ids": signature_stage_ids, **{key: "pass" for key in checks},
+            **{key: assessment[key].strip() for key in fields}, "evidence": normalized_impact_evidence,
+        })
+    if compelling_count < 1 or impact_review.get("at_least_one_compelling") is not True:
+        raise DesignError("A concept set cannot proceed without at least one compelling direction")
+    normalized_impact_review = {
+        "status": "passed", "reviewer_type": reviewer_type,
+        "reviewer": impact_review["reviewer"].strip(), "reviewed_at": impact_review["reviewed_at"].strip(),
+        "at_least_one_compelling": True, "set_conclusion": impact_review["set_conclusion"].strip(),
+        "signature_stage_coverage_minimum": signature_stage_minimum, "concepts": normalized_impact_concepts,
+    }
+    prior_challenge = manifest.get("prior_output_challenge")
+    strongest_prior = portfolio_report.get("strongest_prior_generation_id")
+    if record.get("workflow_version", 1) < 3:
+        normalized_prior_challenge = None
+    elif strongest_prior:
+        if (
+            not isinstance(prior_challenge, dict)
+            or prior_challenge.get("status") != "passed"
+            or prior_challenge.get("portfolio_report_hash") != portfolio["report_hash"]
+            or prior_challenge.get("strongest_prior_generation_id") != strongest_prior
+            or prior_challenge.get("lineage_preserved") is not True
+        ):
+            raise DesignError("Concept set must pass a hash-bound counterfactual against the strongest prior generation")
+        challenger_id = prior_challenge.get("challenger_concept_id")
+        impact_by_id = {item["concept_id"]: item for item in normalized_impact_concepts}
+        if challenger_id not in impact_by_id or impact_by_id[challenger_id]["strength"] != "compelling":
+            raise DesignError("The strongest-prior challenger must be a compelling current concept")
+        for field in ("impact_advantage", "project_specificity_gain", "reviewer", "reviewed_at"):
+            if not isinstance(prior_challenge.get(field), str) or not prior_challenge[field].strip():
+                raise DesignError(f"Strongest-prior challenge requires {field}")
+        challenge_evidence = prior_challenge.get("evidence")
+        if not isinstance(challenge_evidence, list) or len(challenge_evidence) < 3:
+            raise DesignError("Strongest-prior challenge requires current wide, current narrow, and prior evidence")
+        normalized_challenge_evidence = [
+            _verified_reference_file(root, item, "Strongest-prior challenge evidence", {".png"}) for item in challenge_evidence
+        ]
+        challenger = next(item for item in normalized if item["concept_id"] == challenger_id)
+        prior_generation = next(item for item in portfolio_report["generations"] if item["generation_id"] == strongest_prior)
+        expected_hashes = {challenger["wide_composition"]["sha256"], challenger["narrow_transformation"]["sha256"], prior_generation["artifact"]["sha256"]}
+        if not expected_hashes <= {item["sha256"] for item in normalized_challenge_evidence}:
+            raise DesignError("Strongest-prior challenge evidence is not bound to the compared generations")
+        normalized_prior_challenge = {
+            "status": "passed", "portfolio_report_hash": portfolio["report_hash"],
+            "strongest_prior_generation_id": strongest_prior, "challenger_concept_id": challenger_id,
+            "lineage_preserved": True,
+            **{field: prior_challenge[field].strip() for field in ("impact_advantage", "project_specificity_gain", "reviewer", "reviewed_at")},
+            "evidence": normalized_challenge_evidence,
+        }
+    else:
+        if not isinstance(prior_challenge, dict) or prior_challenge.get("status") != "not-applicable" or not isinstance(prior_challenge.get("rationale"), str) or not prior_challenge["rationale"].strip():
+            raise DesignError("An empty portfolio requires an explicit strongest-prior not-applicable rationale")
+        normalized_prior_challenge = {"status": "not-applicable", "rationale": prior_challenge["rationale"].strip()}
+    browser_snapshots = manifest.get("browser_snapshots")
+    if not isinstance(browser_snapshots, list) or len(browser_snapshots) != 3:
+        raise DesignError("Concept comparison requires mobile, tablet, and desktop browser snapshots")
+    normalized_snapshots: list[dict[str, Any]] = []
+    snapshot_roles: set[str] = set()
+    for item in browser_snapshots:
+        if not isinstance(item, dict) or item.get("viewport") not in {"mobile", "tablet", "desktop"}:
+            raise DesignError("Concept browser snapshot requires a supported viewport")
+        relative, path = _artifact_relative_path(root, item.get("path"))
+        if path.suffix.lower() != ".png" or not path.is_file() or item.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest():
+            raise DesignError(f"Concept browser snapshot is missing or changed: {relative}")
+        width, height = _png_dimensions(path)
+        role = item["viewport"]
+        if role in snapshot_roles or height < 1 or (role == "mobile" and width >= 600) or (role == "tablet" and not 600 <= width < 1100) or (role == "desktop" and width < 1100):
+            raise DesignError("Concept browser snapshot dimensions do not match its viewport")
+        normalized_snapshots.append({"viewport": role, "path": relative, "sha256": item["sha256"], "width": width, "height": height})
+        snapshot_roles.add(role)
+    browser_probes = manifest.get("browser_probes")
+    if not isinstance(browser_probes, list) or len(browser_probes) != 3:
+        raise DesignError("Concept comparison requires a passed browser probe at every required viewport")
+    normalized_probes: list[dict[str, Any]] = []
+    probe_roles: set[str] = set()
+    for item in browser_probes:
+        if not isinstance(item, dict) or item.get("viewport") not in snapshot_roles or item["viewport"] in probe_roles:
+            raise DesignError("Concept browser probes require unique mobile, tablet, and desktop evidence")
+        snapshot = next(snapshot for snapshot in normalized_snapshots if snapshot["viewport"] == item["viewport"])
+        normalized_probes.append(_verified_browser_probe(root, item, item["viewport"], snapshot["width"]))
+        probe_roles.add(item["viewport"])
+    research_tiles = {tile["tile"] for tile in record.get("research", {}).get("moodboard", [])}
+    research_links = manifest.get("research_links", [])
+    if not isinstance(research_links, list):
+        raise DesignError("research_links must be an array")
+    normalized_links: list[dict[str, Any]] = []
+    linked_tiles: set[int] = set()
+    for item in research_links:
+        if not isinstance(item, dict) or item.get("tile") not in research_tiles or item.get("disposition") not in RESEARCH_LINK_DISPOSITIONS:
+            raise DesignError("Research links must reference a moodboard tile and supported disposition")
+        if item["tile"] in linked_tiles:
+            raise DesignError("Each moodboard tile requires one concept disposition")
+        rationale = item.get("rationale")
+        linked_concepts = item.get("concept_ids", [])
+        if not isinstance(rationale, str) or not rationale.strip() or not isinstance(linked_concepts, list) or any(value not in concept_ids for value in linked_concepts):
+            raise DesignError("Research links require rationale and known concept IDs")
+        if item["disposition"] in {"adopted", "transformed"} and not linked_concepts:
+            raise DesignError("Adopted or transformed research requires a concept link")
+        normalized_links.append({"tile": item["tile"], "disposition": item["disposition"], "rationale": rationale.strip(), "concept_ids": linked_concepts})
+        linked_tiles.add(item["tile"])
+    if research_tiles != linked_tiles:
+        raise DesignError("Every moodboard tile must be adopted, transformed, rejected, or retained as reference-only")
+    references = manifest.get("visual_references", [])
+    if not isinstance(references, list):
+        raise DesignError("visual_references must be an array")
+    publishable: list[dict[str, Any]] = []
+    normalized_refs: list[dict[str, Any]] = []
+    for item in references:
+        if not isinstance(item, dict) or item.get("ownership") not in VISUAL_REFERENCE_OWNERSHIP:
+            raise DesignError("Visual references require a valid ownership classification")
+        relative, path = _artifact_relative_path(root, item.get("path"))
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+        if not actual or item.get("sha256") != actual:
+            raise DesignError(f"Visual reference is missing or changed: {relative}")
+        publish = bool(item.get("publishable", False))
+        if publish and item["ownership"] == "third-party":
+            raise DesignError("Third-party moodboard and screenshot material cannot be promoted")
+        normalized_ref = {"path": relative, "sha256": actual, "ownership": item["ownership"], "publishable": publish, "lesson": str(item.get("lesson", "")).strip()}
+        normalized_refs.append(normalized_ref)
+        if publish:
+            publishable.append(normalized_ref)
+    visual_reference_material = [
+        {"name": Path(item["path"]).name, "sha256": item["sha256"], "ownership": item["ownership"]}
+        for item in publishable
+    ]
+    visual_reference_hash = _canonical_hash(visual_reference_material)
+    evidence = {
+        "manifest_hash": _canonical_hash(manifest), "presentation_mode": mode, "concepts": normalized,
+        "visual_references": normalized_refs, "publishable_references": publishable,
+        "visual_reference_material": visual_reference_material,
+        "browser_snapshots": normalized_snapshots,
+        "browser_probes": normalized_probes,
+        "research_links": normalized_links,
+        "collaboration_delivery": collaboration_delivery,
+        "creative_range": normalized_creative_range,
+        "creative_range_status": "passed",
+        "impact_review": normalized_impact_review,
+        "impact_review_status": "passed",
+        "portfolio_report": {key: portfolio[key] for key in ("path", "sha256", "report_hash")} if portfolio else None,
+        "prior_output_challenge": normalized_prior_challenge if record.get("workflow_version", 1) >= 3 else None,
+        "generative_laboratory_hash": laboratory.get("laboratory_hash"),
+        "reference_translation_hash": (reference_translation or {}).get("report_hash"),
+        "visual_reference_hash": visual_reference_hash, "slop_report_hashes": report_hashes,
+        "ruleset_version": design_slop.RULESET_VERSION, "validated": True, "validated_at": _now(),
+    }
+    record.update({"status": "awaiting-feedback", "concept_evidence": evidence})
+    _write_json(design_dir / "draft.json", record)
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "concept_forming_media_count": concept_forming_media_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "portfolio_report_hash": portfolio["report_hash"] if portfolio else None, "prior_output_challenge_status": normalized_prior_challenge["status"] if normalized_prior_challenge else None, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "reference_translation_hash": (reference_translation or {}).get("report_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+
+
+def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    """Validate and persist one resumable design-improvement cycle without granting authority."""
+    _enabled(config)
+    payload = _read_json(manifest_path)
+    if payload.get("schema_version") != 1:
+        raise DesignError("Design improvement cycles require schema_version 1")
+    cycle_id = _identifier(str(payload.get("cycle_id", "")), "design improvement cycle ID")
+    design_id = _identifier(str(payload.get("design_id", "")), "design ID")
+    mode = payload.get("mode", "artifact-refinement")
+    if mode not in {"artifact-refinement", "fresh-design-experiments"}:
+        raise DesignError("Design improvement cycles require a supported mode")
+    objective = payload.get("objective")
+    max_passes = payload.get("max_passes")
+    if not isinstance(objective, str) or not objective.strip() or not isinstance(max_passes, int) or not 1 <= max_passes <= 8:
+        raise DesignError("Design improvement cycles require an objective and one to eight maximum passes")
+    source = payload.get("source")
+    if (
+        not isinstance(source, dict) or set(source) != {"branch", "commit", "skill_sha256"}
+        or not isinstance(source["branch"], str) or not source["branch"].strip()
+        or not re.fullmatch(r"[a-f0-9]{40}", str(source["commit"]))
+        or not re.fullmatch(r"[a-f0-9]{64}", str(source["skill_sha256"]))
+    ):
+        raise DesignError("Design improvement cycles require an exact branch, commit, and skill hash")
+
+    def verified_artifact(value: Any, label: str, suffixes: set[str] | None = None) -> dict[str, str]:
+        if not isinstance(value, dict):
+            raise DesignError(f"{label} requires a hash-bound artifact")
+        relative, path = _artifact_relative_path(root, value.get("path"))
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+        if not actual or value.get("sha256") != actual or (suffixes is not None and path.suffix.lower() not in suffixes):
+            raise DesignError(f"{label} is missing or changed: {relative}")
+        return {"path": relative, "sha256": actual}
+
+    baseline = payload.get("baseline")
+    if not isinstance(baseline, dict):
+        raise DesignError("Design improvement cycles require a baseline evaluation and self-assessment")
+    baseline_evaluation = verified_artifact(baseline.get("benchmark_evaluation"), "Baseline benchmark evaluation", {".json"})
+    baseline_assessment = verified_artifact(baseline.get("self_assessment"), "Baseline self-assessment", {".json", ".md"})
+    passes = payload.get("passes")
+    if not isinstance(passes, list) or len(passes) > max_passes:
+        raise DesignError("Design improvement cycle passes must be an array within max_passes")
+    normalized_passes: list[dict[str, Any]] = []
+    previous_status: str | None = None
+    experiment_hashes: dict[str, set[str]] = {
+        key: set() for key in ("brief", "research", "moodboard", "generative_laboratory", "concept_manifest", "comparison")
+    }
+    experiment_seeds: set[tuple[str, str, str, str]] = set()
+    experiment_reference_sets: list[frozenset[str]] = []
+    for index, item in enumerate(passes, 1):
+        if not isinstance(item, dict) or item.get("pass_number") != index or item.get("status") not in IMPROVEMENT_PASS_STATUSES:
+            raise DesignError("Design improvement passes must be sequential and use supported statuses")
+        status = item["status"]
+        if mode == "artifact-refinement" and previous_status not in {None, "changes-requested"}:
+            raise DesignError("A new improvement pass can start only after human-requested changes")
+        experiment: dict[str, Any] | None = None
+        if mode == "fresh-design-experiments":
+            raw_experiment = item.get("experiment")
+            if not isinstance(raw_experiment, dict):
+                raise DesignError(f"Fresh-design pass {index} requires experiment evidence")
+            experiment_id = _identifier(str(raw_experiment.get("experiment_id", "")), "design experiment ID")
+            experiment_source = raw_experiment.get("source")
+            if (
+                not isinstance(experiment_source, dict)
+                or set(experiment_source) != {"commit", "skill_sha256"}
+                or not re.fullmatch(r"[a-f0-9]{40}", str(experiment_source.get("commit", "")))
+                or not re.fullmatch(r"[a-f0-9]{64}", str(experiment_source.get("skill_sha256", "")))
+            ):
+                raise DesignError(f"Fresh-design pass {index} requires an exact source commit and skill hash")
+            artifacts: dict[str, dict[str, str]] = {}
+            for key, suffixes in {
+                "brief": {".json", ".md"}, "research": {".json"}, "moodboard": {".html"},
+                "generative_laboratory": {".json"}, "concept_manifest": {".json"}, "comparison": {".html"},
+            }.items():
+                artifact = verified_artifact(raw_experiment.get(key), f"Fresh-design pass {index} {key.replace('_', ' ')}", suffixes)
+                if artifact["sha256"] in experiment_hashes[key]:
+                    raise DesignError(f"Fresh-design pass {index} must use a new {key.replace('_', ' ')}")
+                experiment_hashes[key].add(artifact["sha256"])
+                artifacts[key] = artifact
+            seed = raw_experiment.get("creative_seed")
+            seed_keys = ("audience", "posture", "hero_mechanism", "reference_category")
+            if not isinstance(seed, dict) or set(seed) != set(seed_keys) or any(not isinstance(seed.get(key), str) or not seed[key].strip() for key in seed_keys):
+                raise DesignError(f"Fresh-design pass {index} requires a complete creative seed")
+            normalized_seed = {key: seed[key].strip() for key in seed_keys}
+            seed_tuple = tuple(normalized_seed[key].lower() for key in seed_keys)
+            if seed_tuple in experiment_seeds:
+                raise DesignError(f"Fresh-design pass {index} must use a new creative seed")
+            experiment_seeds.add(seed_tuple)
+            reference_families = raw_experiment.get("reference_families")
+            if (
+                not isinstance(reference_families, list) or len(reference_families) < 2
+                or any(not isinstance(value, str) or not value.strip() for value in reference_families)
+            ):
+                raise DesignError(f"Fresh-design pass {index} requires at least two reference families")
+            normalized_references = [value.strip() for value in reference_families]
+            reference_set = frozenset(value.lower() for value in normalized_references)
+            if len(reference_set) != len(normalized_references) or reference_set in experiment_reference_sets:
+                raise DesignError(f"Fresh-design pass {index} must use a distinct reference-family set")
+            experiment_reference_sets.append(reference_set)
+            novelty = raw_experiment.get("novelty_review")
+            expected_comparisons = list(range(1, index))
+            if not isinstance(novelty, dict) or novelty.get("compared_to_passes") != expected_comparisons:
+                raise DesignError(f"Fresh-design pass {index} must compare against every prior experiment")
+            changed_dimensions = novelty.get("changed_dimensions")
+            conclusions = novelty.get("novel_conclusions")
+            inherited = novelty.get("inherited_constraints")
+            if (
+                not isinstance(changed_dimensions, list) or len({str(value).strip().lower() for value in changed_dimensions}) < 5
+                or any(not isinstance(value, str) or not value.strip() for value in changed_dimensions)
+                or not isinstance(conclusions, list) or not conclusions
+                or any(not isinstance(value, str) or not value.strip() for value in conclusions)
+                or not isinstance(inherited, list) or not inherited
+                or any(not isinstance(value, str) or not value.strip() for value in inherited)
+            ):
+                raise DesignError(f"Fresh-design pass {index} requires a concrete cross-cycle novelty review")
+            moodboard_quality = raw_experiment.get("moodboard_quality")
+            concept_mechanics = raw_experiment.get("concept_mechanics")
+            normalized_quality: dict[str, Any] | None = None
+            normalized_mechanics: list[dict[str, Any]] = []
+            if index > 1:
+                if not isinstance(moodboard_quality, dict):
+                    raise DesignError(f"Fresh-design pass {index} requires moodboard capture-quality evidence")
+                tile_count = moodboard_quality.get("tile_count")
+                direct_count = moodboard_quality.get("direct_reference_tile_count")
+                clear_count = moodboard_quality.get("clear_tile_count")
+                focal_crop_count = moodboard_quality.get("focal_crop_count")
+                unresolved = moodboard_quality.get("unresolved_weak_tile_ids")
+                if (
+                    not isinstance(tile_count, int) or tile_count < 8
+                    or not isinstance(direct_count, int) or direct_count < 2 or direct_count > tile_count
+                    or not isinstance(clear_count, int) or clear_count > tile_count or clear_count / tile_count < 0.8
+                    or unresolved != []
+                    or not isinstance(moodboard_quality.get("reviewer"), str) or not moodboard_quality["reviewer"].strip()
+                    or not isinstance(moodboard_quality.get("reviewed_at"), str) or not moodboard_quality["reviewed_at"].strip()
+                ):
+                    raise DesignError(f"Fresh-design pass {index} moodboard contains unresolved or unclear captures")
+                if index > 2 and (
+                    not isinstance(focal_crop_count, int)
+                    or focal_crop_count > direct_count
+                    or focal_crop_count / direct_count < 0.8
+                ):
+                    raise DesignError(f"Fresh-design pass {index} moodboard requires strong focal crops for direct references")
+                normalized_quality = {
+                    "tile_count": tile_count, "direct_reference_tile_count": direct_count,
+                    "clear_tile_count": clear_count, "unresolved_weak_tile_ids": [],
+                    "focal_crop_count": focal_crop_count if index > 2 else None,
+                    "reviewer": moodboard_quality["reviewer"].strip(), "reviewed_at": moodboard_quality["reviewed_at"].strip(),
+                }
+                if not isinstance(concept_mechanics, list) or len(concept_mechanics) < 3:
+                    raise DesignError(f"Fresh-design pass {index} requires unique concept-mechanic evidence")
+                mechanic_ids: set[str] = set()
+                interaction_ids: set[str] = set()
+                for mechanic in concept_mechanics:
+                    fields = ("concept_id", "metaphor", "unique_interaction", "product_job")
+                    if not isinstance(mechanic, dict) or any(not isinstance(mechanic.get(key), str) or not mechanic[key].strip() for key in fields):
+                        raise DesignError(f"Fresh-design pass {index} concept mechanics are incomplete")
+                    concept_id = _identifier(mechanic["concept_id"], "fresh-design concept ID")
+                    interaction_id = mechanic["unique_interaction"].strip().lower()
+                    if concept_id in mechanic_ids or interaction_id in interaction_ids:
+                        raise DesignError(f"Fresh-design pass {index} concepts must enable different interactions")
+                    mechanic_ids.add(concept_id)
+                    interaction_ids.add(interaction_id)
+                    journey_roles = mechanic.get("journey_roles", [])
+                    if index > 2 and (
+                        not isinstance(journey_roles, list)
+                        or len({str(value).strip().lower() for value in journey_roles}) < 3
+                        or any(not isinstance(value, str) or not value.strip() for value in journey_roles)
+                    ):
+                        raise DesignError(f"Fresh-design pass {index} concept interactions must survive at least three journey roles")
+                    normalized_mechanics.append({
+                        "concept_id": concept_id,
+                        **{key: mechanic[key].strip() for key in fields[1:]},
+                        "journey_roles": [value.strip() for value in journey_roles],
+                    })
+            house_tell_review: dict[str, Any] | None = None
+            category_reflex_review: dict[str, Any] | None = None
+            if index > 2:
+                required_dimensions = {"typography", "media", "composition", "page grammar", "interaction", "emotional register"}
+                actual_dimensions = {str(value).strip().lower() for value in changed_dimensions}
+                if not required_dimensions <= actual_dimensions:
+                    raise DesignError(f"Fresh-design pass {index} must change the full design system against prior experiments")
+                raw_house_tells = raw_experiment.get("house_tell_review")
+                if not isinstance(raw_house_tells, dict) or raw_house_tells.get("compared_to_passes") != expected_comparisons:
+                    raise DesignError(f"Fresh-design pass {index} requires a house-tell review against every prior experiment")
+                avoided_tells = raw_house_tells.get("avoided_tells")
+                recurring_tells = raw_house_tells.get("recurring_tells")
+                justified = raw_house_tells.get("justified_recurrences")
+                if (
+                    not isinstance(avoided_tells, list) or not avoided_tells
+                    or any(not isinstance(value, str) or not value.strip() for value in avoided_tells)
+                    or not isinstance(recurring_tells, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in recurring_tells)
+                    or not isinstance(justified, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in justified)
+                    or not isinstance(raw_house_tells.get("reviewer"), str) or not raw_house_tells["reviewer"].strip()
+                    or not isinstance(raw_house_tells.get("reviewed_at"), str) or not raw_house_tells["reviewed_at"].strip()
+                ):
+                    raise DesignError(f"Fresh-design pass {index} house-tell review is incomplete")
+                if recurring_tells and not justified:
+                    raise DesignError(f"Fresh-design pass {index} must justify every recurring house tell")
+                house_tell_review = {
+                    "compared_to_passes": expected_comparisons,
+                    "avoided_tells": [value.strip() for value in avoided_tells],
+                    "recurring_tells": [value.strip() for value in recurring_tells],
+                    "justified_recurrences": [value.strip() for value in justified],
+                    "reviewer": raw_house_tells["reviewer"].strip(),
+                    "reviewed_at": raw_house_tells["reviewed_at"].strip(),
+                }
+                raw_category_reflexes = raw_experiment.get("category_reflex_review")
+                if not isinstance(raw_category_reflexes, dict):
+                    raise DesignError(f"Fresh-design pass {index} requires a reference-category reflex review")
+                category_defaults = raw_category_reflexes.get("category_defaults")
+                avoided_defaults = raw_category_reflexes.get("avoided_defaults")
+                intentional_risks = raw_category_reflexes.get("intentional_risks")
+                if (
+                    not isinstance(category_defaults, list) or len(category_defaults) < 2
+                    or any(not isinstance(value, str) or not value.strip() for value in category_defaults)
+                    or not isinstance(avoided_defaults, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in avoided_defaults)
+                    or not isinstance(intentional_risks, list)
+                    or not isinstance(raw_category_reflexes.get("reviewer"), str) or not raw_category_reflexes["reviewer"].strip()
+                    or not isinstance(raw_category_reflexes.get("reviewed_at"), str) or not raw_category_reflexes["reviewed_at"].strip()
+                ):
+                    raise DesignError(f"Fresh-design pass {index} reference-category reflex review is incomplete")
+                default_ids = {value.strip().lower() for value in category_defaults}
+                disposition_ids = {value.strip().lower() for value in avoided_defaults}
+                normalized_risks = []
+                for risk in intentional_risks:
+                    if (
+                        not isinstance(risk, dict)
+                        or any(not isinstance(risk.get(key), str) or not risk[key].strip() for key in ("pattern", "rationale", "product_job"))
+                    ):
+                        raise DesignError(f"Fresh-design pass {index} intentional category risks require rationale and product jobs")
+                    disposition_ids.add(risk["pattern"].strip().lower())
+                    normalized_risks.append({key: risk[key].strip() for key in ("pattern", "rationale", "product_job")})
+                if disposition_ids != default_ids:
+                    raise DesignError(f"Fresh-design pass {index} must disposition every reference-category default")
+                category_reflex_review = {
+                    "category_defaults": [value.strip() for value in category_defaults],
+                    "avoided_defaults": [value.strip() for value in avoided_defaults],
+                    "intentional_risks": normalized_risks,
+                    "reviewer": raw_category_reflexes["reviewer"].strip(),
+                    "reviewed_at": raw_category_reflexes["reviewed_at"].strip(),
+                }
+            experiment = {
+                "experiment_id": experiment_id,
+                "source": experiment_source,
+                **artifacts,
+                "creative_seed": normalized_seed,
+                "reference_families": normalized_references,
+                "moodboard_quality": normalized_quality,
+                "concept_mechanics": normalized_mechanics,
+                "house_tell_review": house_tell_review,
+                "category_reflex_review": category_reflex_review,
+                "novelty_review": {
+                    "compared_to_passes": expected_comparisons,
+                    "changed_dimensions": changed_dimensions,
+                    "inherited_constraints": inherited,
+                    "novel_conclusions": conclusions,
+                },
+            }
+        findings = item.get("findings")
+        if not isinstance(findings, list) or not findings:
+            raise DesignError(f"Improvement pass {index} requires concrete findings")
+        normalized_findings: list[dict[str, str]] = []
+        finding_ids: set[str] = set()
+        for finding in findings:
+            if not isinstance(finding, dict):
+                raise DesignError("Improvement findings must be objects")
+            finding_id = _identifier(str(finding.get("finding_id", "")), "improvement finding ID")
+            fields = ("category", "observation", "action", "success_metric")
+            if finding_id in finding_ids or any(not isinstance(finding.get(key), str) or not finding[key].strip() for key in fields):
+                raise DesignError("Improvement findings require unique IDs, observations, actions, and success metrics")
+            normalized_findings.append({"finding_id": finding_id, **{key: finding[key].strip() for key in fields}})
+            finding_ids.add(finding_id)
+        changes = item.get("changes", [])
+        if status != "planned" and (not isinstance(changes, list) or not changes):
+            raise DesignError(f"Improvement pass {index} status {status} requires implemented changes")
+        normalized_changes: list[dict[str, Any]] = []
+        for change in changes:
+            linked = change.get("finding_ids") if isinstance(change, dict) else None
+            description = change.get("description") if isinstance(change, dict) else None
+            artifacts = change.get("artifacts") if isinstance(change, dict) else None
+            if not isinstance(linked, list) or not linked or not set(linked) <= finding_ids or not isinstance(description, str) or not description.strip() or not isinstance(artifacts, list):
+                raise DesignError("Improvement changes must bind findings, description, and artifacts")
+            normalized_changes.append({"finding_ids": linked, "description": description.strip(), "artifacts": [verified_artifact(artifact, "Improvement change artifact") for artifact in artifacts]})
+        validation = item.get("validation")
+        normalized_validation: dict[str, Any] | None = None
+        if status in {"validated", "awaiting-human", "accepted", "changes-requested"}:
+            if not isinstance(validation, dict) or validation.get("passed") is not True:
+                raise DesignError(f"Improvement pass {index} requires passed validation before human review")
+            evaluation = verified_artifact(validation.get("benchmark_evaluation"), "Improvement benchmark evaluation", {".json"})
+            assessment = verified_artifact(validation.get("self_assessment"), "Improvement self-assessment", {".json", ".md"})
+            evaluation_value = _read_json(root / evaluation["path"])
+            if evaluation_value.get("stage_valid") is not True:
+                raise DesignError("Improvement benchmark evaluation must be stage-valid")
+            source_tests = validation.get("source_tests")
+            if not isinstance(source_tests, list) or not source_tests or any(not isinstance(test, dict) or test.get("status") != "passed" or not isinstance(test.get("name"), str) or not test["name"].strip() for test in source_tests):
+                raise DesignError("Improvement validation requires named passing source tests")
+            normalized_validation = {"passed": True, "benchmark_evaluation": evaluation, "self_assessment": assessment, "source_tests": source_tests}
+        human_gate = item.get("human_gate")
+        if not isinstance(human_gate, dict) or human_gate.get("required") is not True or human_gate.get("status") not in {"pending", "accepted", "changes-requested"}:
+            raise DesignError("Every improvement pass requires an explicit human gate")
+        if status in {"accepted", "changes-requested"}:
+            if human_gate.get("status") != status or human_gate.get("actor_type") != "human" or not isinstance(human_gate.get("actor"), str) or not human_gate["actor"].strip():
+                raise DesignError("Accepted or changes-requested passes require an identified human disposition")
+        elif human_gate.get("status") != "pending":
+            raise DesignError("Unfinished improvement passes must keep the human gate pending")
+        normalized_passes.append({"pass_number": index, "status": status, "experiment": experiment, "findings": normalized_findings, "changes": normalized_changes, "validation": normalized_validation, "human_gate": human_gate})
+        previous_status = status
+    if not normalized_passes:
+        status = "active"
+        next_gate = "diagnose-and-plan-pass-1"
+    else:
+        last = normalized_passes[-1]
+        status = "complete" if last["status"] == "accepted" else "active"
+        if mode == "fresh-design-experiments" and last["status"] == "awaiting-human":
+            next_gate = "human-cross-cycle-review" if len(normalized_passes) >= max_passes else f"diagnose-and-run-experiment-{len(normalized_passes) + 1}"
+        else:
+            next_gate = {
+                "planned": "implement-pass",
+                "implemented": "validate-pass",
+                "validated": "human-feedback",
+                "awaiting-human": "human-feedback",
+                "changes-requested": "cycle-limit-reached" if len(normalized_passes) >= max_passes else f"diagnose-and-plan-pass-{len(normalized_passes) + 1}",
+                "accepted": "complete",
+            }[last["status"]]
+    normalized = {
+        "schema_version": 1, "cycle_id": cycle_id, "design_id": design_id,
+        "objective": objective.strip(), "max_passes": max_passes, "mode": mode, "source": source,
+        "baseline": {"benchmark_evaluation": baseline_evaluation, "self_assessment": baseline_assessment},
+        "passes": normalized_passes, "status": status, "next_gate": next_gate,
+        "updated_at": _now(), "execution_authorized": False,
+    }
+    normalized["cycle_hash"] = _canonical_hash(normalized)
+    relative = Path(config.get("private_dir", ".continuity/private")) / "design" / "cycles" / cycle_id / "cycle.json"
+    _write_json(root / relative, normalized)
+    return {"cycle_id": cycle_id, "mode": mode, "status": status, "pass_count": len(normalized_passes), "max_passes": max_passes, "next_gate": next_gate, "cycle_hash": normalized["cycle_hash"], "record_path": relative.as_posix(), "execution_authorized": False}
+
+
+def feedback_record(root: Path, config: dict[str, Any], design_id: str, input_path: Path) -> dict[str, Any]:
+    _enabled(config)
+    design_id = _identifier(design_id, "design ID")
+    design_dir = root / config.get("private_dir", ".continuity/private") / "design" / design_id
+    record = _read_json(design_dir / "draft.json")
+    if record.get("status") not in {"awaiting-feedback", "refining", "awaiting-selection", "awaiting-approval", "approved"} or not record.get("concept_evidence"):
+        raise DesignError("Design does not have a validated concept set for feedback")
+    if not record["concept_evidence"].get("validated"):
+        raise DesignError("Feedback requires refreshed concept and slop evidence for the current revision")
+    payload = _read_json(input_path)
+    reactions = payload.get("reactions")
+    if not isinstance(reactions, list) or not reactions:
+        raise DesignError("Feedback requires at least one numbered visual reaction")
+    normalized: list[dict[str, str]] = []
+    for item in reactions:
+        if not isinstance(item, dict) or item.get("reaction") not in FEEDBACK_REACTIONS:
+            raise DesignError("Each feedback reaction must be keep, change, avoid, or uncertain")
+        element_id = item.get("element_id")
+        why = item.get("why")
+        if not isinstance(element_id, str) or not element_id.strip() or not isinstance(why, str) or not why.strip():
+            raise DesignError("Each feedback reaction requires a numbered element_id and why")
+        if not re.match(r"^\d+(?:[.:-][A-Za-z0-9._-]+)?$", element_id.strip()):
+            raise DesignError("Feedback element_id must begin with its visible number")
+        normalized.append({"element_id": element_id.strip(), "reaction": item["reaction"], "why": why.strip(), "user_language": str(item.get("user_language", why)).strip()})
+    contract_changed = payload.get("contract_changed", False)
+    ready = payload.get("ready_for_selection", False)
+    if not isinstance(contract_changed, bool) or not isinstance(ready, bool) or (contract_changed and ready):
+        raise DesignError("Feedback readiness and contract_changed flags are invalid")
+    requested_change = any(item["reaction"] in {"change", "avoid"} for item in normalized)
+    effective_contract_change = contract_changed or requested_change
+    if effective_contract_change and ready:
+        raise DesignError("Material visual feedback cannot be ready for selection until refreshed evidence passes")
+    material_feedback = effective_contract_change
+    visual_delta = payload.get("visual_delta", {})
+    if material_feedback:
+        if not isinstance(visual_delta, dict):
+            raise DesignError("Material feedback requires a visual_delta object")
+        for key in ("changed", "stayed", "why"):
+            values = visual_delta.get(key)
+            if not isinstance(values, list) or not values or any(not isinstance(item, str) or not item.strip() for item in values):
+                raise DesignError(f"Material feedback visual_delta requires {key}")
+        relative, delta_path = _artifact_relative_path(root, visual_delta.get("path"))
+        if not delta_path.is_file() or visual_delta.get("sha256") != hashlib.sha256(delta_path.read_bytes()).hexdigest():
+            raise DesignError("Visual delta evidence is missing or changed")
+        visual_delta = {"changed": visual_delta["changed"], "stayed": visual_delta["stayed"], "why": visual_delta["why"], "path": relative, "sha256": visual_delta["sha256"]}
+    elif not isinstance(visual_delta, dict):
+        raise DesignError("visual_delta must be an object")
+    round_record = {
+        "round": len(record.get("feedback_rounds", [])) + 1, "recorded_at": _now(),
+        "actor": str(payload.get("actor", "user")), "reactions": normalized,
+        "visual_delta": visual_delta, "contract_changed": effective_contract_change,
+        "contract_change_declared": contract_changed, "ready_for_selection": ready,
+    }
+    if effective_contract_change:
+        previous_revision = record["revision"]
+        archive = design_dir / "revisions" / f"v{previous_revision}"
+        if archive.exists():
+            raise DesignError("Design revision archive already exists")
+        archive.mkdir(parents=True)
+        shutil.copy2(design_dir / "draft.json", archive / "draft.json")
+        for name in ("design.md", "approval.json"):
+            path = design_dir / name
+            if path.exists():
+                shutil.copy2(path, archive / name)
+                path.unlink()
+        record["revision"] = previous_revision + 1
+        record["status"] = "refining"
+        record["selected_direction_ids"] = []
+        record.pop("design_hash", None)
+        record.pop("approval_bundle_hash", None)
+        record["concept_evidence"]["validated"] = False
+        record["concept_evidence"]["invalidated_by_feedback_round"] = round_record["round"]
+    elif ready:
+        if not record["concept_evidence"].get("validated"):
+            raise DesignError("Stale concept and slop evidence cannot be marked ready for selection")
+        record["status"] = "awaiting-selection"
+    else:
+        record["status"] = "refining"
+    record.setdefault("feedback_rounds", []).append(round_record)
+    decision_by_element = {
+        item.get("element_id"): item
+        for item in record.get("decision_register", [])
+        if isinstance(item, dict) and isinstance(item.get("element_id"), str)
+    }
+    for reaction in normalized:
+        disposition = {
+            "keep": "accepted", "change": "unresolved-change", "avoid": "rejected", "uncertain": "unresolved",
+        }[reaction["reaction"]]
+        decision_by_element[reaction["element_id"]] = {
+            "element_id": reaction["element_id"], "disposition": disposition,
+            "reason": reaction["why"], "user_language": reaction["user_language"], "round": round_record["round"],
+        }
+        if reaction["reaction"] == "avoid":
+            record.setdefault("rejected_decisions", []).append({"element_id": reaction["element_id"], "reason": reaction["why"], "round": round_record["round"]})
+    record["decision_register"] = list(decision_by_element.values())
+    _write_json(design_dir / "draft.json", record)
+    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "feedback_round": round_record["round"], "slop_evidence_valid": bool(record["concept_evidence"].get("validated")), "execution_authorized": False}
+
+
+def _png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    if len(data) < 45 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise DesignError(f"Invalid PNG artifact: {path}")
+    offset = 8
+    width = height = 0
+    saw_ihdr = saw_idat = saw_iend = False
+    compressed = bytearray()
+    while offset + 12 <= len(data):
+        length = struct.unpack(">I", data[offset:offset + 4])[0]
+        chunk_type = data[offset + 4:offset + 8]
+        chunk_start = offset + 8
+        chunk_end = chunk_start + length
+        crc_end = chunk_end + 4
+        if crc_end > len(data):
+            raise DesignError(f"Invalid PNG chunk bounds: {path}")
+        chunk = data[chunk_start:chunk_end]
+        expected_crc = struct.unpack(">I", data[chunk_end:crc_end])[0]
+        if zlib.crc32(chunk_type + chunk) & 0xFFFFFFFF != expected_crc:
+            raise DesignError(f"Invalid PNG checksum: {path}")
+        if chunk_type == b"IHDR":
+            if saw_ihdr or offset != 8 or length != 13:
+                raise DesignError(f"Invalid PNG header: {path}")
+            width, height = struct.unpack(">II", chunk[:8])
+            if width < 1 or height < 1:
+                raise DesignError(f"Invalid PNG dimensions: {path}")
+            saw_ihdr = True
+        elif chunk_type == b"IDAT":
+            saw_idat = True
+            compressed.extend(chunk)
+        elif chunk_type == b"IEND":
+            if length != 0:
+                raise DesignError(f"Invalid PNG end chunk: {path}")
+            saw_iend = True
+            offset = crc_end
+            break
+        offset = crc_end
+    if not (saw_ihdr and saw_idat and saw_iend) or offset != len(data):
+        raise DesignError(f"Incomplete PNG artifact: {path}")
+    try:
+        if not zlib.decompress(bytes(compressed)):
+            raise ValueError("empty image data")
+    except zlib.error as exc:
+        raise DesignError(f"Invalid PNG image data: {path}") from exc
+    return width, height
 
 
 def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], approved: dict[str, Any], *, candidate: bool) -> dict[str, Any]:
     for key in ("design_id", "revision", "design_hash"):
         if manifest.get(key) != approved.get(key):
             raise DesignError(f"Artifact manifest {key} does not match the approved design")
+    approval_bundle = approved.get("approval_bundle", {})
+    for key in ("typographic_transfer_hashes", "composition_asset_plan_hashes"):
+        if key in approval_bundle and manifest.get(key) != approval_bundle[key]:
+            raise DesignError(f"Artifact manifest {key} does not preserve the selected composition and type evidence")
     artifact_id = _identifier(str(manifest.get("artifact_id", "")), "artifact ID")
     maturity = manifest.get("maturity")
     if maturity not in ARTIFACT_MATURITY:
@@ -2260,6 +5970,60 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
             screenshot_roles.add(role)
         verified_files.append(verified)
         file_paths.add(relative)
+    if "typographic_transfer_hashes" in approval_bundle:
+        current_probe = _verified_reference_file(root, manifest.get("fidelity_runtime_probe"), "Artifact composition and typography browser probe", {".json"})
+        if not any(item["path"] == current_probe["path"] and item["sha256"] == current_probe["sha256"] for item in verified_files):
+            raise DesignError("Artifact fidelity runtime probe must be one of the manifest's hash-bound files")
+        _, current_probe_path = _artifact_relative_path(root, current_probe["path"])
+        current_probe_value = _read_json(current_probe_path)
+        target_file = next((
+            item
+            for item in verified_files
+            if item["media_type"] == "text/html"
+            and current_probe_value.get("target_document_path") == item["path"]
+            and current_probe_value.get("target_document_sha256") == _document_probe_fingerprint(root / item["path"])
+        ), None)
+        target_document = None
+        if target_file is not None:
+            closure_paths = {
+                item.relative_to(root.resolve()).as_posix()
+                for item in _runtime_source_closure(root, root / target_file["path"])
+            }
+            declared_runtime_sources = [item for item in verified_files if item["path"] in closure_paths]
+            runtime_source_bundle = _verified_runtime_source_bundle(
+                root, root / target_file["path"], declared_runtime_sources, "Artifact fidelity",
+            )
+            target_document = {
+                "path": target_file["path"],
+                "sha256": runtime_source_bundle["target_document_sha256"],
+                "source_bundle_sha256": runtime_source_bundle["source_bundle_sha256"],
+            }
+        if (
+            target_document is None
+            or current_probe_value.get("source_bundle_sha256") != target_document["source_bundle_sha256"]
+            or not isinstance(current_probe_value.get("document_url"), str)
+            or not current_probe_value["document_url"].split("?", 1)[0].endswith(target_document["path"])
+        ):
+            raise DesignError("Artifact fidelity runtime probe is stale for the current HTML artifact")
+        contract = approved.get("alignment_contract", {})
+        concept_evidence = contract.get("concept_evidence") if isinstance(contract, dict) else None
+        selected_ids = contract.get("selected_direction_ids", []) if isinstance(contract, dict) else []
+        selected_concepts = [
+            item for item in concept_evidence.get("concepts", [])
+            if isinstance(item, dict) and item.get("direction_id") in selected_ids
+        ] if isinstance(concept_evidence, dict) else []
+        if not selected_concepts:
+            raise DesignError("Artifact fidelity validation requires the selected concept contract")
+        for concept in selected_concepts:
+            transfer = dict(concept["typographic_transfer"])
+            transfer["render_probe"] = current_probe
+            validated_transfer = _validate_typographic_transfer(
+                root, concept["concept_id"], transfer, "", concept["typographic_transfer"]["reference_render_probe"], target_document,
+            )
+            _validate_composition_asset_plan(
+                root, concept["concept_id"], concept["composition_asset_plan"], "",
+                validated_transfer["type_media_relation"], current_probe,
+            )
     validations = manifest.get("validation_results", [])
     if not isinstance(validations, list):
         raise DesignError("Artifact validation_results must be an array")
@@ -2399,7 +6163,8 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
             readiness_problems.append("responsive HTML requires overflow and sticky-obstruction probe results")
         if readiness_problems:
             raise DesignError("Artifact is not implementation-facing: " + "; ".join(readiness_problems))
-    if manifest.get("schema_version", 1) == 2:
+    slop_evidence: dict[str, Any] | None = None
+    if manifest.get("schema_version", 1) in {2, 3}:
         contract = approved.get("alignment_contract", {})
         for field, value in (
             ("implementation_context_hash", contract.get("implementation_context")),
@@ -2465,6 +6230,32 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
                 raise DesignError("Artifact is missing completion-contract viewport captures")
             if set(completion.get("required_states", [])) - set(manifest.get("demonstrated_states", [])):
                 raise DesignError("Artifact is missing completion-contract states")
+    if manifest.get("schema_version", 1) == 3:
+        if manifest.get("approval_bundle_hash") != approved.get("approval_bundle_hash"):
+            raise DesignError("Artifact approval_bundle_hash does not match the approved design")
+        stage = "prototype" if candidate else "implementation"
+        slop_evidence = _verified_private_report(root, manifest.get("slop_report"), stage=stage)
+        _, report_path = _artifact_relative_path(root, slop_evidence["path"])
+        report = _read_json(report_path)
+        for item in report.get("files", []):
+            relative, scanned_path = _artifact_relative_path(root, item.get("path"))
+            if not scanned_path.is_file() or hashlib.sha256(scanned_path.read_bytes()).hexdigest() != item.get("sha256"):
+                raise DesignError(f"AI-slop report is stale for artifact file: {relative}")
+        for key in ("design_id", "revision", "design_hash", "approval_bundle_hash"):
+            if report.get(key) != manifest.get(key):
+                raise DesignError(f"AI-slop report {key} does not match the artifact manifest")
+        reviewed_visual_hashes = {
+            artifact.get("sha256")
+            for answer in report.get("visual_review", {}).values()
+            if isinstance(answer, dict)
+            for artifact in answer.get("evidence", [])
+            if isinstance(artifact, dict)
+        }
+        artifact_screenshot_hashes = {
+            item["sha256"] for item in verified_files if item["media_type"] == "image/png"
+        }
+        if artifact_screenshot_hashes and not artifact_screenshot_hashes <= reviewed_visual_hashes:
+            raise DesignError("AI-slop visual review is not bound to every artifact screenshot")
     return {
         "schema_version": manifest.get("schema_version", 1),
         "artifact_id": artifact_id,
@@ -2476,6 +6267,7 @@ def _validate_artifact_against_record(root: Path, manifest: dict[str, Any], appr
         "missing_differentiated_audiences": missing_audiences,
         "failed_validations": failures,
         "craft_findings": normalized_findings,
+        "ai_slop_check": slop_evidence,
         "missing_decided_insights": missing_decided_insights,
         "implementation_ready": maturity == "implementation-facing" and not readiness_problems,
         "candidate": candidate,
@@ -2487,6 +6279,8 @@ def validate_artifact(root: Path, config: dict[str, Any], manifest_path: Path) -
     _enabled(config)
     manifest = _read_json(manifest_path)
     approved = _read_json(root / ".continuity" / "design.json")
+    if approved.get("schema_version", 1) >= 2 and manifest.get("schema_version") != 3:
+        raise DesignError("Schema v2 design approval requires a schema v3 artifact with AI-slop evidence")
     return _validate_artifact_against_record(root, manifest, approved, candidate=False)
 
 
@@ -2513,6 +6307,19 @@ def validate_candidate_artifact(root: Path, config: dict[str, Any], manifest_pat
     }
     candidate_record = {
         "design_id": draft["design_id"], "revision": draft["revision"], "design_hash": draft["design_hash"],
-        "alignment_contract": alignment_contract,
+        "approval_bundle_hash": draft.get("approval_bundle_hash"),
+        "approval_bundle": draft.get("approval_bundle", {}),
+        "alignment_contract": {**alignment_contract, "concept_evidence": draft.get("concept_evidence")},
     }
-    return _validate_artifact_against_record(root, manifest, candidate_record, candidate=True)
+    result = _validate_artifact_against_record(root, manifest, candidate_record, candidate=True)
+    if draft.get("workflow_version", 1) >= 2:
+        if manifest.get("schema_version") != 3 or not result.get("ai_slop_check"):
+            raise DesignError("Creative-director prototype validation requires schema v3 AI-slop evidence")
+        screenshot_roles = {
+            item["role"] for item in result.get("verified_files", []) if item.get("media_type") == "image/png"
+        }
+        if not {"mobile", "tablet", "desktop"} <= screenshot_roles:
+            raise DesignError("Creative-director prototype validation requires mobile, tablet, and desktop screenshots")
+        draft["prototype_slop_evidence"] = result["ai_slop_check"]
+        _write_json(design_dir / "draft.json", draft)
+    return result

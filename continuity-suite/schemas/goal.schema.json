@@ -35,7 +35,7 @@
     "note_dispositions": {"type": "array", "items": {"$ref": "note-disposition.schema.json"}},
     "memory_ids": {"type": "array", "items": {"type": "string"}},
     "design_ids": {"type": "array", "maxItems": 1, "items": {"type": "string"}},
-    "design_refs": {"type": "array", "maxItems": 1, "items": {"type": "object", "required": ["design_id", "revision", "design_hash", "catalog_packs"], "properties": {"design_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1}, "design_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "catalog_packs": {"type": "array", "items": {"type": "object"}}}, "additionalProperties": false}},
+    "design_refs": {"type": "array", "maxItems": 1, "items": {"type": "object", "required": ["design_id", "revision", "design_hash", "catalog_packs"], "properties": {"design_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1}, "design_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "approval_bundle_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "visual_reference_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "reference_translation_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "slop_ruleset_version": {"type": "string"}, "slop_ruleset_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "catalog_packs": {"type": "array", "items": {"type": "object"}}, "alignment_contract": {"type": "object"}}, "additionalProperties": false}},
     "roadmap_ids": {"type": "array", "items": {"type": "string"}},
     "roadmap_impact": {"$ref": "roadmap-impact.schema.json"},
     "roadmap_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},

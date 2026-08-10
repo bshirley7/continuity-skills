@@ -1,0 +1,165 @@
+{
+  "design_id": "example-direction",
+  "revision": 1,
+  "presentation_mode": "director-led",
+  "collaboration_delivery": {
+    "profile": "guided",
+    "recommendation_posture": "decisive",
+    "explanation_depth": "plain-language",
+    "feedback_scope": "three-to-five-numbered-elements",
+    "challenge_posture": "translate-design-language",
+    "feedback_prompt": "React to the numbered elements: what should we keep, change, avoid, or explore?"
+  },
+  "concepts": [
+    {
+      "role": "direction",
+      "reference_adaptation_id": "adaptation-evidence-seam",
+      "direction_id": "direction-1",
+      "recommended": true,
+      "thesis": "Evidence becomes the visual identity.",
+      "impact_thesis": "Make authority legible before asking for trust.",
+      "primary_carrier": "narrative",
+      "emotional_register": "calm scrutiny",
+      "seed_lineage": ["authority-image", "evidence-svg"],
+      "system_extractions": ["Authorization changes the crop and measure.", "Evidence interrupts the claim at the point of consequence.", "Narrow layouts move each proof seam directly after its claim."],
+      "signature_move": "Attach a proof rail to every consequential claim.",
+      "palette": ["Paper", "Carbon", "Signal oxide"],
+      "type_specimen": {"copy": "Inspect the source before approval."},
+      "typography_system": {"strategy_id": "type-reflective-serif", "family": "serif", "display_behavior": "Reflective claims use a deliberate serif voice.", "text_behavior": "Humanist utility text keeps evidence literal.", "responsive_behavior": "The claim measure narrows before its scale reduces.", "rationale": "The contrast separates judgment from evidence."},
+      "typographic_transfer": {"transfer_id": "type-evidence-seam", "rendered_copy": "Inspect the source before approval.", "font_family": "Approved Evidence Serif", "source": "project-owned font asset", "license_evidence": "docs/design/font-rights.md#approved-evidence-serif", "source_character": "Tall narrow display rhythm interrupted by evidence labels.", "project_transformation": "Project copy and proof seams replace the source identity while preserving the silhouette and depth role.", "type_media_relation": "behind-subject", "narrow_behavior": "The headline becomes two bounded lines before the foreground crop changes.", "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05}, "reference_render_probe": {"path": ".continuity/private/designs/example/1/reconstruction-desktop-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000099"}, "render_probe": {"path": ".continuity/private/designs/example/1/type-evidence-seam-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000081"}},
+      "media_system": {"art_direction_family": "photographic", "primary_role": "Owned evidence material establishes the authorization boundary.", "asset_mix": ["project-owned", "generated"], "quiet_state": "Captions and proof seams remain when imagery recedes.", "fallback": "Use an explicitly qualified no-evidence state."},
+      "composition_asset_plan": {"plan_id": "planes-evidence-seam", "type_media_relation": "behind-subject", "registration_basis": "Both raster planes use the approved 1440 by 1000 hero canvas and shared focal anchor.", "planes": [{"plane_id": "evidence-background", "role": "background", "source_kind": "raster", "z_index": 1, "crop_anchor": "52% 42%", "responsive_behavior": "Maintain the evidence field behind the claim.", "asset": {"path": ".continuity/private/designs/example/1/evidence-background.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000082"}}, {"plane_id": "evidence-type", "role": "live-type", "source_kind": "live-html", "z_index": 2, "crop_anchor": "claim baseline", "responsive_behavior": "Reflow to two bounded lines.", "selector": "[data-continuity-type-transfer='type-evidence-seam']"}, {"plane_id": "evidence-foreground", "role": "foreground", "source_kind": "raster", "z_index": 3, "crop_anchor": "52% 42%", "responsive_behavior": "Keep the alpha subject crossing the final display line.", "asset": {"path": ".continuity/private/designs/example/1/evidence-foreground.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000083"}}]},
+      "composition_family": "cinematic-chapters",
+      "page_grammar": {"grammar_id": "grammar-sequence", "family": "cinematic-sequence", "core_behavior": "Threshold, evidence, disputed state, and authority resolve as consequential chapters.", "responsive_behavior": "Each chapter becomes a static adjacent frame without losing its source relationship.", "depth_proof": "The signature changes opening crop, proof measure, edge-state occlusion, and final authority."},
+      "grammar_congruence": {"status": "passed", "reviewer_type": "agent-multimodal", "reviewer": "creative-director", "reviewed_at": "2026-08-08T12:03:00Z", "strongest_match": "Claim and evidence behave as a continuous shot relationship.", "weakest_mismatch": "The orientation chapter has the least pronounced transition.", "behaviors": [{"behavior_id": "chapter-transition", "journey_stage_ids": ["threshold", "claims"], "artifact_note": "Threshold and claims use distinct state-led chapters."}, {"behavior_id": "shot-continuity", "journey_stage_ids": ["claims", "responsibility"], "artifact_note": "The proof seam persists across consequential chapters."}, {"behavior_id": "static-chapter-fallback", "journey_stage_ids": ["model", "missing"], "artifact_note": "Reduced motion preserves each chapter as an adjacent static frame."}]},
+      "journey_structure_review": {"status": "passed", "mode": "structural-variety", "distinct_expression_count": 5, "deepest_signature_change": "Missing authority changes both crop and reading measure.", "repeated_pattern_risk": "The model chapter may retain familiar editorial rhythm.", "assignments": [{"stage_id": "threshold", "expression_id": "threshold-frame", "artifact_note": "A closed threshold opens the narrative.", "responsive_behavior": "The frame becomes an inline aperture."}, {"stage_id": "model", "expression_id": "evidence-model", "artifact_note": "A relationship model changes the measure.", "responsive_behavior": "The model becomes ordered proof."}, {"stage_id": "claims", "expression_id": "proof-seam", "artifact_note": "Claims meet adjacent proof.", "responsive_behavior": "Proof follows each claim."}, {"stage_id": "missing", "expression_id": "missing-field", "artifact_note": "Absence becomes the authority state.", "responsive_behavior": "The missing field stays explicit."}, {"stage_id": "responsibility", "expression_id": "open-ledger", "artifact_note": "The final disposition remains human-held.", "responsive_behavior": "The open line closes the sequence."}]},
+      "interaction_motion_system": {"strategy_id": "motion-witness", "mode": "native-disclosure", "semantic_purpose": "Reveal exact evidence beside the claim it qualifies.", "reduced_motion": "Open in place without travel.", "static_fallback": "Keep all proof in document order."},
+      "journey_stages": [
+        {"stage_id": "threshold", "role": "opening", "purpose": "State the authority thesis.", "signature_expression": "The threshold crop remains visibly closed without authority."},
+        {"stage_id": "model", "role": "orientation", "purpose": "Explain the evidence relationship.", "signature_expression": "The proof rail changes the reading measure."},
+        {"stage_id": "claims", "role": "proof", "purpose": "Bind claims to evidence.", "signature_expression": "Every consequence meets an adjacent proof seam."},
+        {"stage_id": "missing", "role": "edge-state", "purpose": "Show healthy but unauthorized work.", "signature_expression": "Negative space becomes the permission state."},
+        {"stage_id": "responsibility", "role": "closure", "purpose": "Return the final decision to the operator.", "signature_expression": "The last seam remains human-held."}
+      ],
+      "comparison_coverage": {"full_page_strip": {"path": ".continuity/private/designs/example/1/concept-a-full-page.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000061"}, "chapter_index": ["threshold", "model", "claims", "missing", "responsibility"], "deep_link": {"path": ".continuity/private/designs/example/1/concept-a.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000062"}},
+      "generated_media_disposition": {"status": "extracted", "source_seed_ids": ["authority-image"], "pixel_promotion": false, "extractions": [{"domain": "composition", "rule": "A conditional aperture changes the claim measure."}, {"domain": "cropping", "rule": "Closed authority uses occluded rather than decorative crops."}, {"domain": "responsive-transformation", "rule": "The aperture becomes a bounded inline seam on narrow screens."}], "derived_artifacts": [{"path": ".continuity/private/designs/example/1/derived/authority-aperture.svg", "sha256": "0000000000000000000000000000000000000000000000000000000000000063"}]},
+      "runtime_source_files": [{"path": ".continuity/private/designs/example/1/concept-a.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000062"}],
+      "runtime_probes": [
+        {"viewport": "mobile", "path": ".continuity/private/designs/example/1/concept-a-probe-mobile.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000011"},
+        {"viewport": "tablet", "path": ".continuity/private/designs/example/1/concept-a-probe-tablet.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000012"},
+        {"viewport": "desktop", "path": ".continuity/private/designs/example/1/concept-a-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000013"}
+      ],
+      "signature_coverage": {"signature_id": "evidence-seam", "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"], "reduced_motion_probe": {"path": ".continuity/private/designs/example/1/concept-a-probe-reduced-motion.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000015"}},
+      "interaction_invariants": {"required_ids": ["human-approval-boundary", "execution-locked"], "states": [{"state_id": "default", "probe": {"path": ".continuity/private/designs/example/1/concept-a-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000013"}}, {"state_id": "proof-expanded", "probe": {"path": ".continuity/private/designs/example/1/concept-a-proof-expanded-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000014"}}]},
+      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-a-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "imagery_treatment": "Owned operational material with visible provenance.",
+      "motion_decision": "State-led continuity only, with a static equivalent.",
+      "preservation_promise": "Keep the expert path direct.",
+      "tradeoff": "Less simultaneous overview.",
+      "anti_reference": "No generic SaaS bento or copied aerospace identity.",
+      "fidelity_level": "board-v1",
+      "slop_report": {"path": ".continuity/private/design/slop/concept-a.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.7.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
+    },
+    {
+      "role": "contrast-study",
+      "reference_adaptation_id": "adaptation-inspection-field",
+      "study_id": "study-material-seam",
+      "tests_uncertainty": "Whether spatial inspection is more useful than a persistent proof rail.",
+      "recommended": false,
+      "thesis": "Inspection creates confidence.",
+      "impact_thesis": "Turn system relationships into a place the operator can inspect.",
+      "primary_carrier": "spatial-system",
+      "emotional_register": "active investigation",
+      "seed_lineage": ["time-type", "portfolio-svg"],
+      "system_extractions": ["Lifecycle state changes typographic tempo.", "Visibility boundaries define navigation.", "Blocked aggregate state increases spatial distance rather than adding alarm decoration."],
+      "signature_move": "Use a spatial field-note seam from material to outcome.",
+      "palette": ["Field", "Graphite", "Safety amber"],
+      "type_specimen": {"copy": "Trace the system from source to consequence."},
+      "typography_system": {"strategy_id": "type-mono-coordinate", "family": "monospaced", "display_behavior": "Coordinates and state labels establish the field.", "text_behavior": "A readable sans carries explanation.", "responsive_behavior": "Coordinates become a sequential mobile index.", "rationale": "Typography acts as navigational evidence rather than a terminal costume."},
+      "typographic_transfer": {"transfer_id": "type-inspection-field", "rendered_copy": "Trace the system from source to consequence.", "font_family": "Project Coordinate Mono", "source": "open-licensed font asset", "license_evidence": "docs/design/font-rights.md#coordinate-mono", "source_character": "Monospaced coordinates operate as navigation rather than decoration.", "project_transformation": "Continuity lifecycle coordinates replace the reference labels.", "type_media_relation": "separate", "narrow_behavior": "Coordinates become an ordered mobile index.", "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05}, "reference_render_probe": {"path": ".continuity/private/designs/example/1/reconstruction-desktop-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000099"}, "render_probe": {"path": ".continuity/private/designs/example/1/type-inspection-field-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000091"}},
+      "media_system": {"art_direction_family": "spatial", "primary_role": "Code-native topology explains authority boundaries.", "asset_mix": ["code-native", "project-owned"], "quiet_state": "Static routes preserve every ownership relationship.", "fallback": "Render a labeled linear source-to-outcome path."},
+      "composition_asset_plan": {"plan_id": "planes-inspection-field", "type_media_relation": "separate", "registration_basis": "The live topology and coordinate labels share the same responsive grid.", "planes": [{"plane_id": "inspection-field", "role": "background", "source_kind": "live-html", "z_index": 1, "crop_anchor": "field origin", "responsive_behavior": "Become a vertical topology.", "selector": "[data-continuity-composition-plane='inspection-field']"}, {"plane_id": "inspection-type", "role": "live-type", "source_kind": "live-html", "z_index": 2, "crop_anchor": "coordinate grid", "responsive_behavior": "Become a sequential index.", "selector": "[data-continuity-type-transfer='type-inspection-field']"}]},
+      "composition_family": "spatial-field",
+      "page_grammar": {"grammar_id": "grammar-instrument", "family": "single-canvas-instrument", "core_behavior": "One inspectable field changes with authority and lifecycle state.", "responsive_behavior": "The field becomes a sequenced source-to-outcome inspector.", "depth_proof": "Opening, topology, proof, quiet state, and closure use distinct field behaviors."},
+      "grammar_congruence": {"status": "passed", "reviewer_type": "agent-multimodal", "reviewer": "creative-director", "reviewed_at": "2026-08-08T12:03:00Z", "strongest_match": "The authority field persists while evidence state recomposes it.", "weakest_mismatch": "The mobile closure behaves more like a final panel than a control state.", "behaviors": [{"behavior_id": "persistent-canvas", "journey_stage_ids": ["field-entry", "trace"], "artifact_note": "The inspection field remains the primary surface."}, {"behavior_id": "state-recomposition", "journey_stage_ids": ["trace", "still-field"], "artifact_note": "Evidence state changes topology rather than adding a new section."}, {"behavior_id": "control-continuity", "journey_stage_ids": ["topology", "closed-route"], "artifact_note": "The same control vocabulary remains addressable through closure."}]},
+      "journey_structure_review": {"status": "passed", "mode": "persistent-state-variation", "distinct_expression_count": 5, "deepest_signature_change": "The same canvas moves from evidence trace into a quiet topology.", "repeated_pattern_risk": "Closure may read as a panel rather than an instrument state.", "assignments": [{"stage_id": "field-entry", "expression_id": "entry-state", "artifact_note": "The field opens with source boundaries.", "responsive_behavior": "The canvas becomes a vertical field."}, {"stage_id": "topology", "expression_id": "control-state", "artifact_note": "Controls teach relationships.", "responsive_behavior": "Controls remain labeled."}, {"stage_id": "trace", "expression_id": "proof-state", "artifact_note": "Evidence activates one route.", "responsive_behavior": "The route becomes a trace."}, {"stage_id": "still-field", "expression_id": "quiet-state", "artifact_note": "The field removes activity without losing identity.", "responsive_behavior": "Quiet topology remains visible."}, {"stage_id": "closed-route", "expression_id": "closed-state", "artifact_note": "Authority closes the final route.", "responsive_behavior": "The boundary remains explicit."}]},
+      "interaction_motion_system": {"strategy_id": "motion-topology", "mode": "spatial-transition", "semantic_purpose": "Show how authorization changes the route from source to outcome.", "reduced_motion": "Swap labeled states without interpolation.", "static_fallback": "Render both topology states as adjacent diagrams."},
+      "journey_stages": [
+        {"stage_id": "field-entry", "role": "opening", "purpose": "Introduce the inspection space.", "signature_expression": "Spatial routes begin at the source boundary."},
+        {"stage_id": "topology", "role": "orientation", "purpose": "Teach the relationship model.", "signature_expression": "Labels define navigable evidence regions."},
+        {"stage_id": "trace", "role": "proof", "purpose": "Trace source to consequence.", "signature_expression": "Material and outcome share a visible seam."},
+        {"stage_id": "still-field", "role": "quiet-state", "purpose": "Preserve the model without activity.", "signature_expression": "Static topology retains every ownership boundary."},
+        {"stage_id": "closed-route", "role": "closure", "purpose": "End at exact authority.", "signature_expression": "The final route remains closed until selected."}
+      ],
+      "comparison_coverage": {"full_page_strip": {"path": ".continuity/private/designs/example/1/concept-b-full-page.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000071"}, "chapter_index": ["field-entry", "topology", "trace", "still-field", "closed-route"], "deep_link": {"path": ".continuity/private/designs/example/1/concept-b.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000072"}},
+      "generated_media_disposition": {"status": "not-applicable", "rationale": "This concept inherits only code-native and derived-study seed lineage."},
+      "runtime_source_files": [{"path": ".continuity/private/designs/example/1/concept-b.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000072"}],
+      "runtime_probes": [
+        {"viewport": "mobile", "path": ".continuity/private/designs/example/1/concept-b-probe-mobile.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000021"},
+        {"viewport": "tablet", "path": ".continuity/private/designs/example/1/concept-b-probe-tablet.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000022"},
+        {"viewport": "desktop", "path": ".continuity/private/designs/example/1/concept-b-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000023"}
+      ],
+      "signature_coverage": {"signature_id": "inspection-field", "required_roles": ["opening", "proof", "interaction", "quiet-state", "closure"], "reduced_motion_probe": {"path": ".continuity/private/designs/example/1/concept-b-probe-reduced-motion.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000025"}},
+      "interaction_invariants": {"required_ids": ["human-approval-boundary", "execution-locked"], "states": [{"state_id": "default", "probe": {"path": ".continuity/private/designs/example/1/concept-b-probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000023"}}, {"state_id": "trace-selected", "probe": {"path": ".continuity/private/designs/example/1/concept-b-trace-selected-probe.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000024"}}]},
+      "wide_composition": {"path": ".continuity/private/designs/example/1/concept-b-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "narrow_transformation": {"path": ".continuity/private/designs/example/1/concept-b-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "imagery_treatment": "Owned infrastructure detail with annotated scale.",
+      "motion_decision": "One spatial transition with reduced-motion replacement.",
+      "preservation_promise": "Keep the expert path direct.",
+      "tradeoff": "More deliberate scanning.",
+      "anti_reference": "No black-neon terminal counter-default.",
+      "fidelity_level": "board-v1",
+      "slop_report": {"path": ".continuity/private/design/slop/concept-b.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "report_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ruleset_version": "1.7.0", "counts_by_severity": {"critical": 0, "error": 0, "info": 0, "warning": 0}, "dispositions_hash": "0000000000000000000000000000000000000000000000000000000000000000", "status": "passed"}
+    }
+  ],
+  "creative_range": {
+    "status": "passed",
+    "reviewer": "creative-director",
+    "reviewed_at": "2026-08-08T12:00:00Z",
+    "five_second_reactions": [
+      {"concept_id": "direction-1", "reaction": "A proof ledger whose evidence changes the reading path."},
+      {"concept_id": "study-material-seam", "reaction": "A spatial inspection field organized by lifecycle."}
+    ],
+    "pairwise_distances": [
+      {"concept_ids": ["direction-1", "study-material-seam"], "differing_dimensions": ["organizing-idea", "primary-carrier", "emotional-register", "responsive-transformation"], "rationale": "The recommendation is a linear claim-to-proof narrative; the study is a self-directed spatial inspection model."}
+    ],
+    "house_tell_review": {
+      "recurring_tells_checked": ["serif-plus-mono", "thin-rules", "quiet-neutral-field", "orange-interruption", "proof-rail"],
+      "project_identity_wins": true,
+      "rationale": "Authority and evidence relationships determine composition; no recurring type pairing, neutral palette, rule, or accent is used by habit."
+    },
+    "adversarial_pass": [
+      {"concept_id": "direction-1", "genericity_argument": "It could collapse into editorial enterprise software.", "opposing_hypothesis": "Proof should change the layout rather than decorate it.", "resulting_change": "Evidence state now changes measure, crop, and sequence.", "rejected_choice": "Detached credibility logo row."},
+      {"concept_id": "study-material-seam", "genericity_argument": "It could collapse into a generic node map.", "opposing_hypothesis": "Authority boundaries should determine topology.", "resulting_change": "Authorization and privacy now open or occlude spatial routes.", "rejected_choice": "Decorative network particles."}
+    ],
+    "range_audit": {"status": "passed", "typography_strategy_count": 2, "typography_family_count": 2, "art_direction_family_count": 2, "composition_family_count": 2, "page_grammar_count": 2, "interaction_motion_strategy_count": 2, "minimum_journey_stage_count": 5, "per_concept_runtime_probes": true, "comparison_depth_coverage": true, "generated_media_extraction_passed": true, "rationale": "The concepts use different typography, art direction, composition, page grammar, interaction, media roles, responsive transformations, and complete page journeys."}
+  },
+  "impact_review": {
+    "status": "passed",
+    "reviewer_type": "agent-multimodal",
+    "reviewer": "creative-director",
+    "reviewed_at": "2026-08-08T12:05:00Z",
+    "at_least_one_compelling": true,
+    "set_conclusion": "The proof direction is immediately ownable; the spatial study is credible but needs more human consequence.",
+    "concepts": [
+      {"concept_id": "direction-1", "outcome": "passed", "strength": "compelling", "signature_stage_ids": ["threshold", "claims", "missing", "responsibility"], "identity_specificity": "pass", "emotional_resonance": "pass", "craft_coherence": "pass", "rationale": "The proof seam controls crop, reading measure, absence, and final authority.", "weakest_moment": "Orientation is less surprising than the opening.", "refinement_priority": "Give the orientation chapter its own evidence behavior.", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}, {"path": ".continuity/private/designs/example/1/concept-a-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}]},
+      {"concept_id": "study-material-seam", "outcome": "passed", "strength": "credible", "signature_stage_ids": ["field-entry", "trace", "still-field", "closed-route"], "identity_specificity": "pass", "emotional_resonance": "pass", "craft_coherence": "pass", "rationale": "Authority topology controls the opening, proof, quiet state, and close.", "weakest_moment": "The topology can feel analytical rather than consequential.", "refinement_priority": "Connect route closure to a concrete operator decision.", "evidence": [{"path": ".continuity/private/designs/example/1/concept-b-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}, {"path": ".continuity/private/designs/example/1/concept-b-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}]}
+    ]
+  },
+  "browser_snapshots": [
+    {"viewport": "mobile", "path": ".continuity/private/designs/example/1/concepts-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "tablet", "path": ".continuity/private/designs/example/1/concepts-tablet.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "desktop", "path": ".continuity/private/designs/example/1/concepts-desktop.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+  ],
+  "browser_probes": [
+    {"viewport": "mobile", "path": ".continuity/private/designs/example/1/probe-mobile.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "tablet", "path": ".continuity/private/designs/example/1/probe-tablet.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    {"viewport": "desktop", "path": ".continuity/private/designs/example/1/probe-desktop.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+  ],
+  "research_links": [
+    {"tile": 1, "disposition": "transformed", "rationale": "Adapt the relationship between claim and evidence, not the reference identity.", "concept_ids": ["direction-1"]},
+    {"tile": 2, "disposition": "rejected", "rationale": "The lighting treatment obscures operational content.", "concept_ids": []}
+  ],
+  "visual_references": []
+}

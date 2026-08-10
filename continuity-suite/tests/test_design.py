@@ -5,15 +5,18 @@ import json
 import runpy
 import shutil
 import subprocess
+import struct
 import sys
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 SUITE = Path(__file__).resolve().parents[1]
 SUITE_VERSION = (SUITE / "VERSION").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(SUITE / "lib"))
 import design
+import design_slop
 
 BOUNDARY_SPEC = importlib.util.spec_from_file_location("validate_design_boundary", SUITE / "scripts" / "validate_design_boundary.py")
 BOUNDARY = importlib.util.module_from_spec(BOUNDARY_SPEC)
@@ -30,8 +33,49 @@ EVALUATION_SPEC = importlib.util.spec_from_file_location(
 EVALUATION = importlib.util.module_from_spec(EVALUATION_SPEC)
 assert EVALUATION_SPEC.loader
 EVALUATION_SPEC.loader.exec_module(EVALUATION)
+OUTPUT_EVALUATION_SPEC = importlib.util.spec_from_file_location(
+    "evaluate_design_outputs",
+    SUITE / "scripts" / "evaluate_design_outputs.py",
+)
+OUTPUT_EVALUATION = importlib.util.module_from_spec(OUTPUT_EVALUATION_SPEC)
+assert OUTPUT_EVALUATION_SPEC.loader
+OUTPUT_EVALUATION_SPEC.loader.exec_module(OUTPUT_EVALUATION)
+HOMEPAGE_EVALUATION_SPEC = importlib.util.spec_from_file_location(
+    "evaluate_design_homepage",
+    SUITE / "scripts" / "evaluate_design_homepage.py",
+)
+HOMEPAGE_EVALUATION = importlib.util.module_from_spec(HOMEPAGE_EVALUATION_SPEC)
+assert HOMEPAGE_EVALUATION_SPEC.loader
+HOMEPAGE_EVALUATION_SPEC.loader.exec_module(HOMEPAGE_EVALUATION)
+PRESENTATION_EVALUATION_SPEC = importlib.util.spec_from_file_location(
+    "evaluate_design_presentation",
+    SUITE / "scripts" / "evaluate_design_presentation.py",
+)
+PRESENTATION_EVALUATION = importlib.util.module_from_spec(PRESENTATION_EVALUATION_SPEC)
+assert PRESENTATION_EVALUATION_SPEC.loader
+PRESENTATION_EVALUATION_SPEC.loader.exec_module(PRESENTATION_EVALUATION)
 CATALOG = SUITE / "skills" / "continuity-design" / "references" / "catalog.json"
 SCENARIOS = SUITE / "skills" / "continuity-design" / "references" / "evaluation-scenarios.json"
+
+
+def png_bytes(width, height, color=(238, 240, 234, 255)):
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+    row = b"\x00" + bytes(color) * width
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row * height)) + chunk(b"IEND", b"")
+
+
+def alpha_subject_png_bytes(width, height):
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+    rows = []
+    for y in range(height):
+        pixels = bytearray()
+        for x in range(width):
+            inside = width // 4 <= x < width * 3 // 4 and height // 4 <= y < height * 3 // 4
+            pixels.extend((80, 70, 60, 255 if inside else 0))
+        rows.append(b"\x00" + bytes(pixels))
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b"")
 
 
 def input_value(**overrides):
@@ -79,6 +123,1511 @@ class DesignLifecycleTests(unittest.TestCase):
         path = self.root / "input.json"
         path.write_text(json.dumps(value), encoding="utf-8")
         return path
+
+    def visual_review(self):
+        screenshot = self.root / "visual-review.png"
+        if not screenshot.exists():
+            screenshot.write_bytes(png_bytes(1440, 900))
+        return self.visual_review_for([screenshot])
+
+    def visual_review_for(self, screenshots):
+        evidence = [
+            {"path": path.relative_to(self.root).as_posix(), "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest(), "region": "full-frame"}
+            for path in screenshots
+        ]
+        return {
+            key: {
+                "result": "pass", "finding": "", "rationale": "",
+                "reviewer": "test-visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z",
+                "evidence": evidence,
+            }
+            for key in design.VISUAL_REVIEW_QUESTIONS
+        }
+
+    def creative_input(self, **overrides):
+        desired_id = overrides.get("design_id", "creative-design")
+        seed = design.draft(
+            self.root, self.config, CATALOG,
+            self.write_input(input_value(design_id=f"{desired_id}-seed")),
+        )
+        value = input_value(
+            workflow_version=2,
+            direction_count=1,
+            directions=[seed["directions"][0]],
+            collaboration_profile="guided",
+            concept_presentation_mode="director-led",
+            research={"mode": "offline", "status": "not-started", "announced": True, "opt_out_offered": True, "moodboard": []},
+            generative_exploration={
+                "status": "deliberately-omitted", "mode": "omitted", "required_for_directioning": False,
+                "lenses": [], "seeds": [], "cross_pollinations": [], "shortlisted_seed_ids": [],
+                "range_plan": {},
+                "omission_rationale": "Unit test uses pre-authored directions without expressive media generation.",
+            },
+        )
+        value.update(overrides)
+        return value
+
+    def write_slop_manifest(self, stage="concept", **overrides):
+        value = {"stage": stage, "ruleset_version": design_slop.RULESET_VERSION, "visual_review": self.visual_review()}
+        value.update(overrides)
+        path = self.root / f"slop-{stage}.json"
+        path.write_text(json.dumps(value), encoding="utf-8")
+        return path
+
+    def slop_reference(self, result):
+        report_path = self.root / result["report_path"]
+        return {
+            "path": result["report_path"], "sha256": __import__("hashlib").sha256(report_path.read_bytes()).hexdigest(),
+            "report_hash": result["report_hash"], "ruleset_version": result["ruleset_version"],
+            "counts_by_severity": result["counts_by_severity"], "dispositions_hash": design._canonical_hash(result["dispositions"]),
+            "status": result["status"],
+        }
+
+    def test_creative_director_input_infers_profile_and_specialization(self):
+        value = self.creative_input(
+            design_id="creative-peer", intent="A creative director will co-create a launch system.",
+            collaboration_profile="creative-peer", concept_presentation_mode="director-led",
+            research={"mode": "declined", "status": "declined", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["schema_version"], 2)
+        self.assertEqual(draft["collaboration_profile"], "creative-peer")
+        self.assertEqual(draft["specialization"], "brand-marketing")
+        self.assertEqual(len(draft["directions"]), 1)
+        self.assertEqual(draft["slop_ruleset_hash"], design_slop.ruleset_hash())
+
+    def test_creative_director_workflow_is_explicit_and_rejects_generic_recovery(self):
+        with self.assertRaisesRegex(design.DesignError, "explicit workflow_version 2"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(input_value(collaboration_profile="guided")))
+        value = self.creative_input(design_id="missing-authored-direction")
+        value.pop("directions")
+        with self.assertRaisesRegex(design.DesignError, "agent-authored"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_workflow_v3_requires_and_validates_reference_reconstruction_before_concepts(self):
+        value = self.creative_input(design_id="reference-translation", workflow_version=3)
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["schema_version"], 3)
+        self.assertEqual(draft["status"], "developing-reference-translations")
+        workflow = design.workflow(self.root, self.config, draft["design_id"])
+        self.assertIn("validate-reference-translation", workflow["allowed_actions"])
+
+        def artifact(path):
+            return {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        html_files = {}
+        for name in ("reconstruction", "literal-a", "literal-b", "adaptation-a", "adaptation-b", "translation-comparison"):
+            path = self.root / f"{name}.html"
+            path.write_text(f"<main data-study='{name}'><h1>Constraint transfer</h1></main>", encoding="utf-8")
+            html_files[name] = path
+        visuals = {}
+        for index, (name, width) in enumerate((
+            ("source-wide", 1440), ("source-narrow", 390),
+            ("reconstruction-wide", 1440), ("reconstruction-narrow", 390),
+            ("correction-1-wide", 1440), ("correction-1-narrow", 390),
+            ("correction-2-wide", 1440), ("correction-2-narrow", 390),
+            ("literal-a-wide", 1440), ("literal-a-narrow", 390),
+            ("literal-b-wide", 1440), ("literal-b-narrow", 390),
+            ("adaptation-a-wide", 1440), ("adaptation-a-narrow", 390),
+            ("adaptation-b-wide", 1440), ("adaptation-b-narrow", 390),
+            ("translation-wide", 1440), ("translation-narrow", 390),
+        )):
+            path = self.root / f"{name}.png"
+            path.write_bytes(png_bytes(width, 900, (90 + (index * 7) % 140, 100, 120, 255)))
+            visuals[name] = path
+        dimensions = ("composition", "scale", "negative-space", "typography", "media", "content-structure", "responsive-transformation", "interaction")
+        constraints = [{
+            "constraint_id": f"reference-{dimension}", "dimension": dimension,
+            "observation": f"The reference uses {dimension} as a defining relationship.",
+            "invariant": f"The {dimension} relationship remains dominant.",
+            "measurable_rule": f"The {dimension} relationship is visible at both target widths.",
+            "project_mapping": f"Continuity evidence replaces the source content while preserving {dimension}.",
+            "allowed_variance": "Color, copy, and proprietary identity may change.",
+            "prohibited_copying": "Do not copy logos, proprietary copy, or brand-specific assets.",
+            "source_location": f"source:{dimension}", "reconstruction_location": f"main[data-constraint='{dimension}']",
+            "metric": {"name": f"{dimension}-ratio", "unit": "ratio", "source_value": 1.0, "reconstruction_value": 0.95, "tolerance": 0.1, "status": "pass"},
+        } for dimension in dimensions]
+        results = [{
+            "constraint_id": item["constraint_id"], "result": "pass",
+            "evidence": f"The adaptation preserves {item['dimension']} in both captures.",
+            "artifact_location": f"main[data-constraint='{item['dimension']}']",
+        } for item in constraints]
+        adaptation = lambda adaptation_id, html_name: {
+            "adaptation_id": adaptation_id, "study_ids": ["reference-mechanic"],
+            "html": artifact(html_files[html_name]),
+            "wide": artifact(visuals[f"{html_name}-wide"]), "narrow": artifact(visuals[f"{html_name}-narrow"]),
+            "literal_substitution": {
+                "study_id": "reference-mechanic", "html": artifact(html_files[f"literal-{html_name[-1]}"]),
+                "wide": artifact(visuals[f"literal-{html_name[-1]}-wide"]), "narrow": artifact(visuals[f"literal-{html_name[-1]}-narrow"]),
+                "mapping": [{"constraint_id": item["constraint_id"], "source_role": item["dimension"], "project_replacement": f"Continuity {item['dimension']}", "preserved_relationship": item["invariant"], "source_location": item["source_location"], "artifact_location": f"[data-literal='{item['dimension']}']"} for item in constraints],
+            },
+            "controlled_divergence": {"changes": [{"dimension": "color", "from": "source identity color", "to": "Continuity evidence color", "rationale": "Separate project identity without changing structure.", "preserved_constraint_ids": [item["constraint_id"] for item in constraints]}]},
+            "constraint_results": results,
+            "media_strategy": {"source": "generated", "primitive_substitution": False, "generated_media_disposition": "retained", "rationale": "The material image remains the primary carrier."},
+            "adaptation_distance": {
+                "role": "close-study" if adaptation_id.endswith("a") else "far-study",
+                "total_score": 0.4 if adaptation_id.endswith("a") else 0.7,
+                "dimensions": [
+                    {"dimension": dimension, "score": 0.4 if adaptation_id.endswith("a") else 0.7, "rationale": f"The {dimension} distance is deliberately controlled."}
+                    for dimension in sorted(design.ADAPTATION_DISTANCE_DIMENSIONS)
+                ],
+            },
+            "fidelity_review": {
+                "status": "passed", "reference_mechanics_preserved": "pass", "project_identity_distinct": "pass",
+                "material_fidelity": "pass", "template_distance": "pass", "declared_visible": "pass",
+                "strongest_transfer": "The dominant media-to-type proportion survives.",
+                "weakest_loss": "The narrow crop compresses some negative space.",
+                "next_action": "Carry the proportion into the full journey.",
+            },
+        }
+        manifest_value = {
+            "schema_version": 2, "status": "passed", "design_id": draft["design_id"], "revision": draft["revision"],
+            "prepared_by": "test-reference-preparer",
+            "reviewer_type": "agent-multimodal", "reviewer": "test-reference-reviewer", "reviewed_at": "2026-08-09T12:00:00Z",
+            "set_conclusion": "Both adaptations preserve the source mechanic without copying identity.",
+            "reference_studies": [{
+                "study_id": "reference-mechanic", "source_identity": "one-exact-source", "source_tile_ids": [],
+                "reference_class": "product-object",
+                "difficulty_evidence": [
+                    {"threshold": threshold, "status": "pass", "finding": f"The {threshold} survives reconstruction.", "evidence_region": f"comparison:{threshold}"}
+                    for threshold in design.REFERENCE_CLASS_THRESHOLDS["product-object"]
+                ],
+                "source_evidence": [
+                    {**artifact(visuals["source-wide"]), "source_id": "one-exact-source", "viewport_role": "wide", "ownership": "third-party", "publishable": False},
+                    {**artifact(visuals["source-narrow"]), "source_id": "one-exact-source", "viewport_role": "narrow", "ownership": "third-party", "publishable": False},
+                ],
+                "copy_adaptation_ledger": [
+                    {"detail_id": "copy-scale", "detail": "Oversized subject-to-utility scale", "source_location": "opening subject", "private_copy_action": "Copy the measured area ratio exactly in the private reconstruction.", "project_adaptation": "Replace the product subject with the Continuity authority instrument.", "shipping_boundary": "Do not ship the source product silhouette or identity."},
+                    {"detail_id": "copy-type", "detail": "Short utility type anchored to the subject", "source_location": "subject boundary", "private_copy_action": "Copy the placement and role before changing content.", "project_adaptation": "Replace labels with Continuity lifecycle states.", "shipping_boundary": "Use project-owned type and wording."},
+                    {"detail_id": "copy-rhythm", "detail": "Five-part control rhythm", "source_location": "control sequence", "private_copy_action": "Copy the sequence count and spacing rhythm.", "project_adaptation": "Map the rhythm to Observe through Review.", "shipping_boundary": "Do not reproduce proprietary control shapes."},
+                ],
+                "reconstruction": {"html": artifact(html_files["reconstruction"]), "wide": artifact(visuals["reconstruction-wide"]), "narrow": artifact(visuals["reconstruction-narrow"])},
+                "correction_passes": [
+                    {"pass_number": 1, "status": "changes-required", "combined_wide": artifact(visuals["correction-1-wide"]), "combined_narrow": artifact(visuals["correction-1-narrow"]), "findings": [{"dimension": "scale", "evidence_region": "opening subject", "finding": "Subject is underscaled.", "correction": "Increase subject area."}], "changes": ["Increased subject area."]},
+                    {"pass_number": 2, "status": "passed", "combined_wide": artifact(visuals["correction-2-wide"]), "combined_narrow": artifact(visuals["correction-2-narrow"]), "findings": [{"dimension": "scale", "evidence_region": "opening subject", "finding": "Subject now matches source salience.", "correction": "Retain corrected scale."}], "changes": ["Locked corrected scale."]},
+                ],
+                "salience_order": [{"rank": rank, "source_element": f"source element {rank}", "reconstruction_element": f"reconstruction element {rank}", "result": "pass", "evidence_region": f"comparison region {rank}"} for rank in (1, 2, 3)],
+                "constraints": constraints,
+            }],
+            "adaptations": [adaptation("adaptation-a", "adaptation-a"), adaptation("adaptation-b", "adaptation-b")],
+            "comparison": {"html": artifact(html_files["translation-comparison"]), "wide": artifact(visuals["translation-wide"]), "narrow": artifact(visuals["translation-narrow"])},
+            "independent_review": {
+                "status": "passed", "method": "combined-visual-comparison", "reviewer_type": "agent-multimodal", "reviewer": "test-reference-reviewer", "reviewed_at": "2026-08-09T12:00:00Z",
+                "questions": {key: {"result": "pass", "finding": f"{key} survives the source, reconstruction, literal baseline, and divergence.", "evidence_region": f"comparison:{key}"} for key in design.REFERENCE_REVIEW_QUESTIONS},
+                "findings": [{"finding_id": "precision-001", "severity": "warning", "description": "Initial subject scale was weak.", "evidence_region": "comparison:opening", "disposition": "resolved", "resolution": "Corrected during pass two."}],
+            },
+        }
+        invalid_path = self.root / "reference-invalid.json"
+        invalid_value = json.loads(json.dumps(manifest_value))
+        invalid_value["adaptations"][0]["media_strategy"]["primitive_substitution"] = True
+        invalid_path.write_text(json.dumps(invalid_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "primitive CSS decoration"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        self_review = json.loads(json.dumps(manifest_value))
+        self_review["prepared_by"] = self_review["reviewer"]
+        invalid_path.write_text(json.dumps(self_review), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "independent reviewer"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        hybrid = json.loads(json.dumps(manifest_value))
+        hybrid["reference_studies"][0]["source_evidence"][1]["source_id"] = "different-source"
+        invalid_path.write_text(json.dumps(hybrid), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "cannot hybridize"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        one_pass = json.loads(json.dumps(manifest_value))
+        one_pass["reference_studies"][0]["correction_passes"] = one_pass["reference_studies"][0]["correction_passes"][:1]
+        invalid_path.write_text(json.dumps(one_pass), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "at least two"):
+            design.reference_validate(self.root, self.config, invalid_path)
+        manifest_path = self.root / "reference-translation.json"
+        manifest_path.write_text(json.dumps(manifest_value), encoding="utf-8")
+        result = design.reference_validate(self.root, self.config, manifest_path)
+        self.assertEqual(result["status"], "developing-concepts")
+        self.assertEqual(result["adaptation_count"], 2)
+        self.assertEqual(result["constraint_count"], 8)
+        self.assertEqual(result["copy_detail_count"], 3)
+        self.assertEqual(result["correction_pass_count"], 2)
+        self.assertEqual(result["literal_substitution_count"], 2)
+        stored = design.show(self.root, self.config, draft["design_id"])
+        self.assertEqual(stored["reference_translation"]["status"], "passed")
+
+    def test_completed_live_research_requires_numbered_provenance_tiles(self):
+        value = self.creative_input(
+            design_id="bad-research", collaboration_profile="guided",
+            research={"mode": "adaptive-live", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )
+        with self.assertRaisesRegex(design.DesignError, "12 to 20"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_completed_live_research_binds_unique_local_captures_axes_and_sources(self):
+        moodboard = []
+        for index in range(1, 13):
+            image = self.root / f"mood-{index}.png"
+            image.write_bytes(png_bytes(320, 200, (180 + index, 190, 200, 255)))
+            moodboard.append({
+                "tile": index,
+                "source": f"https://source-{(index % 3) + 1}.example/reference-{index}",
+                "captured_at": "2026-08-08T12:00:00Z",
+                "intended_lesson": f"Study project-relevant relationship {index}.",
+                "axis": "subject-material" if index % 2 else "graphic-spatial",
+                "project_mechanic": f"Translate relationship {index} into the project evidence system.",
+                "copy_candidates": [{"detail_id": f"copy-detail-{index}", "detail": f"Measured relationship {index}", "source_location": "captured tile", "private_copy_action": "Reproduce the measured relationship in the private reconstruction.", "project_adaptation": "Replace source content with Continuity evidence.", "shipping_transformation": "Remove source identity while retaining the approved relationship."}],
+                "shipping_boundary": "Third-party identity and pixels remain private and non-shipping.",
+                "ownership": "third-party", "prohibited_copying": False, "shipping_copy_prohibited": True, "publishable": False,
+                "local_path": image.name,
+                "sha256": __import__("hashlib").sha256(image.read_bytes()).hexdigest(),
+            })
+        value = self.creative_input(
+            design_id="complete-live-research", workflow_version=3,
+            research={"mode": "adaptive-live", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": moodboard},
+        )
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(len(draft["research"]["moodboard"]), 12)
+        self.assertEqual(len({item["sha256"] for item in draft["research"]["moodboard"]}), 12)
+        self.assertTrue(all(item["copy_candidates"] for item in draft["research"]["moodboard"]))
+
+        vague = json.loads(json.dumps(value))
+        vague["design_id"] = "vague-live-research"
+        vague["research"]["moodboard"][0]["copy_candidates"] = []
+        with self.assertRaisesRegex(design.DesignError, "specific details to copy"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(vague))
+
+        duplicate = json.loads(json.dumps(value))
+        duplicate["design_id"] = "duplicate-live-research"
+        duplicate["research"]["moodboard"][1]["local_path"] = duplicate["research"]["moodboard"][0]["local_path"]
+        duplicate["research"]["moodboard"][1]["sha256"] = duplicate["research"]["moodboard"][0]["sha256"]
+        with self.assertRaisesRegex(design.DesignError, "same captured visual"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(duplicate))
+
+    def test_third_party_moodboard_tile_cannot_be_marked_publishable(self):
+        value = self.creative_input(
+            design_id="third-party-promotion", collaboration_profile="guided",
+            research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": [{
+                "tile": 1, "source": "https://example.com/reference", "captured_at": "2026-08-08T12:00:00Z",
+                "intended_lesson": "Observe the relationship between scale and whitespace.", "axis": "graphic-spatial", "project_mechanic": "Use scale to distinguish source from consequence.",
+                "ownership": "third-party", "prohibited_copying": True, "publishable": True,
+            }]},
+        )
+        with self.assertRaisesRegex(design.DesignError, "cannot be publishable"):
+            design.draft(self.root, self.config, CATALOG, self.write_input(value))
+
+    def test_generative_concept_laboratory_requires_breadth_and_hash_bound_artifacts(self):
+        lenses = [
+            {"lens_id": f"lens-{index}", "thesis": f"Explore structural proposition {index}.", "product_truth": f"Project truth {index} must remain visible."}
+            for index in range(1, 5)
+        ]
+        media = ["image-generation", "svg", "typography", "motion-frame", "image-editing", "collage", "code-sketch", "svg"]
+        seeds = []
+        for index, medium in enumerate(media, 1):
+            artifact = self.root / f"seed-{index}.png"
+            artifact.write_bytes(png_bytes(320 + index, 200, (180 + index, 190, 200, 255)))
+            seeds.append({
+                "seed_id": f"seed-{index}", "lens_id": f"lens-{((index - 1) % 4) + 1}", "medium": medium,
+                "art_direction_family": ["photographic", "illustrative", "typographic", "spatial"][(index - 1) % 4],
+                "typography_strategy_id": ["type-serif", "type-humanist", "type-mono"][(index - 1) % 3],
+                "composition_family": ["editorial-sequence", "spatial-field", "typographic-poster"][(index - 1) % 3],
+                "page_depth_roles": [["opening"], ["orientation"], ["proof"], ["edge-state"], ["closure"]][(index - 1) % 5],
+                "hypothesis": f"Seed {index} tests a different organizing relationship.",
+                "project_specificity": f"It makes project truth {((index - 1) % 4) + 1} visible.",
+                "surprising_quality": f"It changes the expected reading order {index}.",
+                "transferable_mechanics": [f"Carry relationship {index} into hierarchy."],
+                "risk": "Could become decorative if detached from product proof.", "provenance": "generated",
+                "artifact": {"path": artifact.name, "sha256": __import__("hashlib").sha256(artifact.read_bytes()).hexdigest()},
+            })
+        typography_hypotheses = []
+        for strategy_id, family, source in (("type-serif", "serif", "open-licensed"), ("type-humanist", "humanist-sans", "system"), ("type-mono", "monospaced", "code-native")):
+            specimen = self.root / f"{strategy_id}-specimen.svg"
+            specimen.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><text x="30" y="120">{strategy_id} display</text><text x="30" y="220">Evidence text at narrow measure.</text></svg>', encoding="utf-8")
+            typography_hypotheses.append({
+                "strategy_id": strategy_id, "family": family, "source": source,
+                "role_relationship": "Display establishes identity while utility text keeps evidence literal.",
+                "responsive_behavior": "Display measure narrows before scale reduces and evidence remains readable.",
+                "anti_default": "No interchangeable model-default type stack.",
+                "customization": "Spacing, measure, and role contrast derive from the tested project relationship.",
+                "license_evidence": "Test fixture uses a system, open-licensed, or code-native specimen without distribution rights claims.",
+                "behavior_tests": ["display", "text", "narrow"],
+                "specimen": {"path": specimen.name, "sha256": __import__("hashlib").sha256(specimen.read_bytes()).hexdigest()},
+            })
+        interaction_hypotheses = []
+        for strategy_id, mode in (("motion-disclosure", "native-disclosure"), ("motion-direct", "direct-manipulation"), ("motion-spatial", "spatial-transition")):
+            prototype = self.root / f"{strategy_id}.html"
+            prototype.write_text(f"<main><button>{strategy_id}</button><p>Static equivalent remains visible.</p></main>", encoding="utf-8")
+            interaction_hypotheses.append({
+                "strategy_id": strategy_id, "mode": mode,
+                "semantic_purpose": "Reveal one consequential relationship without hiding the default truth.",
+                "reduced_motion": "Remove interpolation while preserving the state change and reading order.",
+                "static_fallback": "Render every label and outcome in the initial document.",
+                "risk": "Could become decorative if the transition is detached from authority.",
+                "prototype": {"path": prototype.name, "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()},
+            })
+        style_frame_groups = []
+        for group_index, family in enumerate(("photographic", "illustrative"), 1):
+            frames = []
+            for frame_index in (1, 2):
+                frame = self.root / f"style-{group_index}-{frame_index}.png"
+                frame.write_bytes(png_bytes(480 + frame_index, 300, (130 + group_index * 20, 150 + frame_index * 10, 180, 255)))
+                frames.append({"frame_id": f"style-{group_index}-{frame_index}", "method": "generated" if family == "photographic" else "code-native", "lesson": f"Test {family} relationship {frame_index}.", "artifact": {"path": frame.name, "sha256": __import__("hashlib").sha256(frame.read_bytes()).hexdigest()}})
+            style_frame_groups.append({"exploration_id": f"style-group-{group_index}", "art_direction_family": family, "hypothesis": f"Compare two {family} systems before commitment.", "frames": frames, "selected_frame_ids": [frames[0]["frame_id"]], "rejected_frame_ids": [frames[1]["frame_id"]], "system_extractions": ["Extract the composition rule.", "Extract the typography relationship.", "Extract the material or motion behavior."], "synthesis": "The selected frame produced a stronger project-specific system."})
+        laboratory = {
+            "status": "complete", "mode": "mixed-media", "required_for_directioning": True,
+            "range_plan": {
+                "art_direction_families": ["photographic", "illustrative", "typographic", "spatial"],
+                "typography_hypotheses": typography_hypotheses,
+                "composition_families": ["editorial-sequence", "spatial-field", "typographic-poster"],
+                "page_depth_roles": ["opening", "orientation", "proof", "edge-state", "closure"],
+                "page_grammar_hypotheses": [
+                    {"grammar_id": "grammar-long", "family": "longform-narrative", "hypothesis": "A sequential argument can build trust.", "responsive_behavior": "Chapters stack without losing proof adjacency.", "depth_proof": "Opening, proof, edge, and closure use different compositions.", "risk": "Could collapse into a conventional landing page."},
+                    {"grammar_id": "grammar-canvas", "family": "single-canvas-instrument", "hypothesis": "One operable canvas can teach the model.", "responsive_behavior": "The canvas becomes a vertical control trace.", "depth_proof": "Interaction, proof, edge, and decision remain addressable.", "risk": "Could hide narrative depth."},
+                    {"grammar_id": "grammar-issue", "family": "editorial-issue", "hypothesis": "An issue structure can make time and evidence tangible.", "responsive_behavior": "Spreads become ordered mobile articles.", "depth_proof": "Sections retain different editorial roles.", "risk": "Could become premium editorial styling."},
+                    {"grammar_id": "grammar-spatial", "family": "spatial-journey", "hypothesis": "Topology can organize authority.", "responsive_behavior": "Routes become a linear evidence trace.", "depth_proof": "The field includes opening, proof, quiet, and closure nodes.", "risk": "Could become a generic node map."},
+                ],
+                "interaction_motion_hypotheses": interaction_hypotheses,
+                "intentional_convergence": "",
+            },
+            "lenses": lenses, "seeds": seeds,
+            "cross_pollinations": [
+                {"combination_id": "cross-a", "seed_ids": ["seed-1", "seed-3"], "hypothesis": "Combine image scale with typographic interruption.", "resulting_mechanics": ["Type interrupts the image boundary."]},
+                {"combination_id": "cross-b", "seed_ids": ["seed-2", "seed-4"], "hypothesis": "Combine diagram structure with time.", "resulting_mechanics": ["State changes reshape the spatial diagram."]},
+            ],
+            "style_frame_explorations": style_frame_groups,
+            "shortlisted_seed_ids": ["seed-1", "seed-2", "seed-3", "seed-4"], "omission_rationale": "",
+        }
+        lab_path = self.root / "laboratory.json"
+        lab_path.write_text(json.dumps(laboratory), encoding="utf-8")
+        result = design.concept_lab_validate(self.root, self.config, lab_path)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["seed_count"], 8)
+        self.assertEqual(result["media_count"], 7)
+        value = self.creative_input(design_id="lab-backed", generative_exploration=laboratory)
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(value))
+        self.assertEqual(draft["generative_exploration"]["laboratory_hash"], result["laboratory_hash"])
+
+        too_narrow = json.loads(json.dumps(laboratory))
+        too_narrow["seeds"] = too_narrow["seeds"][:7]
+        with self.assertRaisesRegex(design.DesignError, "eight to twelve"):
+            design._validate_generative_exploration(too_narrow, self.root)
+
+        collapsed_range = json.loads(json.dumps(laboratory))
+        collapsed_range["range_plan"]["art_direction_families"] = ["photographic", "illustrative", "typographic"]
+        with self.assertRaisesRegex(design.DesignError, "four distinct art-direction"):
+            design._validate_generative_exploration(collapsed_range, self.root)
+        single_frame = json.loads(json.dumps(laboratory))
+        single_frame["style_frame_explorations"][0]["frames"] = single_frame["style_frame_explorations"][0]["frames"][:1]
+        with self.assertRaisesRegex(design.DesignError, "two to four frames"):
+            design._validate_generative_exploration(single_frame, self.root)
+        system_only_type = json.loads(json.dumps(laboratory))
+        for hypothesis in system_only_type["range_plan"]["typography_hypotheses"]:
+            hypothesis["source"] = "system"
+        with self.assertRaisesRegex(design.DesignError, "at least one supplied, licensed"):
+            design._validate_generative_exploration(system_only_type, self.root)
+        collapsed_page_grammar = json.loads(json.dumps(laboratory))
+        collapsed_page_grammar["range_plan"]["page_grammar_hypotheses"] = collapsed_page_grammar["range_plan"]["page_grammar_hypotheses"][:3]
+        with self.assertRaisesRegex(design.DesignError, "four to seven page-grammar"):
+            design._validate_generative_exploration(collapsed_page_grammar, self.root)
+
+    def test_visual_atlas_is_private_self_contained_and_network_free(self):
+        request = self.root / "atlas.json"
+        request.write_text(json.dumps({"title": "Material contrasts", "project_copy": "Inspect the source before approval.", "contrasts": ["editorial evidence", "technical index"]}), encoding="utf-8")
+        result = design.visual_atlas(self.root, self.config, CATALOG, request)
+        text = (self.root / result["path"]).read_text(encoding="utf-8")
+        self.assertTrue(result["private"])
+        self.assertFalse(result["network_used"])
+        self.assertEqual(result["plate_count"], 2)
+        self.assertIn('data-system="editorial-asymmetry"', text)
+        self.assertIn('data-system="technical-index"', text)
+        self.assertNotIn("http://", text)
+        self.assertNotIn("https://", text)
+
+    def test_design_improvement_cycle_is_resumable_hash_bound_and_human_gated(self):
+        baseline_eval = self.root / "baseline-evaluation.json"
+        baseline_eval.write_text(json.dumps({"stage_valid": True, "status": "directions"}), encoding="utf-8")
+        baseline_assessment = self.root / "baseline-assessment.md"
+        baseline_assessment.write_text("The concepts need a stronger impact gate.", encoding="utf-8")
+        improved_eval = self.root / "improved-evaluation.json"
+        improved_eval.write_text(json.dumps({"stage_valid": True, "status": "directions"}), encoding="utf-8")
+        improved_assessment = self.root / "improved-assessment.md"
+        improved_assessment.write_text("At least one concept is now compelling.", encoding="utf-8")
+        changed = self.root / "changed-schema.json"
+        changed.write_text(json.dumps({"impact_review": "required"}), encoding="utf-8")
+        ref = lambda path: {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+        cycle = {
+            "schema_version": 1, "cycle_id": "cycle-001", "design_id": "benchmark-homepage",
+            "objective": "Raise the creative ceiling without weakening evidence gates.", "max_passes": 3,
+            "source": {"branch": "feature/design", "commit": "a" * 40, "skill_sha256": "b" * 64},
+            "baseline": {"benchmark_evaluation": ref(baseline_eval), "self_assessment": ref(baseline_assessment)},
+            "passes": [{
+                "pass_number": 1, "status": "awaiting-human",
+                "findings": [{"finding_id": "impact-gate", "category": "creative-impact", "observation": "Range validation cannot prove impact.", "action": "Require a separate multimodal impact review.", "success_metric": "At least one concept is compelling and every signature controls three roles."}],
+                "changes": [{"finding_ids": ["impact-gate"], "description": "Added impact evidence and validation.", "artifacts": [ref(changed)]}],
+                "validation": {"passed": True, "benchmark_evaluation": ref(improved_eval), "self_assessment": ref(improved_assessment), "source_tests": [{"name": "focused design tests", "status": "passed"}]},
+                "human_gate": {"required": True, "status": "pending"},
+            }],
+        }
+        cycle_path = self.root / "cycle.json"
+        cycle_path.write_text(json.dumps(cycle), encoding="utf-8")
+        result = design.improvement_cycle(self.root, self.config, cycle_path)
+        self.assertEqual(result["next_gate"], "human-feedback")
+        self.assertFalse(result["execution_authorized"])
+        persisted = json.loads((self.root / result["record_path"]).read_text(encoding="utf-8"))
+        self.assertEqual(persisted["passes"][0]["status"], "awaiting-human")
+        invalid = json.loads(json.dumps(cycle))
+        invalid["passes"][0]["status"] = "accepted"
+        invalid["passes"][0]["human_gate"] = {"required": True, "status": "accepted"}
+        invalid_path = self.root / "cycle-invalid.json"
+        invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "identified human"):
+            design.improvement_cycle(self.root, self.config, invalid_path)
+
+    def test_fresh_design_experiment_cycle_requires_new_inputs_and_allows_independent_passes(self):
+        baseline_eval = self.root / "series-baseline-evaluation.json"
+        baseline_eval.write_text(json.dumps({"stage_valid": True, "status": "directions"}), encoding="utf-8")
+        baseline_assessment = self.root / "series-baseline-assessment.md"
+        baseline_assessment.write_text("Test the workflow across unrelated creative systems.", encoding="utf-8")
+        ref = lambda path: {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        def artifact(name, content):
+            path = self.root / name
+            path.write_text(content, encoding="utf-8")
+            return ref(path)
+
+        def experiment(number, references):
+            prefix = f"experiment-{number}"
+            value = {
+                "experiment_id": prefix,
+                "source": {"commit": str(number) * 40, "skill_sha256": str(number + 1) * 64},
+                "brief": artifact(f"{prefix}-brief.md", f"brief {number}"),
+                "research": artifact(f"{prefix}-research.json", json.dumps({"experiment": number})),
+                "moodboard": artifact(f"{prefix}-moodboard.html", f"<h1>moodboard {number}</h1>"),
+                "generative_laboratory": artifact(f"{prefix}-laboratory.json", json.dumps({"experiment": number, "seeds": [number]})),
+                "concept_manifest": artifact(f"{prefix}-concepts.json", json.dumps({"experiment": number, "concepts": [number]})),
+                "comparison": artifact(f"{prefix}-comparison.html", f"<h1>comparison {number}</h1>"),
+                "creative_seed": {"audience": f"audience {number}", "posture": f"posture {number}", "hero_mechanism": f"hero {number}", "reference_category": f"category {number}"},
+                "reference_families": references,
+                "novelty_review": {
+                    "compared_to_passes": list(range(1, number)),
+                    "changed_dimensions": ["typography", "media", "composition", "page grammar", "interaction"] + (["emotional register"] if number > 2 else []),
+                    "inherited_constraints": ["Human authority remains explicit."],
+                    "novel_conclusions": [f"Experiment {number} reveals a new workflow conclusion."],
+                },
+            }
+            if number > 1:
+                value["moodboard_quality"] = {"tile_count": 10, "direct_reference_tile_count": 4, "clear_tile_count": 9, "unresolved_weak_tile_ids": [], "reviewer": "design reviewer", "reviewed_at": "2026-08-09T12:00:00Z"}
+                if number > 2:
+                    value["moodboard_quality"]["focal_crop_count"] = 4
+                value["concept_mechanics"] = [
+                    {"concept_id": f"concept-{number}-a", "metaphor": "instrument", "unique_interaction": "turn a bounded dial", "product_job": "Separate observed state from authority."},
+                    {"concept_id": f"concept-{number}-b", "metaphor": "manual", "unique_interaction": "unfold an evidence procedure", "product_job": "Keep proof beside the step it qualifies."},
+                    {"concept_id": f"concept-{number}-c", "metaphor": "signal tape", "unique_interaction": "scrub a custody trace", "product_job": "Show when work stopped and why."},
+                ]
+                if number > 2:
+                    for mechanic in value["concept_mechanics"]:
+                        mechanic["journey_roles"] = ["orientation", "evidence", "authority stop"]
+                    value["house_tell_review"] = {
+                        "compared_to_passes": list(range(1, number)),
+                        "avoided_tells": ["editorial rules", "dark control surfaces"],
+                        "recurring_tells": ["literal authority label"],
+                        "justified_recurrences": ["A literal authority label is a product-truth requirement, not visual styling."],
+                        "reviewer": "design reviewer",
+                        "reviewed_at": "2026-08-09T12:30:00Z",
+                    }
+                    value["category_reflex_review"] = {
+                        "category_defaults": ["generic organic branching", "decorative particle field", "dance photography as atmosphere"],
+                        "avoided_defaults": ["dance photography as atmosphere"],
+                        "intentional_risks": [
+                            {"pattern": "generic organic branching", "rationale": "Lineage is made literal and terminates at a human pruning point.", "product_job": "Trace evidence lineage."},
+                            {"pattern": "decorative particle field", "rationale": "Density changes only with evidence relevance and preserves the authority void.", "product_job": "Gather qualified evidence."},
+                        ],
+                        "reviewer": "design reviewer",
+                        "reviewed_at": "2026-08-09T12:35:00Z",
+                    }
+            return value
+
+        changed_one = artifact("series-change-one.json", json.dumps({"change": 1}))
+        changed_two = artifact("series-change-two.json", json.dumps({"change": 2}))
+        evaluation_one = artifact("series-evaluation-one.json", json.dumps({"stage_valid": True, "status": "directions"}))
+        evaluation_two = artifact("series-evaluation-two.json", json.dumps({"stage_valid": True, "status": "directions"}))
+        assessment_one = artifact("series-assessment-one.md", "Fresh experiment one assessment.")
+        assessment_two = artifact("series-assessment-two.md", "Fresh experiment two assessment.")
+        changed_three = artifact("series-change-three.json", json.dumps({"change": 3}))
+        evaluation_three = artifact("series-evaluation-three.json", json.dumps({"stage_valid": True, "status": "directions"}))
+        assessment_three = artifact("series-assessment-three.md", "Fresh experiment three assessment.")
+        finding = lambda number: [{"finding_id": f"finding-{number}", "category": "workflow", "observation": "One output cannot establish generality.", "action": "Run an independent design experiment.", "success_metric": "The experiment uses new evidence and yields a novel conclusion."}]
+        changes = lambda number, changed: [{"finding_ids": [f"finding-{number}"], "description": "Applied a workflow finding before the independent experiment.", "artifacts": [changed]}]
+        validation = lambda evaluation, assessment: {"passed": True, "benchmark_evaluation": evaluation, "self_assessment": assessment, "source_tests": [{"name": "fresh experiment checks", "status": "passed"}]}
+        cycle = {
+            "schema_version": 1, "cycle_id": "fresh-series", "design_id": "homepage-series", "mode": "fresh-design-experiments",
+            "objective": "Learn across diverse design outputs.", "max_passes": 3,
+            "source": {"branch": "feature/design", "commit": "a" * 40, "skill_sha256": "b" * 64},
+            "baseline": {"benchmark_evaluation": ref(baseline_eval), "self_assessment": ref(baseline_assessment)},
+            "passes": [
+                {"pass_number": 1, "status": "awaiting-human", "experiment": experiment(1, ["scientific mission", "public wayfinding"]), "findings": finding(1), "changes": changes(1, changed_one), "validation": validation(evaluation_one, assessment_one), "human_gate": {"required": True, "status": "pending"}},
+                {"pass_number": 2, "status": "awaiting-human", "experiment": experiment(2, ["physical instrument", "instruction manual"]), "findings": finding(2), "changes": changes(2, changed_two), "validation": validation(evaluation_two, assessment_two), "human_gate": {"required": True, "status": "pending"}},
+            ],
+        }
+        cycle_path = self.root / "fresh-series.json"
+        cycle_path.write_text(json.dumps(cycle), encoding="utf-8")
+        result = design.improvement_cycle(self.root, self.config, cycle_path)
+        self.assertEqual(result["mode"], "fresh-design-experiments")
+        self.assertEqual(result["pass_count"], 2)
+        self.assertEqual(result["next_gate"], "diagnose-and-run-experiment-3")
+        persisted = json.loads((self.root / result["record_path"]).read_text(encoding="utf-8"))
+        self.assertEqual(persisted["passes"][1]["experiment"]["novelty_review"]["compared_to_passes"], [1])
+
+        complete_series = json.loads(json.dumps(cycle))
+        complete_series["passes"].append({
+            "pass_number": 3,
+            "status": "awaiting-human",
+            "experiment": experiment(3, ["botanical growth", "choreographic notation"]),
+            "findings": finding(3),
+            "changes": changes(3, changed_three),
+            "validation": validation(evaluation_three, assessment_three),
+            "human_gate": {"required": True, "status": "pending"},
+        })
+        complete_path = self.root / "fresh-series-complete.json"
+        complete_path.write_text(json.dumps(complete_series), encoding="utf-8")
+        complete_result = design.improvement_cycle(self.root, self.config, complete_path)
+        self.assertEqual(complete_result["next_gate"], "human-cross-cycle-review")
+        self.assertFalse(complete_result["execution_authorized"])
+
+        shallow = json.loads(json.dumps(complete_series))
+        shallow["passes"][2]["experiment"]["concept_mechanics"][0]["journey_roles"] = ["hero", "hero", "hero"]
+        shallow_path = self.root / "fresh-series-shallow.json"
+        shallow_path.write_text(json.dumps(shallow), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "three journey roles"):
+            design.improvement_cycle(self.root, self.config, shallow_path)
+
+        house_tell_free = json.loads(json.dumps(complete_series))
+        house_tell_free["passes"][2]["experiment"].pop("house_tell_review")
+        house_tell_path = self.root / "fresh-series-house-tell-free.json"
+        house_tell_path.write_text(json.dumps(house_tell_free), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "house-tell review"):
+            design.improvement_cycle(self.root, self.config, house_tell_path)
+
+        weak_crop = json.loads(json.dumps(complete_series))
+        weak_crop["passes"][2]["experiment"]["moodboard_quality"]["focal_crop_count"] = 2
+        weak_crop_path = self.root / "fresh-series-weak-crop.json"
+        weak_crop_path.write_text(json.dumps(weak_crop), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "strong focal crops"):
+            design.improvement_cycle(self.root, self.config, weak_crop_path)
+
+        undisposed_category = json.loads(json.dumps(complete_series))
+        undisposed_category["passes"][2]["experiment"]["category_reflex_review"]["avoided_defaults"] = []
+        category_path = self.root / "fresh-series-undisposed-category.json"
+        category_path.write_text(json.dumps(undisposed_category), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "disposition every reference-category default"):
+            design.improvement_cycle(self.root, self.config, category_path)
+
+        invalid = json.loads(json.dumps(cycle))
+        invalid["passes"][1]["experiment"]["moodboard"] = invalid["passes"][0]["experiment"]["moodboard"]
+        invalid_path = self.root / "fresh-series-invalid.json"
+        invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "new moodboard"):
+            design.improvement_cycle(self.root, self.config, invalid_path)
+
+        unclear = json.loads(json.dumps(cycle))
+        unclear["passes"][1]["experiment"]["moodboard_quality"]["clear_tile_count"] = 6
+        unclear_path = self.root / "fresh-series-unclear.json"
+        unclear_path.write_text(json.dumps(unclear), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "unresolved or unclear captures"):
+            design.improvement_cycle(self.root, self.config, unclear_path)
+
+    def test_private_renderer_supports_moodboards_concepts_and_visual_deltas(self):
+        wide = self.root / "render-wide.png"
+        narrow = self.root / "render-narrow.png"
+        changed = self.root / "render-changed.png"
+        wide.write_bytes(png_bytes(1200, 800, (238, 240, 234, 255)))
+        narrow.write_bytes(png_bytes(390, 800, (219, 226, 221, 255)))
+        changed.write_bytes(png_bytes(1200, 800, (225, 231, 235, 255)))
+        for kind in ("moodboard", "concept-comparison", "reference-transfer", "visual-delta"):
+            with self.subTest(kind=kind):
+                request = self.root / f"{kind}.json"
+                item = {"number": 1, "title": "Evidence rail", "summary": "A structural study", "lesson": "Keep proof attached", "source": "project-owned study"}
+                if kind == "moodboard":
+                    item["image_path"] = wide.name
+                elif kind == "concept-comparison":
+                    item.update({"wide_image_path": wide.name, "narrow_image_path": narrow.name})
+                elif kind == "reference-transfer":
+                    item.update({"source_image_path": wide.name, "reconstruction_image_path": changed.name, "literal_image_path": wide.name, "adaptation_image_path": changed.name})
+                else:
+                    item.update({"before_image_path": wide.name, "after_image_path": changed.name})
+                request.write_text(json.dumps({"kind": kind, "title": f"{kind} evidence", "items": [item]}), encoding="utf-8")
+                result = design.visual_render(self.root, self.config, request)
+                rendered = (self.root / result["path"]).read_text(encoding="utf-8")
+                self.assertTrue(result["private"])
+                self.assertFalse(result["network_used"])
+                self.assertIn("Evidence rail", rendered)
+                self.assertIn("Neutral comparison chrome", rendered)
+        journey_request = self.root / "concept-journey-comparison.json"
+        journey_request.write_text(json.dumps({
+            "kind": "concept-comparison", "title": "Journey evidence", "items": [{
+                "title": "Authority field", "role_images": [
+                    {"role": role, "image_path": narrow.name if role != "overview" else wide.name}
+                    for role in ("opening", "proof", "interaction", "quiet-or-edge", "closure", "overview")
+                ],
+            }],
+        }), encoding="utf-8")
+        journey_result = design.visual_render(self.root, self.config, journey_request)
+        journey_html = (self.root / journey_result["path"]).read_text(encoding="utf-8")
+        self.assertIn("Quiet Or Edge", journey_html)
+        self.assertIn("Overview", journey_html)
+
+    def test_slop_check_detects_hard_and_default_risks(self):
+        source = self.root / "risk.css"
+        source.write_text(".hero { transition: all .3s; background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual({item["rule_id"] for item in result["findings"]}, {"CDS-H004", "CDS-D001"})
+
+    def test_static_slop_rules_have_positive_detection_fixtures(self):
+        fixtures = {
+            "CDS-H001": "<video autoplay src='clip.mp4'></video>",
+            "CDS-H002": "const scene = new WebGLRenderer();",
+            "CDS-H003": "main { opacity: 0; }",
+            "CDS-H004": ".thing { transition: all .2s; }",
+            "CDS-H005": "window.addEventListener('scroll', update);",
+            "CDS-D001": ".hero{background:linear-gradient(90deg,#8b5cf6,#3b82f6)}",
+            "CDS-D002": ".headline{background:linear-gradient(red,blue);background-clip:text}",
+            "CDS-D003": ":root{--surface:#faf7f0}",
+            "CDS-D004": ".body{font-family:'Space Grotesk',sans-serif}",
+            "CDS-D005": ".glass{backdrop-filter:blur(12px);background:rgba(255,255,255,.4)}",
+            "CDS-D006": ".a{border-radius:24px}.b{border-radius:24px}.c{border-radius:24px}",
+            "CDS-D007": "<div class='bento-grid'></div>",
+            "CDS-D008": "<p class='eyebrow'>A</p><p class='eyebrow'>B</p><p class='eyebrow'>C</p>",
+            "CDS-D009": "<p>01. One</p><p>02. Two</p><p>03. Three</p>",
+            "CDS-D010": ".a{text-align:center}.b{text-align:center}.c{text-align:center}.d{text-align:center}.e{text-align:center}",
+            "CDS-D011": "<div class='fade-up'></div><div class='fade-up'></div><div class='fade-up'></div>",
+            "CDS-D012": "<section class='hero'><div class='stat'>1</div><div class='metric'>2</div></section>",
+            "CDS-D013": ".orb{box-shadow:0 0 40px #8b5cf6}",
+            "CDS-D014": "<img src='https://images.unsplash.com/example'>",
+            "CDS-D015": "<h1>Revolutionize your work</h1>",
+            "CDS-D016": "One — two — three — four — five.",
+            "CDS-D017": ".terminal{background:#000;color:#39ff14;font-family:monospace}",
+        }
+        for rule_id, source in fixtures.items():
+            with self.subTest(rule_id=rule_id):
+                actual = {item["rule_id"] for item in design_slop._scan_text("fixture", source)}
+                self.assertIn(rule_id, actual)
+
+    def test_hero_metric_rule_does_not_treat_station_as_stat(self):
+        source = "<section class='hero'><p>One connected station</p><div class='proof'>Current</div></section>"
+        self.assertNotIn("CDS-D012", {item["rule_id"] for item in design_slop._scan_text("fixture", source)})
+
+    def test_slop_check_rejects_stale_ruleset_and_unqualified_generated_claim(self):
+        source = self.root / "claim.html"
+        source.write_text("<main><h1>Illustrative outcome</h1></main>", encoding="utf-8")
+        stale = self.write_slop_manifest(ruleset_version="0.9.0")
+        with self.assertRaisesRegex(design.DesignError, "stale"):
+            design.slop_check(self.root, self.config, source, stale)
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(
+            generated_claims=[{"location": "claim.html#outcome", "visible_qualification": "", "provenance": ""}]
+        ))
+        self.assertIn("CDS-H006", {item["rule_id"] for item in result["findings"]})
+
+    def test_slop_report_manifest_summary_is_hash_bound(self):
+        source = self.root / "bound.html"
+        source.write_text("<main><h1>Bound evidence</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest())
+        reference = self.slop_reference(result)
+        reference["counts_by_severity"] = {**reference["counts_by_severity"], "warning": 1}
+        with self.assertRaisesRegex(design.DesignError, "summary"):
+            design._verified_private_report(self.root, reference, stage="concept")
+
+    def test_context_slop_layer_detects_contract_reference_rejection_and_house_drift(self):
+        source = self.root / "drift.html"
+        source.write_text("<main class='unapproved-radius copied-brand generic-proof-grid'>Reference identity</main>", encoding="utf-8")
+        manifest = self.write_slop_manifest(project_context={
+            "unapproved_markers": ["unapproved-radius"],
+            "required_signature_markers": ["approved-evidence-rail"],
+            "reference_transformations": [{"reference_identity_marker": "copied-brand", "project_transformation_marker": "project-proof-rail"}],
+            "rejected_choices": ["generic-proof-grid"],
+            "continuity_house_tells": ["reference identity"],
+        })
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(
+            {item["rule_id"] for item in result["findings"]},
+            {"CDS-P001", "CDS-P002", "CDS-P003", "CDS-P004", "CDS-P005"},
+        )
+        self.assertEqual(result["status"], "failed")
+
+    def test_translation_slop_layer_detects_flattening_and_lost_constraints(self):
+        source = self.root / "flattened.html"
+        source.write_text("<main><h1>Generic translated concept</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(translation_fidelity={
+            "primitive_media_substitution": True,
+            "material_energy_preserved": False,
+            "template_convergence": True,
+            "declared_mechanics_visible": False,
+            "generated_study_retained_or_translated": False,
+            "approved_constraints_present": False,
+            "primary_material_organizes": False,
+            "typographic_grammar_preserved": False,
+            "exact_single_source_baseline": False,
+            "independent_review": False,
+            "mobile_comparison_complete": False,
+            "reference_lineage_visible": False,
+            "variable_contrast_resolved": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {item["rule_id"] for item in result["findings"]},
+            {"CDS-D021", "CDS-D022", "CDS-D023", "CDS-D024", "CDS-D025", "CDS-D026", "CDS-D027", "CDS-D028", "CDS-D029", "CDS-D030", "CDS-D031", "CDS-D032", "CDS-P006"},
+        )
+
+    def test_selected_media_fidelity_checks_background_and_material_preservation(self):
+        source = self.root / "downgraded-media.html"
+        source.write_text("<main><h1>Selected media integration</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(translation_fidelity={
+            "selected_media_fidelity_preserved": False,
+            "background_integration_verified": False,
+            "material_contrast_preserved": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {item["rule_id"] for item in result["findings"]},
+            {"CDS-P016", "CDS-D040", "CDS-D041"},
+        )
+
+    def test_default_risk_can_be_intentionally_accepted_with_contract_evidence(self):
+        source = self.root / "approved.css"
+        source.write_text(".signal { background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
+        manifest = self.write_slop_manifest(dispositions=[{
+            "rule_id": "CDS-D001", "status": "accepted-intentional",
+            "rationale": "The approved spectrograph uses this measured wavelength mapping.",
+            "contract_reference": "Design contract / Signature move",
+        }])
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["dispositions"][0]["status"], "accepted-intentional")
+
+    def test_hash_bound_craft_finding_shape_can_accept_intentional_default(self):
+        source = self.root / "intentional.css"
+        source.write_text(".signal { background: linear-gradient(90deg,#8b5cf6,#3b82f6); }", encoding="utf-8")
+        manifest = self.write_slop_manifest(craft_findings=[{
+            "rule_id": "CDS-D001", "status": "accepted-intentional", "artifact_ref": "Design contract / Signature move",
+            "evidence": "Rendered spectrograph wavelength mapping.", "override_rationale": "The approved subject encodes wavelength with this exact range.",
+        }])
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(result["status"], "passed")
+
+    def test_hard_failure_cannot_be_suppressed_as_intentional(self):
+        source = self.root / "unsafe.css"
+        source.write_text(".thing { transition: all .3s; }", encoding="utf-8")
+        manifest = self.write_slop_manifest(dispositions=[{
+            "rule_id": "CDS-H004", "status": "accepted-intentional", "rationale": "Wanted", "contract_reference": "contract",
+        }])
+        with self.assertRaisesRegex(design.DesignError, "cannot be accepted"):
+            design.slop_check(self.root, self.config, source, manifest)
+
+    def test_hard_failure_cannot_be_marked_not_applicable(self):
+        source = self.root / "unsafe-not-applicable.css"
+        source.write_text(".thing { transition: all .3s; }", encoding="utf-8")
+        manifest = self.write_slop_manifest(dispositions=[{
+            "rule_id": "CDS-H004", "status": "not-applicable", "rationale": "Claimed false positive", "evidence": "No exception is valid.",
+        }])
+        with self.assertRaisesRegex(design.DesignError, "cannot be accepted or marked not applicable"):
+            design.slop_check(self.root, self.config, source, manifest)
+
+    def test_visual_review_requires_hash_bound_structured_evidence(self):
+        source = self.root / "clean-review.html"
+        source.write_text("<main><h1>Project-specific evidence</h1></main>", encoding="utf-8")
+        manifest = self.write_slop_manifest(visual_review={key: "not actually reviewed" for key in design.VISUAL_REVIEW_QUESTIONS})
+        with self.assertRaisesRegex(design.DesignError, "requires pass, fail, or not-applicable"):
+            design.slop_check(self.root, self.config, source, manifest)
+
+    def test_failed_visual_review_becomes_a_blocking_finding(self):
+        source = self.root / "visual-failure.html"
+        source.write_text("<main><h1>Project evidence</h1></main>", encoding="utf-8")
+        review = self.visual_review()
+        review["directions_structurally_distinct"] = {
+            **review["directions_structurally_distinct"],
+            "result": "fail",
+            "finding": "The alternatives share the same hierarchy and differ only by palette.",
+        }
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(visual_review=review))
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("CDS-D019", {item["rule_id"] for item in result["findings"]})
+
+    def test_visual_slop_questions_cover_identity_category_and_decorative_work(self):
+        mappings = {
+            "identity_specific": "CDS-D018",
+            "not_category_reflex": "CDS-D017",
+            "directions_structurally_distinct": "CDS-D019",
+            "decoration_has_job": "CDS-D020",
+            "media_fidelity_preserved": "CDS-P016",
+        }
+        for question, rule_id in mappings.items():
+            with self.subTest(question=question):
+                source = self.root / f"{question}.html"
+                source.write_text("<main><h1>Project evidence</h1></main>", encoding="utf-8")
+                review = self.visual_review()
+                review[question] = {**review[question], "result": "fail", "finding": f"Failed review question: {question}"}
+                result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(visual_review=review))
+                self.assertEqual(result["status"], "failed")
+                self.assertIn(rule_id, {item["rule_id"] for item in result["findings"]})
+
+    def test_third_party_reference_promotion_is_a_hard_failure(self):
+        source = self.root / "clean.html"
+        source.write_text("<main><h1>Project evidence</h1></main>", encoding="utf-8")
+        manifest = self.write_slop_manifest(promoted_references=[{"path": "refs/example.png", "ownership": "third-party"}])
+        result = design.slop_check(self.root, self.config, source, manifest)
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("CDS-H007", {item["rule_id"] for item in result["findings"]})
+
+    def test_slop_check_blocks_portfolio_diversity_regressions(self):
+        source = self.root / "portfolio-drift.html"
+        source.write_text("<main><h1>Project-specific evidence</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(portfolio_diversity={
+            "portfolio_audit_current": False,
+            "house_overlap_within_limit": False,
+            "strongest_prior_challenged": False,
+            "concept_forming_media_present": False,
+            "close_far_distance_present": False,
+            "reference_difficulty_passed": False,
+            "journey_state_depth_passed": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {f"CDS-P{number:03d}" for number in range(7, 14)},
+            {item["rule_id"] for item in result["findings"]},
+        )
+
+    def test_presentation_slop_layer_detects_template_pacing_truth_and_capture_failures(self):
+        source = self.root / "pitch-deck.html"
+        source.write_text("<main><section>Pitch deck</section></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(presentation_fidelity={
+            "slide_role_count": 2,
+            "repeated_template_ratio": 0.75,
+            "narrative_peak_present": False,
+            "quiet_or_rest_present": False,
+            "live_presentation_review_complete": True,
+            "read_ahead_review_complete": False,
+            "claims_provenance_complete": False,
+            "capture_integrity_verified": False,
+            "copy_readability_verified": False,
+            "data_readability_verified": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {"CDS-D035", "CDS-D036", "CDS-D037", "CDS-D038", "CDS-D039", "CDS-H008", "CDS-H009", "CDS-H010"},
+            {item["rule_id"] for item in result["findings"]},
+        )
+        self.assertEqual(result["presentation_fidelity"]["slide_role_count"], 2)
+
+    def test_presentation_slop_layer_accepts_distinct_truthful_verified_deck(self):
+        source = self.root / "distinct-pitch-deck.html"
+        source.write_text("<main><section>Project-specific deck</section></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(presentation_fidelity={
+            "slide_role_count": 6,
+            "repeated_template_ratio": 0.25,
+            "narrative_peak_present": True,
+            "quiet_or_rest_present": True,
+            "live_presentation_review_complete": True,
+            "read_ahead_review_complete": True,
+            "claims_provenance_complete": True,
+            "capture_integrity_verified": True,
+            "copy_readability_verified": True,
+            "data_readability_verified": True,
+        }))
+        self.assertEqual(result["status"], "passed")
+
+    def test_layered_composition_and_typographic_transfer_are_executable(self):
+        background = self.root / "assets" / "background.png"
+        foreground = self.root / "assets" / "foreground.png"
+        background.parent.mkdir()
+        background.write_bytes(png_bytes(12, 8, (20, 40, 60, 255)))
+        foreground.write_bytes(alpha_subject_png_bytes(12, 8))
+        probe = self.root / "type-probe.json"
+        probe.write_text(json.dumps({
+            "schema_version": 3, "probe_kind": "continuity-artifact-browser-probe", "passed": True,
+            "viewport": {"width": 1440, "height": 900}, "document_fonts_status": "loaded", "requested_family": "Six Caps",
+            "typography_transfers": [{"transfer_id": "proof-moves", "selector": "h1.proof-type", "rendered_copy": "PROOF MOVES", "computed_family": '"Six Caps", sans-serif', "font_loaded": True, "font_face_status": "loaded", "measurement_method": "canvas-2d", "cap_height_ratio": 0.72, "word_width_ratio": 0.41, "line_count": 2, "rect": {"x": 300, "y": 100, "width": 500, "height": 220}}],
+            "composition_planes": [
+                {"plane_id": "hero-background", "selector": "img.hero-background", "computed_z_index": 1, "visible": True, "asset_url": "file:///project/assets/background.png", "load_complete": True, "rect": {"x": 0, "y": 0, "width": 1200, "height": 800}},
+                {"plane_id": "hero-type", "selector": "proof-type", "computed_z_index": 2, "visible": True, "asset_url": None, "load_complete": True, "rect": {"x": 300, "y": 100, "width": 500, "height": 220}},
+                {"plane_id": "hero-subject", "selector": "img.hero-subject", "computed_z_index": 3, "visible": True, "asset_url": "file:///project/assets/foreground.png", "load_complete": True, "rect": {"x": 0, "y": 0, "width": 1200, "height": 800}},
+            ],
+            "horizontal_overflow": False, "sticky_or_fixed_obstructions": [], "craft_findings": [],
+            "reference_metrics": {"cap_height_ratio": 0.74, "word_width_ratio": 0.39, "line_count": 2},
+            "tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+        }), encoding="utf-8")
+        reference_probe = self.root / "reference-type-probe.json"
+        reference_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        reference_probe_value["typography_transfers"][0]["cap_height_ratio"] = 0.74
+        reference_probe_value["typography_transfers"][0]["word_width_ratio"] = 0.39
+        reference_probe.write_text(json.dumps(reference_probe_value), encoding="utf-8")
+        ref = lambda path: {"path": path.relative_to(self.root).as_posix(), "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+        prototype = (
+            '<section data-continuity-composition-plane="hero-background">assets/background.png'
+            '<h1 class="proof-type" data-continuity-composition-plane="hero-type" '
+            'data-continuity-type-transfer="proof-moves">PROOF MOVES</h1>'
+            '<img data-continuity-composition-plane="hero-subject" src="assets/foreground.png"></section>'
+        )
+        transfer = design._validate_typographic_transfer(self.root, "proof", {
+            "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+            "source": "SIL Open Font License", "license_evidence": "OFL-1.1",
+            "source_character": "Very narrow, tall, blunt display silhouette.",
+            "project_transformation": "Continuity proof language replaces the source identity.",
+            "type_media_relation": "behind-subject", "narrow_behavior": "Two lines retain subject occlusion.",
+            "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+            "reference_render_probe": ref(reference_probe), "render_probe": ref(probe),
+        }, prototype)
+        unavailable_probe = self.root / "unavailable-type-probe.json"
+        unavailable_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        unavailable_probe_value["typography_transfers"][0]["measurement_method"] = "unavailable"
+        unavailable_probe.write_text(json.dumps(unavailable_probe_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "does not prove"):
+            design._validate_typographic_transfer(self.root, "proof", {
+                "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+                "source": "SIL Open Font License", "license_evidence": "OFL-1.1",
+                "source_character": "Very narrow, tall, blunt display silhouette.",
+                "project_transformation": "Continuity proof language replaces the source identity.",
+                "type_media_relation": "behind-subject", "narrow_behavior": "Two lines retain subject occlusion.",
+                "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+                "reference_render_probe": ref(reference_probe), "render_probe": ref(unavailable_probe),
+            }, prototype)
+        target_document = self.root / "concept-target.html"
+        runtime_script = self.root / "concept-target.js"
+        runtime_script.write_text('document.documentElement.dataset.runtime = "proof";', encoding="utf-8")
+        target_document.write_text('<meta name="continuity-probe-target-sha256" content="pending"><meta name="continuity-probe-source-bundle-sha256" content="pending"><h1>PROOF MOVES</h1><script src="concept-target.js"></script>', encoding="utf-8")
+        target_bundle = design._verified_runtime_source_bundle(
+            self.root, target_document, [ref(target_document), ref(runtime_script)], "Concept proof",
+        )
+        target_fingerprint = target_bundle["target_document_sha256"]
+        bound_probe = self.root / "bound-type-probe.json"
+        bound_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        bound_probe_value.update({"document_url": target_document.resolve().as_uri(), "target_document_path": target_document.name, "target_document_sha256": target_fingerprint, "source_bundle_sha256": target_bundle["source_bundle_sha256"]})
+        bound_probe.write_text(json.dumps(bound_probe_value), encoding="utf-8")
+        bound_transfer = {
+            "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+            "source": "SIL Open Font License", "license_evidence": "OFL-1.1", "source_character": "Tall narrow display.",
+            "project_transformation": "Continuity copy.", "type_media_relation": "behind-subject", "narrow_behavior": "Two lines.",
+            "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+            "reference_render_probe": ref(reference_probe), "render_probe": ref(bound_probe),
+        }
+        design._validate_typographic_transfer(self.root, "proof", bound_transfer, prototype, None, {"path": target_document.name, "sha256": target_fingerprint, "source_bundle_sha256": target_bundle["source_bundle_sha256"]})
+        runtime_script.write_text('document.documentElement.dataset.runtime = "flattened";', encoding="utf-8")
+        changed_bundle = design._verified_runtime_source_bundle(
+            self.root, target_document, [ref(target_document), ref(runtime_script)], "Concept proof",
+        )
+        with self.assertRaisesRegex(design.DesignError, "stale for its target document"):
+            design._validate_typographic_transfer(self.root, "proof", bound_transfer, prototype, None, {"path": target_document.name, "sha256": changed_bundle["target_document_sha256"], "source_bundle_sha256": changed_bundle["source_bundle_sha256"]})
+        with self.assertRaisesRegex(design.DesignError, "not bound to its validated reference study"):
+            design._validate_typographic_transfer(self.root, "proof", {
+                "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+                "source": "SIL Open Font License", "license_evidence": "OFL-1.1", "source_character": "Tall narrow display.",
+                "project_transformation": "Continuity copy.", "type_media_relation": "behind-subject", "narrow_behavior": "Two lines.",
+                "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05},
+                "reference_render_probe": ref(reference_probe), "render_probe": ref(probe),
+            }, prototype, ref(probe))
+        plan = {
+            "plan_id": "proof-planes", "type_media_relation": "behind-subject",
+            "registration_basis": "Shared 12 by 8 canvas and focal anchor.",
+            "planes": [
+                {"plane_id": "hero-background", "role": "background", "source_kind": "raster", "z_index": 1, "crop_anchor": "50% 50%", "responsive_behavior": "Keep the field registered.", "asset": ref(background)},
+                {"plane_id": "hero-type", "role": "live-type", "source_kind": "live-html", "z_index": 2, "crop_anchor": "display baseline", "responsive_behavior": "Keep two lines.", "selector": "proof-type"},
+                {"plane_id": "hero-subject", "role": "foreground", "source_kind": "raster", "z_index": 3, "crop_anchor": "50% 50%", "responsive_behavior": "Keep the subject crossing both lines.", "asset": ref(foreground)},
+            ],
+        }
+        validated = design._validate_composition_asset_plan(self.root, "proof", plan, prototype, transfer["type_media_relation"], ref(probe))
+        self.assertGreater(validated["planes"][2]["alpha"]["transparent_pixels"], 0)
+        self.assertEqual(validated["planes"][2]["alpha"]["transparent_corners"], 4)
+        missing_plane_probe = self.root / "missing-plane-probe.json"
+        missing_plane_value = json.loads(probe.read_text(encoding="utf-8"))
+        missing_plane_value["composition_planes"] = missing_plane_value["composition_planes"][1:]
+        missing_plane_probe.write_text(json.dumps(missing_plane_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "does not render plane hero-background"):
+            design._validate_composition_asset_plan(self.root, "proof", plan, prototype, "behind-subject", ref(missing_plane_probe))
+        broken = json.loads(json.dumps(plan))
+        broken["planes"][2]["asset"] = ref(background)
+        broken_probe = self.root / "broken-layer-probe.json"
+        broken_probe_value = json.loads(probe.read_text(encoding="utf-8"))
+        broken_probe_value["composition_planes"][2]["asset_url"] = "file:///project/assets/background.png"
+        broken_probe.write_text(json.dumps(broken_probe_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "usable alpha"):
+            design._validate_composition_asset_plan(self.root, "proof", broken, prototype, "behind-subject", ref(broken_probe))
+        bad_probe = json.loads(probe.read_text(encoding="utf-8"))
+        bad_probe["typography_transfers"][0]["font_face_status"] = "missing-or-ambiguous"
+        probe.write_text(json.dumps(bad_probe), encoding="utf-8")
+        transfer_value = {
+            "transfer_id": "proof-moves", "rendered_copy": "PROOF MOVES", "font_family": "Six Caps",
+            "source": "SIL Open Font License", "license_evidence": "OFL-1.1", "source_character": "Tall narrow display.",
+            "project_transformation": "Continuity copy.", "type_media_relation": "behind-subject", "narrow_behavior": "Two lines.", "metric_tolerances": {"cap_height_ratio": 0.05, "word_width_ratio": 0.05}, "reference_render_probe": ref(reference_probe), "render_probe": ref(probe),
+        }
+        with self.assertRaisesRegex(design.DesignError, "does not prove"):
+            design._validate_typographic_transfer(self.root, "proof", transfer_value, prototype)
+
+    def test_signature_coverage_is_measured_across_journey_and_mobile(self):
+        def probe(opening_ratio=0.7, *, omit_role=None):
+            roles = ["opening", "proof", "interaction", "edge-state", "closure"]
+            return {
+                "signature_elements": [
+                    {
+                        "signature_id": "authority-field", "roles": [role], "selector": f"#{role}",
+                        "visible": True, "viewport_intersection_ratio": opening_ratio if role == "opening" else 0,
+                    }
+                    for role in roles if role != omit_role
+                ]
+            }
+
+        evidence = {viewport: probe() for viewport in ("mobile", "tablet", "desktop")}
+        evidence["reduced-motion"] = probe()
+        result = design._validate_signature_coverage("proof", {
+            "signature_id": "authority-field",
+            "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"],
+        }, evidence)
+        self.assertEqual(result["viewports"][0]["viewport"], "mobile")
+        self.assertTrue(result["viewports"][0]["opening_in_initial_viewport"])
+
+        missing_mobile = dict(evidence)
+        missing_mobile["mobile"] = probe(omit_role="interaction")
+        with self.assertRaisesRegex(design.DesignError, "disappears from mobile roles"):
+            design._validate_signature_coverage("proof", {
+                "signature_id": "authority-field",
+                "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"],
+            }, missing_mobile)
+
+        below_fold_mobile = dict(evidence)
+        below_fold_mobile["mobile"] = probe(opening_ratio=0)
+        with self.assertRaisesRegex(design.DesignError, "initial mobile viewport"):
+            design._validate_signature_coverage("proof", {
+                "signature_id": "authority-field",
+                "required_roles": ["opening", "proof", "interaction", "edge-state", "closure"],
+            }, below_fold_mobile)
+
+    def test_interaction_invariants_reject_semantic_rewrites(self):
+        expected_target = {"path": "concept.html", "sha256": "a" * 64, "source_bundle_sha256": "b" * 64}
+
+        def write_probe(name, human_label):
+            path = self.root / name
+            path.write_text(json.dumps({
+                "schema_version": 3,
+                "probe_kind": "continuity-artifact-browser-probe",
+                "passed": True,
+                "target_document_path": expected_target["path"],
+                "target_document_sha256": expected_target["sha256"],
+                "source_bundle_sha256": expected_target["source_bundle_sha256"],
+                "interaction_invariants": [
+                    {"invariant_id": "human-only", "text": human_label, "aria_label": None, "aria_pressed": None, "aria_selected": None, "disabled": False, "hidden": False, "value": None},
+                    {"invariant_id": "execution-locked", "text": "Execution locked", "aria_label": None, "aria_pressed": None, "aria_selected": None, "disabled": True, "hidden": False, "value": None},
+                ],
+            }), encoding="utf-8")
+            return {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        baseline = write_probe("default.json", "Human only")
+        stable = write_probe("review.json", "Human only")
+        result = design._validate_interaction_invariants(self.root, "instrument", {
+            "required_ids": ["human-only", "execution-locked"],
+            "states": [{"state_id": "default", "probe": baseline}, {"state_id": "review", "probe": stable}],
+        }, expected_target, "direct-manipulation")
+        self.assertEqual(len(result["states"]), 2)
+
+        rewritten = write_probe("broken.json", "Inspect")
+        with self.assertRaisesRegex(design.DesignError, "changed protected semantics"):
+            design._validate_interaction_invariants(self.root, "instrument", {
+                "required_ids": ["human-only", "execution-locked"],
+                "states": [{"state_id": "default", "probe": baseline}, {"state_id": "review", "probe": rewritten}],
+            }, expected_target, "direct-manipulation")
+
+    def test_browser_probe_collects_signature_and_invariant_evidence(self):
+        source = (SUITE / "skills" / "continuity-design" / "scripts" / "artifact-browser-probe.js").read_text(encoding="utf-8")
+        self.assertIn("data-continuity-signature-role", source)
+        self.assertIn("interaction_invariants", source)
+        self.assertIn("viewport_intersection_ratio", source)
+        self.assertIn("data-continuity-slide", source)
+        self.assertIn("data-continuity-data", source)
+        self.assertIn("presentation_readability_passed", source)
+        self.assertIn("effectiveScale", source)
+        self.assertIn("clipsX", source)
+
+    def test_probe_prepare_binds_typescript_alias_source_closure(self):
+        source_root = self.root / "src"
+        component_root = source_root / "components"
+        component_root.mkdir(parents=True)
+        (self.root / "tsconfig.json").write_text(json.dumps({
+            "compilerOptions": {"baseUrl": ".", "paths": {"@/*": ["src/*"]}},
+        }), encoding="utf-8")
+        hero = component_root / "Hero.tsx"
+        hero.write_text('require("./proof.js");\nexport const Hero = () => <h1>Proof moves</h1>;', encoding="utf-8")
+        commonjs = component_root / "proof.js"
+        commonjs.write_text('module.exports = "bound proof";', encoding="utf-8")
+        main = source_root / "main.tsx"
+        main.write_text('import { Hero } from "@/components/Hero";\nnew Worker(new URL("./worker.ts", import.meta.url), {type: "module"});\nimport.meta.glob("./pages/*.tsx", {eager: true});\nvoid Hero;', encoding="utf-8")
+        pages = source_root / "pages"
+        pages.mkdir()
+        page = pages / "Proof.tsx"
+        page.write_text('export default () => <article>Bound proof</article>;', encoding="utf-8")
+        worker = source_root / "worker.ts"
+        worker.write_text('importScripts("./worker-a.js", "./worker-b.js");\nself.postMessage("proof");', encoding="utf-8")
+        worker_a = source_root / "worker-a.js"
+        worker_b = source_root / "worker-b.js"
+        worker_a.write_text('self.proofA = true;', encoding="utf-8")
+        worker_b.write_text('self.proofB = true;', encoding="utf-8")
+        target = self.root / "index.html"
+        target.write_text('<!doctype html><html><head><title>Proof</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>', encoding="utf-8")
+        prepared = design.probe_prepare(self.root, self.config, target)
+        self.assertEqual(
+            {"index.html", "src/main.tsx", "src/worker.ts", "src/worker-a.js", "src/worker-b.js", "src/pages/Proof.tsx", "src/components/Hero.tsx", "src/components/proof.js"},
+            {item["path"] for item in prepared["runtime_source_files"]},
+        )
+        document = target.read_text(encoding="utf-8")
+        self.assertIn(prepared["source_bundle_sha256"], document)
+        previous_bundle = prepared["source_bundle_sha256"]
+        hero.write_text('export const Hero = () => <main>Flattened fallback</main>;', encoding="utf-8")
+        changed = design.probe_prepare(self.root, self.config, target)
+        self.assertNotEqual(previous_bundle, changed["source_bundle_sha256"])
+
+    def test_slop_check_detects_flattened_layers_and_font_approximation(self):
+        source = self.root / "layer-drift.html"
+        source.write_text("<main><h1>Project proof</h1></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(translation_fidelity={
+            "editable_depth_preserved": False,
+            "font_transfer_verified": False,
+            "approved_layer_plan_present": False,
+            "approved_typographic_character_present": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual({"CDS-D033", "CDS-D034", "CDS-P014", "CDS-P015"}, {item["rule_id"] for item in result["findings"]})
+        draft_dir = self.root / ".continuity" / "private" / "design" / "layer-gate"
+        draft_dir.mkdir(parents=True)
+        (draft_dir / "draft.json").write_text(json.dumps({"workflow_version": 3}), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "require passed editable-depth"):
+            design.slop_check(self.root, self.config, source, self.write_slop_manifest(design_id="layer-gate", revision=1))
+
+    def test_portfolio_review_hash_binds_generations_and_recurring_tells(self):
+        artifacts = []
+        fingerprint = {
+            "palette-family": "dark-paper-signal", "typography-family": "serif-mono",
+            "composition-family": "editorial-ledger", "label-style": "mono-eyebrow",
+            "status-mark-style": "numbered-state", "signature-language": "human-hold",
+            "material-system": "paper-and-rule", "section-rhythm": "hero-proof-ledger",
+        }
+        generations = []
+        for index in range(1, 4):
+            artifact_path = self.root / f"generation-{index}.png"
+            artifact_path.write_bytes(png_bytes(1440, 900, (80 + index, 90, 100, 255)))
+            artifact = {"path": artifact_path.name, "sha256": __import__("hashlib").sha256(artifact_path.read_bytes()).hexdigest()}
+            artifacts.append(artifact)
+            generations.append({
+                "generation_id": f"generation-{index}", "reference_identity": f"reference-{index}",
+                "concept_name": f"Concept {index}", "impact_score": index,
+                "artifact": artifact, "fingerprint": fingerprint,
+            })
+        manifest = self.root / "portfolio.json"
+        manifest.write_text(json.dumps({
+            "schema_version": 1, "status": "passed", "portfolio_id": "homepage-series",
+            "reviewer": "test-multimodal-reviewer", "reviewed_at": "2026-08-09T12:00:00Z",
+            "conclusion": "The three generations repeat an editorial house language.",
+            "audit_window": {"first_generation_index": 1, "last_generation_index": 3, "runs_since_last_audit": 3},
+            "generations": generations, "strongest_prior_generation_id": "generation-3",
+            "recurring_tells": [{
+                "tell_id": "serif-mono", "dimension": "typography-family", "value": "serif-mono",
+                "description": "Reflective serif declarations repeatedly pair with mono labels.",
+                "generation_ids": ["generation-1", "generation-2", "generation-3"],
+                "default_response": "Change the type relationship unless project evidence requires it.",
+            }],
+        }), encoding="utf-8")
+        result = design.portfolio_validate(self.root, self.config, manifest)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["recurring_tell_count"], 1)
+        report = self.root / result["report_path"]
+        verified = design._verified_portfolio_report(self.root, {
+            "path": result["report_path"], "sha256": __import__("hashlib").sha256(report.read_bytes()).hexdigest(),
+            "report_hash": result["portfolio_report_hash"],
+        })
+        self.assertEqual(verified["report_hash"], result["portfolio_report_hash"])
+
+    def test_adversarial_slop_fixture_corpus_recall_and_nearby_precision(self):
+        fixture_root = SUITE / "skills" / "continuity-design" / "references" / "slop-fixtures"
+        expectations = json.loads((fixture_root / "expectations.json").read_text(encoding="utf-8"))
+        for name, expected in expectations.items():
+            with self.subTest(name=name):
+                findings = design_slop._scan_text(name, (fixture_root / name).read_text(encoding="utf-8"))
+                self.assertEqual(sorted({item["rule_id"] for item in findings}), sorted(expected))
+
+    def test_concept_feedback_gates_selection_and_invalidates_changed_revision(self):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(self.creative_input(
+            design_id="concept-loop", collaboration_profile="guided", concept_presentation_mode="director-led",
+            research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )))
+        concept_visuals = {}
+        concept_visual_paths = {}
+        for name, width, color in (
+            ("direction-wide", 1440, (238, 240, 234, 255)),
+            ("direction-narrow", 390, (221, 229, 224, 255)),
+            ("study-wide", 1440, (231, 226, 216, 255)),
+            ("study-narrow", 390, (215, 221, 229, 255)),
+        ):
+            visual = self.root / f"{name}.png"
+            visual.write_bytes(png_bytes(width, 900, color))
+            concept_visual_paths[name] = visual
+            concept_visuals[name] = {"path": visual.name, "sha256": __import__("hashlib").sha256(visual.read_bytes()).hexdigest()}
+        source = self.root / "concept.html"
+        source.write_text("<main data-continuity-stage=\"opening-proof\" data-continuity-journey-structure=\"opening-composition\"><h1 data-continuity-grammar-behavior=\"issue-spread-variation\" data-continuity-journey-structure=\"evidence-seam\">Operational evidence</h1><p data-continuity-grammar-behavior=\"cross-spread-carrier\" data-continuity-journey-structure=\"proof-article\">A calm direct path.</p><nav data-continuity-grammar-behavior=\"article-sequencing\" data-continuity-stage=\"orientation\" data-continuity-journey-structure=\"dossier-index\"></nav><section data-continuity-stage=\"project-proof\"></section><section data-continuity-stage=\"blocked-edge\"></section><footer data-continuity-stage=\"closure\" data-continuity-journey-structure=\"open-ledger\"></footer></main>", encoding="utf-8")
+        slop = design.slop_check(self.root, self.config, source, self.write_slop_manifest(
+            design_id=draft["design_id"], revision=draft["revision"],
+            visual_review=self.visual_review_for([concept_visual_paths["direction-wide"], concept_visual_paths["direction-narrow"]]),
+        ))
+        file_hash = __import__("hashlib").sha256(source.read_bytes()).hexdigest()
+        contrast = self.root / "contrast.html"
+        contrast.write_text("<main data-continuity-stage=\"opening-field\" data-continuity-persistent-canvas=\"true\" data-continuity-instrument-state=\"field-entry\"><h1 data-continuity-grammar-behavior=\"persistent-canvas\" data-continuity-instrument-state=\"proof-trace\">Infrastructure field notes</h1><p data-continuity-grammar-behavior=\"state-recomposition\" data-continuity-instrument-state=\"quiet-field\">A spatial inspection path.</p><nav data-continuity-grammar-behavior=\"control-continuity\" data-continuity-stage=\"orientation-map\" data-continuity-instrument-state=\"control-state\"></nav><section data-continuity-stage=\"inspection-proof\"></section><section data-continuity-stage=\"quiet-route\"></section><footer data-continuity-stage=\"closure-boundary\" data-continuity-instrument-state=\"closed-route\"></footer></main>", encoding="utf-8")
+        contrast_slop = design.slop_check(self.root, self.config, contrast, self.write_slop_manifest(
+            design_id=draft["design_id"], revision=draft["revision"],
+            visual_review=self.visual_review_for([concept_visual_paths["study-wide"], concept_visual_paths["study-narrow"]]),
+        ))
+        browser_snapshots = []
+        browser_probes = []
+        direction_probes = []
+        study_probes = []
+        for viewport, width in (("mobile", 390), ("tablet", 768), ("desktop", 1440)):
+            snapshot = self.root / f"concept-{viewport}.png"
+            snapshot.write_bytes(png_bytes(width, 900, (235, 237, 234, 255)))
+            browser_snapshots.append({"viewport": viewport, "path": snapshot.name, "sha256": __import__("hashlib").sha256(snapshot.read_bytes()).hexdigest()})
+            probe = self.root / f"concept-{viewport}-probe.json"
+            probe.write_text(json.dumps({"schema_version": 2, "viewport": {"width": width, "height": 900}, "horizontal_overflow": False, "sticky_or_fixed_obstructions": [], "craft_findings": [], "passed": True}), encoding="utf-8")
+            browser_probes.append({"viewport": viewport, "path": probe.name, "sha256": __import__("hashlib").sha256(probe.read_bytes()).hexdigest()})
+            for concept_name, probe_collection in (("direction", direction_probes), ("study", study_probes)):
+                concept_probe = self.root / f"{concept_name}-{viewport}-probe.json"
+                concept_probe.write_text(json.dumps({"schema_version": 2, "concept_id": concept_name, "viewport": {"width": width, "height": 900}, "horizontal_overflow": False, "sticky_or_fixed_obstructions": [], "craft_findings": [], "passed": True}), encoding="utf-8")
+                probe_collection.append({"viewport": viewport, "path": concept_probe.name, "sha256": __import__("hashlib").sha256(concept_probe.read_bytes()).hexdigest()})
+        direction_journey = [
+            {"stage_id": "opening-proof", "role": "opening", "purpose": "State the authority thesis.", "signature_expression": "The proof rail interrupts the opening claim."},
+            {"stage_id": "orientation", "role": "orientation", "purpose": "Explain the evidence model.", "signature_expression": "Proof labels establish the reading order."},
+            {"stage_id": "project-proof", "role": "proof", "purpose": "Demonstrate accountable evidence.", "signature_expression": "Each claim carries adjacent source material."},
+            {"stage_id": "blocked-edge", "role": "edge-state", "purpose": "Show review-ready without completion.", "signature_expression": "The rail stops before authority."},
+            {"stage_id": "closure", "role": "closure", "purpose": "Return responsibility to the person.", "signature_expression": "The final proof seam remains visibly human-held."},
+        ]
+        study_journey = [
+            {"stage_id": "opening-field", "role": "opening", "purpose": "Introduce the inspection space.", "signature_expression": "Spatial routes begin at the source boundary."},
+            {"stage_id": "orientation-map", "role": "orientation", "purpose": "Teach the topology.", "signature_expression": "Labels define navigable evidence regions."},
+            {"stage_id": "inspection-proof", "role": "proof", "purpose": "Trace source to consequence.", "signature_expression": "Material and outcome share a visible seam."},
+            {"stage_id": "quiet-route", "role": "quiet-state", "purpose": "Preserve the model without activity.", "signature_expression": "Static topology retains ownership boundaries."},
+            {"stage_id": "closure-boundary", "role": "closure", "purpose": "End at exact authority.", "signature_expression": "The final route remains closed until selected."},
+        ]
+        concept_manifest = self.root / "concept.json"
+        concept_manifest.write_text(json.dumps({
+            "design_id": draft["design_id"], "revision": draft["revision"], "presentation_mode": "director-led",
+            "collaboration_delivery": {"profile": draft["collaboration_profile"], **draft["collaboration_contract"], "feedback_prompt": "React to elements 1 through 5 in plain language."},
+            "concepts": [{
+                "role": "direction", "direction_id": "direction-1", "recommended": True, "thesis": "Evidence before ornament.",
+                "impact_thesis": "Make authority legible before asking for trust.", "primary_carrier": "narrative", "emotional_register": "calm scrutiny", "seed_lineage": [], "system_extractions": [],
+                "signature_move": "A proof rail attached to each decision.", "palette": ["paper", "carbon", "signal"],
+                "type_specimen": {"copy": "Review the source before approval."}, "wide_composition": concept_visuals["direction-wide"],
+                "typography_system": {"strategy_id": "type-proof-serif", "family": "serif", "display_behavior": "Reflective serif claims are interrupted by proof labels.", "text_behavior": "Humanist utility text remains literal and compact.", "responsive_behavior": "Claims narrow before scale reduces and proof follows immediately.", "rationale": "The contrast separates judgment from evidence."},
+                "media_system": {"art_direction_family": "documentary", "primary_role": "Owned evidence material proves each claim.", "asset_mix": ["project-owned"], "quiet_state": "Captions and source seams remain without imagery.", "fallback": "Use a qualified no-evidence state."},
+                "composition_family": "editorial-sequence",
+                "page_grammar": {"grammar_id": "grammar-proof-issue", "family": "editorial-issue", "core_behavior": "Claims and proof form an evidence issue.", "responsive_behavior": "Spreads become ordered mobile evidence articles.", "depth_proof": "Opening, proof, edge, and closure use distinct issue structures."},
+                "grammar_congruence": {"status": "passed", "reviewer_type": "agent-multimodal", "reviewer": "test-grammar-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "strongest_match": "The proof seam changes spread structure.", "weakest_mismatch": "The orientation is the least issue-like spread.", "behaviors": [
+                    {"behavior_id": "issue-spread-variation", "journey_stage_ids": ["opening-proof", "project-proof"], "artifact_note": "Opening and proof use visibly different spread structures."},
+                    {"behavior_id": "cross-spread-carrier", "journey_stage_ids": ["project-proof", "blocked-edge"], "artifact_note": "The proof rail crosses consequential spreads."},
+                    {"behavior_id": "article-sequencing", "journey_stage_ids": ["opening-proof", "closure"], "artifact_note": "Document order becomes the narrow reading order."}
+                ]},
+                "journey_structure_review": {"status": "passed", "mode": "structural-variety", "distinct_expression_count": 5, "deepest_signature_change": "Evidence changes proof and closure structure.", "repeated_pattern_risk": "The orientation could still resemble a generic article.", "assignments": [
+                    {"stage_id": "opening-proof", "expression_id": "opening-composition", "artifact_note": "A split claim and proof opening.", "responsive_behavior": "Proof follows the claim."},
+                    {"stage_id": "orientation", "expression_id": "dossier-index", "artifact_note": "An index teaches the record.", "responsive_behavior": "The index becomes document order."},
+                    {"stage_id": "project-proof", "expression_id": "proof-article", "artifact_note": "Source material changes the measure.", "responsive_behavior": "Evidence remains adjacent."},
+                    {"stage_id": "blocked-edge", "expression_id": "evidence-seam", "artifact_note": "The seam stops at missing authority.", "responsive_behavior": "The seam remains inline."},
+                    {"stage_id": "closure", "expression_id": "open-ledger", "artifact_note": "The record ends with an open disposition.", "responsive_behavior": "The final line remains visible."}
+                ]},
+                "interaction_motion_system": {"strategy_id": "interaction-proof-disclosure", "mode": "native-disclosure", "semantic_purpose": "Reveal proof without losing its claim.", "reduced_motion": "Use immediate disclosure.", "static_fallback": "All proof remains in document order."},
+                "journey_stages": direction_journey,
+                "comparison_coverage": {"full_page_strip": concept_visuals["direction-narrow"], "chapter_index": [item["stage_id"] for item in direction_journey], "deep_link": {"path": source.name, "sha256": file_hash}},
+                "generated_media_disposition": {"status": "not-applicable", "rationale": "This unit-test direction has no generated-image lineage."},
+                "runtime_probes": direction_probes,
+                "narrow_transformation": concept_visuals["direction-narrow"], "imagery_treatment": "Owned working evidence only.",
+                "motion_decision": "No ambient motion.", "preservation_promise": "Keep the expert path direct.",
+                "tradeoff": "Less simultaneous overview.", "anti_reference": "No generic dashboard bento.", "fidelity_level": "board-v1",
+                "slop_report": self.slop_reference(slop),
+            }, {
+                "role": "contrast-study", "study_id": "study-spatial-inspection", "tests_uncertainty": "Whether spatial evidence improves confidence without slowing expert review.",
+                "recommended": False, "thesis": "Inspection creates confidence.",
+                "impact_thesis": "Turn system relationships into a place the user can inspect.", "primary_carrier": "spatial-system", "emotional_register": "active investigation", "seed_lineage": [], "system_extractions": [],
+                "signature_move": "A spatial field-note seam connecting material to consequence.", "palette": ["field", "graphite", "safety"],
+                "type_specimen": {"copy": "Inspect the system from source to outcome."}, "wide_composition": concept_visuals["study-wide"],
+                "typography_system": {"strategy_id": "type-spatial-mono", "family": "monospaced", "display_behavior": "Monospaced coordinates establish the field.", "text_behavior": "A humanist sans carries explanations.", "responsive_behavior": "Coordinates become a sequential mobile index.", "rationale": "The type acts as navigational evidence rather than a terminal costume."},
+                "media_system": {"art_direction_family": "diagrammatic", "primary_role": "Code-native topology explains authority boundaries.", "asset_mix": ["code-native"], "quiet_state": "Static routes preserve every ownership relationship.", "fallback": "Render a labeled linear source-to-outcome path."},
+                "composition_family": "spatial-field",
+                "page_grammar": {"grammar_id": "grammar-inspection-field", "family": "single-canvas-instrument", "core_behavior": "One field supports inspection and consequence.", "responsive_behavior": "The field becomes a vertical control trace.", "depth_proof": "Opening, proof, quiet state, and closure remain addressable."},
+                "grammar_congruence": {"status": "passed", "reviewer_type": "agent-multimodal", "reviewer": "test-grammar-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "strongest_match": "One labeled field preserves the inspection model.", "weakest_mismatch": "The static fixture only approximates state recomposition.", "behaviors": [
+                    {"behavior_id": "persistent-canvas", "journey_stage_ids": ["opening-field", "inspection-proof"], "artifact_note": "The field persists between entry and proof."},
+                    {"behavior_id": "state-recomposition", "journey_stage_ids": ["inspection-proof", "quiet-route"], "artifact_note": "The field changes emphasis for proof and quiet state."},
+                    {"behavior_id": "control-continuity", "journey_stage_ids": ["orientation-map", "closure-boundary"], "artifact_note": "The control trace remains addressable through closure."}
+                ]},
+                "journey_structure_review": {"status": "passed", "mode": "persistent-state-variation", "distinct_expression_count": 5, "deepest_signature_change": "The same canvas recomposes from proof into quiet state.", "repeated_pattern_risk": "Closure can feel like a final panel rather than a control state.", "assignments": [
+                    {"stage_id": "opening-field", "expression_id": "field-entry", "artifact_note": "The field begins in entry state.", "responsive_behavior": "The canvas becomes a vertical field."},
+                    {"stage_id": "orientation-map", "expression_id": "control-state", "artifact_note": "Controls teach the topology.", "responsive_behavior": "Controls remain labeled."},
+                    {"stage_id": "inspection-proof", "expression_id": "proof-trace", "artifact_note": "Evidence activates one route.", "responsive_behavior": "The route becomes a trace."},
+                    {"stage_id": "quiet-route", "expression_id": "quiet-field", "artifact_note": "The field removes urgency.", "responsive_behavior": "Quiet state retains topology."},
+                    {"stage_id": "closure-boundary", "expression_id": "closed-route", "artifact_note": "Authority closes the route.", "responsive_behavior": "The boundary remains explicit."}
+                ]},
+                "interaction_motion_system": {"strategy_id": "interaction-spatial-trace", "mode": "direct-manipulation", "semantic_purpose": "Trace source to consequence.", "reduced_motion": "Update state without interpolation.", "static_fallback": "Render the complete labeled route."},
+                "journey_stages": study_journey,
+                "comparison_coverage": {"full_page_strip": concept_visuals["study-narrow"], "chapter_index": [item["stage_id"] for item in study_journey], "deep_link": {"path": contrast.name, "sha256": __import__("hashlib").sha256(contrast.read_bytes()).hexdigest()}},
+                "generated_media_disposition": {"status": "not-applicable", "rationale": "This unit-test study has no generated-image lineage."},
+                "runtime_probes": study_probes,
+                "narrow_transformation": concept_visuals["study-narrow"], "imagery_treatment": "Owned infrastructure details with annotated scale.",
+                "motion_decision": "One state-led spatial transition with a static equivalent.", "preservation_promise": "Keep the expert path direct.",
+                "tradeoff": "More deliberate scanning.", "anti_reference": "No copied aerospace identity.", "fidelity_level": "board-v1",
+                "slop_report": self.slop_reference(contrast_slop),
+            }],
+            "creative_range": {
+                "status": "passed", "reviewer": "test-creative-reviewer", "reviewed_at": "2026-08-08T12:00:00Z",
+                "five_second_reactions": [
+                    {"concept_id": "direction-1", "reaction": "A restrained proof ledger."},
+                    {"concept_id": "study-spatial-inspection", "reaction": "An explorable field map."},
+                ],
+                "pairwise_distances": [{"concept_ids": ["direction-1", "study-spatial-inspection"], "differing_dimensions": ["organizing-idea", "primary-carrier", "responsive-transformation"], "rationale": "One is a linear proof narrative while the other is a spatial inspection model."}],
+                "house_tell_review": {"recurring_tells_checked": ["serif-plus-mono", "thin-rules", "quiet-field", "orange-interruption"], "project_identity_wins": True, "rationale": "Authority and inspection determine the systems, not a recurring Continuity palette or type pairing."},
+                "adversarial_pass": [
+                    {"concept_id": "direction-1", "genericity_argument": "Could resemble editorial enterprise software.", "opposing_hypothesis": "Proof should alter the reading path, not decorate it.", "resulting_change": "Bound evidence to every consequential decision.", "rejected_choice": "Detached credibility logo row."},
+                    {"concept_id": "study-spatial-inspection", "genericity_argument": "Could become a generic node map.", "opposing_hypothesis": "The map should expose authority boundaries.", "resulting_change": "Made authorization state change topology.", "rejected_choice": "Decorative network particles."},
+                ],
+                "range_audit": {"status": "passed", "typography_strategy_count": 2, "typography_family_count": 2, "art_direction_family_count": 2, "composition_family_count": 2, "page_grammar_count": 2, "interaction_motion_strategy_count": 2, "minimum_journey_stage_count": 5, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "rationale": "The direction and study use different type, media, composition, page grammar, interaction, and full-page journey systems."},
+            },
+            "impact_review": {
+                "status": "passed", "reviewer_type": "agent-multimodal", "reviewer": "test-impact-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "at_least_one_compelling": True,
+                "set_conclusion": "The proof direction is compelling and the spatial study is a credible contrast.",
+                "concepts": [
+                    {"concept_id": "direction-1", "outcome": "passed", "strength": "compelling", "signature_stage_ids": ["opening-proof", "project-proof", "blocked-edge"], "identity_specificity": "pass", "emotional_resonance": "pass", "craft_coherence": "pass", "rationale": "The proof seam controls three consequential roles.", "weakest_moment": "The orientation could feel familiar.", "refinement_priority": "Make the evidence issue more ownable.", "evidence": [concept_visuals["direction-wide"], concept_visuals["direction-narrow"]]},
+                    {"concept_id": "study-spatial-inspection", "outcome": "passed", "strength": "credible", "signature_stage_ids": ["opening-field", "inspection-proof", "quiet-route"], "identity_specificity": "pass", "emotional_resonance": "pass", "craft_coherence": "pass", "rationale": "The topology controls opening, proof, and quiet state.", "weakest_moment": "The field could feel diagrammatic.", "refinement_priority": "Add human consequence.", "evidence": [concept_visuals["study-wide"], concept_visuals["study-narrow"]]},
+                ],
+            }, "browser_snapshots": browser_snapshots,
+            "browser_probes": browser_probes,
+            "research_links": [],
+            "visual_references": [],
+        }), encoding="utf-8")
+        duplicate_manifest = self.root / "concept-duplicate-visual.json"
+        duplicate_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        duplicate_value["concepts"][1]["narrow_transformation"] = duplicate_value["concepts"][0]["narrow_transformation"]
+        duplicate_manifest.write_text(json.dumps(duplicate_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "must be distinct"):
+            design.concept_validate(self.root, self.config, duplicate_manifest)
+        reused_probe_manifest = self.root / "concept-reused-probe.json"
+        reused_probe_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        reused_probe_value["concepts"][1]["runtime_probes"] = reused_probe_value["concepts"][0]["runtime_probes"]
+        reused_probe_manifest.write_text(json.dumps(reused_probe_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "own runtime probe"):
+            design.concept_validate(self.root, self.config, reused_probe_manifest)
+        collapsed_art_manifest = self.root / "concept-collapsed-art.json"
+        collapsed_art_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        collapsed_art_value["concepts"][1]["media_system"]["art_direction_family"] = "documentary"
+        collapsed_art_value["creative_range"]["range_audit"]["art_direction_family_count"] = 1
+        collapsed_art_manifest.write_text(json.dumps(collapsed_art_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "distinct art-direction"):
+            design.concept_validate(self.root, self.config, collapsed_art_manifest)
+        weak_impact_manifest = self.root / "concept-weak-impact.json"
+        weak_impact_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        weak_impact_value["impact_review"]["at_least_one_compelling"] = False
+        weak_impact_value["impact_review"]["concepts"][0]["strength"] = "credible"
+        weak_impact_manifest.write_text(json.dumps(weak_impact_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "at least one compelling"):
+            design.concept_validate(self.root, self.config, weak_impact_manifest)
+        shallow_signature_manifest = self.root / "concept-shallow-signature.json"
+        shallow_signature_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        shallow_signature_value["impact_review"]["concepts"][0]["signature_stage_ids"] = ["opening-proof", "project-proof"]
+        shallow_signature_manifest.write_text(json.dumps(shallow_signature_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "at least three different journey roles"):
+            design.concept_validate(self.root, self.config, shallow_signature_manifest)
+        collapsed_grammar_manifest = self.root / "concept-collapsed-grammar.json"
+        collapsed_grammar_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        collapsed_grammar_value["concepts"][1]["page_grammar"]["grammar_id"] = collapsed_grammar_value["concepts"][0]["page_grammar"]["grammar_id"]
+        collapsed_grammar_value["concepts"][1]["page_grammar"]["family"] = collapsed_grammar_value["concepts"][0]["page_grammar"]["family"]
+        collapsed_grammar_value["creative_range"]["range_audit"]["page_grammar_count"] = 1
+        collapsed_grammar_manifest.write_text(json.dumps(collapsed_grammar_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "page-grammar congruence"):
+            design.concept_validate(self.root, self.config, collapsed_grammar_manifest)
+        incomplete_congruence_manifest = self.root / "concept-incomplete-grammar-congruence.json"
+        incomplete_congruence_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        incomplete_congruence_value["concepts"][0]["grammar_congruence"]["behaviors"].pop()
+        incomplete_congruence_manifest.write_text(json.dumps(incomplete_congruence_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "every required editorial-issue behavior"):
+            design.concept_validate(self.root, self.config, incomplete_congruence_manifest)
+        shallow_journey_manifest = self.root / "concept-shallow-deep-journey.json"
+        shallow_journey_value = json.loads(concept_manifest.read_text(encoding="utf-8"))
+        shallow_journey_value["concepts"][0]["journey_structure_review"]["assignments"].pop()
+        shallow_journey_manifest.write_text(json.dumps(shallow_journey_value), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "cover every stage exactly once"):
+            design.concept_validate(self.root, self.config, shallow_journey_manifest)
+        validated = design.concept_validate(self.root, self.config, concept_manifest)
+        self.assertEqual(validated["status"], "awaiting-feedback")
+        self.assertEqual(validated["impact_review_status"], "passed")
+        self.assertEqual(validated["compelling_concept_count"], 1)
+        with self.assertRaisesRegex(design.DesignError, "not selectable"):
+            design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        feedback = self.root / "feedback.json"
+        feedback.write_text(json.dumps({"actor": "reviewer", "contract_changed": False, "ready_for_selection": True, "reactions": [{"element_id": "1.signature", "reaction": "keep", "why": "It makes evidence structural."}]}), encoding="utf-8")
+        ready = design.feedback_record(self.root, self.config, draft["design_id"], feedback)
+        self.assertEqual(ready["status"], "awaiting-selection")
+        selected = design.select(self.root, self.config, draft["design_id"], ["direction-1"], "reviewer")
+        self.assertIn(" bundle ", selected["required_authorization_text"])
+        prototype = self.root / "prototype.html"
+        prototype.write_text(
+            "<html><head>"
+            f'<meta name="continuity-design-id" content="{selected["design_id"]}">'
+            f'<meta name="continuity-design-revision" content="{selected["revision"]}">'
+            f'<meta name="continuity-design-hash" content="{selected["design_hash"]}">'
+            '<meta name="continuity-prototype-maturity" content="directional">'
+            '<meta name="continuity-fixture-data" content="none">'
+            "</head><body><main id=\"direction\"><h1>Operational evidence</h1></main></body></html>", encoding="utf-8",
+        )
+        prototype_screenshots = []
+        prototype_paths = []
+        for viewport, width, color in (
+            ("mobile", 390, (236, 239, 235, 255)),
+            ("tablet", 768, (229, 234, 230, 255)),
+            ("desktop", 1440, (221, 228, 223, 255)),
+        ):
+            screenshot = self.root / f"prototype-{viewport}.png"
+            screenshot.write_bytes(png_bytes(width, 900, color))
+            prototype_paths.append(screenshot)
+            prototype_screenshots.append({"path": screenshot.name, "media_type": "image/png", "role": viewport, "sha256": __import__("hashlib").sha256(screenshot.read_bytes()).hexdigest()})
+        prototype_slop = design.slop_check(self.root, self.config, prototype, self.write_slop_manifest(
+            stage="prototype", design_id=selected["design_id"], revision=selected["revision"],
+            design_hash=selected["design_hash"], approval_bundle_hash=selected["approval_bundle_hash"],
+            visual_review=self.visual_review_for(prototype_paths),
+        ))
+        prototype_manifest = self.root / "prototype-manifest.json"
+        prototype_manifest.write_text(json.dumps({
+            "schema_version": 3, "artifact_id": "concept-loop-prototype", "design_id": selected["design_id"],
+            "revision": selected["revision"], "design_hash": selected["design_hash"], "approval_bundle_hash": selected["approval_bundle_hash"],
+            "maturity": "directional", "fixture_data": "none",
+            "implementation_context_hash": design._canonical_hash(None), "component_map_hash": design._canonical_hash([]), "asset_strategy_hash": design._canonical_hash([]),
+            "files": [{"path": "prototype.html", "media_type": "text/html", "role": "prototype", "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()}, *prototype_screenshots],
+            "demonstrated_audiences": [], "demonstrated_surfaces": ["Direction"], "demonstrated_states": ["default"],
+            "omitted_surfaces": [], "omitted_states": [], "design_claims": [], "validation_results": [],
+            "slop_report": self.slop_reference(prototype_slop), "execution_authorized": False,
+        }), encoding="utf-8")
+        candidate = design.validate_candidate_artifact(self.root, self.config, prototype_manifest)
+        self.assertEqual(candidate["ai_slop_check"]["status"], "passed")
+        approved = design.approve(self.root, self.config, draft["design_id"], 1, "reviewer", selected["required_authorization_text"])
+        self.assertEqual(approved["schema_version"], 2)
+        self.assertEqual(approved["approval_bundle_hash"], selected["approval_bundle_hash"])
+        implementation_slop = design.slop_check(self.root, self.config, prototype, self.write_slop_manifest(
+            stage="implementation", design_id=selected["design_id"], revision=selected["revision"],
+            design_hash=selected["design_hash"], approval_bundle_hash=selected["approval_bundle_hash"],
+            visual_review=self.visual_review_for(prototype_paths),
+        ))
+        artifact_value = json.loads(prototype_manifest.read_text(encoding="utf-8"))
+        artifact_value["slop_report"] = self.slop_reference(implementation_slop)
+        prototype_manifest.write_text(json.dumps(artifact_value), encoding="utf-8")
+        approved_artifact = design.validate_artifact(self.root, self.config, prototype_manifest)
+        self.assertEqual(approved_artifact["ai_slop_check"]["status"], "passed")
+        changed = self.root / "changed.json"
+        changed.write_text(json.dumps({
+            "actor": "reviewer", "contract_changed": True, "ready_for_selection": False,
+            "reactions": [{"element_id": "1.signature", "reaction": "change", "why": "Make the evidence rail quieter."}],
+            "visual_delta": {"changed": ["Reduced evidence-rail contrast"], "stayed": ["Evidence remains attached to the decision"], "why": ["Preserve rigor without overpowering content"], "path": "prototype.html", "sha256": __import__("hashlib").sha256(prototype.read_bytes()).hexdigest()},
+        }), encoding="utf-8")
+        revised = design.feedback_record(self.root, self.config, draft["design_id"], changed)
+        self.assertEqual(revised["revision"], 2)
+        self.assertEqual(revised["status"], "refining")
+        self.assertFalse(revised["slop_evidence_valid"])
+        refreshed = design.draft(self.root, self.config, CATALOG, self.write_input(self.creative_input(
+            design_id="concept-loop", collaboration_profile="guided", concept_presentation_mode="director-led",
+            research={"mode": "offline", "status": "complete", "announced": True, "opt_out_offered": True, "moodboard": []},
+        )))
+        self.assertEqual(refreshed["revision"], 2)
+        self.assertEqual(len(refreshed["feedback_rounds"]), 2)
+        self.assertEqual(refreshed["decision_register"][0]["disposition"], "unresolved-change")
+        self.assertTrue(refreshed["rejected_decisions"] == [] or isinstance(refreshed["rejected_decisions"], list))
 
     def test_adaptive_direction_counts(self):
         one = design.draft(self.root, self.config, CATALOG, self.write_input(input_value(design_id="one")))
@@ -486,7 +2035,7 @@ class DesignLifecycleTests(unittest.TestCase):
         html.write_text(html.read_text().replace("</body>", '<section id="manager-route">Manager decision path</section></body>'), encoding="utf-8")
         for name, width, height, role in (("desktop.png", 1440, 900, "desktop"), ("mobile.png", 390, 844, "mobile")):
             png = artifact_dir / name
-            png.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big"))
+            png.write_bytes(png_bytes(width, height))
             manifest["files"].append({"path": f"docs/design/artifacts/{name}", "media_type": "image/png", "role": role, "sha256": design.hashlib.sha256(png.read_bytes()).hexdigest()})
         manifest["files"][0]["sha256"] = design.hashlib.sha256(html.read_bytes()).hexdigest()
         manifest["demonstrated_audiences"] = ["Managers", "Reviewers"]
@@ -593,7 +2142,7 @@ class DesignLifecycleTests(unittest.TestCase):
         files = [{"path": ".continuity/private/designs/complete-react/1/index.html", "media_type": "text/html", "role": "prototype", "sha256": design.hashlib.sha256(html.read_bytes()).hexdigest()}]
         for name, width in (("desktop", 1440), ("tablet", 768), ("mobile", 390)):
             png = artifact_dir / f"{name}.png"
-            png.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + (900).to_bytes(4, "big"))
+            png.write_bytes(png_bytes(width, 900))
             files.append({"path": f".continuity/private/designs/complete-react/1/{name}.png", "media_type": "image/png", "role": name, "sha256": design.hashlib.sha256(png.read_bytes()).hexdigest()})
         digest = lambda item: design.hashlib.sha256(json.dumps(item, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         manifest = {
@@ -960,6 +2509,8 @@ class DesignLifecycleTests(unittest.TestCase):
     def test_cross_industry_cross_modality_evaluation_is_healthy(self):
         report = EVALUATION.evaluate(CATALOG, SCENARIOS)
         self.assertTrue(report["healthy"], report)
+        self.assertEqual(report["quality_scope"], "contract-routing-and-regression-only")
+        self.assertEqual(report["output_quality_evidence"], "not-measured-run-evaluate-design-outputs")
         self.assertEqual(report["metrics"]["scenario_count"], 21)
         self.assertEqual(report["metrics"]["passed_scenario_count"], 21)
         self.assertEqual(report["metrics"]["routing_precision"], 1.0)
@@ -970,6 +2521,381 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertGreaterEqual(report["metrics"]["minimum_implementation_usefulness"], 0.9)
         self.assertEqual({item["modality"] for item in report["scenarios"]}, {"ui", "document", "image"})
         self.assertGreaterEqual(len({item["industry_group"] for item in report["scenarios"]}), 10)
+
+    def test_blinded_output_benchmark_requires_real_artifacts_and_paired_lift(self):
+        dimensions = ["project-specificity", "signature-recognition", "structural-diversity", "reference-transformation", "responsive-fidelity", "genericity-resistance"]
+        benchmark = {
+            "schema_version": 1,
+            "dimensions": dimensions,
+            "thresholds": {"minimum_cases": 3, "minimum_reviewers_per_case": 2, "minimum_mean_lift": 0.5, "minimum_candidate_win_rate": 1.0, "maximum_dimension_regression": 0},
+            "cases": [],
+        }
+        for index, case_id in enumerate(("vague-operator-brief", "named-reference", "creative-peer"), 1):
+            baseline = self.root / f"baseline-{index}.png"
+            candidate = self.root / f"candidate-{index}.png"
+            baseline.write_bytes(png_bytes(1200, 800, (230 - index, 230, 230, 255)))
+            candidate.write_bytes(png_bytes(1200, 800, (210, 222 - index, 216, 255)))
+            benchmark["cases"].append({
+                "case_id": case_id, "brief_hash": f"{index:x}" * 64,
+                "baseline": {"path": baseline.name, "sha256": __import__("hashlib").sha256(baseline.read_bytes()).hexdigest()},
+                "candidate": {"path": candidate.name, "sha256": __import__("hashlib").sha256(candidate.read_bytes()).hexdigest()},
+                "ratings": [
+                    {"reviewer_id": "reviewer-a", "blind": True, "baseline_scores": {dimension: 2 for dimension in dimensions}, "candidate_scores": {dimension: 4 for dimension in dimensions}},
+                    {"reviewer_id": "reviewer-b", "blind": True, "baseline_scores": {dimension: 3 for dimension in dimensions}, "candidate_scores": {dimension: 4 for dimension in dimensions}},
+                ],
+            })
+        manifest = self.root / "output-benchmark.json"
+        manifest.write_text(json.dumps(benchmark), encoding="utf-8")
+        report = OUTPUT_EVALUATION.evaluate(self.root, manifest)
+        self.assertTrue(report["healthy"])
+        self.assertEqual(report["case_count"], 3)
+        self.assertGreater(report["mean_lift"], 0.5)
+
+        benchmark["thresholds"]["minimum_cases"] = 1
+        manifest.write_text(json.dumps(benchmark), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "at least three cases"):
+            OUTPUT_EVALUATION.evaluate(self.root, manifest)
+
+    def test_homepage_benchmark_preserves_human_gates_and_hash_binding(self):
+        definition_path = SUITE / "skills" / "continuity-design" / "references" / "continuity-homepage-benchmark.json"
+        definition = json.loads(definition_path.read_text(encoding="utf-8"))
+        brief_path = definition_path.parent / definition["brief_path"]
+        skill_path = SUITE / "skills" / "continuity-design" / "SKILL.md"
+
+        def artifact(relative, content):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(content, bytes):
+                path.write_bytes(content)
+            else:
+                path.write_text(content, encoding="utf-8")
+            return {"path": relative, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        doctor = artifact("evidence/doctor.json", json.dumps({"healthy": True}))
+        concepts = []
+        laboratory_hash = "9" * 64
+        reference_translation_hash = "8" * 64
+        concept_range = {
+            "morning-brief": ("type-reflective-serif", "serif", "photographic", "cinematic-chapters", "editorial-issue", "motion-witness", "compelling"),
+            "proof-relay": ("type-humanist-proof", "humanist-sans", "diagrammatic", "editorial-sequence", "navigable-artifact", "interaction-proof", "credible"),
+            "local-aperture": ("type-mono-coordinate", "monospaced", "spatial", "spatial-field", "single-canvas-instrument", "spatial-inspection", "credible"),
+        }
+        for direction_id in ("morning-brief", "proof-relay", "local-aperture"):
+            board = artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>")
+            slop = artifact(
+                f"concepts/{direction_id}-slop.json",
+                json.dumps({"stage": "concept", "status": "passed"}),
+            )
+            strategy, family, art_family, composition, grammar, interaction, strength = concept_range[direction_id]
+            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": f"adaptation-{direction_id}", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
+
+        checkpoints = []
+        for checkpoint_id in ("brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions"):
+            content = {"checkpoint_id": checkpoint_id}
+            if checkpoint_id == "generative-concept-laboratory":
+                content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
+            if checkpoint_id == "reference-translation":
+                content.update({"status": "passed", "precision_schema_version": 2, "reference_study_count": 1, "adaptation_count": 3, "constraint_count": 8, "copy_detail_count": 3, "correction_pass_count": 2, "literal_substitution_count": 3, "independent_review_status": "passed", "comparison_status": "passed", "primitive_substitution_count": 0, "reference_translation_hash": reference_translation_hash})
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
+            checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
+
+        manifest = {
+            "schema_version": 1,
+            "benchmark_id": definition["benchmark_id"],
+            "workflow": "$continuity-design",
+            "run_id": "test-homepage",
+            "status": "directions",
+            "definition_sha256": __import__("hashlib").sha256(definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest(),
+            "source": {
+                "branch": "feature/test",
+                "commit": "a" * 40,
+                "skill_path": "skills/continuity-design/SKILL.md",
+                "skill_sha256": __import__("hashlib").sha256(skill_path.read_bytes()).hexdigest(),
+            },
+            "seed": {
+                "audience": "founder-operator",
+                "posture": "calm-authority",
+                "hero": "morning-decision-surface",
+                "references": ["Linear", "Palantir Foundry"],
+                "edge_case": "healthy-but-unauthorized",
+            },
+            "doctor": doctor,
+            "checkpoints": checkpoints,
+            "concepts": concepts,
+            "selection": None,
+            "prototype_validation": None,
+            "approval": None,
+            "evidence": [],
+            "reviews": [],
+            "hard_failure_reviews": [],
+            "execution_authorized": False,
+        }
+        manifest_path = self.root / "run.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertTrue(report["stage_valid"])
+        self.assertFalse(report["benchmark_passed"])
+        self.assertFalse(report["merge_eligible"])
+        self.assertEqual(report["next_gate"], "human-direction-selection")
+
+        with self.assertRaisesRegex(ValueError, "cannot preselect"):
+            manifest["selection"] = {
+                "actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        manifest["selection"] = None
+        manifest["definition_sha256"] = "0" * 64
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "definition changed"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+    def test_presentation_benchmark_preserves_refinement_human_and_capture_gates(self):
+        definition_path = SUITE / "skills" / "continuity-design" / "references" / "continuity-presentation-benchmark.json"
+        definition = json.loads(definition_path.read_text(encoding="utf-8"))
+        brief_path = definition_path.parent / definition["brief_path"]
+        skill_path = SUITE / "skills" / "continuity-design" / "SKILL.md"
+
+        def artifact(relative, content):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content if isinstance(content, bytes) else content.encode("utf-8"))
+            return {"path": relative, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        laboratory_hash = "9" * 64
+        translation_hash = "8" * 64
+        checkpoints = []
+        for checkpoint_id in definition["stage_checkpoints"]["directions"]:
+            content = {"checkpoint_id": checkpoint_id}
+            if checkpoint_id == "generative-concept-laboratory":
+                content.update({"status": "complete", "lens_count": 5, "seed_count": 10, "media_count": 3, "generated_seed_count": 2, "slide_role_family_count": 6, "laboratory_hash": laboratory_hash})
+            if checkpoint_id == "reference-translation":
+                content.update({"status": "passed", "reference_study_count": 2, "correction_pass_count": 4, "constraint_count": 16, "independent_review_status": "passed", "comparison_status": "passed", "reference_translation_hash": translation_hash})
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
+            checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-10T12:00:00Z", **value})
+
+        concepts = []
+        systems = (
+            ("ledger", "condensed-serif", "documentary", "custody-spreads", "editorial-ledger", "compelling", "passed"),
+            ("cartography", "compressed-sans", "diagrammatic", "route-field", "decision-map", "credible", "supporting"),
+        )
+        for direction_id, typography, art_family, composition, sequence, impact, media_status in systems:
+            concepts.append({
+                "direction_id": direction_id,
+                "board": artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>"),
+                "contact_sheet": artifact(f"concepts/{direction_id}.png", png_bytes(1200, 800)),
+                "slop_report": artifact(f"concepts/{direction_id}-slop.json", json.dumps({
+                    "stage": "concept", "status": "passed",
+                    "presentation_fidelity": {"copy_readability_verified": True, "data_readability_verified": True},
+                })),
+                "generative_laboratory_hash": laboratory_hash,
+                "reference_translation_hash": translation_hash,
+                "creative_range_status": "passed",
+                "impact_review_status": "passed",
+                "impact_strength": impact,
+                "concept_forming_media_status": media_status,
+                "slide_role_count": 6,
+                "silhouette_count": 5,
+                "repeated_template_ratio": 0.25,
+                "narrative_peak_present": True,
+                "quiet_or_rest_present": True,
+                "projection_review_status": "passed",
+                "read_ahead_review_status": "passed",
+                "claims_provenance_complete": True,
+                "capture_integrity_verified": True,
+                "copy_readability_verified": True,
+                "data_readability_verified": True,
+                "runtime_probe_count": 3,
+                "typography_family": typography,
+                "art_direction_family": art_family,
+                "composition_family": composition,
+                "sequence_grammar": sequence,
+            })
+        refinement_passes = []
+        for number, hypothesis in enumerate(("Clarify narrative truth", "Increase proof depth", "Create a visible peak and rest"), 1):
+            refinement_passes.append({
+                "pass": number,
+                "direction_ids": ["ledger"],
+                "hypothesis": hypothesis,
+                "preserved_strengths": ["Product truth", "Documentary material"],
+                "artifact": artifact(f"passes/{number}/deck.html", f"<h1>Pass {number}</h1>"),
+                "visual_delta": artifact(f"passes/{number}/delta.png", png_bytes(1200, 800, (220 - number, 225, 218, 255))),
+                "self_assessment": artifact(f"passes/{number}/assessment.md", f"# Pass {number}"),
+                "slop_report": artifact(f"passes/{number}/slop.json", json.dumps({"stage": "concept", "status": "passed"})),
+                "slop_status": "passed",
+                "affected_evidence_rerun": True,
+            })
+        manifest = {
+            "schema_version": 1,
+            "benchmark_id": definition["benchmark_id"],
+            "workflow": "$continuity-design",
+            "run_id": "presentation-test",
+            "status": "directions",
+            "definition_sha256": __import__("hashlib").sha256(definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest(),
+            "source": {"branch": "feature/test", "commit": "a" * 40, "skill_path": "skills/continuity-design/SKILL.md", "skill_sha256": __import__("hashlib").sha256(skill_path.read_bytes()).hexdigest()},
+            "seed": {"audience": "engineering-leader", "narrative": "handoff-loss-to-durable-record", "posture": "system-cartography", "read_mode": "mixed", "references": ["editorial-publication", "technical-cartography"]},
+            "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
+            "checkpoints": checkpoints,
+            "concepts": concepts,
+            "refinement_passes": refinement_passes,
+            "selection": None,
+            "prototype_validation": None,
+            "approval": None,
+            "evidence": [],
+            "reviews": [],
+            "hard_failure_reviews": [],
+            "execution_authorized": False,
+        }
+        manifest_path = self.root / "presentation-run.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertTrue(report["stage_valid"])
+        self.assertEqual(report["refinement_pass_count"], 3)
+        self.assertEqual(report["next_gate"], "human-direction-selection")
+        self.assertFalse(report["benchmark_passed"])
+
+        manifest["refinement_passes"][-1]["slop_status"] = "failed"
+        manifest["refinement_passes"][-1]["slop_report"] = artifact("passes/3/slop-failed.json", json.dumps({"stage": "concept", "status": "failed"}))
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "final presentation refinement pass"):
+            PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        manifest["refinement_passes"][-1]["slop_status"] = "passed"
+        manifest["refinement_passes"][-1]["slop_report"] = artifact("passes/3/slop-passed.json", json.dumps({"stage": "concept", "status": "passed"}))
+
+        for checkpoint_id in ("direction-selection", "private-presentation", "artifact-critique"):
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps({"checkpoint_id": checkpoint_id}))
+            manifest["checkpoints"].append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-10T13:00:00Z", **value})
+        manifest["status"] = "prototype-validated"
+        manifest["selection"] = {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-10T12:30:00Z", "direction_ids": ["ledger"]}
+        manifest["prototype_validation"] = artifact("evidence/prototype.json", json.dumps({"validated": True, "ai_slop_check": {"status": "passed"}}))
+        evidence_specs = {
+            "desktop-projection": ("image/png", png_bytes(1440, 810), 1440),
+            "tablet-read-ahead": ("image/png", png_bytes(768, 1024), 768),
+            "mobile-read-ahead": ("image/png", png_bytes(390, 844), 390),
+            "sequence-contact-sheet": ("image/png", png_bytes(1200, 900), None),
+            "interaction": ("application/json", json.dumps({"keyboard": True, "touch": True}), None),
+            "reduced-motion": ("application/json", json.dumps({"reduced_motion": True}), None),
+            "accessibility": ("text/markdown", "# Accessibility evidence", None),
+            "capture-integrity": ("application/json", json.dumps({"status": "passed", "individual_frames_verified": True, "contact_sheet_source": "verified-individual-frames"}), None),
+            "readability-audit": ("application/json", json.dumps({
+                "status": "passed", "slide_count": 10, "all_copy_readable": True, "all_data_readable": True,
+                "viewports": [
+                    {"viewport_width": width, "slide_count": 10, "all_copy_readable": True, "all_data_readable": True, "browser_probe_passed": True}
+                    for width in (1440, 768, 390)
+                ],
+            }), None),
+        }
+        evidence = []
+        for role, (media_type, content, viewport_width) in evidence_specs.items():
+            suffix = ".png" if media_type == "image/png" else ".json" if media_type == "application/json" else ".md"
+            item = {"role": role, "media_type": media_type, **artifact(f"evidence/{role}{suffix}", content)}
+            if viewport_width is not None:
+                item["viewport_width"] = viewport_width
+            evidence.append(item)
+        manifest["evidence"] = evidence
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertTrue(report["stage_valid"])
+        self.assertEqual(report["next_gate"], "exact-human-design-approval")
+
+        tablet_path = self.root / "evidence" / "tablet-read-ahead.png"
+        tablet_path.write_bytes(png_bytes(820, 1024))
+        tablet_item = next(item for item in manifest["evidence"] if item["role"] == "tablet-read-ahead")
+        tablet_item["sha256"] = __import__("hashlib").sha256(tablet_path.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "required viewport"):
+            PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        tablet_path.write_bytes(png_bytes(768, 1024))
+        tablet_item["sha256"] = __import__("hashlib").sha256(tablet_path.read_bytes()).hexdigest()
+        readability_item = next(item for item in manifest["evidence"] if item["role"] == "readability-audit")
+        readability_path = self.root / readability_item["path"]
+        readability_value = json.loads(readability_path.read_text(encoding="utf-8"))
+        readability_value["viewports"][1]["all_data_readable"] = False
+        readability_path.write_text(json.dumps(readability_value), encoding="utf-8")
+        readability_item["sha256"] = __import__("hashlib").sha256(readability_path.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "readable copy and data"):
+            PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+    def test_homepage_benchmark_passes_only_after_approval_and_human_score(self):
+        definition_path = SUITE / "skills" / "continuity-design" / "references" / "continuity-homepage-benchmark.json"
+        definition = json.loads(definition_path.read_text(encoding="utf-8"))
+        brief_path = definition_path.parent / definition["brief_path"]
+        skill_path = SUITE / "skills" / "continuity-design" / "SKILL.md"
+
+        def artifact(relative, content):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content if isinstance(content, bytes) else content.encode("utf-8"))
+            return {"path": relative, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        checkpoints = []
+        laboratory_hash = "9" * 64
+        reference_translation_hash = "8" * 64
+        for checkpoint_id in definition["required_checkpoints"]:
+            content = {"checkpoint_id": checkpoint_id}
+            if checkpoint_id == "generative-concept-laboratory":
+                content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
+            if checkpoint_id == "reference-translation":
+                content.update({"status": "passed", "precision_schema_version": 2, "reference_study_count": 1, "adaptation_count": 2, "constraint_count": 8, "copy_detail_count": 3, "correction_pass_count": 2, "literal_substitution_count": 2, "independent_review_status": "passed", "comparison_status": "passed", "primitive_substitution_count": 0, "reference_translation_hash": reference_translation_hash})
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
+            checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
+        board = artifact("concepts/morning-brief.html", "<h1>Morning brief</h1>")
+        slop = artifact("concepts/morning-brief-slop.json", json.dumps({"stage": "concept", "status": "passed"}))
+        prototype = artifact("evidence/prototype-validation.json", json.dumps({"validated": True, "ai_slop_check": {"status": "passed"}}))
+        evidence = []
+        media_types = {
+            "desktop": "image/png", "tablet": "image/png", "mobile": "image/png",
+            "interaction": "application/json", "reduced-motion": "application/json", "accessibility": "text/markdown",
+        }
+        for role, media_type in media_types.items():
+            value = artifact(f"evidence/{role}.bin", role.encode("utf-8"))
+            evidence.append({"role": role, "media_type": media_type, **value})
+        approval_value = {
+            "status": "approved", "execution_authorized": False, "design_id": "homepage", "revision": 1,
+            "design_hash": "1" * 64, "visual_reference_hash": "2" * 64, "approval_bundle_hash": "3" * 64,
+        }
+        approval_record = artifact("evidence/approval.json", json.dumps(approval_value))
+        scores = {item["dimension"]: item["weight"] for item in definition["rubric"]}
+        manifest = {
+            "schema_version": 1, "benchmark_id": definition["benchmark_id"], "workflow": "$continuity-design",
+            "run_id": "test-homepage-complete", "status": "scored",
+            "definition_sha256": __import__("hashlib").sha256(definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest(),
+            "source": {"branch": "feature/test", "commit": "b" * 40, "skill_path": "skills/continuity-design/SKILL.md", "skill_sha256": __import__("hashlib").sha256(skill_path.read_bytes()).hexdigest()},
+            "seed": {"audience": "founder-operator", "posture": "calm-authority", "hero": "morning-decision-surface", "references": ["Linear", "Palantir Foundry"], "edge_case": "healthy-but-unauthorized"},
+            "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
+            "checkpoints": checkpoints,
+            "concepts": [
+                {"direction_id": "morning-brief", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": "adaptation-morning-brief", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": "type-reflective-serif", "typography_family": "serif", "art_direction_family": "photographic", "composition_family": "cinematic-chapters", "page_grammar_family": "editorial-issue", "interaction_motion_strategy_id": "motion-witness", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "compelling", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"},
+                {"direction_id": "proof-relay", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": "adaptation-proof-relay", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": "type-humanist-proof", "typography_family": "humanist-sans", "art_direction_family": "diagrammatic", "composition_family": "spatial-field", "page_grammar_family": "single-canvas-instrument", "interaction_motion_strategy_id": "interaction-proof", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "credible", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"}
+            ],
+            "selection": {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]},
+            "prototype_validation": prototype,
+            "approval": {"actor_type": "human", **{key: approval_value[key] for key in ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")}, "record": approval_record},
+            "evidence": evidence,
+            "reviews": [{"actor_type": "human", "reviewer_id": "reviewer-a", "scores": scores, "rationale": "All supplied evidence was inspected against the fixed rubric."}],
+            "hard_failure_reviews": [{"rule_id": item["rule_id"], "result": "pass", "rationale": "Verified in the bound evidence."} for item in definition["hard_failures"]],
+            "execution_authorized": False,
+        }
+        manifest_path = self.root / "run-complete.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertEqual(report["score"], 100)
+        self.assertTrue(report["benchmark_passed"])
+        self.assertTrue(report["merge_eligible"])
+
+        manifest["hard_failure_reviews"][0]["result"] = "fail"
+        manifest["hard_failure_reviews"][0]["rationale"] = "Healthy was incorrectly shown as authorization."
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertEqual(report["score"], definition["passing_score"] - 1)
+        self.assertFalse(report["benchmark_passed"])
+        self.assertFalse(report["merge_eligible"])
 
     def test_evaluation_fails_closed_on_metric_regressions(self):
         suite = json.loads(SCENARIOS.read_text(encoding="utf-8"))
@@ -2266,6 +4192,7 @@ class BoundaryTests(unittest.TestCase):
             self.assertTrue((root / ".claude/commands/continuity-design.md").is_file())
             self.assertTrue((root / ".agents/skills/continuity-design/scripts/artifact-browser-probe.js").is_file())
             self.assertTrue((root / ".agents/continuity/schemas/design-artifact-manifest.schema.json").is_file())
+            self.assertTrue((root / ".agents/continuity/schemas/design-reference-translation.schema.json").is_file())
             config = json.loads((root / ".continuity/config.json").read_text())
             self.assertEqual(config["collections"], ["core", "design", "projects"])
             cli = root / ".agents/continuity/bin/continuity"

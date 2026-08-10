@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity generative concept laboratory",
+  "type": "object",
+  "required": ["status", "mode", "required_for_directioning", "lenses", "seeds", "cross_pollinations", "shortlisted_seed_ids", "style_frame_explorations", "range_plan", "omission_rationale"],
+  "properties": {
+    "status": {"enum": ["complete", "unavailable", "declined", "deliberately-omitted"]},
+    "mode": {"enum": ["mixed-media", "generated-media", "code-only", "omitted"]},
+    "required_for_directioning": {"type": "boolean"},
+    "lenses": {
+      "type": "array", "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["lens_id", "thesis", "product_truth"],
+        "properties": {
+          "lens_id": {"type": "string", "minLength": 1},
+          "thesis": {"type": "string", "minLength": 1},
+          "product_truth": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "seeds": {
+      "type": "array", "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": ["seed_id", "lens_id", "medium", "art_direction_family", "typography_strategy_id", "composition_family", "page_depth_roles", "hypothesis", "project_specificity", "surprising_quality", "transferable_mechanics", "risk", "provenance", "artifact"],
+        "properties": {
+          "seed_id": {"type": "string", "minLength": 1},
+          "lens_id": {"type": "string", "minLength": 1},
+          "medium": {"enum": ["image-generation", "image-editing", "svg", "typography", "collage", "motion-frame", "code-sketch"]},
+          "art_direction_family": {"enum": ["photographic", "documentary", "illustrative", "typographic", "material", "spatial", "diagrammatic", "cinematic", "interaction-led", "mixed"]},
+          "typography_strategy_id": {"type": "string", "minLength": 1},
+          "composition_family": {"enum": ["editorial-sequence", "spatial-field", "cinematic-chapters", "typographic-poster", "documentary-index", "interactive-instrument", "material-collage", "narrative-scroll", "modular-system"]},
+          "page_depth_roles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["opening", "orientation", "proof", "system-model", "interaction", "quiet-state", "edge-state", "trust", "decision", "closure"]}},
+          "hypothesis": {"type": "string", "minLength": 1},
+          "project_specificity": {"type": "string", "minLength": 1},
+          "surprising_quality": {"type": "string", "minLength": 1},
+          "transferable_mechanics": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "risk": {"type": "string", "minLength": 1},
+          "provenance": {"enum": ["generated", "project-owned", "supplied-with-rights", "derived-study"]},
+          "artifact": {"$ref": "#/$defs/file"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "cross_pollinations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["combination_id", "seed_ids", "hypothesis", "resulting_mechanics"],
+        "properties": {
+          "combination_id": {"type": "string", "minLength": 1},
+          "seed_ids": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "hypothesis": {"type": "string", "minLength": 1},
+          "resulting_mechanics": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "shortlisted_seed_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "style_frame_explorations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["exploration_id", "art_direction_family", "hypothesis", "frames", "selected_frame_ids", "rejected_frame_ids", "system_extractions", "synthesis"],
+        "properties": {
+          "exploration_id": {"type": "string", "minLength": 1},
+          "art_direction_family": {"enum": ["photographic", "documentary", "illustrative", "typographic", "material", "spatial", "diagrammatic", "cinematic", "interaction-led", "mixed"]},
+          "hypothesis": {"type": "string", "minLength": 1},
+          "frames": {"type": "array", "minItems": 2, "maxItems": 4, "items": {"type": "object", "required": ["frame_id", "method", "lesson", "artifact"], "properties": {"frame_id": {"type": "string", "minLength": 1}, "method": {"enum": ["generated", "edited", "code-native", "project-owned"]}, "lesson": {"type": "string", "minLength": 1}, "artifact": {"$ref": "#/$defs/file"}}, "additionalProperties": false}},
+          "selected_frame_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "rejected_frame_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "system_extractions": {"type": "array", "minItems": 3, "items": {"type": "string", "minLength": 1}},
+          "synthesis": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "range_plan": {
+      "type": "object",
+      "required": ["art_direction_families", "typography_hypotheses", "composition_families", "page_depth_roles", "page_grammar_hypotheses", "interaction_motion_hypotheses", "intentional_convergence"],
+      "properties": {
+        "art_direction_families": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"enum": ["photographic", "documentary", "illustrative", "typographic", "material", "spatial", "diagrammatic", "cinematic", "interaction-led", "mixed"]}},
+        "typography_hypotheses": {
+          "type": "array", "minItems": 3, "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": ["strategy_id", "family", "source", "role_relationship", "responsive_behavior", "anti_default", "customization", "license_evidence", "behavior_tests", "specimen"],
+            "properties": {
+              "strategy_id": {"type": "string", "minLength": 1},
+              "family": {"enum": ["serif", "humanist-sans", "grotesk-sans", "neo-grotesk-sans", "condensed-display", "monospaced", "vernacular-display", "system-utility", "custom-letterform", "mixed"]},
+              "source": {"enum": ["system", "project-supplied", "open-licensed", "licensed", "custom-lettering", "code-native"]},
+              "role_relationship": {"type": "string", "minLength": 1},
+              "responsive_behavior": {"type": "string", "minLength": 1},
+              "anti_default": {"type": "string", "minLength": 1},
+              "customization": {"type": "string", "minLength": 1},
+              "license_evidence": {"type": "string", "minLength": 1},
+              "behavior_tests": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["display", "text", "narrow", "variable-axis", "custom-letterform"]}},
+              "specimen": {"$ref": "#/$defs/file"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "composition_families": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["editorial-sequence", "spatial-field", "cinematic-chapters", "typographic-poster", "documentary-index", "interactive-instrument", "material-collage", "narrative-scroll", "modular-system"]}},
+        "page_depth_roles": {"type": "array", "minItems": 5, "uniqueItems": true, "items": {"enum": ["opening", "orientation", "proof", "system-model", "interaction", "quiet-state", "edge-state", "trust", "decision", "closure"]}},
+        "page_grammar_hypotheses": {"type": "array", "minItems": 4, "maxItems": 7, "items": {"type": "object", "required": ["grammar_id", "family", "hypothesis", "responsive_behavior", "depth_proof", "risk"], "properties": {"grammar_id": {"type": "string", "minLength": 1}, "family": {"enum": ["longform-narrative", "single-canvas-instrument", "navigable-artifact", "editorial-issue", "cinematic-sequence", "modular-system", "spatial-journey"]}, "hypothesis": {"type": "string", "minLength": 1}, "responsive_behavior": {"type": "string", "minLength": 1}, "depth_proof": {"type": "string", "minLength": 1}, "risk": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+        "interaction_motion_hypotheses": {"type": "array", "minItems": 3, "maxItems": 6, "items": {"type": "object", "required": ["strategy_id", "mode", "semantic_purpose", "reduced_motion", "static_fallback", "risk", "prototype"], "properties": {"strategy_id": {"type": "string", "minLength": 1}, "mode": {"enum": ["static", "native-disclosure", "direct-manipulation", "spatial-transition", "cinematic", "mixed"]}, "semantic_purpose": {"type": "string", "minLength": 1}, "reduced_motion": {"type": "string", "minLength": 1}, "static_fallback": {"type": "string", "minLength": 1}, "risk": {"type": "string", "minLength": 1}, "prototype": {"$ref": "#/$defs/file"}}, "additionalProperties": false}},
+        "intentional_convergence": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "omission_rationale": {"type": "string"}
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

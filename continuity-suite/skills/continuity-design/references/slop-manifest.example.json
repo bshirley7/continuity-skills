@@ -1,0 +1,58 @@
+{
+  "stage": "concept",
+  "ruleset_version": "1.7.0",
+  "design_id": "example-direction",
+  "revision": 1,
+  "visual_review": {
+    "signature_identifiable": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "proof-rail"}]},
+    "identity_specific": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]},
+    "not_category_reflex": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]},
+    "directions_structurally_distinct": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-comparison.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "all-concepts"}]},
+    "not_library_default": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "composition"}]},
+    "signature_survives_states": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-mobile.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "inline-proof-seam"}]},
+    "reference_transformed": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "evidence-relationship"}]},
+    "decoration_has_job": {"result": "pass", "finding": "", "rationale": "", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "full-frame"}]},
+    "media_fidelity_preserved": {"result": "pass", "finding": "", "rationale": "The selected generated subject retains its material contrast and compositional role after background integration.", "reviewer": "visual-reviewer", "reviewed_at": "2026-08-08T12:00:00Z", "evidence": [{"path": ".continuity/private/designs/example/1/concept-a-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "region": "concept-forming-media"}]}
+  },
+  "visual_findings": [],
+  "context_findings": [],
+  "project_context": {
+    "unapproved_markers": [],
+    "required_signature_markers": ["evidence-rail"],
+    "reference_transformations": [],
+    "rejected_choices": [],
+    "continuity_house_tells": []
+  },
+  "translation_fidelity": {
+    "primitive_media_substitution": false,
+    "material_energy_preserved": true,
+    "template_convergence": false,
+    "declared_mechanics_visible": true,
+    "generated_study_retained_or_translated": true,
+    "approved_constraints_present": true,
+    "primary_material_organizes": true,
+    "typographic_grammar_preserved": true,
+    "exact_single_source_baseline": true,
+    "independent_review": true,
+    "mobile_comparison_complete": true,
+    "reference_lineage_visible": true,
+    "variable_contrast_resolved": true,
+    "editable_depth_preserved": true,
+    "font_transfer_verified": true,
+    "approved_layer_plan_present": true,
+    "approved_typographic_character_present": true,
+    "selected_media_fidelity_preserved": true,
+    "background_integration_verified": true,
+    "material_contrast_preserved": true
+  },
+  "portfolio_diversity": {
+    "portfolio_audit_current": true,
+    "house_overlap_within_limit": true,
+    "strongest_prior_challenged": true,
+    "concept_forming_media_present": true,
+    "close_far_distance_present": true,
+    "reference_difficulty_passed": true,
+    "journey_state_depth_passed": true
+  },
+  "craft_findings": []
+}

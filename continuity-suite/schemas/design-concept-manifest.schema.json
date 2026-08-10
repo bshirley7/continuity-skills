@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity concept-board evidence",
+  "type": "object",
+  "required": ["design_id", "revision", "presentation_mode", "collaboration_delivery", "concepts", "creative_range", "impact_review", "browser_snapshots", "browser_probes", "research_links", "visual_references"],
+  "properties": {
+    "design_id": {"type": "string"},
+    "revision": {"type": "integer", "minimum": 1},
+    "presentation_mode": {"enum": ["equal-directions", "director-led"]},
+    "portfolio_report": {"$ref": "#/$defs/portfolioReport"},
+    "prior_output_challenge": {"type": "object"},
+    "collaboration_delivery": {
+      "type": "object",
+      "required": ["profile", "recommendation_posture", "explanation_depth", "feedback_scope", "challenge_posture", "feedback_prompt"],
+      "properties": {
+        "profile": {"enum": ["guided", "collaborative", "creative-peer"]},
+        "recommendation_posture": {"type": "string", "minLength": 1},
+        "explanation_depth": {"type": "string", "minLength": 1},
+        "feedback_scope": {"type": "string", "minLength": 1},
+        "challenge_posture": {"type": "string", "minLength": 1},
+        "feedback_prompt": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "concepts": {
+      "type": "array", "minItems": 2, "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["role", "reference_adaptation_id", "recommended", "thesis", "impact_thesis", "primary_carrier", "emotional_register", "seed_lineage", "system_extractions", "signature_move", "palette", "type_specimen", "typography_system", "typographic_transfer", "media_system", "composition_asset_plan", "composition_family", "page_grammar", "grammar_congruence", "journey_structure_review", "interaction_motion_system", "journey_stages", "comparison_coverage", "generated_media_disposition", "runtime_source_files", "runtime_probes", "wide_composition", "narrow_transformation", "imagery_treatment", "motion_decision", "preservation_promise", "tradeoff", "anti_reference", "fidelity_level", "slop_report"],
+        "properties": {
+          "role": {"enum": ["direction", "contrast-study"]},
+          "direction_id": {"type": "string"},
+          "study_id": {"type": "string"},
+          "tests_uncertainty": {"type": "string"},
+          "reference_adaptation_id": {"type": "string", "minLength": 1},
+          "recommended": {"type": "boolean"},
+          "thesis": {"type": "string"}, "impact_thesis": {"type": "string"},
+          "primary_carrier": {"enum": ["imagery", "interaction", "typography", "material", "spatial-system", "motion", "narrative"]},
+          "emotional_register": {"type": "string", "minLength": 1},
+          "seed_lineage": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "system_extractions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "signature_move": {"type": "string"},
+          "palette": {"type": "array", "minItems": 3, "items": {"type": "string"}},
+          "type_specimen": {"type": "object"},
+          "typography_system": {"type": "object", "required": ["strategy_id", "family", "display_behavior", "text_behavior", "responsive_behavior", "rationale"], "properties": {"strategy_id": {"type": "string", "minLength": 1}, "family": {"enum": ["serif", "humanist-sans", "grotesk-sans", "neo-grotesk-sans", "condensed-display", "monospaced", "vernacular-display", "system-utility", "custom-letterform", "mixed"]}, "display_behavior": {"type": "string", "minLength": 1}, "text_behavior": {"type": "string", "minLength": 1}, "responsive_behavior": {"type": "string", "minLength": 1}, "rationale": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+          "typographic_transfer": {"type": "object", "required": ["transfer_id", "rendered_copy", "font_family", "source", "license_evidence", "source_character", "project_transformation", "type_media_relation", "narrow_behavior", "metric_tolerances", "reference_render_probe", "render_probe"], "properties": {"transfer_id": {"type": "string", "minLength": 1}, "rendered_copy": {"type": "string", "minLength": 1}, "font_family": {"type": "string", "minLength": 1}, "source": {"type": "string", "minLength": 1}, "license_evidence": {"type": "string", "minLength": 1}, "source_character": {"type": "string", "minLength": 1}, "project_transformation": {"type": "string", "minLength": 1}, "type_media_relation": {"enum": ["separate", "behind-subject", "interleaved", "foreground-over-type"]}, "narrow_behavior": {"type": "string", "minLength": 1}, "metric_tolerances": {"type": "object", "required": ["cap_height_ratio", "word_width_ratio"], "properties": {"cap_height_ratio": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.08}, "word_width_ratio": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.1}}, "additionalProperties": false}, "reference_render_probe": {"$ref": "#/$defs/file"}, "render_probe": {"$ref": "#/$defs/file"}}, "additionalProperties": false},
+          "media_system": {"type": "object", "required": ["art_direction_family", "primary_role", "asset_mix", "quiet_state", "fallback"], "properties": {"art_direction_family": {"enum": ["photographic", "documentary", "illustrative", "typographic", "material", "spatial", "diagrammatic", "cinematic", "interaction-led", "mixed"]}, "primary_role": {"type": "string", "minLength": 1}, "asset_mix": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["generated", "derived", "project-owned", "supplied", "code-native", "deliberately-omitted"]}}, "quiet_state": {"type": "string", "minLength": 1}, "fallback": {"type": "string", "minLength": 1}, "concept_role": {"enum": ["concept-forming", "supporting", "omitted"]}, "thesis_effect": {"type": "string", "minLength": 1}, "composition_effect": {"type": "string", "minLength": 1}, "interaction_effect": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+          "composition_asset_plan": {"type": "object", "required": ["plan_id", "type_media_relation", "registration_basis", "planes"], "properties": {"plan_id": {"type": "string", "minLength": 1}, "type_media_relation": {"enum": ["separate", "behind-subject", "interleaved", "foreground-over-type"]}, "registration_basis": {"type": "string", "minLength": 1}, "planes": {"type": "array", "minItems": 2, "items": {"type": "object", "required": ["plane_id", "role", "source_kind", "z_index", "crop_anchor", "responsive_behavior"], "properties": {"plane_id": {"type": "string", "minLength": 1}, "role": {"enum": ["background", "midground", "live-type", "foreground", "annotation"]}, "source_kind": {"enum": ["raster", "live-html", "svg", "video"]}, "z_index": {"type": "integer"}, "crop_anchor": {"type": "string", "minLength": 1}, "responsive_behavior": {"type": "string", "minLength": 1}, "selector": {"type": "string", "minLength": 1}, "asset": {"$ref": "#/$defs/file"}}, "additionalProperties": false}}}, "additionalProperties": false},
+          "composition_family": {"enum": ["editorial-sequence", "spatial-field", "cinematic-chapters", "typographic-poster", "documentary-index", "interactive-instrument", "material-collage", "narrative-scroll", "modular-system"]},
+          "page_grammar": {"type": "object", "required": ["grammar_id", "family", "core_behavior", "responsive_behavior", "depth_proof"], "properties": {"grammar_id": {"type": "string", "minLength": 1}, "family": {"enum": ["longform-narrative", "single-canvas-instrument", "navigable-artifact", "editorial-issue", "cinematic-sequence", "modular-system", "spatial-journey"]}, "core_behavior": {"type": "string", "minLength": 1}, "responsive_behavior": {"type": "string", "minLength": 1}, "depth_proof": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+          "grammar_congruence": {"type": "object", "required": ["status", "reviewer_type", "reviewer", "reviewed_at", "strongest_match", "weakest_mismatch", "behaviors"], "properties": {"status": {"const": "passed"}, "reviewer_type": {"enum": ["agent-multimodal", "human"]}, "reviewer": {"type": "string", "minLength": 1}, "reviewed_at": {"type": "string", "minLength": 1}, "strongest_match": {"type": "string", "minLength": 1}, "weakest_mismatch": {"type": "string", "minLength": 1}, "behaviors": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object", "required": ["behavior_id", "journey_stage_ids", "artifact_note"], "properties": {"behavior_id": {"type": "string", "minLength": 1}, "journey_stage_ids": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "artifact_note": {"type": "string", "minLength": 1}}, "additionalProperties": false}}}, "additionalProperties": false},
+          "journey_structure_review": {"type": "object", "required": ["status", "mode", "distinct_expression_count", "deepest_signature_change", "repeated_pattern_risk", "assignments"], "properties": {"status": {"const": "passed"}, "mode": {"enum": ["structural-variety", "persistent-state-variation"]}, "distinct_expression_count": {"type": "integer", "minimum": 4}, "deepest_signature_change": {"type": "string", "minLength": 1}, "repeated_pattern_risk": {"type": "string", "minLength": 1}, "assignments": {"type": "array", "minItems": 5, "items": {"type": "object", "required": ["stage_id", "expression_id", "artifact_note", "responsive_behavior"], "properties": {"stage_id": {"type": "string", "minLength": 1}, "expression_id": {"type": "string", "minLength": 1}, "artifact_note": {"type": "string", "minLength": 1}, "responsive_behavior": {"type": "string", "minLength": 1}}, "additionalProperties": false}}}, "additionalProperties": false},
+          "interaction_motion_system": {"type": "object", "required": ["strategy_id", "mode", "semantic_purpose", "reduced_motion", "static_fallback"], "properties": {"strategy_id": {"type": "string", "minLength": 1}, "mode": {"enum": ["static", "native-disclosure", "direct-manipulation", "spatial-transition", "cinematic", "mixed"]}, "semantic_purpose": {"type": "string", "minLength": 1}, "reduced_motion": {"type": "string", "minLength": 1}, "static_fallback": {"type": "string", "minLength": 1}, "decision": {"enum": ["purposeful-motion", "explicit-no-motion"]}, "storyboard": {"$ref": "#/$defs/file"}, "atmosphere_contribution": {"type": "string", "minLength": 1}, "state_transition": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+          "portfolio_fingerprint": {"$ref": "#/$defs/portfolioFingerprint"},
+          "journey_stages": {"type": "array", "minItems": 5, "items": {"type": "object", "required": ["stage_id", "role", "purpose", "signature_expression"], "properties": {"stage_id": {"type": "string", "minLength": 1}, "role": {"enum": ["opening", "orientation", "proof", "system-model", "interaction", "quiet-state", "edge-state", "trust", "decision", "closure"]}, "purpose": {"type": "string", "minLength": 1}, "signature_expression": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+          "comparison_coverage": {"type": "object", "required": ["full_page_strip", "chapter_index", "deep_link"], "properties": {"full_page_strip": {"$ref": "#/$defs/file"}, "chapter_index": {"type": "array", "minItems": 5, "items": {"type": "string", "minLength": 1}}, "deep_link": {"$ref": "#/$defs/file"}}, "additionalProperties": false},
+          "generated_media_disposition": {"type": "object"},
+          "runtime_source_files": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/file"}},
+          "runtime_probes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/probe"}},
+          "signature_coverage": {"type": "object", "required": ["signature_id", "required_roles", "reduced_motion_probe"], "properties": {"signature_id": {"type": "string", "minLength": 1}, "required_roles": {"type": "array", "minItems": 5, "uniqueItems": true, "items": {"enum": ["opening", "proof", "interaction", "quiet-state", "edge-state", "closure"]}}, "reduced_motion_probe": {"$ref": "#/$defs/file"}}, "additionalProperties": false},
+          "interaction_invariants": {"type": "object", "required": ["required_ids", "states"], "properties": {"required_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "states": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["state_id", "probe"], "properties": {"state_id": {"type": "string", "minLength": 1}, "probe": {"$ref": "#/$defs/file"}}, "additionalProperties": false}}}, "additionalProperties": false},
+          "wide_composition": {"$ref": "#/$defs/file"},
+          "narrow_transformation": {"$ref": "#/$defs/file"},
+          "imagery_treatment": {"type": "string"}, "motion_decision": {"type": "string"},
+          "preservation_promise": {"type": "string"}, "tradeoff": {"type": "string"},
+          "anti_reference": {"type": "string"}, "fidelity_level": {"type": "string"},
+          "slop_report": {"$ref": "#/$defs/slopReport"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "creative_range": {
+      "type": "object",
+      "required": ["status", "reviewer", "reviewed_at", "five_second_reactions", "pairwise_distances", "house_tell_review", "adversarial_pass", "range_audit"],
+      "properties": {
+        "status": {"const": "passed"},
+        "reviewer": {"type": "string", "minLength": 1},
+        "reviewed_at": {"type": "string", "minLength": 1},
+        "five_second_reactions": {"type": "array", "items": {"type": "object", "required": ["concept_id", "reaction"], "properties": {"concept_id": {"type": "string"}, "reaction": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+        "pairwise_distances": {"type": "array", "items": {"type": "object", "required": ["concept_ids", "differing_dimensions", "rationale"], "properties": {"concept_ids": {"type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": {"type": "string"}}, "differing_dimensions": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["organizing-idea", "primary-carrier", "emotional-register", "material-system", "typography-behavior", "imagery-behavior", "motion-model", "voice", "responsive-transformation"]}}, "rationale": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+        "house_tell_review": {"type": "object", "required": ["recurring_tells_checked", "project_identity_wins", "rationale"], "properties": {"recurring_tells_checked": {"type": "array", "items": {"type": "string", "minLength": 1}}, "project_identity_wins": {"type": "boolean"}, "rationale": {"type": "string", "minLength": 1}, "portfolio_report_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "concept_comparisons": {"type": "array", "items": {"type": "object"}}}, "additionalProperties": false},
+        "adversarial_pass": {"type": "array", "items": {"type": "object", "required": ["concept_id", "genericity_argument", "opposing_hypothesis", "resulting_change", "rejected_choice"], "properties": {"concept_id": {"type": "string"}, "genericity_argument": {"type": "string", "minLength": 1}, "opposing_hypothesis": {"type": "string", "minLength": 1}, "resulting_change": {"type": "string", "minLength": 1}, "rejected_choice": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+        "range_audit": {"type": "object", "required": ["status", "typography_strategy_count", "typography_family_count", "art_direction_family_count", "composition_family_count", "page_grammar_count", "interaction_motion_strategy_count", "minimum_journey_stage_count", "per_concept_runtime_probes", "comparison_depth_coverage", "generated_media_extraction_passed", "rationale"], "properties": {"status": {"const": "passed"}, "typography_strategy_count": {"type": "integer", "minimum": 1}, "typography_family_count": {"type": "integer", "minimum": 1}, "art_direction_family_count": {"type": "integer", "minimum": 1}, "composition_family_count": {"type": "integer", "minimum": 1}, "page_grammar_count": {"type": "integer", "minimum": 1}, "interaction_motion_strategy_count": {"type": "integer", "minimum": 1}, "minimum_journey_stage_count": {"type": "integer", "minimum": 5}, "concept_forming_media_count": {"type": "integer", "minimum": 1}, "per_concept_runtime_probes": {"const": true}, "comparison_depth_coverage": {"const": true}, "generated_media_extraction_passed": {"const": true}, "rationale": {"type": "string", "minLength": 1}}, "additionalProperties": false}
+      },
+      "additionalProperties": false
+    },
+    "impact_review": {
+      "type": "object",
+      "required": ["status", "reviewer_type", "reviewer", "reviewed_at", "at_least_one_compelling", "set_conclusion", "concepts"],
+      "properties": {
+        "status": {"const": "passed"},
+        "reviewer_type": {"enum": ["agent-multimodal", "human"]},
+        "reviewer": {"type": "string", "minLength": 1},
+        "reviewed_at": {"type": "string", "minLength": 1},
+        "at_least_one_compelling": {"const": true},
+        "set_conclusion": {"type": "string", "minLength": 1},
+        "concepts": {"type": "array", "minItems": 2, "items": {"type": "object", "required": ["concept_id", "outcome", "strength", "signature_stage_ids", "identity_specificity", "emotional_resonance", "craft_coherence", "rationale", "weakest_moment", "refinement_priority", "evidence"], "properties": {"concept_id": {"type": "string", "minLength": 1}, "outcome": {"const": "passed"}, "strength": {"enum": ["credible", "compelling"]}, "signature_stage_ids": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "identity_specificity": {"const": "pass"}, "emotional_resonance": {"const": "pass"}, "craft_coherence": {"const": "pass"}, "rationale": {"type": "string", "minLength": 1}, "weakest_moment": {"type": "string", "minLength": 1}, "refinement_priority": {"type": "string", "minLength": 1}, "evidence": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/file"}}}, "additionalProperties": false}}
+      },
+      "additionalProperties": false
+    },
+    "browser_snapshots": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object", "required": ["viewport", "path", "sha256"], "properties": {"viewport": {"enum": ["mobile", "tablet", "desktop"]}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false}},
+    "browser_probes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object", "required": ["viewport", "path", "sha256"], "properties": {"viewport": {"enum": ["mobile", "tablet", "desktop"]}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false}},
+    "research_links": {"type": "array", "items": {"type": "object", "required": ["tile", "disposition", "rationale", "concept_ids"], "properties": {"tile": {"type": "integer", "minimum": 1}, "disposition": {"enum": ["adopted", "transformed", "rejected", "reference-only"]}, "rationale": {"type": "string", "minLength": 1}, "concept_ids": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}},
+    "visual_references": {"type": "array", "items": {"type": "object", "required": ["path", "sha256", "ownership", "publishable"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]}, "publishable": {"type": "boolean"}, "lesson": {"type": "string"}}, "additionalProperties": false}}
+  },
+  "$defs": {
+    "file": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},
+    "probe": {"type": "object", "required": ["viewport", "path", "sha256"], "properties": {"viewport": {"enum": ["mobile", "tablet", "desktop"]}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},
+    "slopReport": {"type": "object", "required": ["path", "sha256", "report_hash", "ruleset_version", "counts_by_severity", "dispositions_hash", "status"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "report_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "ruleset_version": {"type": "string"}, "counts_by_severity": {"type": "object"}, "dispositions_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "status": {"const": "passed"}}, "additionalProperties": false}
+    ,"portfolioReport": {"type": "object", "required": ["path", "sha256", "report_hash"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "report_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false}
+    ,"portfolioFingerprint": {"type": "object", "required": ["palette-family", "typography-family", "composition-family", "label-style", "status-mark-style", "signature-language", "material-system", "section-rhythm"], "properties": {"palette-family": {"type": "string", "minLength": 1}, "typography-family": {"type": "string", "minLength": 1}, "composition-family": {"type": "string", "minLength": 1}, "label-style": {"type": "string", "minLength": 1}, "status-mark-style": {"type": "string", "minLength": 1}, "signature-language": {"type": "string", "minLength": 1}, "material-system": {"type": "string", "minLength": 1}, "section-rhythm": {"type": "string", "minLength": 1}}, "additionalProperties": false}
+  },
+  "additionalProperties": false
+}
