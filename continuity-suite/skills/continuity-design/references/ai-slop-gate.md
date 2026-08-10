@@ -23,12 +23,16 @@ Findings emit a stable rule ID, class, severity, location, evidence, and remedia
 - Approved contract drift.
 - Unqualified generated or illustrative claims.
 - Third-party reference imagery promoted as a product asset.
+- Presentation claims, metrics, testimonials, customers, traction, or performance assertions without current provenance and visible qualification.
+- Presentation evidence whose encoded media type, dimensions, viewport, or frame identity does not match its manifest.
 
 ## Default-risk reflexes
 
 Review unexplained purple-to-blue gradients, gradient headlines, warm cream, common model-default type, decorative glass, uniform rounded containers, bento grids, repeated eyebrows, meaningless numbering, excessive centering, fade-up repetition, hero metrics, decorative glows, stock imagery, generic promotional copy, em-dash cadence, and the fashionable black-neon terminal counter-default.
 
 Also review translation collapse: source-defining media replaced by primitive CSS decoration, loss of defining scale or material energy, convergence on a familiar hero-and-sections template, declared mechanics absent from the render, and useful generated studies discarded without an equivalent translation. Ruleset 1.4 additionally detects primary material demoted to a copy backdrop, substituted typographic grammar, flattened compositional depth, unverified typographic character, hybrid references without exact individual baselines, self-certified fidelity, incomplete narrow comparison, weak visible lineage, unresolved type contrast over variable imagery, stale portfolio reviews, excessive house-style overlap, an unchallenged strongest prior, supporting-only media, collapsed close/far distance, unresolved reference difficulty, hero-only journey evidence, collapsed approved asset planes, and lost approved typographic character.
+
+Ruleset 1.5 adds presentation-specific review for repeated title-and-body templates, fewer than four structural slide roles, missing narrative peaks, missing quiet or rest states, collapsed projected and read-ahead modes, unsupported deck claims, and invalid capture evidence. These rules apply only when `presentation_fidelity` is supplied; a web page is not treated as a presentation merely because it uses sections.
 
 ## Project drift
 
@@ -37,6 +41,8 @@ Review unapproved tokens or patterns, a signature that disappears beyond the her
 Supply deterministic context markers in `project_context`: `unapproved_markers`, `required_signature_markers`, `reference_transformations`, `rejected_choices`, and `continuity_house_tells`. These are literal contract-derived markers, not arbitrary regex suppressions. Add rendered judgments that cannot be expressed as markers to `context_findings` with a stable project-drift rule ID.
 
 Supply `portfolio_diversity` booleans for the current portfolio audit, house-overlap limit, strongest-prior challenge, concept-forming media, close/far distance, reference-class difficulty, and journey/state depth. For reference-led concepts, also supply `translation_fidelity` booleans for editable depth, verified font transfer, the approved layer plan, and approved typographic character. A false approved-state value emits blocking project drift; omitting these fields is supported only for legacy workflow records.
+
+For presentation or pitch-deck work, supply `presentation_fidelity`: measured slide-role count, repeated-template ratio, narrative-peak and quiet-state evidence, separate live-presentation and read-ahead reviews, claim provenance, and capture-integrity verification. Build contact sheets from verified individual frames. Do not trust a scrolling full-page stitch when slide snapping, sticky frames, or transforms can duplicate or omit slides.
 
 ## Required visual review
 

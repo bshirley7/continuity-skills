@@ -1,0 +1,72 @@
+{
+  "benchmark_id": "continuity-design-presentation-v1",
+  "brief_path": "continuity-presentation-challenge.md",
+  "hard_failures": [
+    {"rule_id": "CDPB-H001", "description": "Healthy is presented as authorized, or review-ready as completed."},
+    {"rule_id": "CDPB-H002", "description": "The deck invents or overstates customers, metrics, market, traction, revenue, performance, testimonials, or business outcomes."},
+    {"rule_id": "CDPB-H003", "description": "Private project evidence appears in an owner-safe portfolio claim or shipping artifact."},
+    {"rule_id": "CDPB-H004", "description": "The concept set differs only by cover, palette, font, or decoration rather than sequence grammar and slide roles."},
+    {"rule_id": "CDPB-H005", "description": "Fewer than four slide roles or silhouettes are demonstrated, or the sequence lacks a narrative peak and a quiet or rest state."},
+    {"rule_id": "CDPB-H006", "description": "Generated media remains supporting decoration instead of forming at least one concept and yielding repeatable system rules."},
+    {"rule_id": "CDPB-H007", "description": "Live-presentation and read-ahead modes are not separately reviewed."},
+    {"rule_id": "CDPB-H008", "description": "Desktop projection, tablet read-ahead, mobile read-ahead, reduced-motion, keyboard, touch, or accessibility evidence is missing."},
+    {"rule_id": "CDPB-H009", "description": "A capture's encoded media type, dimensions, viewport, frame identity, or source hash is unverified, or a scrolling stitch substitutes for individual slide evidence."},
+    {"rule_id": "CDPB-H010", "description": "Reference mechanics are hybridized without exact individual baselines, independent review, and controlled project transformation."},
+    {"rule_id": "CDPB-H011", "description": "An autonomous craft pass lacks a bound hypothesis, visual delta, preserved-strength record, self-assessment, or affected evidence rerun."},
+    {"rule_id": "CDPB-H012", "description": "No concept passes the multimodal impact review as compelling."}
+  ],
+  "minimum_human_reviewers": 1,
+  "minimum_refinement_passes": 3,
+  "minimum_slide_roles": 4,
+  "passing_score": 75,
+  "required_checkpoints": [
+    "brief-interpretation",
+    "reference-synthesis",
+    "generative-concept-laboratory",
+    "reference-translation",
+    "concept-directions",
+    "autonomous-refinement",
+    "direction-selection",
+    "private-presentation",
+    "artifact-critique",
+    "design-approval"
+  ],
+  "required_evidence_roles": {
+    "desktop-projection": ["image/png"],
+    "tablet-read-ahead": ["image/png"],
+    "mobile-read-ahead": ["image/png"],
+    "sequence-contact-sheet": ["image/png"],
+    "interaction": ["application/json", "text/html"],
+    "reduced-motion": ["application/json", "image/png"],
+    "accessibility": ["application/json", "text/markdown"],
+    "capture-integrity": ["application/json"]
+  },
+  "rubric": [
+    {"dimension": "product-understanding-and-claim-truthfulness", "weight": 14},
+    {"dimension": "narrative-thesis-and-sequence", "weight": 13},
+    {"dimension": "concept-range-and-slide-role-diversity", "weight": 10},
+    {"dimension": "reference-and-generated-media-synthesis", "weight": 9},
+    {"dimension": "typography-composition-and-material-craft", "weight": 13},
+    {"dimension": "proof-specificity-and-authority-clarity", "weight": 12},
+    {"dimension": "pacing-peak-rest-and-closure", "weight": 9},
+    {"dimension": "projected-and-read-ahead-quality", "weight": 8},
+    {"dimension": "responsive-accessibility-and-interaction", "weight": 7},
+    {"dimension": "genericity-resistance-and-self-critique", "weight": 5}
+  ],
+  "schema_version": 1,
+  "seed_options": {
+    "audience": ["founder-operator", "engineering-leader", "product-leader", "platform-team"],
+    "narrative": ["handoff-loss-to-durable-record", "overnight-decision", "authority-boundary", "project-truth-to-portfolio-signal"],
+    "posture": ["editorial-custody", "system-cartography", "temporal-cinematic", "documentary-proof"],
+    "read_mode": ["live-presentation", "read-ahead", "mixed"],
+    "references": ["editorial-publication", "institutional-identity", "technical-cartography", "documentary-archive", "motion-led-brand"]
+  },
+  "stage_checkpoints": {
+    "approved": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection", "private-presentation", "artifact-critique", "design-approval"],
+    "directions": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement"],
+    "prototype-validated": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection", "private-presentation", "artifact-critique"],
+    "scored": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection", "private-presentation", "artifact-critique", "design-approval"],
+    "selected": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection"]
+  },
+  "workflow": "$continuity-design"
+}

@@ -64,6 +64,20 @@
       },
       "additionalProperties": false
     },
+    "presentation_fidelity": {
+      "type": "object",
+      "properties": {
+        "slide_role_count": {"type": "integer", "minimum": 0},
+        "repeated_template_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "narrative_peak_present": {"type": "boolean"},
+        "quiet_or_rest_present": {"type": "boolean"},
+        "live_presentation_review_complete": {"type": "boolean"},
+        "read_ahead_review_complete": {"type": "boolean"},
+        "claims_provenance_complete": {"type": "boolean"},
+        "capture_integrity_verified": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
     "dispositions": {"type": "array", "items": {"$ref": "#/$defs/disposition"}},
     "craft_findings": {"type": "array", "items": {"$ref": "#/$defs/craftFinding"}},
     "generated_claims": {"type": "array", "items": {"type": "object"}},

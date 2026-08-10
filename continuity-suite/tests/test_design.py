@@ -47,6 +47,13 @@ HOMEPAGE_EVALUATION_SPEC = importlib.util.spec_from_file_location(
 HOMEPAGE_EVALUATION = importlib.util.module_from_spec(HOMEPAGE_EVALUATION_SPEC)
 assert HOMEPAGE_EVALUATION_SPEC.loader
 HOMEPAGE_EVALUATION_SPEC.loader.exec_module(HOMEPAGE_EVALUATION)
+PRESENTATION_EVALUATION_SPEC = importlib.util.spec_from_file_location(
+    "evaluate_design_presentation",
+    SUITE / "scripts" / "evaluate_design_presentation.py",
+)
+PRESENTATION_EVALUATION = importlib.util.module_from_spec(PRESENTATION_EVALUATION_SPEC)
+assert PRESENTATION_EVALUATION_SPEC.loader
+PRESENTATION_EVALUATION_SPEC.loader.exec_module(PRESENTATION_EVALUATION)
 CATALOG = SUITE / "skills" / "continuity-design" / "references" / "catalog.json"
 SCENARIOS = SUITE / "skills" / "continuity-design" / "references" / "evaluation-scenarios.json"
 
@@ -967,6 +974,41 @@ class DesignLifecycleTests(unittest.TestCase):
             {f"CDS-P{number:03d}" for number in range(7, 14)},
             {item["rule_id"] for item in result["findings"]},
         )
+
+    def test_presentation_slop_layer_detects_template_pacing_truth_and_capture_failures(self):
+        source = self.root / "pitch-deck.html"
+        source.write_text("<main><section>Pitch deck</section></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(presentation_fidelity={
+            "slide_role_count": 2,
+            "repeated_template_ratio": 0.75,
+            "narrative_peak_present": False,
+            "quiet_or_rest_present": False,
+            "live_presentation_review_complete": True,
+            "read_ahead_review_complete": False,
+            "claims_provenance_complete": False,
+            "capture_integrity_verified": False,
+        }))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(
+            {"CDS-D035", "CDS-D036", "CDS-D037", "CDS-D038", "CDS-D039", "CDS-H008", "CDS-H009"},
+            {item["rule_id"] for item in result["findings"]},
+        )
+        self.assertEqual(result["presentation_fidelity"]["slide_role_count"], 2)
+
+    def test_presentation_slop_layer_accepts_distinct_truthful_verified_deck(self):
+        source = self.root / "distinct-pitch-deck.html"
+        source.write_text("<main><section>Project-specific deck</section></main>", encoding="utf-8")
+        result = design.slop_check(self.root, self.config, source, self.write_slop_manifest(presentation_fidelity={
+            "slide_role_count": 6,
+            "repeated_template_ratio": 0.25,
+            "narrative_peak_present": True,
+            "quiet_or_rest_present": True,
+            "live_presentation_review_complete": True,
+            "read_ahead_review_complete": True,
+            "claims_provenance_complete": True,
+            "capture_integrity_verified": True,
+        }))
+        self.assertEqual(result["status"], "passed")
 
     def test_layered_composition_and_typographic_transfer_are_executable(self):
         background = self.root / "assets" / "background.png"
@@ -2585,6 +2627,151 @@ class DesignLifecycleTests(unittest.TestCase):
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "definition changed"):
             HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+    def test_presentation_benchmark_preserves_refinement_human_and_capture_gates(self):
+        definition_path = SUITE / "skills" / "continuity-design" / "references" / "continuity-presentation-benchmark.json"
+        definition = json.loads(definition_path.read_text(encoding="utf-8"))
+        brief_path = definition_path.parent / definition["brief_path"]
+        skill_path = SUITE / "skills" / "continuity-design" / "SKILL.md"
+
+        def artifact(relative, content):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content if isinstance(content, bytes) else content.encode("utf-8"))
+            return {"path": relative, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+
+        laboratory_hash = "9" * 64
+        translation_hash = "8" * 64
+        checkpoints = []
+        for checkpoint_id in definition["stage_checkpoints"]["directions"]:
+            content = {"checkpoint_id": checkpoint_id}
+            if checkpoint_id == "generative-concept-laboratory":
+                content.update({"status": "complete", "lens_count": 5, "seed_count": 10, "media_count": 3, "generated_seed_count": 2, "slide_role_family_count": 6, "laboratory_hash": laboratory_hash})
+            if checkpoint_id == "reference-translation":
+                content.update({"status": "passed", "reference_study_count": 2, "correction_pass_count": 4, "constraint_count": 16, "independent_review_status": "passed", "comparison_status": "passed", "reference_translation_hash": translation_hash})
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
+            checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-10T12:00:00Z", **value})
+
+        concepts = []
+        systems = (
+            ("ledger", "condensed-serif", "documentary", "custody-spreads", "editorial-ledger", "compelling", "passed"),
+            ("cartography", "compressed-sans", "diagrammatic", "route-field", "decision-map", "credible", "supporting"),
+        )
+        for direction_id, typography, art_family, composition, sequence, impact, media_status in systems:
+            concepts.append({
+                "direction_id": direction_id,
+                "board": artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>"),
+                "contact_sheet": artifact(f"concepts/{direction_id}.png", png_bytes(1200, 800)),
+                "slop_report": artifact(f"concepts/{direction_id}-slop.json", json.dumps({"stage": "concept", "status": "passed"})),
+                "generative_laboratory_hash": laboratory_hash,
+                "reference_translation_hash": translation_hash,
+                "creative_range_status": "passed",
+                "impact_review_status": "passed",
+                "impact_strength": impact,
+                "concept_forming_media_status": media_status,
+                "slide_role_count": 6,
+                "silhouette_count": 5,
+                "repeated_template_ratio": 0.25,
+                "narrative_peak_present": True,
+                "quiet_or_rest_present": True,
+                "projection_review_status": "passed",
+                "read_ahead_review_status": "passed",
+                "claims_provenance_complete": True,
+                "capture_integrity_verified": True,
+                "runtime_probe_count": 3,
+                "typography_family": typography,
+                "art_direction_family": art_family,
+                "composition_family": composition,
+                "sequence_grammar": sequence,
+            })
+        refinement_passes = []
+        for number, hypothesis in enumerate(("Clarify narrative truth", "Increase proof depth", "Create a visible peak and rest"), 1):
+            refinement_passes.append({
+                "pass": number,
+                "direction_ids": ["ledger"],
+                "hypothesis": hypothesis,
+                "preserved_strengths": ["Product truth", "Documentary material"],
+                "artifact": artifact(f"passes/{number}/deck.html", f"<h1>Pass {number}</h1>"),
+                "visual_delta": artifact(f"passes/{number}/delta.png", png_bytes(1200, 800, (220 - number, 225, 218, 255))),
+                "self_assessment": artifact(f"passes/{number}/assessment.md", f"# Pass {number}"),
+                "slop_report": artifact(f"passes/{number}/slop.json", json.dumps({"stage": "concept", "status": "passed"})),
+                "slop_status": "passed",
+                "affected_evidence_rerun": True,
+            })
+        manifest = {
+            "schema_version": 1,
+            "benchmark_id": definition["benchmark_id"],
+            "workflow": "$continuity-design",
+            "run_id": "presentation-test",
+            "status": "directions",
+            "definition_sha256": __import__("hashlib").sha256(definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest(),
+            "source": {"branch": "feature/test", "commit": "a" * 40, "skill_path": "skills/continuity-design/SKILL.md", "skill_sha256": __import__("hashlib").sha256(skill_path.read_bytes()).hexdigest()},
+            "seed": {"audience": "engineering-leader", "narrative": "handoff-loss-to-durable-record", "posture": "system-cartography", "read_mode": "mixed", "references": ["editorial-publication", "technical-cartography"]},
+            "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
+            "checkpoints": checkpoints,
+            "concepts": concepts,
+            "refinement_passes": refinement_passes,
+            "selection": None,
+            "prototype_validation": None,
+            "approval": None,
+            "evidence": [],
+            "reviews": [],
+            "hard_failure_reviews": [],
+            "execution_authorized": False,
+        }
+        manifest_path = self.root / "presentation-run.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertTrue(report["stage_valid"])
+        self.assertEqual(report["refinement_pass_count"], 3)
+        self.assertEqual(report["next_gate"], "human-direction-selection")
+        self.assertFalse(report["benchmark_passed"])
+
+        manifest["refinement_passes"][-1]["slop_status"] = "failed"
+        manifest["refinement_passes"][-1]["slop_report"] = artifact("passes/3/slop-failed.json", json.dumps({"stage": "concept", "status": "failed"}))
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "final presentation refinement pass"):
+            PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        manifest["refinement_passes"][-1]["slop_status"] = "passed"
+        manifest["refinement_passes"][-1]["slop_report"] = artifact("passes/3/slop-passed.json", json.dumps({"stage": "concept", "status": "passed"}))
+
+        for checkpoint_id in ("direction-selection", "private-presentation", "artifact-critique"):
+            value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps({"checkpoint_id": checkpoint_id}))
+            manifest["checkpoints"].append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-10T13:00:00Z", **value})
+        manifest["status"] = "prototype-validated"
+        manifest["selection"] = {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-10T12:30:00Z", "direction_ids": ["ledger"]}
+        manifest["prototype_validation"] = artifact("evidence/prototype.json", json.dumps({"validated": True, "ai_slop_check": {"status": "passed"}}))
+        evidence_specs = {
+            "desktop-projection": ("image/png", png_bytes(1440, 810), 1440),
+            "tablet-read-ahead": ("image/png", png_bytes(768, 1024), 768),
+            "mobile-read-ahead": ("image/png", png_bytes(390, 844), 390),
+            "sequence-contact-sheet": ("image/png", png_bytes(1200, 900), None),
+            "interaction": ("application/json", json.dumps({"keyboard": True, "touch": True}), None),
+            "reduced-motion": ("application/json", json.dumps({"reduced_motion": True}), None),
+            "accessibility": ("text/markdown", "# Accessibility evidence", None),
+            "capture-integrity": ("application/json", json.dumps({"status": "passed", "individual_frames_verified": True, "contact_sheet_source": "verified-individual-frames"}), None),
+        }
+        evidence = []
+        for role, (media_type, content, viewport_width) in evidence_specs.items():
+            suffix = ".png" if media_type == "image/png" else ".json" if media_type == "application/json" else ".md"
+            item = {"role": role, "media_type": media_type, **artifact(f"evidence/{role}{suffix}", content)}
+            if viewport_width is not None:
+                item["viewport_width"] = viewport_width
+            evidence.append(item)
+        manifest["evidence"] = evidence
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertTrue(report["stage_valid"])
+        self.assertEqual(report["next_gate"], "exact-human-design-approval")
+
+        tablet_path = self.root / "evidence" / "tablet-read-ahead.png"
+        tablet_path.write_bytes(png_bytes(820, 1024))
+        tablet_item = next(item for item in manifest["evidence"] if item["role"] == "tablet-read-ahead")
+        tablet_item["sha256"] = __import__("hashlib").sha256(tablet_path.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "required viewport"):
+            PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
 
     def test_homepage_benchmark_passes_only_after_approval_and_human_score(self):
         definition_path = SUITE / "skills" / "continuity-design" / "references" / "continuity-homepage-benchmark.json"

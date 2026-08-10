@@ -1,0 +1,12 @@
+{
+  "presentation_fidelity": {
+    "slide_role_count": 6,
+    "repeated_template_ratio": 0.25,
+    "narrative_peak_present": true,
+    "quiet_or_rest_present": true,
+    "live_presentation_review_complete": true,
+    "read_ahead_review_complete": true,
+    "claims_provenance_complete": true,
+    "capture_integrity_verified": true
+  }
+}

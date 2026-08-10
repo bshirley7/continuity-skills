@@ -10,7 +10,7 @@ Use the improvement cycle to repeat diagnose, change, benchmark, critique, and h
 1. Freeze the exact source branch, commit, skill hash, baseline benchmark evaluation, and baseline self-assessment.
 2. Convert the self-assessment into atomic findings. Every finding needs an observation, a concrete workflow or craft action, and an observable success metric.
 3. Implement only the findings selected for the pass. Bind each change to its finding IDs and exact changed artifacts.
-4. Run source tests, the fixed homepage benchmark, AI-slop checks, and a fresh multimodal self-assessment. A validated pass requires a stage-valid benchmark and named passing source tests.
+4. Run source tests, the applicable fixed homepage and/or presentation benchmark, AI-slop checks, and a fresh multimodal self-assessment. A validated pass requires a stage-valid benchmark and named passing source tests.
 5. Stop at the human gate. The cycle may report `awaiting-human`; it cannot mark its own work accepted, select a direction, approve a design, merge a branch, or authorize implementation.
 6. In `artifact-refinement`, wait for human-requested changes before another pass. In `fresh-design-experiments`, continue with an independent experiment while every prior design remains pending human review; do not treat the next experiment as acceptance or refinement of the previous one.
 7. For fresh experiments, compare every new output with all prior outputs. Change at least five design dimensions, preserve only product-truth constraints, and record conclusions that could improve the workflow rather than the individual design.
@@ -20,6 +20,8 @@ Use the improvement cycle to repeat diagnose, change, benchmark, critique, and h
 11. Beginning with the third experiment, complete a house-tell review against every prior output. Name the patterns that were avoided, any that recur, and the project-specific reason each recurrence remains appropriate. An inherited Continuity habit is not diversity merely because its content changed.
 12. Beginning with the third experiment, require strong focal crops for at least eighty percent of direct-reference tiles. A whole page may be readable yet still fail when its useful subject is too small to drive visual synthesis.
 13. Beginning with the third experiment, name the default reflexes of the new reference category itself. Every reflex must be avoided or retained as an intentional risk with a project-specific rationale and product job. Escaping generic software does not justify generic organic systems, choreography, installations, or other fashionable source categories.
+14. For presentation experiments, preserve every autonomous pass as a separate private artifact with one hypothesis, a visual delta, and a self-assessment. Compare complete sequences rather than covers alone; require at least four slide roles, a narrative peak, a quiet or rest state, and distinct projected and read-ahead reviews.
+15. Verify screenshot evidence before assessment. Check encoded media type, dimensions, viewport, frame identity, and source hash for each individual capture; assemble contact sheets only from verified frames. Reject repeated or missing frames from scrolling full-page stitches.
 
 Record and validate the loop with:
 

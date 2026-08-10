@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-RULESET_VERSION = "1.4.0"
+RULESET_VERSION = "1.5.0"
 SEVERITIES = {"info", "warning", "error", "critical"}
 DISPOSITIONS = {"open", "resolved", "not-applicable", "accepted-intentional"}
 SCANNABLE_SUFFIXES = {
@@ -26,6 +26,8 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-H005": {"class": "hard-failure", "severity": "error", "title": "Unbounded raw scroll work", "remediation": "Use passive bounded observation, requestAnimationFrame, or IntersectionObserver."},
     "CDS-H006": {"class": "hard-failure", "severity": "error", "title": "Unqualified illustrative claim", "remediation": "Add visible qualification and provenance for generated or illustrative claims."},
     "CDS-H007": {"class": "hard-failure", "severity": "critical", "title": "Third-party reference promoted", "remediation": "Keep third-party references private and replace the shipping asset with owned or licensed material."},
+    "CDS-H008": {"class": "hard-failure", "severity": "error", "title": "Presentation claims lack provenance", "remediation": "Remove invented metrics or bind every factual, testimonial, customer, traction, and performance claim to current evidence with visible qualification."},
+    "CDS-H009": {"class": "hard-failure", "severity": "error", "title": "Presentation capture evidence is invalid", "remediation": "Recapture every required viewport and slide, verify the encoded media type and dimensions, and rebuild the contact sheet from the verified individual frames."},
     "CDS-D001": {"class": "default-risk", "severity": "warning", "title": "Reflexive purple-blue gradient", "remediation": "Explain the project-specific role or replace it with a palette derived from the approved identity."},
     "CDS-D002": {"class": "default-risk", "severity": "warning", "title": "Gradient headline text", "remediation": "Use hierarchy, language, or material treatment instead of default gradient display type."},
     "CDS-D003": {"class": "default-risk", "severity": "warning", "title": "Reflexive warm cream", "remediation": "Record why the warm neutral is specific to this project or choose an evidenced surface color."},
@@ -60,6 +62,11 @@ RULES: dict[str, dict[str, str]] = {
     "CDS-D032": {"class": "default-risk", "severity": "warning", "title": "Variable image contrast is unresolved", "remediation": "Move, contain, or protect overlaid type so contrast remains dependable across the actual image range."},
     "CDS-D033": {"class": "default-risk", "severity": "warning", "title": "Compositional depth flattened", "remediation": "Separate the scene into registered background, live-content, and alpha-bearing foreground planes so the intended occlusion remains editable."},
     "CDS-D034": {"class": "default-risk", "severity": "warning", "title": "Typographic character approximated", "remediation": "Use the intended licensed face or a measured project-specific transformation and prove the loaded family and rendered silhouette with real copy."},
+    "CDS-D035": {"class": "default-risk", "severity": "warning", "title": "Repeated title-and-body slide template", "remediation": "Define distinct slide roles and vary composition according to narrative purpose rather than repeating one title-and-body shell."},
+    "CDS-D036": {"class": "default-risk", "severity": "warning", "title": "Slide-role range is too narrow", "remediation": "Demonstrate at least four structural roles such as opening, interruption, proof, system explanation, quiet or rest, comparison, and closure."},
+    "CDS-D037": {"class": "default-risk", "severity": "warning", "title": "Presentation lacks a narrative peak", "remediation": "Give one consequential idea a visibly stronger rhetorical and compositional moment instead of keeping every slide at the same intensity."},
+    "CDS-D038": {"class": "default-risk", "severity": "warning", "title": "Presentation lacks a quiet or rest state", "remediation": "Add a deliberate quiet, evidence, or transition role so pacing is not uniformly loud or dense."},
+    "CDS-D039": {"class": "default-risk", "severity": "warning", "title": "Projected and read-ahead modes are collapsed", "remediation": "Review live projection and independent reading separately; preserve the same truth while allowing each mode to use an appropriate density and sequence."},
     "CDS-P001": {"class": "project-drift", "severity": "error", "title": "Unapproved design token", "remediation": "Return to the approved font, color, spacing, radius, motion, or opening-pattern family."},
     "CDS-P002": {"class": "project-drift", "severity": "error", "title": "Signature absent beyond hero", "remediation": "Carry the approved signature into body, mobile, quiet, error, and reduced-motion states."},
     "CDS-P003": {"class": "project-drift", "severity": "error", "title": "Reference imitation", "remediation": "Adapt the recorded mechanic through the project-specific transformation instead of copying identity."},
@@ -274,6 +281,37 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
     for key, rule_id, evidence in portfolio_checks:
         if key in portfolio_diversity and portfolio_diversity.get(key) is False:
             findings.append(_finding(rule_id, first_location, 0, evidence, source="context"))
+    presentation = manifest.get("presentation_fidelity", {})
+    if not isinstance(presentation, dict):
+        raise ValueError("presentation_fidelity must be an object")
+    slide_role_count = presentation.get("slide_role_count")
+    if slide_role_count is not None:
+        if not isinstance(slide_role_count, int) or isinstance(slide_role_count, bool) or slide_role_count < 0:
+            raise ValueError("presentation_fidelity.slide_role_count must be a non-negative integer")
+        if slide_role_count < 4:
+            findings.append(_finding("CDS-D036", first_location, 0, f"only {slide_role_count} structural slide roles were demonstrated", source="context"))
+    repeated_template_ratio = presentation.get("repeated_template_ratio")
+    if repeated_template_ratio is not None:
+        if not isinstance(repeated_template_ratio, (int, float)) or isinstance(repeated_template_ratio, bool) or not 0 <= repeated_template_ratio <= 1:
+            raise ValueError("presentation_fidelity.repeated_template_ratio must be between 0 and 1")
+        if repeated_template_ratio > 0.5:
+            findings.append(_finding("CDS-D035", first_location, 0, f"{repeated_template_ratio:.0%} of slides repeat one structural template", source="context"))
+    presentation_checks = (
+        ("narrative_peak_present", "CDS-D037", "the sequence has no visibly dominant narrative peak"),
+        ("quiet_or_rest_present", "CDS-D038", "the sequence has no deliberate quiet or rest state"),
+    )
+    for key, rule_id, evidence in presentation_checks:
+        if key in presentation and presentation.get(key) is False:
+            findings.append(_finding(rule_id, first_location, 0, evidence, source="context"))
+    if (
+        presentation.get("live_presentation_review_complete") is False
+        or presentation.get("read_ahead_review_complete") is False
+    ):
+        findings.append(_finding("CDS-D039", first_location, 0, "live projection and read-ahead behavior were not both reviewed", source="context"))
+    if presentation.get("claims_provenance_complete") is False:
+        findings.append(_finding("CDS-H008", first_location, 0, "one or more presentation claims lack current source evidence or visible qualification", source="context"))
+    if presentation.get("capture_integrity_verified") is False:
+        findings.append(_finding("CDS-H009", first_location, 0, "one or more required captures have an unverified media type, dimension, viewport, or frame identity", source="context"))
     for item in manifest.get("generated_claims", []):
         if isinstance(item, dict) and (not item.get("visible_qualification") or not item.get("provenance")):
             findings.append(_finding("CDS-H006", str(item.get("location", "manifest")), 0, "generated or illustrative claim lacks visible qualification or provenance", source="context"))
@@ -346,6 +384,7 @@ def inspect(target: Path, project_root: Path, manifest: dict[str, Any]) -> dict[
         "unresolved_finding_ids": unresolved,
         "visual_review": manifest.get("visual_review", {}),
         "translation_fidelity": translation,
+        "presentation_fidelity": presentation,
     }
     report["report_hash"] = hashlib.sha256(json.dumps(report, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     return report
