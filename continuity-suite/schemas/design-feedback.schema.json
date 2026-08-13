@@ -4,10 +4,12 @@
   "type": "object",
   "required": ["reactions", "contract_changed", "ready_for_selection"],
   "properties": {
-    "actor": {"type": "string"}, "contract_changed": {"type": "boolean"}, "ready_for_selection": {"type": "boolean"},
+    "actor": {"type": "string"}, "actor_type": {"enum": ["human", "agent"]}, "contract_changed": {"type": "boolean"}, "ready_for_selection": {"type": "boolean"},
     "design_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1},
     "board_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "concept_evidence_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "preferred_direction_id": {"type": "string"}, "overall_notes": {"type": "string"},
+    "iteration_request": {"enum": ["none", "different-directions", "more-like-preferred", "remix", "refine-preferred"]},
+    "remix_notes": {"type": "string"},
     "reactions": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["element_id", "reaction", "why"], "properties": {"element_id": {"type": "string", "pattern": "^\\d+(?:[.:-][A-Za-z0-9._-]+)?$"}, "reaction": {"enum": ["keep", "change", "avoid", "uncertain"]}, "why": {"type": "string", "minLength": 1}, "user_language": {"type": "string"}}, "additionalProperties": false}},
     "visual_delta": {"type": "object", "properties": {"status": {"const": "passed"}, "reviewer": {"type": "string"}, "reviewed_at": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "stayed": {"type": "array", "items": {"type": "string"}}, "why": {"type": "array", "items": {"type": "string"}}, "before": {"type": "object"}, "after": {"type": "object"}, "path": {"type": "string"}, "sha256": {"type": "string"}}, "additionalProperties": false}
   },

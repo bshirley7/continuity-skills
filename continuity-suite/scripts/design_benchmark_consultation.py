@@ -147,6 +147,8 @@ def validate_consultation(
             "concept_evidence_hash": evidence_hash,
         }.items()):
             raise ValueError(f"Consultation feedback round {number} is stale")
+        if feedback.get("ready_for_selection") is True and feedback.get("actor_type") != "human":
+            raise ValueError("Only human consultation feedback may mark a concept set ready for selection")
         reactions = feedback.get("reactions")
         if (
             not isinstance(reactions, list) or not reactions

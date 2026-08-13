@@ -6243,8 +6243,21 @@ def feedback_record_payload(
     ready = payload.get("ready_for_selection", False)
     if not isinstance(contract_changed, bool) or not isinstance(ready, bool) or (contract_changed and ready):
         raise DesignError("Feedback readiness and contract_changed flags are invalid")
+    actor_type = payload.get("actor_type")
+    if actor_type is not None and actor_type not in {"human", "agent"}:
+        raise DesignError("Feedback actor_type must be human or agent")
+    if record.get("workflow_version", 1) >= 4 and ready and actor_type != "human":
+        raise DesignError("Only human feedback may mark a workflow-v4 concept set ready for selection")
+    iteration_request = payload.get("iteration_request", "none")
+    if iteration_request not in {"none", "different-directions", "more-like-preferred", "remix", "refine-preferred"}:
+        raise DesignError("Unsupported consultation iteration request")
+    remix_notes = payload.get("remix_notes", "")
+    if not isinstance(remix_notes, str):
+        raise DesignError("Consultation remix_notes must be text")
+    if iteration_request == "remix" and not remix_notes.strip():
+        raise DesignError("A remix request requires remix_notes")
     requested_change = any(item["reaction"] in {"change", "avoid"} for item in normalized)
-    effective_contract_change = contract_changed or requested_change
+    effective_contract_change = contract_changed or requested_change or iteration_request != "none"
     if effective_contract_change and ready:
         raise DesignError("Material visual feedback cannot be ready for selection until refreshed evidence passes")
     material_feedback = effective_contract_change
@@ -6263,6 +6276,8 @@ def feedback_record_payload(
     known_directions = {item.get("direction_id") for item in record["concept_evidence"].get("concepts", []) if item.get("direction_id")}
     if preferred_direction_id and preferred_direction_id not in known_directions:
         raise DesignError("Preferred direction must name a current selectable concept")
+    if iteration_request in {"more-like-preferred", "refine-preferred"} and not preferred_direction_id:
+        raise DesignError("This iteration request requires a current preferred direction")
     overall_notes = payload.get("overall_notes", "")
     if not isinstance(overall_notes, str):
         raise DesignError("overall_notes must be a string")
@@ -6278,6 +6293,8 @@ def feedback_record_payload(
         "actor": actor, "reactions": normalized,
         "visual_delta": visual_delta, "contract_changed": effective_contract_change,
         "contract_change_declared": contract_changed, "ready_for_selection": ready,
+        "actor_type": actor_type, "iteration_request": iteration_request,
+        "remix_notes": remix_notes.strip(),
         "preferred_direction_id": preferred_direction_id or None,
         "overall_notes": overall_notes.strip(),
         "consultation_binding": {

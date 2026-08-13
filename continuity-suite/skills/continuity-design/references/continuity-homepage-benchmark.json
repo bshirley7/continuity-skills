@@ -18,7 +18,10 @@
     {"rule_id": "CDHB-H014", "description": "A selectable concept lacks a complete consultation summary, concrete brand guideline, or passed evidence-consistency record."},
     {"rule_id": "CDHB-H015", "description": "Consultation feedback is stale, lacks rationale, omits a required material visual delta, fails to reach explicit readiness, or is treated as selection or approval."},
     {"rule_id": "CDHB-H016", "description": "The exact approval bundle omits or changes a selected concept brand-guideline hash."},
-    {"rule_id": "CDHB-H017", "description": "A benchmark silently reuses an existing design or prior concept set instead of defaulting to fresh concepts, or enters review or refinement without an explicit user instruction and inherited-artifact provenance."}
+    {"rule_id": "CDHB-H017", "description": "A benchmark silently reuses an existing design or prior concept set instead of defaulting to fresh concepts, or enters review or refinement without an explicit user instruction and inherited-artifact provenance."},
+    {"rule_id": "CDHB-H018", "description": "A fresh run has fewer than three complete directions, accepts an incomplete slop stub, or lacks a screenshot-bound quality review by a reviewer other than the producer."},
+    {"rule_id": "CDHB-H019", "description": "A concept enters consultation below 75 quality, above B AI-slop, with a hard design rejection, or without a clear user outcome, primary action, product proof, and five-second reaction."},
+    {"rule_id": "CDHB-H020", "description": "An agent marks its own concepts ready for selection, or the consultation surface buries visual comparison beneath specification detail."}
   ],
   "minimum_human_reviewers": 1,
   "passing_score": 75,
@@ -43,18 +46,17 @@
     "accessibility": ["application/json", "text/markdown"]
   },
   "rubric": [
-    {"dimension": "product-understanding-and-truthfulness", "weight": 12},
-    {"dimension": "concept-thesis-and-originality", "weight": 9},
-    {"dimension": "creative-range-and-generative-synthesis", "weight": 7},
+    {"dimension": "product-understanding-and-truthfulness", "weight": 13},
+    {"dimension": "concept-thesis-and-originality", "weight": 10},
+    {"dimension": "creative-range-and-generative-synthesis", "weight": 8},
     {"dimension": "reference-translation-fidelity", "weight": 6},
-    {"dimension": "narrative-and-information-architecture", "weight": 8},
-    {"dimension": "visual-system-and-craft", "weight": 9},
+    {"dimension": "narrative-and-information-architecture", "weight": 9},
+    {"dimension": "visual-system-and-craft", "weight": 11},
     {"dimension": "typography-media-and-page-range", "weight": 9},
-    {"dimension": "product-proof-and-interaction", "weight": 12},
+    {"dimension": "product-proof-and-interaction", "weight": 13},
     {"dimension": "impact-and-cultural-resonance", "weight": 7},
     {"dimension": "authority-and-lifecycle-clarity", "weight": 9},
-    {"dimension": "responsive-behavior-and-accessibility", "weight": 5},
-    {"dimension": "consultation-coherence-and-brand-durability", "weight": 7}
+    {"dimension": "responsive-behavior-and-accessibility", "weight": 5}
   ],
   "schema_version": 2,
   "seed_options": {

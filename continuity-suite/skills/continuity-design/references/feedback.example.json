@@ -4,6 +4,7 @@
   "board_hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "concept_evidence_hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "actor": "client",
+  "actor_type": "human",
   "contract_changed": true,
   "ready_for_selection": false,
   "reactions": [
@@ -11,5 +12,7 @@
     {"element_id": "1.surface", "reaction": "change", "why": "The contrast competes with the evidence.", "user_language": "The dark panel is too loud."}
   ],
   "preferred_direction_id": "direction-1",
+  "iteration_request": "remix",
+  "remix_notes": "Keep direction 1's proof rail with direction 2's quieter material treatment.",
   "overall_notes": "Keep the proof-led reading order while quieting the surface."
 }

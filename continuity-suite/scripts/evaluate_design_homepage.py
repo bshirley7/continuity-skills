@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+import struct
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import design_benchmark_consultation as benchmark_consultation  # noqa: E402
 import design_benchmark_pathway as benchmark_pathway  # noqa: E402
+import design_benchmark_quality as benchmark_quality  # noqa: E402
 
 
 STAGES = {"directions": 1, "selected": 2, "prototype-validated": 3, "approved": 4, "scored": 5}
@@ -44,6 +46,16 @@ def _artifact(root: Path, value: Any, label: str) -> dict[str, str]:
     if not path.is_file() or value.get("sha256") != _sha256(path):
         raise ValueError(f"{label} is missing or changed: {relative}")
     return {"path": relative, "sha256": value["sha256"]}
+
+
+def _png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        raise ValueError(f"Homepage evidence is not an encoded PNG: {path.name}")
+    width, height = struct.unpack(">II", data[16:24])
+    if width < 1 or height < 1:
+        raise ValueError(f"Homepage PNG has invalid dimensions: {path.name}")
+    return width, height
 
 
 def _definition(path: Path) -> dict[str, Any]:
@@ -181,6 +193,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     concepts = manifest.get("concepts")
     if not isinstance(concepts, list) or not 1 <= len(concepts) <= 3:
         raise ValueError("Homepage benchmark requires one to three concepts")
+    if definition["schema_version"] >= 2 and manifest.get("creative_pathway", {}).get("mode") == "fresh-concepts" and len(concepts) != 3:
+        raise ValueError("Fresh benchmark runs require exactly three complete design concepts")
     concept_ids: set[str] = set()
     typography_strategies: set[str] = set()
     typography_families: set[str] = set()
@@ -202,6 +216,13 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop["path"], f"Concept slop report {direction_id}")
         if slop_value.get("status") != "passed" or slop_value.get("stage") != "concept":
             raise ValueError(f"Concept {direction_id} lacks a passed concept-stage slop report")
+        if definition["schema_version"] >= 2:
+            benchmark_quality.validate_slop_report(
+                run_root, slop_value, f"Concept slop report {direction_id}", _artifact, _png_dimensions,
+            )
+            quality = benchmark_quality.validate_quality_review(
+                run_root, concept.get("quality_review"), direction_id, _artifact, _read, _png_dimensions,
+            )
         if concept.get("creative_range_status") != "passed" or concept.get("generative_laboratory_hash") != laboratory_hash:
             raise ValueError(f"Concept {direction_id} lacks passed creative-range evidence bound to the generative laboratory")
         reference_adaptation_id = concept.get("reference_adaptation_id")
@@ -242,7 +263,10 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         page_grammar_families.add(concept["page_grammar_family"])
         interaction_motion_strategies.add(concept["interaction_motion_strategy_id"])
         impact_strengths.add(concept["impact_strength"])
-        normalized_concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop})
+        normalized_concept = {"direction_id": direction_id, "board": board, "slop_report": slop}
+        if definition["schema_version"] >= 2:
+            normalized_concept["quality_review"] = quality
+        normalized_concepts.append(normalized_concept)
         concept_ids.add(direction_id)
     if translation_adaptation_count != len(concepts):
         raise ValueError("Reference translation adaptation count must match the complete concept set")

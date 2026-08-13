@@ -19,7 +19,11 @@
     {"rule_id": "CDPB-H015", "description": "A selectable concept lacks a complete consultation summary, concrete brand guideline, or passed evidence-consistency record."},
     {"rule_id": "CDPB-H016", "description": "Consultation feedback is stale, lacks rationale, omits a required material visual delta, fails to reach explicit readiness, or is treated as selection or approval."},
     {"rule_id": "CDPB-H017", "description": "The exact approval bundle omits or changes a selected concept brand-guideline hash."},
-    {"rule_id": "CDPB-H018", "description": "A benchmark silently reuses an existing design or prior concept sequence instead of defaulting to fresh concepts, or enters review or refinement without an explicit user instruction and inherited-artifact provenance."}
+    {"rule_id": "CDPB-H018", "description": "A benchmark silently reuses an existing design or prior concept sequence instead of defaulting to fresh concepts, or enters review or refinement without an explicit user instruction and inherited-artifact provenance."},
+    {"rule_id": "CDPB-H019", "description": "A fresh run has fewer than three complete directions, accepts an incomplete slop stub, or lacks a screenshot-bound quality review by a reviewer other than the producer."},
+    {"rule_id": "CDPB-H020", "description": "A concept enters consultation below 75 quality, above B AI-slop, with a hard design rejection, or without a clear user outcome, primary action, product proof, and five-second reaction."},
+    {"rule_id": "CDPB-H021", "description": "A claimed craft pass reuses a concept screenshot, lacks distinct before/after/comparison evidence, or breaks the prior-after to next-before chain."},
+    {"rule_id": "CDPB-H022", "description": "An agent marks its own concepts ready for selection, or the consultation surface buries visual comparison beneath specification detail."}
   ],
   "minimum_human_reviewers": 1,
   "minimum_refinement_passes": 3,
@@ -51,16 +55,15 @@
   },
   "rubric": [
     {"dimension": "product-understanding-and-claim-truthfulness", "weight": 14},
-    {"dimension": "narrative-thesis-and-sequence", "weight": 12},
-    {"dimension": "concept-range-and-slide-role-diversity", "weight": 9},
+    {"dimension": "narrative-thesis-and-sequence", "weight": 13},
+    {"dimension": "concept-range-and-slide-role-diversity", "weight": 10},
     {"dimension": "reference-and-generated-media-synthesis", "weight": 9},
-    {"dimension": "typography-composition-and-material-craft", "weight": 11},
-    {"dimension": "proof-specificity-and-authority-clarity", "weight": 11},
-    {"dimension": "pacing-peak-rest-and-closure", "weight": 8},
+    {"dimension": "typography-composition-and-material-craft", "weight": 13},
+    {"dimension": "proof-specificity-and-authority-clarity", "weight": 12},
+    {"dimension": "pacing-peak-rest-and-closure", "weight": 9},
     {"dimension": "projected-and-read-ahead-quality", "weight": 8},
     {"dimension": "responsive-accessibility-and-interaction", "weight": 7},
-    {"dimension": "genericity-resistance-and-self-critique", "weight": 4},
-    {"dimension": "consultation-coherence-and-brand-durability", "weight": 7}
+    {"dimension": "genericity-resistance-and-self-critique", "weight": 5}
   ],
   "schema_version": 2,
   "seed_options": {

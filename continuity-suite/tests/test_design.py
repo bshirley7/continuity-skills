@@ -205,6 +205,61 @@ class DesignLifecycleTests(unittest.TestCase):
             "creative_risks": [{"move": "Overscale the opening proof", "rationale": "Make authority immediate.", "gain": "Recognition", "cost": "Less simultaneous context", "boundary": "Never hide the first evidence item."}, {"move": "Let the seam cross sections", "rationale": "Make continuity structural.", "gain": "Narrative coherence", "cost": "More layout discipline", "boundary": "Stop at permissions and recovery surfaces."}],
         }
 
+    def benchmark_quality_artifacts(self, artifact, direction_id, board, *, presentation=False, color_seed=0):
+        wide = artifact(
+            f"quality/{direction_id}-wide.png",
+            png_bytes(1200, 800, (205 + color_seed, 218, 211, 255)),
+        )
+        narrow = artifact(
+            f"quality/{direction_id}-narrow.png",
+            png_bytes(390, 844, (214, 221 + color_seed, 216, 255)),
+        )
+        visual_review = {}
+        for question in (
+            "decoration_has_job", "directions_structurally_distinct", "identity_specific",
+            "not_category_reflex", "not_library_default", "reference_transformed",
+            "signature_identifiable", "signature_survives_states",
+        ):
+            visual_review[question] = {
+                "result": "pass", "reviewer": "independent-design-reviewer",
+                "reviewed_at": "2026-08-13T12:00:00Z",
+                "rationale": f"The {direction_id} evidence passes {question.replace('_', ' ')}.",
+                "evidence": [{**(narrow if question == "signature_survives_states" else wide), "region": "complete render"}],
+            }
+        slop_value = {
+            "schema_version": 1, "stage": "concept", "status": "passed",
+            "ruleset_version": "1.7.0", "ruleset_hash": "1" * 64,
+            "report_hash": "2" * 64, "source_bundle_hash": "3" * 64,
+            "checked_at": "2026-08-13T12:00:00Z", "target": board["path"],
+            "files": [board], "visual_review": visual_review, "findings": [],
+        }
+        if presentation:
+            slop_value["presentation_fidelity"] = {
+                "copy_readability_verified": True, "data_readability_verified": True,
+            }
+        slop = artifact(f"quality/{direction_id}-slop.json", json.dumps(slop_value))
+        quality = artifact(f"quality/{direction_id}-review.json", json.dumps({
+            "schema_version": 1, "status": "passed", "direction_id": direction_id,
+            "producer_id": "benchmark-design-producer", "reviewer_id": "independent-design-reviewer",
+            "reviewer_type": "independent-agent", "reviewed_at": "2026-08-13T12:05:00Z",
+            "design_score": 82, "ai_slop_grade": "B",
+            "hard_rejections": {
+                "generic_card_grid_first_impression": False, "beautiful_image_weak_brand": False,
+                "strong_headline_without_action": False, "busy_imagery_behind_text": False,
+                "repeated_mood_statements": False, "purposeless_carousel": False,
+                "stacked_cards_as_layout": False, "default_primary_typeface": False,
+                "undersized_body_copy": False, "desktop_stack_on_mobile": False,
+            },
+            "value_story": {
+                "user_outcome": "The next actor understands what happened and what decision remains.",
+                "primary_action": "Inspect the current evidence and decide the bounded next step.",
+                "product_proof": "A realistic decision record demonstrates goal, evidence, owner, and stop.",
+                "five_second_reaction": f"{direction_id} makes the handoff tangible.",
+            },
+            "wide_evidence": wide, "narrow_evidence": narrow, "findings": [],
+        }))
+        return slop, quality
+
     def benchmark_consultation(self, artifact, concepts, design_id, *, material=False):
         evidence_hash = design._canonical_hash({"design_id": design_id, "directions": [item["direction_id"] for item in concepts]})
         guideline_hashes = {}
@@ -247,7 +302,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 "design_id": design_id, "revision": revision, "board_hash": board_hash,
                 "concept_evidence_hash": evidence_hash,
                 "reactions": [{"element_id": f"{index}.concept", "reaction": "keep", "why": "The direction is coherent and ready to compare."} for index, _ in enumerate(concepts, 1)],
-                "contract_changed": False, "ready_for_selection": True,
+                "actor_type": "human", "contract_changed": False, "ready_for_selection": True,
                 "preferred_direction_id": concepts[0]["direction_id"], "overall_notes": "Ready for the separate selection step.",
             }
         rounds = []
@@ -258,7 +313,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 "design_id": design_id, "revision": 1, "board_hash": initial_board_hash,
                 "concept_evidence_hash": initial_evidence_hash,
                 "reactions": [{"element_id": "1.concept", "reaction": "change", "why": "Strengthen the evidence seam without losing the quiet state."}],
-                "contract_changed": True, "ready_for_selection": False,
+                "actor_type": "human", "contract_changed": True, "ready_for_selection": False,
                 "preferred_direction_id": concepts[0]["direction_id"], "overall_notes": "Refine before selection.",
             }
             change_record = {
@@ -470,10 +525,33 @@ class DesignLifecycleTests(unittest.TestCase):
         refreshed["concept_evidence"]["validated"] = True
         path.write_text(json.dumps(refreshed), encoding="utf-8")
         ready = design.feedback_record_payload(self.root, self.config, record["design_id"], {
-            "actor": "reviewer", "contract_changed": False, "ready_for_selection": True,
+            "actor": "reviewer", "actor_type": "human", "contract_changed": False, "ready_for_selection": True,
             "reactions": [{"element_id": "1.concept", "reaction": "keep", "why": "The refreshed carrier now holds."}],
         })
         self.assertEqual(ready["status"], "awaiting-selection")
+
+    def test_v4_consultation_iteration_requests_are_material_and_server_validated(self):
+        record, _ = self.prepare_v4_consultation_record("v4-iteration")
+        base = {
+            "actor": "reviewer", "actor_type": "human", "contract_changed": False,
+            "ready_for_selection": False,
+            "reactions": [{"element_id": "1.concept", "reaction": "keep", "why": "Keep the evidence premise."}],
+        }
+        with self.assertRaisesRegex(design.DesignError, "requires a current preferred direction"):
+            design.feedback_record_payload(
+                self.root, self.config, record["design_id"],
+                {**base, "iteration_request": "refine-preferred"},
+            )
+        with self.assertRaisesRegex(design.DesignError, "remix request requires remix_notes"):
+            design.feedback_record_payload(
+                self.root, self.config, record["design_id"],
+                {**base, "iteration_request": "remix"},
+            )
+        revised = design.feedback_record_payload(
+            self.root, self.config, record["design_id"],
+            {**base, "iteration_request": "more-like-preferred", "preferred_direction_id": "direction-1"},
+        )
+        self.assertEqual((revised["revision"], revised["status"], revised["visual_delta_status"]), (2, "refining", "pending"))
 
     def test_consultation_board_is_private_accessible_and_hardened(self):
         record, _ = self.prepare_v4_consultation_record("v4-server")
@@ -499,10 +577,13 @@ class DesignLifecycleTests(unittest.TestCase):
             html = body.decode()
             self.assertIn("prefers-reduced-motion", html)
             self.assertIn("focus-visible", html)
-            self.assertIn("height:clamp(24rem,68vh,48rem)", html)
+            self.assertIn("Compare the openings before reading the rationale", html)
+            self.assertIn("height:clamp(32rem,72vh,58rem)", html)
             self.assertIn("overscroll-behavior:contain", html)
             self.assertIn("position:sticky", html)
             self.assertIn("Scroll to inspect the full evidence", html)
+            self.assertIn("more-like-preferred", html)
+            self.assertIn("Remix elements across directions", html)
             self.assertIn("figure:focus-visible", html)
             self.assertNotIn("innerHTML", html)
             self.assertNotIn("localStorage", html)
@@ -527,7 +608,7 @@ class DesignLifecycleTests(unittest.TestCase):
             current = json.dumps({
                 "design_id": record["design_id"], "revision": rendered["revision"], "board_hash": rendered["board_hash"],
                 "concept_evidence_hash": rendered["concept_evidence_hash"], "contract_changed": False,
-                "ready_for_selection": True, "preferred_direction_id": "direction-1", "overall_notes": "Ready.",
+                "actor_type": "human", "ready_for_selection": True, "preferred_direction_id": "direction-1", "overall_notes": "Ready.",
                 "reactions": [{"element_id": "1.concept", "reaction": "keep", "why": "The system is coherent."}],
             })
             status, _, body = request("POST", "/api/v1/feedback", current, {**auth, "Content-Type": "application/json"})
@@ -3028,14 +3109,11 @@ class DesignLifecycleTests(unittest.TestCase):
             "proof-relay": ("type-humanist-proof", "humanist-sans", "diagrammatic", "editorial-sequence", "navigable-artifact", "interaction-proof", "credible"),
             "local-aperture": ("type-mono-coordinate", "monospaced", "spatial", "spatial-field", "single-canvas-instrument", "spatial-inspection", "credible"),
         }
-        for direction_id in ("morning-brief", "proof-relay", "local-aperture"):
+        for color_seed, direction_id in enumerate(("morning-brief", "proof-relay", "local-aperture")):
             board = artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>")
-            slop = artifact(
-                f"concepts/{direction_id}-slop.json",
-                json.dumps({"stage": "concept", "status": "passed"}),
-            )
+            slop, quality = self.benchmark_quality_artifacts(artifact, direction_id, board, color_seed=color_seed)
             strategy, family, art_family, composition, grammar, interaction, strength = concept_range[direction_id]
-            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": f"adaptation-{direction_id}", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
+            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "quality_review": quality, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": f"adaptation-{direction_id}", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
 
         checkpoints = []
         for checkpoint_id in definition["stage_checkpoints"]["directions"]:
@@ -3092,6 +3170,30 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(report["creative_pathway_basis"], "default-fresh")
         self.assertEqual(report["consultation_round_count"], 1)
         self.assertEqual(report["material_feedback_round_count"], 0)
+
+        two_direction_fresh = json.loads(json.dumps(manifest))
+        two_direction_fresh["concepts"] = two_direction_fresh["concepts"][:2]
+        manifest_path.write_text(json.dumps(two_direction_fresh), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "exactly three complete design concepts"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        self_reviewed = json.loads(json.dumps(manifest))
+        quality_path = self.root / self_reviewed["concepts"][0]["quality_review"]["path"]
+        quality_value = json.loads(quality_path.read_text(encoding="utf-8"))
+        quality_value["reviewer_id"] = quality_value["producer_id"]
+        self_reviewed["concepts"][0]["quality_review"] = artifact("quality/self-reviewed.json", json.dumps(quality_value))
+        manifest_path.write_text(json.dumps(self_reviewed), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "independent passing design-quality review"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        agent_ready = json.loads(json.dumps(manifest))
+        agent_feedback_path = self.root / agent_ready["consultation"]["rounds"][-1]["feedback"]["path"]
+        agent_feedback_value = json.loads(agent_feedback_path.read_text(encoding="utf-8"))
+        agent_feedback_value["actor_type"] = "agent"
+        agent_ready["consultation"]["rounds"][-1]["feedback"] = artifact("consultation/agent-ready.json", json.dumps(agent_feedback_value))
+        manifest_path.write_text(json.dumps(agent_ready), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Only human consultation feedback"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
 
         missing_consultation = json.loads(json.dumps(manifest))
         missing_consultation.pop("consultation")
@@ -3240,16 +3342,19 @@ class DesignLifecycleTests(unittest.TestCase):
         systems = (
             ("ledger", "condensed-serif", "documentary", "custody-spreads", "editorial-ledger", "compelling", "passed"),
             ("cartography", "compressed-sans", "diagrammatic", "route-field", "decision-map", "credible", "supporting"),
+            ("witness", "humanist-sans", "material-archive", "witness-sequence", "evidence-custody", "credible", "supporting"),
         )
-        for direction_id, typography, art_family, composition, sequence, impact, media_status in systems:
+        for color_seed, (direction_id, typography, art_family, composition, sequence, impact, media_status) in enumerate(systems):
+            board = artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>")
+            slop, quality = self.benchmark_quality_artifacts(
+                artifact, direction_id, board, presentation=True, color_seed=color_seed,
+            )
             concepts.append({
                 "direction_id": direction_id,
-                "board": artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>"),
+                "board": board,
                 "contact_sheet": artifact(f"concepts/{direction_id}.png", png_bytes(1200, 800)),
-                "slop_report": artifact(f"concepts/{direction_id}-slop.json", json.dumps({
-                    "stage": "concept", "status": "passed",
-                    "presentation_fidelity": {"copy_readability_verified": True, "data_readability_verified": True},
-                })),
+                "slop_report": slop,
+                "quality_review": quality,
                 "generative_laboratory_hash": laboratory_hash,
                 "reference_translation_hash": translation_hash,
                 "creative_range_status": "passed",
@@ -3274,19 +3379,24 @@ class DesignLifecycleTests(unittest.TestCase):
                 "sequence_grammar": sequence,
             })
         refinement_passes = []
+        pass_before = artifact("passes/initial.png", png_bytes(1200, 800, (225, 225, 218, 255)))
         for number, hypothesis in enumerate(("Clarify narrative truth", "Increase proof depth", "Create a visible peak and rest"), 1):
+            pass_after = artifact(f"passes/{number}/after.png", png_bytes(1200, 800, (220 - number, 225 - number, 218, 255)))
             refinement_passes.append({
                 "pass": number,
                 "direction_ids": ["ledger"],
                 "hypothesis": hypothesis,
                 "preserved_strengths": ["Product truth", "Documentary material"],
                 "artifact": artifact(f"passes/{number}/deck.html", f"<h1>Pass {number}</h1>"),
-                "visual_delta": artifact(f"passes/{number}/delta.png", png_bytes(1200, 800, (220 - number, 225, 218, 255))),
+                "before": pass_before,
+                "after": pass_after,
+                "visual_delta": artifact(f"passes/{number}/delta.png", png_bytes(1200, 800, (200 - number, 210, 205, 255))),
                 "self_assessment": artifact(f"passes/{number}/assessment.md", f"# Pass {number}"),
                 "slop_report": artifact(f"passes/{number}/slop.json", json.dumps({"stage": "concept", "status": "passed"})),
                 "slop_status": "passed",
                 "affected_evidence_rerun": True,
             })
+            pass_before = pass_after
         manifest = {
             "schema_version": definition["schema_version"],
             "benchmark_id": definition["benchmark_id"],
@@ -3321,6 +3431,12 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertEqual(report["material_feedback_round_count"], 1)
         self.assertEqual(report["next_gate"], "human-direction-selection")
         self.assertFalse(report["benchmark_passed"])
+
+        copied_delta = json.loads(json.dumps(manifest))
+        copied_delta["refinement_passes"][0]["visual_delta"] = copied_delta["refinement_passes"][0]["after"]
+        manifest_path.write_text(json.dumps(copied_delta), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "distinct before, after, and comparison evidence"):
+            PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
 
         legacy_definition = json.loads(json.dumps(definition))
         legacy_definition.update({"schema_version": 1, "benchmark_id": "continuity-design-presentation-v1", "brief_path": "legacy-presentation-brief.md"})
@@ -3428,11 +3544,19 @@ class DesignLifecycleTests(unittest.TestCase):
             if checkpoint_id == "generative-concept-laboratory":
                 content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
             if checkpoint_id == "reference-translation":
-                content.update({"status": "passed", "precision_schema_version": 2, "reference_study_count": 1, "adaptation_count": 2, "constraint_count": 8, "copy_detail_count": 3, "correction_pass_count": 2, "literal_substitution_count": 2, "independent_review_status": "passed", "comparison_status": "passed", "primitive_substitution_count": 0, "reference_translation_hash": reference_translation_hash})
+                content.update({"status": "passed", "precision_schema_version": 2, "reference_study_count": 1, "adaptation_count": 3, "constraint_count": 8, "copy_detail_count": 3, "correction_pass_count": 2, "literal_substitution_count": 3, "independent_review_status": "passed", "comparison_status": "passed", "primitive_substitution_count": 0, "reference_translation_hash": reference_translation_hash})
             value = artifact(f"checkpoints/{checkpoint_id}.json", json.dumps(content))
             checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
-        board = artifact("concepts/morning-brief.html", "<h1>Morning brief</h1>")
-        slop = artifact("concepts/morning-brief-slop.json", json.dumps({"stage": "concept", "status": "passed"}))
+        concept_specs = (
+            ("morning-brief", "type-reflective-serif", "serif", "photographic", "cinematic-chapters", "editorial-issue", "motion-witness", "compelling"),
+            ("proof-relay", "type-humanist-proof", "humanist-sans", "diagrammatic", "spatial-field", "single-canvas-instrument", "interaction-proof", "credible"),
+            ("authority-index", "type-mono-index", "monospaced", "material-archive", "indexed-ledger", "navigable-artifact", "motion-index", "credible"),
+        )
+        concepts = []
+        for color_seed, (direction_id, strategy, family, art_family, composition, grammar, interaction, strength) in enumerate(concept_specs):
+            board = artifact(f"concepts/{direction_id}.html", f"<h1>{direction_id}</h1>")
+            slop, quality = self.benchmark_quality_artifacts(artifact, direction_id, board, color_seed=color_seed)
+            concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "quality_review": quality, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": f"adaptation-{direction_id}", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
         prototype = artifact("evidence/prototype-validation.json", json.dumps({"validated": True, "ai_slop_check": {"status": "passed"}}))
         evidence = []
         media_types = {
@@ -3457,10 +3581,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "seed": {"audience": "founder-operator", "posture": "calm-authority", "hero": "morning-decision-surface", "references": ["Linear", "Palantir Foundry"], "edge_case": "healthy-but-unauthorized"},
             "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
             "checkpoints": checkpoints,
-            "concepts": [
-                {"direction_id": "morning-brief", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": "adaptation-morning-brief", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": "type-reflective-serif", "typography_family": "serif", "art_direction_family": "photographic", "composition_family": "cinematic-chapters", "page_grammar_family": "editorial-issue", "interaction_motion_strategy_id": "motion-witness", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "compelling", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"},
-                {"direction_id": "proof-relay", "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": "adaptation-proof-relay", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": "type-humanist-proof", "typography_family": "humanist-sans", "art_direction_family": "diagrammatic", "composition_family": "spatial-field", "page_grammar_family": "single-canvas-instrument", "interaction_motion_strategy_id": "interaction-proof", "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": "credible", "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"}
-            ],
+            "concepts": concepts,
             "selection": {"actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]},
             "prototype_validation": prototype,
             "approval": {"actor_type": "human", **{key: approval_value[key] for key in ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")}, "record": approval_record},

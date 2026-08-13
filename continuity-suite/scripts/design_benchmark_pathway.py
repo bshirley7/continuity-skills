@@ -50,6 +50,8 @@ def validate_creative_pathway(
         raise ValueError("Benchmark creative pathway diagnosis requires prior artifact hashes")
 
     if mode == FRESH:
+        if len(concepts) != 3:
+            raise ValueError("Fresh benchmark runs require exactly three complete design concepts")
         if basis not in {"default-fresh", "explicit-user-instruction"}:
             raise ValueError("Fresh benchmark concepts require the default-fresh or explicit-user-instruction basis")
         if inherited_design_id is not None or inherited != []:

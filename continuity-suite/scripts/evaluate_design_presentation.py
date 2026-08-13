@@ -15,6 +15,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import design_benchmark_consultation as benchmark_consultation  # noqa: E402
 import design_benchmark_pathway as benchmark_pathway  # noqa: E402
+import design_benchmark_quality as benchmark_quality  # noqa: E402
 
 
 STAGES = {"directions": 1, "selected": 2, "prototype-validated": 3, "approved": 4, "scored": 5}
@@ -170,6 +171,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     concepts = manifest.get("concepts")
     if not isinstance(concepts, list) or not 1 <= len(concepts) <= 3:
         raise ValueError("Presentation benchmark requires one to three concepts")
+    if definition["schema_version"] >= 2 and manifest.get("creative_pathway", {}).get("mode") == "fresh-concepts" and len(concepts) != 3:
+        raise ValueError("Fresh benchmark runs require exactly three complete design concepts")
     concept_ids: set[str] = set()
     type_families: set[str] = set()
     art_families: set[str] = set()
@@ -191,6 +194,13 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop["path"], f"Concept slop report {direction_id}")
         if slop_value.get("status") != "passed" or slop_value.get("stage") != "concept":
             raise ValueError(f"Presentation concept {direction_id} lacks a passed concept slop report")
+        if definition["schema_version"] >= 2:
+            benchmark_quality.validate_slop_report(
+                run_root, slop_value, f"Concept slop report {direction_id}", _artifact, _png_dimensions,
+            )
+            quality = benchmark_quality.validate_quality_review(
+                run_root, concept.get("quality_review"), direction_id, _artifact, _read, _png_dimensions,
+            )
         presentation_fidelity = slop_value.get("presentation_fidelity")
         if (
             not isinstance(presentation_fidelity, dict)
@@ -236,7 +246,10 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         composition_families.add(concept["composition_family"])
         sequence_grammars.add(concept["sequence_grammar"])
         concept_ids.add(direction_id)
-        normalized_concepts.append({"direction_id": direction_id, "board": board, "contact_sheet": contact_sheet, "slop_report": slop})
+        normalized_concept = {"direction_id": direction_id, "board": board, "contact_sheet": contact_sheet, "slop_report": slop}
+        if definition["schema_version"] >= 2:
+            normalized_concept["quality_review"] = quality
+        normalized_concepts.append(normalized_concept)
     if concept_forming < 1 or compelling < 1:
         raise ValueError("Presentation benchmark requires concept-forming media and at least one compelling concept")
     if len(concepts) > 1 and (
@@ -265,6 +278,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     if not isinstance(passes, list) or len(passes) < definition["minimum_refinement_passes"]:
         raise ValueError("Presentation benchmark lacks the required autonomous refinement passes")
     normalized_passes = []
+    previous_after_hash = None
     for index, item in enumerate(passes, 1):
         if not isinstance(item, dict) or item.get("pass") != index:
             raise ValueError("Presentation refinement passes must be consecutive and one-based")
@@ -282,12 +296,23 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop_report["path"], f"Refinement pass {index} slop report")
         if slop_value.get("stage") != "concept" or slop_value.get("status") != item["slop_status"]:
             raise ValueError(f"Presentation refinement pass {index} slop status is not bound to its report")
+        before = _artifact(run_root, item.get("before"), f"Refinement pass {index} before evidence")
+        after = _artifact(run_root, item.get("after"), f"Refinement pass {index} after evidence")
         visual_delta = _artifact(run_root, item.get("visual_delta"), f"Refinement pass {index} visual delta")
+        _png_dimensions(run_root / before["path"])
+        _png_dimensions(run_root / after["path"])
         _png_dimensions(run_root / visual_delta["path"])
+        if len({before["sha256"], after["sha256"], visual_delta["sha256"]}) != 3:
+            raise ValueError(f"Presentation refinement pass {index} must bind distinct before, after, and comparison evidence")
+        if previous_after_hash is not None and before["sha256"] != previous_after_hash:
+            raise ValueError(f"Presentation refinement pass {index} does not continue from the prior pass")
+        previous_after_hash = after["sha256"]
         normalized_passes.append({
             "pass": index,
             "artifact": _artifact(run_root, item.get("artifact"), f"Refinement pass {index} artifact"),
             "visual_delta": visual_delta,
+            "before": before,
+            "after": after,
             "self_assessment": _artifact(run_root, item.get("self_assessment"), f"Refinement pass {index} self-assessment"),
             "slop_report": slop_report,
         })
