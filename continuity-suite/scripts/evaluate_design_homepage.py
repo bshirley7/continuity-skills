@@ -13,6 +13,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import design_benchmark_consultation as benchmark_consultation  # noqa: E402
+import design_benchmark_pathway as benchmark_pathway  # noqa: E402
 
 
 STAGES = {"directions": 1, "selected": 2, "prototype-validated": 3, "approved": 4, "scored": 5}
@@ -259,6 +260,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     if "compelling" not in impact_strengths:
         raise ValueError("Homepage benchmark requires at least one compelling concept before selection")
 
+    creative_pathway = None
+    if definition["schema_version"] >= 2:
+        creative_pathway = benchmark_pathway.validate_creative_pathway(
+            run_root, manifest.get("creative_pathway"), concepts, _artifact, _read,
+        )
+
     consultation_binding = None
     concept_contracts: dict[str, dict[str, str]] = {}
     if definition["schema_version"] >= 2:
@@ -384,6 +391,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "compelling_concept_count": sum(concept.get("impact_strength") == "compelling" for concept in concepts),
         "reference_translation_hash": translation_hash,
         "reference_adaptation_count": translation_adaptation_count,
+        "creative_pathway": creative_pathway["mode"] if creative_pathway else None,
+        "creative_pathway_basis": creative_pathway["decision_basis"] if creative_pathway else None,
         "checkpoint_count": len(normalized_checkpoints),
         "consultation_round_count": consultation_binding["round_count"] if consultation_binding else 0,
         "material_feedback_round_count": consultation_binding["material_round_count"] if consultation_binding else 0,

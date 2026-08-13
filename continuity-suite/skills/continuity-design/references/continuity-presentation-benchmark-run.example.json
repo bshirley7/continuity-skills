@@ -4,6 +4,17 @@
   "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "checkpoints": [],
   "concepts": [],
+  "creative_pathway": {
+    "mode": "fresh-concepts",
+    "diagnosis": {"path": "pathway/diagnosis.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    "fresh_evidence": {
+      "research": {"path": "research/research.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "moodboard": {"path": "research/moodboard.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "generative_laboratory": {"path": "laboratory/laboratory.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "concept_manifest": {"path": "concepts/concept-manifest.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "comparison": {"path": "concepts/comparison.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+    }
+  },
   "consultation": {
     "design_id": "continuity-presentation-benchmark",
     "execution_authorized": false,

@@ -17,7 +17,8 @@
     {"rule_id": "CDHB-H013", "description": "A concept expands without exact single-source reconstruction, two correction passes, a literal project substitution, controlled divergence, and an independent combined-pixel review; loses an approved mechanic; or replaces source-defining media with primitive decoration."},
     {"rule_id": "CDHB-H014", "description": "A selectable concept lacks a complete consultation summary, concrete brand guideline, or passed evidence-consistency record."},
     {"rule_id": "CDHB-H015", "description": "Consultation feedback is stale, lacks rationale, omits a required material visual delta, fails to reach explicit readiness, or is treated as selection or approval."},
-    {"rule_id": "CDHB-H016", "description": "The exact approval bundle omits or changes a selected concept brand-guideline hash."}
+    {"rule_id": "CDHB-H016", "description": "The exact approval bundle omits or changes a selected concept brand-guideline hash."},
+    {"rule_id": "CDHB-H017", "description": "A benchmark silently reuses an existing design or prior concept set instead of defaulting to fresh concepts, or enters review or refinement without an explicit user instruction and inherited-artifact provenance."}
   ],
   "minimum_human_reviewers": 1,
   "passing_score": 75,

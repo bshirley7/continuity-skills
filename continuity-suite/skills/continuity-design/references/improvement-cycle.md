@@ -1,8 +1,8 @@
 # Design improvement cycle
 
-Use the improvement cycle to repeat diagnose, change, benchmark, critique, and human-review passes without losing provenance or pretending that automation can judge taste conclusively. Declare the cycle mode explicitly when intent matters:
+Use the improvement cycle to repeat diagnose, change, benchmark, critique, and human-review passes without losing provenance or pretending that automation can judge taste conclusively. Default to `fresh-design-experiments`. Use `artifact-refinement` only when the user explicitly asks to improve a selected or inherited artifact, and bind that instruction as cycle provenance:
 
-- `artifact-refinement` improves one selected or inherited design. Later passes require human-requested changes.
+- `artifact-refinement` improves one selected or inherited design after an explicit user instruction. Later passes require human-requested changes.
 - `fresh-design-experiments` tests the workflow across independent designs. Every pass must begin from a new creative seed, reference-family set, moodboard, generative laboratory, concept set, and comparison artifact.
 
 ## Loop

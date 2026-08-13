@@ -16,6 +16,7 @@
     "doctor": {"$ref": "#/$defs/artifact"},
     "checkpoints": {"type": "array", "items": {"type": "object"}},
     "concepts": {"type": "array", "maxItems": 3, "items": {"type": "object"}},
+    "creative_pathway": {"$ref": "#/$defs/creative_pathway"},
     "consultation": {"$ref": "#/$defs/consultation"},
     "selection": {"type": ["object", "null"]},
     "prototype_validation": {"type": ["object", "null"]},
@@ -28,6 +29,32 @@
   "$defs": {
     "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "artifact": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}, "additionalProperties": true},
+    "creative_pathway": {
+      "type": "object",
+      "required": ["mode", "diagnosis", "fresh_evidence"],
+      "properties": {
+        "mode": {"enum": ["fresh-concepts", "existing-design-review", "selected-concept-refinement"]},
+        "diagnosis": {"$ref": "#/$defs/artifact"},
+        "fresh_evidence": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": ["research", "moodboard", "generative_laboratory", "concept_manifest", "comparison"],
+              "properties": {
+                "research": {"$ref": "#/$defs/artifact"},
+                "moodboard": {"$ref": "#/$defs/artifact"},
+                "generative_laboratory": {"$ref": "#/$defs/artifact"},
+                "concept_manifest": {"$ref": "#/$defs/artifact"},
+                "comparison": {"$ref": "#/$defs/artifact"}
+              },
+              "additionalProperties": false
+            },
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "consultation": {
       "type": "object",
       "required": ["design_id", "private", "rounds", "execution_authorized"],
@@ -57,7 +84,7 @@
   "allOf": [
     {
       "if": {"properties": {"schema_version": {"const": 2}}},
-      "then": {"required": ["consultation"], "properties": {"benchmark_id": {"const": "continuity-design-homepage-v9"}}},
+      "then": {"required": ["creative_pathway", "consultation"], "properties": {"benchmark_id": {"const": "continuity-design-homepage-v9"}}},
       "else": {"properties": {"benchmark_id": {"const": "continuity-design-homepage-v8"}}}
     }
   ],

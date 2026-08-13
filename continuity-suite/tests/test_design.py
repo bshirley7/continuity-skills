@@ -313,6 +313,32 @@ class DesignLifecycleTests(unittest.TestCase):
             "rounds": rounds,
         }
 
+    def benchmark_fresh_pathway(self, artifact, concepts, design_id):
+        for concept in concepts:
+            concept["creative_origin"] = "fresh"
+        fresh_evidence = {
+            "research": artifact(f"pathway/{design_id}-research.json", json.dumps({"new": "research"})),
+            "moodboard": artifact(f"pathway/{design_id}-moodboard.html", "<h1>New moodboard</h1>"),
+            "generative_laboratory": artifact(f"pathway/{design_id}-laboratory.json", json.dumps({"new": "laboratory"})),
+            "concept_manifest": artifact(f"pathway/{design_id}-concepts.json", json.dumps({"new": "concepts"})),
+            "comparison": artifact(f"pathway/{design_id}-comparison.html", "<h1>New comparison</h1>"),
+        }
+        diagnosis = artifact(f"pathway/{design_id}-diagnosis.json", json.dumps({
+            "status": "resolved",
+            "mode": "fresh-concepts",
+            "question": "Should I create new concepts from scratch, review an existing design, or refine a selected concept?",
+            "decision_basis": "default-fresh",
+            "user_instruction": None,
+            "inherited_design_id": None,
+            "inherited_artifacts": [],
+            "prior_artifact_hashes": [],
+        }))
+        return {
+            "mode": "fresh-concepts",
+            "diagnosis": diagnosis,
+            "fresh_evidence": fresh_evidence,
+        }
+
     def prepare_v4_consultation_record(self, design_id="consultation-test", status="awaiting-feedback"):
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(self.creative_input(design_id=design_id, workflow_version=4)))
         design_dir = self.root / ".continuity" / "private" / "design" / design_id
@@ -958,7 +984,8 @@ class DesignLifecycleTests(unittest.TestCase):
         ref = lambda path: {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
         cycle = {
             "schema_version": 1, "cycle_id": "cycle-001", "design_id": "benchmark-homepage",
-            "objective": "Raise the creative ceiling without weakening evidence gates.", "max_passes": 3,
+            "objective": "Raise the creative ceiling without weakening evidence gates.", "mode": "artifact-refinement",
+            "user_instruction": "Refine the selected benchmark homepage artifact.", "max_passes": 3,
             "source": {"branch": "feature/design", "commit": "a" * 40, "skill_sha256": "b" * 64},
             "baseline": {"benchmark_evaluation": ref(baseline_eval), "self_assessment": ref(baseline_assessment)},
             "passes": [{
@@ -976,6 +1003,20 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertFalse(result["execution_authorized"])
         persisted = json.loads((self.root / result["record_path"]).read_text(encoding="utf-8"))
         self.assertEqual(persisted["passes"][0]["status"], "awaiting-human")
+        self.assertEqual(persisted["user_instruction"], "Refine the selected benchmark homepage artifact.")
+        defaulted = json.loads(json.dumps(cycle))
+        defaulted.pop("mode")
+        defaulted.pop("user_instruction")
+        defaulted_path = self.root / "cycle-defaulted.json"
+        defaulted_path.write_text(json.dumps(defaulted), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "Fresh-design pass 1 requires experiment evidence"):
+            design.improvement_cycle(self.root, self.config, defaulted_path)
+        unrequested = json.loads(json.dumps(cycle))
+        unrequested.pop("user_instruction")
+        unrequested_path = self.root / "cycle-unrequested-refinement.json"
+        unrequested_path.write_text(json.dumps(unrequested), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "explicit user instruction"):
+            design.improvement_cycle(self.root, self.config, unrequested_path)
         invalid = json.loads(json.dumps(cycle))
         invalid["passes"][0]["status"] = "accepted"
         invalid["passes"][0]["human_gate"] = {"required": True, "status": "accepted"}
@@ -3030,6 +3071,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "doctor": doctor,
             "checkpoints": checkpoints,
             "concepts": concepts,
+            "creative_pathway": self.benchmark_fresh_pathway(artifact, concepts, "homepage-benchmark"),
             "consultation": self.benchmark_consultation(artifact, concepts, "homepage-benchmark"),
             "selection": None,
             "prototype_validation": None,
@@ -3046,6 +3088,8 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertFalse(report["benchmark_passed"])
         self.assertFalse(report["merge_eligible"])
         self.assertEqual(report["next_gate"], "human-direction-selection")
+        self.assertEqual(report["creative_pathway"], "fresh-concepts")
+        self.assertEqual(report["creative_pathway_basis"], "default-fresh")
         self.assertEqual(report["consultation_round_count"], 1)
         self.assertEqual(report["material_feedback_round_count"], 0)
 
@@ -3053,6 +3097,57 @@ class DesignLifecycleTests(unittest.TestCase):
         missing_consultation.pop("consultation")
         manifest_path.write_text(json.dumps(missing_consultation), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "requires design consultation evidence"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        silent_replay = json.loads(json.dumps(manifest))
+        silent_replay.pop("creative_pathway")
+        manifest_path.write_text(json.dumps(silent_replay), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "creative-pathway diagnosis"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        unrequested_review = json.loads(json.dumps(manifest))
+        inherited = artifact("pathway/inherited-board.html", "<h1>Inherited design</h1>")
+        diagnosis = artifact("pathway/unrequested-review.json", json.dumps({
+            "status": "resolved", "mode": "existing-design-review",
+            "question": "Should I create new concepts from scratch, review an existing design, or refine a selected concept?",
+            "decision_basis": "default-fresh", "user_instruction": None,
+            "inherited_design_id": "prior-design", "inherited_artifacts": [inherited],
+            "prior_artifact_hashes": [inherited["sha256"]],
+        }))
+        unrequested_review["creative_pathway"] = {"mode": "existing-design-review", "diagnosis": diagnosis, "fresh_evidence": None}
+        for concept in unrequested_review["concepts"]:
+            concept["creative_origin"] = "inherited-review"
+        manifest_path.write_text(json.dumps(unrequested_review), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "explicit user instruction"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        requested_review = json.loads(json.dumps(unrequested_review))
+        review_diagnosis = artifact("pathway/requested-review.json", json.dumps({
+            "status": "resolved", "mode": "existing-design-review",
+            "question": "Should I create new concepts from scratch, review an existing design, or refine a selected concept?",
+            "decision_basis": "explicit-user-instruction",
+            "user_instruction": "Review the existing homepage concepts without generating replacements.",
+            "inherited_design_id": "prior-design", "inherited_artifacts": [inherited],
+            "prior_artifact_hashes": [inherited["sha256"]],
+        }))
+        requested_review["creative_pathway"]["diagnosis"] = review_diagnosis
+        manifest_path.write_text(json.dumps(requested_review), encoding="utf-8")
+        review_report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+        self.assertEqual(review_report["creative_pathway"], "existing-design-review")
+        self.assertEqual(review_report["creative_pathway_basis"], "explicit-user-instruction")
+
+        reused_fresh = json.loads(json.dumps(manifest))
+        fresh_hash = reused_fresh["creative_pathway"]["fresh_evidence"]["research"]["sha256"]
+        reused_diagnosis = artifact("pathway/reused-fresh.json", json.dumps({
+            "status": "resolved", "mode": "fresh-concepts",
+            "question": "Should I create new concepts from scratch, review an existing design, or refine a selected concept?",
+            "decision_basis": "default-fresh", "user_instruction": None,
+            "inherited_design_id": None, "inherited_artifacts": [],
+            "prior_artifact_hashes": [fresh_hash],
+        }))
+        reused_fresh["creative_pathway"]["diagnosis"] = reused_diagnosis
+        manifest_path.write_text(json.dumps(reused_fresh), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "reuses prior creative evidence"):
             HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
 
         stale_feedback = json.loads(json.dumps(manifest))
@@ -3096,6 +3191,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "brief_sha256": __import__("hashlib").sha256((self.root / "legacy-homepage-brief.md").read_bytes()).hexdigest(),
         })
         legacy_manifest.pop("consultation")
+        legacy_manifest.pop("creative_pathway")
         legacy_manifest["checkpoints"] = [item for item in legacy_manifest["checkpoints"] if item["checkpoint_id"] != "design-consultation"]
         manifest_path.write_text(json.dumps(legacy_manifest), encoding="utf-8")
         legacy_report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, legacy_definition_path, manifest_path)
@@ -3204,6 +3300,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
             "checkpoints": checkpoints,
             "concepts": concepts,
+            "creative_pathway": self.benchmark_fresh_pathway(artifact, concepts, "presentation-benchmark"),
             "consultation": self.benchmark_consultation(artifact, concepts, "presentation-benchmark", material=True),
             "refinement_passes": refinement_passes,
             "selection": None,
@@ -3219,6 +3316,7 @@ class DesignLifecycleTests(unittest.TestCase):
         report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
         self.assertTrue(report["stage_valid"])
         self.assertEqual(report["refinement_pass_count"], 3)
+        self.assertEqual(report["creative_pathway"], "fresh-concepts")
         self.assertEqual(report["consultation_round_count"], 2)
         self.assertEqual(report["material_feedback_round_count"], 1)
         self.assertEqual(report["next_gate"], "human-direction-selection")
@@ -3239,6 +3337,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "brief_sha256": __import__("hashlib").sha256((self.root / "legacy-presentation-brief.md").read_bytes()).hexdigest(),
         })
         legacy_manifest.pop("consultation")
+        legacy_manifest.pop("creative_pathway")
         legacy_manifest["checkpoints"] = [item for item in legacy_manifest["checkpoints"] if item["checkpoint_id"] != "design-consultation"]
         manifest_path.write_text(json.dumps(legacy_manifest), encoding="utf-8")
         legacy_report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, legacy_definition_path, manifest_path)
@@ -3371,6 +3470,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "execution_authorized": False,
         }
         manifest["consultation"] = self.benchmark_consultation(artifact, manifest["concepts"], "homepage")
+        manifest["creative_pathway"] = self.benchmark_fresh_pathway(artifact, manifest["concepts"], "homepage")
         approval_value["approval_bundle"] = {
             "brand_guideline_hashes": [manifest["concepts"][0]["brand_guideline_hash"]],
         }

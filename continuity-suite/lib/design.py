@@ -5826,9 +5826,12 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
         raise DesignError("Design improvement cycles require schema_version 1")
     cycle_id = _identifier(str(payload.get("cycle_id", "")), "design improvement cycle ID")
     design_id = _identifier(str(payload.get("design_id", "")), "design ID")
-    mode = payload.get("mode", "artifact-refinement")
+    mode = payload.get("mode", "fresh-design-experiments")
     if mode not in {"artifact-refinement", "fresh-design-experiments"}:
         raise DesignError("Design improvement cycles require a supported mode")
+    user_instruction = payload.get("user_instruction")
+    if mode == "artifact-refinement" and (not isinstance(user_instruction, str) or not user_instruction.strip()):
+        raise DesignError("Artifact refinement requires an explicit user instruction")
     objective = payload.get("objective")
     max_passes = payload.get("max_passes")
     if not isinstance(objective, str) or not objective.strip() or not isinstance(max_passes, int) or not 1 <= max_passes <= 8:
@@ -6146,7 +6149,9 @@ def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -
             }[last["status"]]
     normalized = {
         "schema_version": 1, "cycle_id": cycle_id, "design_id": design_id,
-        "objective": objective.strip(), "max_passes": max_passes, "mode": mode, "source": source,
+        "objective": objective.strip(), "max_passes": max_passes, "mode": mode,
+        **({"user_instruction": user_instruction.strip()} if isinstance(user_instruction, str) else {}),
+        "source": source,
         "baseline": {"benchmark_evaluation": baseline_evaluation, "self_assessment": baseline_assessment},
         "passes": normalized_passes, "status": status, "next_gate": next_gate,
         "updated_at": _now(), "execution_authorized": False,

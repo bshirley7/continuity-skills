@@ -4,6 +4,8 @@ Use this workflow when the user needs a direction, not only a contract. One sent
 
 ## 1. Diagnose
 
+- Resolve the creative pathway before treating any existing artifact as a candidate: `fresh-concepts`, `existing-design-review`, or `selected-concept-refinement`. Use the plain-language question “Should I create new concepts from scratch, review an existing design, or refine a selected concept?” New concepts are the default; if the user did not explicitly request review or refinement, record `default-fresh` and proceed. Existing work remains constraint and avoidance evidence in that pathway, not a reusable concept seed.
+- Review and refinement are opt-in. Bind the user's explicit instruction, the inherited design ID, and hashes for every inherited artifact. The presence of a current design, previous benchmark, favorable concept, or fixed seed does not authorize replay.
 - Inspect the product, current implementation, brand material, audiences, strengths, debt, constraints, and behavior to preserve.
 - Infer `guided`, `collaborative`, or `creative-peer`. Ask one calibration question only when the working relationship remains materially unclear. Apply the corresponding collaboration contract to recommendation posture, explanation depth, feedback scope, and challenge style.
 - Infer `brand-marketing`, `product-system`, `document-editorial`, `image-art-direction`, `cinematic-experience`, or `mixed`.
