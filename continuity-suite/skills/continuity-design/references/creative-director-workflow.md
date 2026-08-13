@@ -50,9 +50,13 @@ For atlases, moodboards, concept comparisons, visual deltas, and every individua
 
 ## 6. Feedback and refinement
 
-Ask for reactions against numbered elements: `keep`, `change`, `avoid`, or `uncertain`, plus why. Render a visual delta showing what changed, what stayed, and why. Record it with `feedback-record`.
+For new directions and material redesigns, render the native private consultation board from the current draft and validated evidence. It explains the memorable thing, coherent system, safe category-literate choices, bounded creative risks, comparable responsive evidence, palette and typography specimens, concrete brand rules, and tradeoffs. Every selectable workflow-v4 concept carries a complete guideline whose palette, type transfer and license, assets, motion, primary carrier, responsive transformations, and provenance agree with the validated concept evidence.
 
-Preserve accepted, rejected, and unresolved decisions in the active revision as well as its archive. Every `change` or `avoid` reaction is material unless refreshed evidence proves otherwise; it creates a new revision, clears prior selection, and invalidates affected concept and slop evidence. Redraft the same invalidated revision so feedback is carried forward rather than incrementing twice. Continue until the user explicitly marks the refreshed concept set ready for selection; do not optimize for the fewest turns.
+Use `consultation-render` for static interactive HTML and JSON export, or `consultation-serve` for token-bound localhost submission. Headless, offline, declined, socket-blocked, and browser-blocked sessions fall back to the same static board and normalized JSON. The board records advice; it never selects, approves, publishes, generates, or authorizes implementation.
+
+Ask for reactions against numbered elements: `keep`, `change`, `avoid`, or `uncertain`, plus why. Record material feedback first with `feedback-record`; workflow v4 immediately advances the revision and may leave its visual delta pending. Refine the design and evidence, render the before/after proof, then bind it with `feedback-delta-record`. The older atomic feedback-plus-delta record remains readable for v1-v3.
+
+Preserve accepted, rejected, and unresolved decisions in the active revision as well as its archive. Every `change` or `avoid` reaction is material unless refreshed evidence proves otherwise; it creates a new revision, clears prior selection, and invalidates affected concept and slop evidence. Redraft the same invalidated revision so feedback is carried forward rather than incrementing twice. Readiness requires refreshed evidence and every pending delta. A preferred direction is advisory until the separate `design select` command. Continue until the user explicitly marks the refreshed concept set ready for selection; do not optimize for the fewest turns.
 
 ## 7. Approve, version, and scale
 

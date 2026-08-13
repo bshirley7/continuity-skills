@@ -1,4 +1,4 @@
 interface:
   display_name: "Continuity Design"
   short_description: "Direct, visualize, refine, and approve distinctive design"
-  default_prompt: "Use $continuity-design as a creative director to turn my incomplete brief into researched visual directions, adapt the process to UI, image, document, or presentation work, keep every slide's copy and data visibly readable, refine numbered feedback, run AI-slop checks, and establish a hash-bound design contract."
+  default_prompt: "Use $continuity-design as a creative director to turn my incomplete brief into a coherent recommendation, explain safe choices and bounded creative risks, create a concrete evidence-checked brand guideline, adapt the process to UI, image, document, or presentation work, use the native private consultation board when the direction or redesign is material, refine numbered feedback and visual deltas, run AI-slop checks, and establish a hash-bound design contract without treating design approval as implementation authority."

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import http.client
 import json
 import runpy
 import shutil
@@ -8,7 +9,10 @@ import subprocess
 import struct
 import sys
 import tempfile
+import threading
+import time
 import unittest
+from unittest import mock
 import zlib
 from pathlib import Path
 
@@ -16,6 +20,7 @@ SUITE = Path(__file__).resolve().parents[1]
 SUITE_VERSION = (SUITE / "VERSION").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(SUITE / "lib"))
 import design
+import design_consultation
 import design_slop
 
 BOUNDARY_SPEC = importlib.util.spec_from_file_location("validate_design_boundary", SUITE / "scripts" / "validate_design_boundary.py")
@@ -123,6 +128,294 @@ class DesignLifecycleTests(unittest.TestCase):
         path = self.root / "input.json"
         path.write_text(json.dumps(value), encoding="utf-8")
         return path
+
+    def v4_guideline(self, direction, primary_carrier="narrative"):
+        premise = direction["distinctive_expression"]["brand_signature"]["identity_premise"]
+        provenance = direction["distinctive_expression"]["provenance_ids"]
+        return {
+            "identity": {
+                "premise": premise, "primary_carrier": primary_carrier,
+                "carrier_rule": "Let the evidence seam organize every consequential decision.",
+                "recurring_carriers": ["Evidence seam", "Numbered proof markers"],
+                "marks": [{"mark_id": "wordmark", "status": "not-applicable", "role": "The current direction uses no separate mark.", "clear_space": "Not applicable until a mark is commissioned.", "minimum_size": "Not applicable until a mark is commissioned.", "colorways": [], "prohibited_uses": ["Do not invent a placeholder logo."]}],
+                "usage_constraints": ["Keep routine controls quiet."],
+                "recognition_tests": ["The evidence seam remains recognizable without an accent color."],
+            },
+            "color": {
+                "roles": [
+                    {"token": "paper", "name": "Paper", "value": "#F2F1EC", "role": "canvas", "usage": "Primary reading field."},
+                    {"token": "ink", "name": "Ink", "value": "#151917", "role": "content", "usage": "Text and structural rules."},
+                    {"token": "signal", "name": "Signal", "value": "#1F5D4D", "role": "state", "usage": "Confirmed evidence only."},
+                ],
+                "semantic_mappings": ["Signal means verified, never decorative."],
+                "modes": ["Light is canonical; print preserves role separation."],
+                "contrast_method": "Verify WCAG contrast from rendered foreground and background pairs.",
+            },
+            "typography": {
+                "roles": [
+                    {"role": "display", "family": "Six Caps", "source": "SIL Open Font License", "license_evidence": "OFL-1.1", "fallback": "Arial Narrow, sans-serif", "weight_style": "400 normal", "usage": "Short proof declarations only."},
+                    {"role": "body", "family": "system-ui", "source": "Operating system", "license_evidence": "Platform supplied", "fallback": "sans-serif", "weight_style": "400 normal", "usage": "Explanations and controls."},
+                ],
+                "scale": [{"token": "display", "value": "clamp(3rem, 8vw, 7rem)", "usage": "Opening claim."}, {"token": "body", "value": "1rem/1.55", "usage": "Sustained reading."}],
+                "measure": "Body copy stays between 45 and 70 characters.",
+                "responsive_behavior": "Display copy wraps to two lines before its scale drops.",
+            },
+            "spatial": {
+                "base_unit": "4px", "spacing_tokens": [
+                    {"token": "space-1", "value": "4px", "usage": "Inline separation."},
+                    {"token": "space-4", "value": "16px", "usage": "Control groups."},
+                    {"token": "space-8", "value": "32px", "usage": "Section rhythm."},
+                ],
+                "grid": "Twelve columns desktop, eight tablet, four mobile.",
+                "container": "Maximum 1600px with fluid side margins.",
+                "transformations": [{"context": "desktop", "rule": "Proof and rationale share a spread."}, {"context": "tablet", "rule": "Proof leads and rationale follows."}, {"context": "mobile", "rule": "Document order replaces the spread."}],
+            },
+            "form_assets": {
+                "shape_rules": ["Use square evidence fields and one-pixel rules."],
+                "iconography_rules": ["Use labeled symbols only when text alone is insufficient."],
+                "imagery_rules": ["Use owned working evidence with explicit crops."],
+                "material_rules": ["Paper and ink carry the system; signal color marks state."],
+                "prohibited_uses": ["No decorative gradients or detached logo rows."],
+            },
+            "motion": {
+                "status": "specified", "rationale": "Motion reveals proof state without changing reading order.",
+                "tokens": [{"token": "reveal", "duration": "180ms", "easing": "ease-out", "usage": "Disclosure only."}],
+                "reduced_motion": "Use immediate disclosure.",
+            },
+            "voice": {
+                "principles": ["State the decision before the explanation."],
+                "approved_examples": ["Evidence is current through this revision."],
+                "avoid_examples": ["Revolutionary next-generation experience."],
+            },
+            "application_modes": [{"mode": "primary", "rule": "Use the full seam for orientation and proof."}, {"mode": "utility", "rule": "Use numbered markers and quiet rules."}, {"mode": "quiet", "rule": "Remove display scale but retain evidence order."}],
+            "governance": {
+                "source_refs": provenance,
+                "decision_rationale": ["The carrier turns evidence into structure."],
+                "prohibited_substitutions": ["Do not replace the seam with generic cards."],
+                "acceptance_checks": ["Every consequential claim remains adjacent to evidence."],
+                "drift_checks": ["Review palette, type transfer, carrier, responsive behavior, and provenance together."],
+            },
+        }
+
+    def consultation_summary(self):
+        return {
+            "memorable_thing": "The evidence seam",
+            "coherence_rationale": "Type, spacing, and state all reinforce one proof-led reading order.",
+            "safe_choices": [{"decision": "Quiet controls", "rationale": "Familiar controls protect task speed."}, {"decision": "Document order on mobile", "rationale": "Linear order preserves proof adjacency."}],
+            "creative_risks": [{"move": "Overscale the opening proof", "rationale": "Make authority immediate.", "gain": "Recognition", "cost": "Less simultaneous context", "boundary": "Never hide the first evidence item."}, {"move": "Let the seam cross sections", "rationale": "Make continuity structural.", "gain": "Narrative coherence", "cost": "More layout discipline", "boundary": "Stop at permissions and recovery surfaces."}],
+        }
+
+    def prepare_v4_consultation_record(self, design_id="consultation-test", status="awaiting-feedback"):
+        draft = design.draft(self.root, self.config, CATALOG, self.write_input(self.creative_input(design_id=design_id, workflow_version=4)))
+        design_dir = self.root / ".continuity" / "private" / "design" / design_id
+        record = json.loads((design_dir / "draft.json").read_text(encoding="utf-8"))
+        direction = record["directions"][0]
+        wide = self.root / f"{design_id}-wide.png"
+        narrow = self.root / f"{design_id}-narrow.png"
+        wide.write_bytes(png_bytes(1440, 900))
+        narrow.write_bytes(png_bytes(390, 844, (220, 228, 223, 255)))
+        artifact = lambda path: {"path": path.name, "sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest()}
+        guideline = self.v4_guideline(direction)
+        concept = {
+            "concept_id": "direction-1", "direction_id": direction["direction_id"], "role": "direction",
+            "recommended": True, "thesis": "Evidence becomes the organizing surface.",
+            "impact_thesis": "Make operational proof unmistakable.", "primary_carrier": "narrative",
+            "emotional_register": "calm authority", "tradeoff": "Less simultaneous overview.",
+            "palette": ["Paper #F2F1EC", "Ink #151917", "Signal #1F5D4D"],
+            "typography_system": {"strategy_id": "proof-type", "family": "condensed-display"},
+            "typographic_transfer": {"font_family": "Six Caps", "source": "SIL Open Font License", "license_evidence": "OFL-1.1"},
+            "composition_asset_plan": {"plan_id": "proof-planes"},
+            "interaction_motion_system": {"mode": "native-disclosure", "reduced_motion": "Use immediate disclosure."},
+            "consultation_summary": self.consultation_summary(), "brand_guideline": guideline,
+            "brand_guideline_hash": design._canonical_hash(guideline), "wide_composition": artifact(wide),
+            "narrow_transformation": artifact(narrow), "slop_report": {"report_hash": "a" * 64},
+        }
+        record.update({"status": status, "concept_evidence": {
+            "validated": True, "concepts": [concept], "visual_reference_hash": "b" * 64,
+            "manifest_hash": "c" * 64, "reference_translation_hash": "d" * 64,
+        }})
+        (design_dir / "draft.json").write_text(json.dumps(record), encoding="utf-8")
+        return record, concept
+
+    def test_v4_consultation_and_brand_guideline_cross_check_validated_evidence(self):
+        record, concept = self.prepare_v4_consultation_record("v4-guideline")
+        direction = record["directions"][0]
+        summary = design._validate_consultation_summary(concept["consultation_summary"], concept["concept_id"])
+        guideline = design._validate_brand_guideline(
+            self.root, concept["brand_guideline"], concept_id=concept["concept_id"],
+            concept_palette=concept["palette"], primary_carrier=concept["primary_carrier"],
+            typographic_transfer=concept["typographic_transfer"],
+            interaction_system=concept["interaction_motion_system"], direction=direction,
+        )
+        self.assertEqual(summary["memorable_thing"], "The evidence seam")
+        self.assertEqual(guideline["motion"]["reduced_motion"], concept["interaction_motion_system"]["reduced_motion"])
+        stale = json.loads(json.dumps(concept["brand_guideline"]))
+        stale["color"]["roles"][0]["value"] = "#FFFFFF"
+        with self.assertRaisesRegex(design.DesignError, "present in the validated concept palette"):
+            design._validate_brand_guideline(
+                self.root, stale, concept_id=concept["concept_id"], concept_palette=concept["palette"],
+                primary_carrier=concept["primary_carrier"], typographic_transfer=concept["typographic_transfer"],
+                interaction_system=concept["interaction_motion_system"], direction=direction,
+            )
+        unsafe = json.loads(json.dumps(concept["brand_guideline"]))
+        unsafe["color"]["roles"][0]["value"] = "url(javascript:alert(1))"
+        with self.assertRaisesRegex(design.DesignError, "safe CSS color"):
+            design._validate_brand_guideline(
+                self.root, unsafe, concept_id=concept["concept_id"], concept_palette=concept["palette"],
+                primary_carrier=concept["primary_carrier"], typographic_transfer=concept["typographic_transfer"],
+                interaction_system=concept["interaction_motion_system"], direction=direction,
+            )
+
+    def test_v4_selection_renders_and_hash_binds_concrete_guideline(self):
+        record, concept = self.prepare_v4_consultation_record("v4-selection", status="awaiting-selection")
+        selected = design.select(self.root, self.config, record["design_id"], [concept["direction_id"]], "reviewer")
+        design_path = self.root / ".continuity" / "private" / "design" / record["design_id"] / "design.md"
+        markdown = design_path.read_text(encoding="utf-8")
+        self.assertIn("## Consultation decision", markdown)
+        self.assertIn("## Brand guideline", markdown)
+        self.assertIn("### Typography", markdown)
+        self.assertEqual(selected["approval_bundle"]["brand_guideline_hashes"], [concept["brand_guideline_hash"]])
+        first_hash = selected["design_hash"]
+        selected_again = design.select(self.root, self.config, record["design_id"], [concept["direction_id"]], "reviewer")
+        self.assertEqual(first_hash, selected_again["design_hash"])
+        draft_path = self.root / ".continuity" / "private" / "design" / record["design_id"] / "draft.json"
+        post_approval = json.loads(draft_path.read_text(encoding="utf-8"))
+        post_approval["status"] = "approved"
+        draft_path.write_text(json.dumps(post_approval), encoding="utf-8")
+        feedback = {
+            "actor": "reviewer", "contract_changed": True, "ready_for_selection": False,
+            "reactions": [{"element_id": "1.brand", "reaction": "change", "why": "Tighten the quiet-mode boundary."}],
+        }
+        revised = design.feedback_record_payload(self.root, self.config, record["design_id"], feedback)
+        self.assertEqual(revised["revision"], 2)
+        self.assertEqual(revised["visual_delta_status"], "pending")
+        revised_record = design.show(self.root, self.config, record["design_id"])
+        self.assertEqual(revised_record["selected_direction_ids"], [])
+        self.assertFalse(design_path.exists())
+
+    def test_v4_material_feedback_records_before_delta_and_blocks_readiness(self):
+        record, concept = self.prepare_v4_consultation_record("v4-delta")
+        rendered = design_consultation.render(self.root, self.config, record["design_id"], "reviewer")
+        payload = {
+            "design_id": record["design_id"], "revision": rendered["revision"],
+            "board_hash": rendered["board_hash"], "concept_evidence_hash": rendered["concept_evidence_hash"],
+            "reactions": [{"element_id": "1.concept", "reaction": "change", "why": "Make the proof seam more visible."}],
+            "contract_changed": True, "ready_for_selection": False,
+            "preferred_direction_id": "direction-1", "overall_notes": "Keep the calm authority.",
+        }
+        revised = design.feedback_record_payload(self.root, self.config, record["design_id"], payload, actor_override="reviewer")
+        self.assertEqual((revised["revision"], revised["visual_delta_status"]), (2, "pending"))
+        with self.assertRaisesRegex(design.DesignError, "refreshed concept"):
+            design.feedback_record_payload(self.root, self.config, record["design_id"], {
+                "actor": "reviewer", "contract_changed": False, "ready_for_selection": True,
+                "reactions": [{"element_id": "1.concept", "reaction": "keep", "why": "The revision is coherent."}],
+            })
+        delta = self.root / "v4-delta-after.png"
+        delta.write_bytes(png_bytes(1440, 900, (200, 214, 206, 255)))
+        unreviewed = self.root / "v4-delta-unreviewed.json"
+        unreviewed.write_text(json.dumps({
+            "changed": ["The proof seam is stronger."], "stayed": ["The calm field remains."],
+            "why": ["The carrier now survives scanning."], "path": delta.name,
+            "sha256": __import__("hashlib").sha256(delta.read_bytes()).hexdigest(),
+        }), encoding="utf-8")
+        with self.assertRaisesRegex(design.DesignError, "passed review"):
+            design.feedback_delta_record(self.root, self.config, record["design_id"], 1, unreviewed)
+        delta_input = self.root / "v4-delta.json"
+        delta_input.write_text(json.dumps({
+            "status": "passed", "reviewer": "test-visual-reviewer", "reviewed_at": "2026-08-13T12:00:00Z",
+            "changed": ["The proof seam is stronger."], "stayed": ["The calm field remains."],
+            "why": ["The carrier now survives scanning."], "path": delta.name,
+            "sha256": __import__("hashlib").sha256(delta.read_bytes()).hexdigest(),
+            "before": concept["wide_composition"],
+            "after": {"path": delta.name, "sha256": __import__("hashlib").sha256(delta.read_bytes()).hexdigest()},
+        }), encoding="utf-8")
+        bound = design.feedback_delta_record(self.root, self.config, record["design_id"], 1, delta_input)
+        self.assertEqual(bound["visual_delta_status"], "bound")
+        path = self.root / ".continuity" / "private" / "design" / record["design_id"] / "draft.json"
+        refreshed = json.loads(path.read_text(encoding="utf-8"))
+        refreshed["concept_evidence"]["validated"] = True
+        path.write_text(json.dumps(refreshed), encoding="utf-8")
+        ready = design.feedback_record_payload(self.root, self.config, record["design_id"], {
+            "actor": "reviewer", "contract_changed": False, "ready_for_selection": True,
+            "reactions": [{"element_id": "1.concept", "reaction": "keep", "why": "The refreshed carrier now holds."}],
+        })
+        self.assertEqual(ready["status"], "awaiting-selection")
+
+    def test_consultation_board_is_private_accessible_and_hardened(self):
+        record, _ = self.prepare_v4_consultation_record("v4-server")
+        try:
+            server, rendered = design_consultation.create_server(self.root, self.config, record["design_id"], "reviewer", token="test-token")
+        except PermissionError:
+            self.skipTest("loopback sockets are unavailable in this sandbox")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        def request(method, path, body=None, headers=None):
+            connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+            connection.request(method, path, body=body, headers=headers or {})
+            response = connection.getresponse()
+            value = response.read()
+            result = response.status, dict(response.getheaders()), value
+            connection.close()
+            return result
+
+        try:
+            status, headers, body = request("GET", "/")
+            self.assertEqual(status, 200)
+            html = body.decode()
+            self.assertIn("prefers-reduced-motion", html)
+            self.assertIn("focus-visible", html)
+            self.assertNotIn("innerHTML", html)
+            self.assertNotIn("localStorage", html)
+            self.assertIn("default-src 'none'", headers["Content-Security-Policy"])
+            self.assertEqual(request("GET", "/api/v1/board")[0], 401)
+            auth = {"Authorization": "Bearer test-token"}
+            board_status, _, board_body = request("GET", "/api/v1/board", headers=auth)
+            self.assertEqual(board_status, 200)
+            asset = json.loads(board_body)["concepts"][0]["images"][0]["src"]
+            self.assertEqual(request("GET", f"/api/v1/{asset}", headers=auth)[0], 200)
+            self.assertEqual(request("GET", "/api/v1/assets/not-allowlisted.png", headers=auth)[0], 404)
+            self.assertEqual(request("GET", "/api/v1/board", headers={**auth, "Origin": "https://example.com"})[0], 403)
+            self.assertEqual(request("GET", "/%2e%2e/private", headers=auth)[0], 400)
+            self.assertEqual(request("POST", "/api/v1/feedback", b"{}", {**auth, "Content-Type": "application/json", "Content-Length": str(design_consultation.MAX_FEEDBACK_BYTES + 1)})[0], 413)
+            stale = json.dumps({
+                "design_id": record["design_id"], "revision": 99, "board_hash": rendered["board_hash"],
+                "concept_evidence_hash": rendered["concept_evidence_hash"], "contract_changed": False,
+                "ready_for_selection": True, "reactions": [{"element_id": "1.concept", "reaction": "keep", "why": "Keep it."}],
+            })
+            self.assertEqual(request("POST", "/api/v1/feedback", stale, {**auth, "Content-Type": "application/json"})[0], 409)
+            current = json.dumps({
+                "design_id": record["design_id"], "revision": rendered["revision"], "board_hash": rendered["board_hash"],
+                "concept_evidence_hash": rendered["concept_evidence_hash"], "contract_changed": False,
+                "ready_for_selection": True, "preferred_direction_id": "direction-1", "overall_notes": "Ready.",
+                "reactions": [{"element_id": "1.concept", "reaction": "keep", "why": "The system is coherent."}],
+            })
+            status, _, body = request("POST", "/api/v1/feedback", current, {**auth, "Content-Type": "application/json"})
+            self.assertEqual(status, 200, body)
+            self.assertEqual(json.loads(body)["status"], "awaiting-selection")
+            server.token_expires_at = time.monotonic() - 1
+            self.assertEqual(request("GET", "/api/v1/board", headers=auth)[0], 401)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+    def test_consultation_serve_degrades_to_static_without_socket_or_browser(self):
+        record, _ = self.prepare_v4_consultation_record("v4-fallback")
+        with mock.patch.object(design_consultation, "ConsultationServer", side_effect=OSError("socket unavailable")):
+            result = design_consultation.serve(self.root, self.config, record["design_id"], "reviewer")
+        self.assertTrue(result["degraded_to_static"])
+        self.assertEqual(result["degradation_reason"], "loopback-unavailable")
+        self.assertTrue((self.root / result["path"]).is_file())
+        source = (SUITE / "lib" / "design_consultation.py").read_text(encoding="utf-8").casefold()
+        self.assertNotIn("import gstack", source)
+        self.assertNotIn("subprocess", source)
+
+    def test_consultation_rejects_escaped_private_directory(self):
+        record, _ = self.prepare_v4_consultation_record("v4-private")
+        escaped = {**self.config, "private_dir": "../private"}
+        with self.assertRaisesRegex(design.DesignError, "project-relative"):
+            design_consultation.render(self.root, escaped, record["design_id"], "reviewer")
 
     def visual_review(self):
         screenshot = self.root / "visual-review.png"
@@ -4193,6 +4486,10 @@ class BoundaryTests(unittest.TestCase):
             self.assertTrue((root / ".agents/skills/continuity-design/scripts/artifact-browser-probe.js").is_file())
             self.assertTrue((root / ".agents/continuity/schemas/design-artifact-manifest.schema.json").is_file())
             self.assertTrue((root / ".agents/continuity/schemas/design-reference-translation.schema.json").is_file())
+            self.assertTrue((root / ".agents/continuity/schemas/design-brand-guideline.schema.json").is_file())
+            self.assertTrue((root / ".agents/continuity/schemas/design-feedback-delta.schema.json").is_file())
+            self.assertTrue((root / ".agents/continuity/lib/design_consultation.py").is_file())
+            self.assertTrue((root / ".agents/skills/continuity-design/references/brand-guideline.example.json").is_file())
             config = json.loads((root / ".continuity/config.json").read_text())
             self.assertEqual(config["collections"], ["core", "design", "projects"])
             cli = root / ".agents/continuity/bin/continuity"

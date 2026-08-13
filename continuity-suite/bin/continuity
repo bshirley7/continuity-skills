@@ -34,6 +34,7 @@ import github_projects as github_projects_lib  # noqa: E402
 import shared_notes as shared_notes_lib  # noqa: E402
 import runtime as runtime_lib  # noqa: E402
 import design as design_lib  # noqa: E402
+import design_consultation as design_consultation_lib  # noqa: E402
 import product_audit as product_audit_lib  # noqa: E402
 import skill_improvement as skill_improvement_lib  # noqa: E402
 
@@ -11848,6 +11849,12 @@ def design_command(args: argparse.Namespace) -> Any:
             return design_lib.improvement_cycle(root, config, Path(args.manifest).expanduser().resolve())
         if args.command == "feedback-record":
             return design_lib.feedback_record(root, config, args.design_id, Path(args.input).expanduser().resolve())
+        if args.command == "feedback-delta-record":
+            return design_lib.feedback_delta_record(root, config, args.design_id, args.round, Path(args.input).expanduser().resolve())
+        if args.command == "consultation-render":
+            return design_consultation_lib.render(root, config, args.design_id, args.actor)
+        if args.command == "consultation-serve":
+            return design_consultation_lib.serve(root, config, args.design_id, args.actor, port=args.port, open_browser=args.open)
         if args.command == "slop-check":
             return design_lib.slop_check(root, config, Path(args.target).expanduser().resolve(), Path(args.manifest).expanduser().resolve())
         if args.command == "select":
@@ -12249,6 +12256,21 @@ def build_parser() -> argparse.ArgumentParser:
     design_feedback_record.add_argument("design_id")
     design_feedback_record.add_argument("--input", required=True)
     design_feedback_record.set_defaults(handler=design_command)
+    design_feedback_delta_record = design_sub.add_parser("feedback-delta-record")
+    design_feedback_delta_record.add_argument("design_id")
+    design_feedback_delta_record.add_argument("--round", type=int, required=True)
+    design_feedback_delta_record.add_argument("--input", required=True)
+    design_feedback_delta_record.set_defaults(handler=design_command)
+    design_consultation_render = design_sub.add_parser("consultation-render")
+    design_consultation_render.add_argument("design_id")
+    design_consultation_render.add_argument("--actor", required=True)
+    design_consultation_render.set_defaults(handler=design_command)
+    design_consultation_serve = design_sub.add_parser("consultation-serve")
+    design_consultation_serve.add_argument("design_id")
+    design_consultation_serve.add_argument("--actor", required=True)
+    design_consultation_serve.add_argument("--port", type=int, default=0)
+    design_consultation_serve.add_argument("--open", action="store_true")
+    design_consultation_serve.set_defaults(handler=design_command)
     design_slop_check = design_sub.add_parser("slop-check")
     design_slop_check.add_argument("--target", required=True)
     design_slop_check.add_argument("--manifest", required=True)

@@ -4,6 +4,7 @@
   "type": "object",
   "required": ["design_id", "revision", "presentation_mode", "collaboration_delivery", "concepts", "creative_range", "impact_review", "browser_snapshots", "browser_probes", "research_links", "visual_references"],
   "properties": {
+    "workflow_version": {"enum": [1, 2, 3, 4]},
     "design_id": {"type": "string"},
     "revision": {"type": "integer", "minimum": 1},
     "presentation_mode": {"enum": ["equal-directions", "director-led"]},
@@ -34,6 +35,18 @@
           "tests_uncertainty": {"type": "string"},
           "reference_adaptation_id": {"type": "string", "minLength": 1},
           "recommended": {"type": "boolean"},
+          "consultation_summary": {
+            "type": "object",
+            "required": ["memorable_thing", "coherence_rationale", "safe_choices", "creative_risks"],
+            "properties": {
+              "memorable_thing": {"type": "string", "minLength": 1},
+              "coherence_rationale": {"type": "string", "minLength": 1},
+              "safe_choices": {"type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "object", "required": ["decision", "rationale"], "properties": {"decision": {"type": "string", "minLength": 1}, "rationale": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+              "creative_risks": {"type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "object", "required": ["move", "rationale", "gain", "cost", "boundary"], "properties": {"move": {"type": "string", "minLength": 1}, "rationale": {"type": "string", "minLength": 1}, "gain": {"type": "string", "minLength": 1}, "cost": {"type": "string", "minLength": 1}, "boundary": {"type": "string", "minLength": 1}}, "additionalProperties": false}}
+            },
+            "additionalProperties": false
+          },
+          "brand_guideline": {"$ref": "design-brand-guideline.schema.json"},
           "thesis": {"type": "string"}, "impact_thesis": {"type": "string"},
           "primary_carrier": {"enum": ["imagery", "interaction", "typography", "material", "spatial-system", "motion", "narrative"]},
           "emotional_register": {"type": "string", "minLength": 1},
@@ -103,6 +116,21 @@
     "research_links": {"type": "array", "items": {"type": "object", "required": ["tile", "disposition", "rationale", "concept_ids"], "properties": {"tile": {"type": "integer", "minimum": 1}, "disposition": {"enum": ["adopted", "transformed", "rejected", "reference-only"]}, "rationale": {"type": "string", "minLength": 1}, "concept_ids": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}},
     "visual_references": {"type": "array", "items": {"type": "object", "required": ["path", "sha256", "ownership", "publishable"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "ownership": {"enum": ["project-owned", "supplied-with-rights", "generated", "third-party"]}, "publishable": {"type": "boolean"}, "lesson": {"type": "string"}}, "additionalProperties": false}}
   },
+  "allOf": [
+    {
+      "if": {"required": ["workflow_version"], "properties": {"workflow_version": {"const": 4}}},
+      "then": {
+        "properties": {
+          "concepts": {
+            "items": {
+              "if": {"properties": {"role": {"const": "direction"}}, "required": ["role"]},
+              "then": {"required": ["consultation_summary", "brand_guideline"]}
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "file": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},
     "probe": {"type": "object", "required": ["viewport", "path", "sha256"], "properties": {"viewport": {"enum": ["mobile", "tablet", "desktop"]}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}, "additionalProperties": false},

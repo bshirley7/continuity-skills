@@ -557,7 +557,10 @@ def production_audit(root: Path, config: dict[str, Any], args: argparse.Namespac
     artifact = Path(args.artifact).expanduser().resolve()
     if not artifact.exists():
         raise RoadmapError("Production artifact does not exist")
-    markers = ("project-roadmap", "continuity roadmap serve", "CONTINUITY_ROADMAP_TOKEN", "roadmap-ui", "/api/v1/roadmap")
+    markers = (
+        "project-roadmap", "continuity roadmap serve", "CONTINUITY_ROADMAP_TOKEN", "roadmap-ui", "/api/v1/roadmap",
+        "ContinuityDesignConsultation", "continuity design consultation-serve", "continuity-board-data", "/api/v1/feedback",
+    )
     findings: list[dict[str, str]] = []
     paths = [artifact] if artifact.is_file() else [path for path in artifact.rglob("*") if path.is_file()]
     for path in paths:
@@ -568,7 +571,7 @@ def production_audit(root: Path, config: dict[str, Any], args: argparse.Namespac
         for marker in markers:
             if marker in text:
                 findings.append({"path": str(path), "marker": marker})
-    return {"artifact": str(artifact), "clean": not findings, "findings": findings, "policy": "roadmap sidecar must be excluded from preview, staging, and production artifacts"}
+    return {"artifact": str(artifact), "clean": not findings, "findings": findings, "policy": "Continuity roadmap and design-consultation sidecars must be excluded from preview, staging, and production artifacts"}
 
 
 class SidecarHandler(BaseHTTPRequestHandler):
