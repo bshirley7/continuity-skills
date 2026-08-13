@@ -7,8 +7,12 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import design_benchmark_consultation as benchmark_consultation  # noqa: E402
 
 
 STAGES = {"directions": 1, "selected": 2, "prototype-validated": 3, "approved": 4, "scored": 5}
@@ -48,9 +52,13 @@ def _definition(path: Path) -> dict[str, Any]:
         "required_checkpoints", "required_evidence_roles", "seed_options", "rubric",
         "hard_failures", "passing_score", "minimum_human_reviewers",
     }
-    if set(value) != required or value.get("schema_version") != 1:
+    identities = {
+        (1, "continuity-design-homepage-v8"),
+        (2, "continuity-design-homepage-v9"),
+    }
+    if set(value) != required or (value.get("schema_version"), value.get("benchmark_id")) not in identities:
         raise ValueError("Benchmark definition has an unsupported shape")
-    if value.get("benchmark_id") != "continuity-design-homepage-v8" or value.get("workflow") != "$continuity-design":
+    if value.get("workflow") != "$continuity-design":
         raise ValueError("Benchmark definition identity is invalid")
     return value
 
@@ -74,7 +82,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     definition_path = definition_path.resolve()
     definition = _definition(definition_path)
     manifest = _read(manifest_path.resolve(), "Benchmark run manifest")
-    if manifest.get("schema_version") != 1 or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
+    if manifest.get("schema_version") != definition["schema_version"] or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
         raise ValueError("Benchmark run identity does not match its definition")
     stage = manifest.get("status")
     if stage not in STAGES:
@@ -251,6 +259,14 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     if "compelling" not in impact_strengths:
         raise ValueError("Homepage benchmark requires at least one compelling concept before selection")
 
+    consultation_binding = None
+    concept_contracts: dict[str, dict[str, str]] = {}
+    if definition["schema_version"] >= 2:
+        concept_contracts = benchmark_consultation.validate_concept_contracts(run_root, concepts, _artifact, _read)
+        consultation_binding = benchmark_consultation.validate_consultation(
+            run_root, manifest.get("consultation"), concept_contracts, _artifact, _read,
+        )
+
     selection = manifest.get("selection")
     if STAGES[stage] >= STAGES["selected"]:
         if not isinstance(selection, dict) or selection.get("actor_type") != "human" or not isinstance(selection.get("selected_by"), str) or not isinstance(selection.get("selected_at"), str):
@@ -294,6 +310,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         required_approval = ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")
         if any(approval.get(key) != approval_value.get(key) for key in required_approval) or approval_value.get("status") != "approved" or approval_value.get("execution_authorized") is not False:
             raise ValueError("Design approval record does not match the benchmark approval binding")
+        if definition["schema_version"] >= 2:
+            if approval_value.get("design_id") != consultation_binding["design_id"] or approval_value.get("revision") != consultation_binding["revision"]:
+                raise ValueError("Design approval is stale against the final consultation revision")
+            expected_guidelines = [concept_contracts[direction_id]["brand_guideline_hash"] for direction_id in selection["direction_ids"]]
+            if approval_value.get("approval_bundle", {}).get("brand_guideline_hashes") != expected_guidelines:
+                raise ValueError("Design approval bundle does not bind the selected brand guidelines")
     elif approval is not None:
         raise ValueError("Pre-approval benchmark stages cannot claim design approval")
 
@@ -363,6 +385,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "reference_translation_hash": translation_hash,
         "reference_adaptation_count": translation_adaptation_count,
         "checkpoint_count": len(normalized_checkpoints),
+        "consultation_round_count": consultation_binding["round_count"] if consultation_binding else 0,
+        "material_feedback_round_count": consultation_binding["material_round_count"] if consultation_binding else 0,
         "evidence_roles": sorted(normalized_evidence),
         "seed": seed,
         "score": capped_score,

@@ -8,8 +8,12 @@ import hashlib
 import json
 import re
 import struct
+import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import design_benchmark_consultation as benchmark_consultation  # noqa: E402
 
 
 STAGES = {"directions": 1, "selected": 2, "prototype-validated": 3, "approved": 4, "scored": 5}
@@ -61,9 +65,13 @@ def _definition(path: Path) -> dict[str, Any]:
         "hard_failures", "passing_score", "minimum_human_reviewers",
         "minimum_refinement_passes", "minimum_slide_roles",
     }
-    if set(value) != required or value.get("schema_version") != 1:
+    identities = {
+        (1, "continuity-design-presentation-v1"),
+        (2, "continuity-design-presentation-v2"),
+    }
+    if set(value) != required or (value.get("schema_version"), value.get("benchmark_id")) not in identities:
         raise ValueError("Presentation benchmark definition has an unsupported shape")
-    if value.get("benchmark_id") != "continuity-design-presentation-v1" or value.get("workflow") != "$continuity-design":
+    if value.get("workflow") != "$continuity-design":
         raise ValueError("Presentation benchmark definition identity is invalid")
     return value
 
@@ -87,7 +95,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     definition_path = definition_path.resolve()
     definition = _definition(definition_path)
     manifest = _read(manifest_path.resolve(), "Presentation benchmark run manifest")
-    if manifest.get("schema_version") != 1 or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
+    if manifest.get("schema_version") != definition["schema_version"] or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
         raise ValueError("Presentation benchmark run identity does not match its definition")
     stage = manifest.get("status")
     if stage not in STAGES:
@@ -238,6 +246,14 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     ):
         raise ValueError("Presentation concepts must differ in type, art direction, composition, and sequence grammar")
 
+    consultation_binding = None
+    concept_contracts: dict[str, dict[str, str]] = {}
+    if definition["schema_version"] >= 2:
+        concept_contracts = benchmark_consultation.validate_concept_contracts(run_root, concepts, _artifact, _read)
+        consultation_binding = benchmark_consultation.validate_consultation(
+            run_root, manifest.get("consultation"), concept_contracts, _artifact, _read,
+        )
+
     passes = manifest.get("refinement_passes")
     if not isinstance(passes, list) or len(passes) < definition["minimum_refinement_passes"]:
         raise ValueError("Presentation benchmark lacks the required autonomous refinement passes")
@@ -342,6 +358,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         binding = ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")
         if any(approval.get(key) != approval_value.get(key) for key in binding) or approval_value.get("status") != "approved" or approval_value.get("execution_authorized") is not False:
             raise ValueError("Presentation approval record does not match its exact bundle")
+        if definition["schema_version"] >= 2:
+            if approval_value.get("design_id") != consultation_binding["design_id"] or approval_value.get("revision") != consultation_binding["revision"]:
+                raise ValueError("Presentation approval is stale against the final consultation revision")
+            expected_guidelines = [concept_contracts[direction_id]["brand_guideline_hash"] for direction_id in selection["direction_ids"]]
+            if approval_value.get("approval_bundle", {}).get("brand_guideline_hashes") != expected_guidelines:
+                raise ValueError("Presentation approval bundle does not bind the selected brand guidelines")
     elif approval is not None:
         raise ValueError("Pre-approval presentation stages cannot claim design approval")
 
@@ -402,6 +424,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "concept_forming_media_count": concept_forming,
         "sequence_grammar_count": len(sequence_grammars),
         "evidence_roles": sorted(normalized_evidence),
+        "consultation_round_count": consultation_binding["round_count"] if consultation_binding else 0,
+        "material_feedback_round_count": consultation_binding["material_round_count"] if consultation_binding else 0,
         "seed": seed,
         "score": capped_score,
         "raw_score": raw_score,

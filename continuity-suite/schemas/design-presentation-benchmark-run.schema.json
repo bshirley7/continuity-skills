@@ -4,8 +4,8 @@
   "type": "object",
   "required": ["schema_version", "benchmark_id", "workflow", "run_id", "status", "definition_sha256", "brief_sha256", "source", "seed", "doctor", "checkpoints", "concepts", "refinement_passes", "selection", "prototype_validation", "approval", "evidence", "reviews", "hard_failure_reviews", "execution_authorized"],
   "properties": {
-    "schema_version": {"const": 1},
-    "benchmark_id": {"const": "continuity-design-presentation-v1"},
+    "schema_version": {"enum": [1, 2]},
+    "benchmark_id": {"enum": ["continuity-design-presentation-v1", "continuity-design-presentation-v2"]},
     "workflow": {"const": "$continuity-design"},
     "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"},
     "status": {"enum": ["directions", "selected", "prototype-validated", "approved", "scored"]},
@@ -16,6 +16,7 @@
     "doctor": {"$ref": "#/$defs/artifact"},
     "checkpoints": {"type": "array", "items": {"type": "object"}},
     "concepts": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "object"}},
+    "consultation": {"$ref": "#/$defs/consultation"},
     "refinement_passes": {"type": "array", "minItems": 3, "items": {"type": "object"}},
     "selection": {"type": ["object", "null"]},
     "prototype_validation": {"type": ["object", "null"]},
@@ -27,7 +28,39 @@
   },
   "$defs": {
     "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "artifact": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}, "additionalProperties": true}
+    "artifact": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}, "additionalProperties": true},
+    "consultation": {
+      "type": "object",
+      "required": ["design_id", "private", "rounds", "execution_authorized"],
+      "properties": {
+        "design_id": {"type": "string", "minLength": 1},
+        "private": {"const": true},
+        "rounds": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/consultation_round"}},
+        "execution_authorized": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "consultation_round": {
+      "type": "object",
+      "required": ["round", "board", "snapshot", "feedback", "record", "delta_input", "delta_record"],
+      "properties": {
+        "round": {"type": "integer", "minimum": 1},
+        "board": {"$ref": "#/$defs/artifact"},
+        "snapshot": {"$ref": "#/$defs/artifact"},
+        "feedback": {"$ref": "#/$defs/artifact"},
+        "record": {"$ref": "#/$defs/artifact"},
+        "delta_input": {"anyOf": [{"$ref": "#/$defs/artifact"}, {"type": "null"}]},
+        "delta_record": {"anyOf": [{"$ref": "#/$defs/artifact"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    }
   },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": 2}}},
+      "then": {"required": ["consultation"], "properties": {"benchmark_id": {"const": "continuity-design-presentation-v2"}}},
+      "else": {"properties": {"benchmark_id": {"const": "continuity-design-presentation-v1"}}}
+    }
+  ],
   "additionalProperties": false
 }

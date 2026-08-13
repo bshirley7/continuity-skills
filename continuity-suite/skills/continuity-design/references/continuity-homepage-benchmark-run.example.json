@@ -1,9 +1,23 @@
 {
   "approval": null,
-  "benchmark_id": "continuity-design-homepage-v8",
+  "benchmark_id": "continuity-design-homepage-v9",
   "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "checkpoints": [],
   "concepts": [],
+  "consultation": {
+    "design_id": "continuity-homepage-benchmark",
+    "execution_authorized": false,
+    "private": true,
+    "rounds": [{
+      "board": {"path": "consultation/round-1.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "delta_input": null,
+      "delta_record": null,
+      "feedback": {"path": "consultation/round-1-feedback.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "record": {"path": "consultation/round-1-record.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "round": 1,
+      "snapshot": {"path": "consultation/round-1-snapshot.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+    }]
+  },
   "definition_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "doctor": {"path": "evidence/doctor.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
   "evidence": [],
@@ -11,8 +25,8 @@
   "hard_failure_reviews": [],
   "prototype_validation": null,
   "reviews": [],
-  "run_id": "premerge-006",
-  "schema_version": 1,
+  "run_id": "homepage-v9-example",
+  "schema_version": 2,
   "seed": {
     "audience": "founder-operator",
     "edge_case": "healthy-but-unauthorized",
@@ -22,7 +36,7 @@
   },
   "selection": null,
   "source": {
-    "branch": "feature/continuity-design-creative-director",
+    "branch": "feature/continuity-design-consultation",
     "commit": "0000000000000000000000000000000000000000",
     "skill_path": "skills/continuity-design/SKILL.md",
     "skill_sha256": "0000000000000000000000000000000000000000000000000000000000000000"

@@ -1,5 +1,5 @@
 {
-  "benchmark_id": "continuity-design-presentation-v1",
+  "benchmark_id": "continuity-design-presentation-v2",
   "brief_path": "continuity-presentation-challenge.md",
   "hard_failures": [
     {"rule_id": "CDPB-H001", "description": "Healthy is presented as authorized, or review-ready as completed."},
@@ -15,7 +15,10 @@
     {"rule_id": "CDPB-H011", "description": "An autonomous craft pass lacks a bound hypothesis, visual delta, preserved-strength record, self-assessment, or affected evidence rerun."},
     {"rule_id": "CDPB-H012", "description": "No concept passes the multimodal impact review as compelling."},
     {"rule_id": "CDPB-H013", "description": "Any audience-facing title, body line, label, value, source, or qualification is hidden, clipped, out of frame, undersized, low-contrast, font-fallback, or otherwise unreadable on a required slide or viewport."},
-    {"rule_id": "CDPB-H014", "description": "Human-selected concept-forming media is replaced by a lower-capability derivative, its real alpha or background behavior is unverified, or its integration materially suppresses the visual impact that caused it to be selected."}
+    {"rule_id": "CDPB-H014", "description": "Human-selected concept-forming media is replaced by a lower-capability derivative, its real alpha or background behavior is unverified, or its integration materially suppresses the visual impact that caused it to be selected."},
+    {"rule_id": "CDPB-H015", "description": "A selectable concept lacks a complete consultation summary, concrete brand guideline, or passed evidence-consistency record."},
+    {"rule_id": "CDPB-H016", "description": "Consultation feedback is stale, lacks rationale, omits a required material visual delta, fails to reach explicit readiness, or is treated as selection or approval."},
+    {"rule_id": "CDPB-H017", "description": "The exact approval bundle omits or changes a selected concept brand-guideline hash."}
   ],
   "minimum_human_reviewers": 1,
   "minimum_refinement_passes": 3,
@@ -28,6 +31,7 @@
     "reference-translation",
     "concept-directions",
     "autonomous-refinement",
+    "design-consultation",
     "direction-selection",
     "private-presentation",
     "artifact-critique",
@@ -46,17 +50,18 @@
   },
   "rubric": [
     {"dimension": "product-understanding-and-claim-truthfulness", "weight": 14},
-    {"dimension": "narrative-thesis-and-sequence", "weight": 13},
-    {"dimension": "concept-range-and-slide-role-diversity", "weight": 10},
+    {"dimension": "narrative-thesis-and-sequence", "weight": 12},
+    {"dimension": "concept-range-and-slide-role-diversity", "weight": 9},
     {"dimension": "reference-and-generated-media-synthesis", "weight": 9},
-    {"dimension": "typography-composition-and-material-craft", "weight": 13},
-    {"dimension": "proof-specificity-and-authority-clarity", "weight": 12},
-    {"dimension": "pacing-peak-rest-and-closure", "weight": 9},
+    {"dimension": "typography-composition-and-material-craft", "weight": 11},
+    {"dimension": "proof-specificity-and-authority-clarity", "weight": 11},
+    {"dimension": "pacing-peak-rest-and-closure", "weight": 8},
     {"dimension": "projected-and-read-ahead-quality", "weight": 8},
     {"dimension": "responsive-accessibility-and-interaction", "weight": 7},
-    {"dimension": "genericity-resistance-and-self-critique", "weight": 5}
+    {"dimension": "genericity-resistance-and-self-critique", "weight": 4},
+    {"dimension": "consultation-coherence-and-brand-durability", "weight": 7}
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "seed_options": {
     "audience": ["founder-operator", "engineering-leader", "product-leader", "platform-team"],
     "narrative": ["handoff-loss-to-durable-record", "overnight-decision", "authority-boundary", "project-truth-to-portfolio-signal"],
@@ -65,11 +70,11 @@
     "references": ["editorial-publication", "institutional-identity", "technical-cartography", "documentary-archive", "motion-led-brand"]
   },
   "stage_checkpoints": {
-    "approved": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection", "private-presentation", "artifact-critique", "design-approval"],
-    "directions": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement"],
-    "prototype-validated": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection", "private-presentation", "artifact-critique"],
-    "scored": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection", "private-presentation", "artifact-critique", "design-approval"],
-    "selected": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "direction-selection"]
+    "approved": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "design-consultation", "direction-selection", "private-presentation", "artifact-critique", "design-approval"],
+    "directions": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "design-consultation"],
+    "prototype-validated": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "design-consultation", "direction-selection", "private-presentation", "artifact-critique"],
+    "scored": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "design-consultation", "direction-selection", "private-presentation", "artifact-critique", "design-approval"],
+    "selected": ["brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions", "autonomous-refinement", "design-consultation", "direction-selection"]
   },
   "workflow": "$continuity-design"
 }

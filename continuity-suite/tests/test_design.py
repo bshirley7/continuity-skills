@@ -205,6 +205,114 @@ class DesignLifecycleTests(unittest.TestCase):
             "creative_risks": [{"move": "Overscale the opening proof", "rationale": "Make authority immediate.", "gain": "Recognition", "cost": "Less simultaneous context", "boundary": "Never hide the first evidence item."}, {"move": "Let the seam cross sections", "rationale": "Make continuity structural.", "gain": "Narrative coherence", "cost": "More layout discipline", "boundary": "Stop at permissions and recovery surfaces."}],
         }
 
+    def benchmark_consultation(self, artifact, concepts, design_id, *, material=False):
+        evidence_hash = design._canonical_hash({"design_id": design_id, "directions": [item["direction_id"] for item in concepts]})
+        guideline_hashes = {}
+        direction = {
+            "distinctive_expression": {
+                "brand_signature": {"identity_premise": "Evidence is a visible structural seam."},
+                "provenance_ids": ["benchmark-brief", "validated-concept-evidence"],
+            }
+        }
+        for concept in concepts:
+            direction_id = concept["direction_id"]
+            summary = self.consultation_summary()
+            guideline = self.v4_guideline(direction)
+            guideline_hash = design._canonical_hash(guideline)
+            checks = {key: "passed" for key in (
+                "palette", "typography", "licensed_assets", "motion", "primary_carrier",
+                "responsive_probes", "provenance",
+            )}
+            concept.update({
+                "consultation_summary": artifact(f"consultation/{direction_id}-summary.json", json.dumps(summary)),
+                "brand_guideline": artifact(f"consultation/{direction_id}-guideline.json", json.dumps(guideline)),
+                "brand_guideline_hash": guideline_hash,
+                "concept_evidence_hash": evidence_hash,
+                "brand_guideline_validation": artifact(f"consultation/{direction_id}-guideline-validation.json", json.dumps({
+                    "status": "passed", "direction_id": direction_id,
+                    "brand_guideline_hash": guideline_hash, "concept_evidence_hash": evidence_hash,
+                    "checks": checks,
+                })),
+            })
+            guideline_hashes[direction_id] = guideline_hash
+        def snapshot(revision, board_hash, current_evidence_hash):
+            return {
+            "schema_version": 1, "private": True, "design_id": design_id, "revision": 1,
+            "board_hash": board_hash, "concept_evidence_hash": current_evidence_hash,
+            "concepts": [{"direction_id": key, "brand_guideline_hash": value} for key, value in guideline_hashes.items()],
+            "execution_authorized": False,
+            } | {"revision": revision}
+        def keep_feedback(revision, board_hash):
+            return {
+                "design_id": design_id, "revision": revision, "board_hash": board_hash,
+                "concept_evidence_hash": evidence_hash,
+                "reactions": [{"element_id": f"{index}.concept", "reaction": "keep", "why": "The direction is coherent and ready to compare."} for index, _ in enumerate(concepts, 1)],
+                "contract_changed": False, "ready_for_selection": True,
+                "preferred_direction_id": concepts[0]["direction_id"], "overall_notes": "Ready for the separate selection step.",
+            }
+        rounds = []
+        if material:
+            initial_evidence_hash = "e" * 64
+            initial_board_hash = design._canonical_hash({"design_id": design_id, "revision": 1, "concept_evidence_hash": initial_evidence_hash})
+            change_feedback = {
+                "design_id": design_id, "revision": 1, "board_hash": initial_board_hash,
+                "concept_evidence_hash": initial_evidence_hash,
+                "reactions": [{"element_id": "1.concept", "reaction": "change", "why": "Strengthen the evidence seam without losing the quiet state."}],
+                "contract_changed": True, "ready_for_selection": False,
+                "preferred_direction_id": concepts[0]["direction_id"], "overall_notes": "Refine before selection.",
+            }
+            change_record = {
+                "design_id": design_id, "revision": 2, "status": "refining", "feedback_round": 1,
+                "visual_delta_status": "pending", "preferred_direction_id": concepts[0]["direction_id"],
+                "slop_evidence_valid": False, "execution_authorized": False,
+            }
+            before = artifact("consultation/delta-before.png", png_bytes(1200, 800))
+            after = artifact("consultation/delta-after.png", png_bytes(1200, 800, (214, 224, 218, 255)))
+            delta_image = artifact("consultation/delta-comparison.png", png_bytes(1200, 800, (205, 218, 211, 255)))
+            delta_input = artifact("consultation/round-1-delta-input.json", json.dumps({
+                "status": "passed", "reviewer": "outside-reviewer", "reviewed_at": "2026-08-13T12:30:00Z",
+                "changed": ["The evidence seam is more visible."], "stayed": ["The quiet state remains."],
+                "why": ["The refinement answers the numbered feedback."],
+                "path": delta_image, "before": before, "after": after,
+            }))
+            delta_record = artifact("consultation/round-1-delta-record.json", json.dumps({
+                "design_id": design_id, "revision": 2, "feedback_round": 1,
+                "visual_delta_status": "bound", "status": "refining", "execution_authorized": False,
+            }))
+            rounds.append({
+                "round": 1,
+                "board": artifact("consultation/round-1.html", f"<html><body>{initial_board_hash} {initial_evidence_hash}</body></html>"),
+                "snapshot": artifact("consultation/round-1-snapshot.json", json.dumps(snapshot(1, initial_board_hash, initial_evidence_hash))),
+                "feedback": artifact("consultation/round-1-feedback.json", json.dumps(change_feedback)),
+                "record": artifact("consultation/round-1-record.json", json.dumps(change_record)),
+                "delta_input": delta_input, "delta_record": delta_record,
+            })
+            final_revision = 2
+            final_round = 2
+        else:
+            final_revision = 1
+            final_round = 1
+        board_hash = design._canonical_hash({"design_id": design_id, "revision": final_revision, "concept_evidence_hash": evidence_hash})
+        feedback = keep_feedback(final_revision, board_hash)
+        record = {
+            "design_id": design_id, "revision": final_revision, "status": "awaiting-selection",
+            "feedback_round": final_round, "visual_delta_status": "not-required",
+            "preferred_direction_id": concepts[0]["direction_id"], "slop_evidence_valid": True,
+            "execution_authorized": False,
+        }
+        rounds.append({
+            "round": final_round,
+            "board": artifact(f"consultation/round-{final_round}.html", f"<html><body>{board_hash} {evidence_hash}</body></html>"),
+            "snapshot": artifact(f"consultation/round-{final_round}-snapshot.json", json.dumps(snapshot(final_revision, board_hash, evidence_hash))),
+            "feedback": artifact(f"consultation/round-{final_round}-feedback.json", json.dumps(feedback)),
+            "record": artifact(f"consultation/round-{final_round}-record.json", json.dumps(record)),
+            "delta_input": None, "delta_record": None,
+        })
+        return {
+            "design_id": design_id, "private": True, "execution_authorized": False,
+            "rounds": rounds,
+        }
+
     def prepare_v4_consultation_record(self, design_id="consultation-test", status="awaiting-feedback"):
         draft = design.draft(self.root, self.config, CATALOG, self.write_input(self.creative_input(design_id=design_id, workflow_version=4)))
         design_dir = self.root / ".continuity" / "private" / "design" / design_id
@@ -2884,7 +2992,7 @@ class DesignLifecycleTests(unittest.TestCase):
             concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop, "creative_range_status": "passed", "range_audit_status": "passed", "generative_laboratory_hash": laboratory_hash, "reference_adaptation_id": f"adaptation-{direction_id}", "reference_translation_hash": reference_translation_hash, "typography_strategy_id": strategy, "typography_family": family, "art_direction_family": art_family, "composition_family": composition, "page_grammar_family": grammar, "interaction_motion_strategy_id": interaction, "journey_stage_count": 5, "signature_stage_count": 3, "runtime_probe_count": 3, "impact_review_status": "passed", "impact_strength": strength, "comparison_depth_status": "passed", "generated_media_extraction_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed"})
 
         checkpoints = []
-        for checkpoint_id in ("brief-interpretation", "reference-synthesis", "generative-concept-laboratory", "reference-translation", "concept-directions"):
+        for checkpoint_id in definition["stage_checkpoints"]["directions"]:
             content = {"checkpoint_id": checkpoint_id}
             if checkpoint_id == "generative-concept-laboratory":
                 content.update({"status": "complete", "lens_count": 4, "seed_count": 8, "media_count": 3, "generated_seed_count": 2, "art_direction_family_count": 4, "typography_strategy_count": 3, "typography_family_count": 3, "composition_family_count": 3, "page_depth_role_count": 5, "page_grammar_count": 4, "interaction_motion_count": 3, "style_frame_family_count": 2, "style_frame_count": 4, "non_system_typography_count": 1, "shortlisted_seed_count": 4, "laboratory_hash": laboratory_hash})
@@ -2894,7 +3002,7 @@ class DesignLifecycleTests(unittest.TestCase):
             checkpoints.append({"checkpoint_id": checkpoint_id, "created_at": "2026-08-08T12:00:00Z", **value})
 
         manifest = {
-            "schema_version": 1,
+            "schema_version": definition["schema_version"],
             "benchmark_id": definition["benchmark_id"],
             "workflow": "$continuity-design",
             "run_id": "test-homepage",
@@ -2917,6 +3025,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "doctor": doctor,
             "checkpoints": checkpoints,
             "concepts": concepts,
+            "consultation": self.benchmark_consultation(artifact, concepts, "homepage-benchmark"),
             "selection": None,
             "prototype_validation": None,
             "approval": None,
@@ -2932,8 +3041,64 @@ class DesignLifecycleTests(unittest.TestCase):
         self.assertFalse(report["benchmark_passed"])
         self.assertFalse(report["merge_eligible"])
         self.assertEqual(report["next_gate"], "human-direction-selection")
+        self.assertEqual(report["consultation_round_count"], 1)
+        self.assertEqual(report["material_feedback_round_count"], 0)
+
+        missing_consultation = json.loads(json.dumps(manifest))
+        missing_consultation.pop("consultation")
+        manifest_path.write_text(json.dumps(missing_consultation), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "requires design consultation evidence"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        stale_feedback = json.loads(json.dumps(manifest))
+        stale_value = json.loads((self.root / stale_feedback["consultation"]["rounds"][0]["feedback"]["path"]).read_text(encoding="utf-8"))
+        stale_value["board_hash"] = "0" * 64
+        stale_feedback["consultation"]["rounds"][0]["feedback"] = artifact("consultation/stale-feedback.json", json.dumps(stale_value))
+        manifest_path.write_text(json.dumps(stale_feedback), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "feedback round 1 is stale"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        material_without_delta = json.loads(json.dumps(manifest))
+        material_value = json.loads((self.root / material_without_delta["consultation"]["rounds"][0]["feedback"]["path"]).read_text(encoding="utf-8"))
+        material_value.update({"contract_changed": True, "ready_for_selection": False})
+        material_value["reactions"][0].update({"reaction": "change", "why": "Refine this before selection."})
+        material_record = json.loads((self.root / material_without_delta["consultation"]["rounds"][0]["record"]["path"]).read_text(encoding="utf-8"))
+        material_record.update({"revision": 2, "status": "refining", "visual_delta_status": "pending"})
+        material_without_delta["consultation"]["rounds"][0]["feedback"] = artifact("consultation/material-feedback.json", json.dumps(material_value))
+        material_without_delta["consultation"]["rounds"][0]["record"] = artifact("consultation/material-record.json", json.dumps(material_record))
+        manifest_path.write_text(json.dumps(material_without_delta), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "delta input round 1 requires path"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        guideline_drift = json.loads(json.dumps(manifest))
+        guideline_drift["concepts"][0]["brand_guideline_hash"] = "f" * 64
+        manifest_path.write_text(json.dumps(guideline_drift), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "brand guideline hash is missing or stale"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
+
+        legacy_definition = json.loads(json.dumps(definition))
+        legacy_definition.update({"schema_version": 1, "benchmark_id": "continuity-design-homepage-v8", "brief_path": "legacy-homepage-brief.md"})
+        legacy_definition["required_checkpoints"].remove("design-consultation")
+        for values in legacy_definition["stage_checkpoints"].values():
+            values.remove("design-consultation")
+        legacy_definition_path = self.root / "legacy-homepage-benchmark.json"
+        legacy_definition_path.write_text(json.dumps(legacy_definition), encoding="utf-8")
+        (self.root / "legacy-homepage-brief.md").write_text(brief_path.read_text(encoding="utf-8"), encoding="utf-8")
+        legacy_manifest = json.loads(json.dumps(manifest))
+        legacy_manifest.update({
+            "schema_version": 1, "benchmark_id": "continuity-design-homepage-v8",
+            "definition_sha256": __import__("hashlib").sha256(legacy_definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256((self.root / "legacy-homepage-brief.md").read_bytes()).hexdigest(),
+        })
+        legacy_manifest.pop("consultation")
+        legacy_manifest["checkpoints"] = [item for item in legacy_manifest["checkpoints"] if item["checkpoint_id"] != "design-consultation"]
+        manifest_path.write_text(json.dumps(legacy_manifest), encoding="utf-8")
+        legacy_report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, legacy_definition_path, manifest_path)
+        self.assertTrue(legacy_report["stage_valid"])
+        self.assertEqual(legacy_report["consultation_round_count"], 0)
 
         with self.assertRaisesRegex(ValueError, "cannot preselect"):
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             manifest["selection"] = {
                 "actor_type": "human", "selected_by": "reviewer", "selected_at": "2026-08-08T12:10:00Z", "direction_ids": ["morning-brief"]
             }
@@ -3022,7 +3187,7 @@ class DesignLifecycleTests(unittest.TestCase):
                 "affected_evidence_rerun": True,
             })
         manifest = {
-            "schema_version": 1,
+            "schema_version": definition["schema_version"],
             "benchmark_id": definition["benchmark_id"],
             "workflow": "$continuity-design",
             "run_id": "presentation-test",
@@ -3034,6 +3199,7 @@ class DesignLifecycleTests(unittest.TestCase):
             "doctor": artifact("evidence/doctor.json", json.dumps({"healthy": True})),
             "checkpoints": checkpoints,
             "concepts": concepts,
+            "consultation": self.benchmark_consultation(artifact, concepts, "presentation-benchmark", material=True),
             "refinement_passes": refinement_passes,
             "selection": None,
             "prototype_validation": None,
@@ -3048,8 +3214,31 @@ class DesignLifecycleTests(unittest.TestCase):
         report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
         self.assertTrue(report["stage_valid"])
         self.assertEqual(report["refinement_pass_count"], 3)
+        self.assertEqual(report["consultation_round_count"], 2)
+        self.assertEqual(report["material_feedback_round_count"], 1)
         self.assertEqual(report["next_gate"], "human-direction-selection")
         self.assertFalse(report["benchmark_passed"])
+
+        legacy_definition = json.loads(json.dumps(definition))
+        legacy_definition.update({"schema_version": 1, "benchmark_id": "continuity-design-presentation-v1", "brief_path": "legacy-presentation-brief.md"})
+        legacy_definition["required_checkpoints"].remove("design-consultation")
+        for values in legacy_definition["stage_checkpoints"].values():
+            values.remove("design-consultation")
+        legacy_definition_path = self.root / "legacy-presentation-benchmark.json"
+        legacy_definition_path.write_text(json.dumps(legacy_definition), encoding="utf-8")
+        (self.root / "legacy-presentation-brief.md").write_text(brief_path.read_text(encoding="utf-8"), encoding="utf-8")
+        legacy_manifest = json.loads(json.dumps(manifest))
+        legacy_manifest.update({
+            "schema_version": 1, "benchmark_id": "continuity-design-presentation-v1",
+            "definition_sha256": __import__("hashlib").sha256(legacy_definition_path.read_bytes()).hexdigest(),
+            "brief_sha256": __import__("hashlib").sha256((self.root / "legacy-presentation-brief.md").read_bytes()).hexdigest(),
+        })
+        legacy_manifest.pop("consultation")
+        legacy_manifest["checkpoints"] = [item for item in legacy_manifest["checkpoints"] if item["checkpoint_id"] != "design-consultation"]
+        manifest_path.write_text(json.dumps(legacy_manifest), encoding="utf-8")
+        legacy_report = PRESENTATION_EVALUATION.evaluate(SUITE, self.root, legacy_definition_path, manifest_path)
+        self.assertTrue(legacy_report["stage_valid"])
+        self.assertEqual(legacy_report["consultation_round_count"], 0)
 
         manifest["refinement_passes"][-1]["slop_status"] = "failed"
         manifest["refinement_passes"][-1]["slop_report"] = artifact("passes/3/slop-failed.json", json.dumps({"stage": "concept", "status": "failed"}))
@@ -3156,7 +3345,7 @@ class DesignLifecycleTests(unittest.TestCase):
         approval_record = artifact("evidence/approval.json", json.dumps(approval_value))
         scores = {item["dimension"]: item["weight"] for item in definition["rubric"]}
         manifest = {
-            "schema_version": 1, "benchmark_id": definition["benchmark_id"], "workflow": "$continuity-design",
+            "schema_version": definition["schema_version"], "benchmark_id": definition["benchmark_id"], "workflow": "$continuity-design",
             "run_id": "test-homepage-complete", "status": "scored",
             "definition_sha256": __import__("hashlib").sha256(definition_path.read_bytes()).hexdigest(),
             "brief_sha256": __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest(),
@@ -3176,12 +3365,24 @@ class DesignLifecycleTests(unittest.TestCase):
             "hard_failure_reviews": [{"rule_id": item["rule_id"], "result": "pass", "rationale": "Verified in the bound evidence."} for item in definition["hard_failures"]],
             "execution_authorized": False,
         }
+        manifest["consultation"] = self.benchmark_consultation(artifact, manifest["concepts"], "homepage")
+        approval_value["approval_bundle"] = {
+            "brand_guideline_hashes": [manifest["concepts"][0]["brand_guideline_hash"]],
+        }
+        manifest["approval"]["record"] = artifact("evidence/approval.json", json.dumps(approval_value))
         manifest_path = self.root / "run-complete.json"
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         report = HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
         self.assertEqual(report["score"], 100)
         self.assertTrue(report["benchmark_passed"])
         self.assertTrue(report["merge_eligible"])
+
+        missing_guideline_bundle = json.loads(json.dumps(manifest))
+        approval_without_guideline = {key: value for key, value in approval_value.items() if key != "approval_bundle"}
+        missing_guideline_bundle["approval"]["record"] = artifact("evidence/approval-without-guideline.json", json.dumps(approval_without_guideline))
+        manifest_path.write_text(json.dumps(missing_guideline_bundle), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "approval bundle does not bind the selected brand guidelines"):
+            HOMEPAGE_EVALUATION.evaluate(SUITE, self.root, definition_path, manifest_path)
 
         manifest["hard_failure_reviews"][0]["result"] = "fail"
         manifest["hard_failure_reviews"][0]["rationale"] = "Healthy was incorrectly shown as authorization."
