@@ -68,6 +68,7 @@ def _definition(path: Path) -> dict[str, Any]:
     identities = {
         (1, "continuity-design-homepage-v8"),
         (2, "continuity-design-homepage-v9"),
+        (3, "continuity-design-homepage-v10"),
     }
     if set(value) != required or (value.get("schema_version"), value.get("benchmark_id")) not in identities:
         raise ValueError("Benchmark definition has an unsupported shape")
@@ -202,9 +203,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     composition_families: set[str] = set()
     page_grammar_families: set[str] = set()
     interaction_motion_strategies: set[str] = set()
+    argument_architectures: set[str] = set()
+    journey_job_sequences: set[tuple[str, ...]] = set()
     impact_strengths: set[str] = set()
     reference_adaptation_ids: set[str] = set()
     normalized_concepts = []
+    quality_reviews: list[dict[str, Any]] = []
     for concept in concepts:
         if not isinstance(concept, dict) or not isinstance(concept.get("direction_id"), str) or not concept["direction_id"].strip():
             raise ValueError("Every benchmark concept requires a direction_id")
@@ -222,6 +226,15 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
             )
             quality = benchmark_quality.validate_quality_review(
                 run_root, concept.get("quality_review"), direction_id, _artifact, _read, _png_dimensions,
+                require_attestation=definition["schema_version"] >= 3,
+            )
+            quality_reviews.append(quality)
+        if definition["schema_version"] >= 3:
+            runtime = benchmark_quality.validate_runtime_evidence(
+                run_root, concept, direction_id, _artifact, _read,
+            )
+            handoff = benchmark_quality.validate_handoff_proof(
+                run_root, concept.get("handoff_proof"), direction_id, _artifact, _read, _png_dimensions,
             )
         if concept.get("creative_range_status") != "passed" or concept.get("generative_laboratory_hash") != laboratory_hash:
             raise ValueError(f"Concept {direction_id} lacks passed creative-range evidence bound to the generative laboratory")
@@ -256,6 +269,13 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
             raise ValueError(f"Concept {direction_id} lacks page-grammar congruence evidence")
         if concept.get("journey_structure_status") != "passed":
             raise ValueError(f"Concept {direction_id} lacks deep-journey structure evidence")
+        if definition["schema_version"] >= 3:
+            architecture = concept.get("argument_architecture")
+            jobs = concept.get("journey_job_sequence")
+            if not isinstance(architecture, str) or not architecture.strip() or not isinstance(jobs, list) or len(jobs) < 4 or any(not isinstance(item, str) or not item.strip() for item in jobs):
+                raise ValueError(f"Concept {direction_id} lacks an argument architecture and journey-job sequence")
+            argument_architectures.add(architecture.strip())
+            journey_job_sequences.add(tuple(item.strip() for item in jobs))
         typography_strategies.add(concept["typography_strategy_id"])
         typography_families.add(concept["typography_family"])
         art_direction_families.add(concept["art_direction_family"])
@@ -266,6 +286,9 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         normalized_concept = {"direction_id": direction_id, "board": board, "slop_report": slop}
         if definition["schema_version"] >= 2:
             normalized_concept["quality_review"] = quality
+        if definition["schema_version"] >= 3:
+            normalized_concept["runtime_evidence"] = runtime
+            normalized_concept["handoff_proof"] = handoff
         normalized_concepts.append(normalized_concept)
         concept_ids.add(direction_id)
     if translation_adaptation_count != len(concepts):
@@ -283,6 +306,15 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         raise ValueError("Homepage benchmark concepts require a passed range audit")
     if "compelling" not in impact_strengths:
         raise ValueError("Homepage benchmark requires at least one compelling concept before selection")
+    if definition["schema_version"] >= 3 and (len(argument_architectures) != len(concepts) or len(journey_job_sequences) != len(concepts)):
+        raise ValueError("Homepage concepts must differ in argument architecture and journey-job sequence, not only visual system")
+    native_validation = None
+    if definition["schema_version"] >= 3:
+        benchmark_quality.validate_quality_review_set(quality_reviews)
+        native_validation = benchmark_quality.validate_native_concept_set(
+            run_root, manifest.get("native_validation"), concept_ids, laboratory_hash,
+            translation_hash, _artifact, _read,
+        )
 
     creative_pathway = None
     if definition["schema_version"] >= 2:
@@ -403,6 +435,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "benchmark_id": definition["benchmark_id"],
         "run_id": manifest.get("run_id"),
         "status": stage,
+        "stage_classification": "concepts-validated" if stage == "directions" else stage,
         "stage_valid": True,
         "concept_count": len(normalized_concepts),
         "typography_family_count": len(typography_families),
@@ -415,6 +448,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "compelling_concept_count": sum(concept.get("impact_strength") == "compelling" for concept in concepts),
         "reference_translation_hash": translation_hash,
         "reference_adaptation_count": translation_adaptation_count,
+        "native_validation": native_validation,
         "creative_pathway": creative_pathway["mode"] if creative_pathway else None,
         "creative_pathway_basis": creative_pathway["decision_basis"] if creative_pathway else None,
         "checkpoint_count": len(normalized_checkpoints),

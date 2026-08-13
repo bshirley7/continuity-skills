@@ -30,7 +30,7 @@ On an attached terminal, the applied install automatically opens GitHub CLI auth
 
 For a project that needs the offline design workflow, add `--collection design`. This installs `$continuity-design`; the default install remains the core and project workflow collections.
 
-For a material new direction, validate the concept set and run `continuity design consultation-render <design-id> --actor <identity>`. Use `consultation-serve` only when direct loopback submission is useful; the generated private HTML always supports the same downloadable feedback JSON. Selection and exact approval remain separate commands.
+For a material new direction, validate the concept set and run `continuity design consultation-render <design-id> --actor <identity>`. The board shows opening, responsive, and complete-journey or complete-sequence evidence with concept-specific feedback targets. Use `consultation-serve` only when direct loopback submission is useful; static mode explicitly directs reviewers to the same downloadable feedback JSON. Selection and exact approval remain separate commands.
 
 Add more `--validation` flags for commands that should always be run before delivery:
 

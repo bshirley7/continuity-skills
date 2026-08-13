@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "status": "passed",
   "direction_id": "direction-1",
   "producer_id": "design-producer",
@@ -28,5 +28,22 @@
   },
   "wide_evidence": {"path": "quality/direction-1-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
   "narrow_evidence": {"path": "quality/direction-1-narrow.png", "sha256": "1111111111111111111111111111111111111111111111111111111111111111"},
-  "findings": []
+  "findings": [],
+  "dimension_scores": {
+    "hierarchy": 84,
+    "product_proof": 82,
+    "interaction_or_sequence": 79,
+    "responsive_transformation": 81,
+    "identity": 85,
+    "craft": 81
+  },
+  "comparative_rank": 1,
+  "confidence": 0.82,
+  "review_attestation": {
+    "run_id": "independent-review-direction-1",
+    "independent_from_producer": true,
+    "method": "independent-agent-run",
+    "raw_review": {"path": "quality/direction-1-raw-review.md", "sha256": "2222222222222222222222222222222222222222222222222222222222222222"}
+  },
+  "warning_dispositions": []
 }

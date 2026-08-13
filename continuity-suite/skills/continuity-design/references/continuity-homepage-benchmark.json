@@ -1,5 +1,5 @@
 {
-  "benchmark_id": "continuity-design-homepage-v9",
+  "benchmark_id": "continuity-design-homepage-v10",
   "brief_path": "continuity-homepage-challenge.md",
   "hard_failures": [
     {"rule_id": "CDHB-H001", "description": "Healthy is presented as authorized."},
@@ -21,7 +21,9 @@
     {"rule_id": "CDHB-H017", "description": "A benchmark silently reuses an existing design or prior concept set instead of defaulting to fresh concepts, or enters review or refinement without an explicit user instruction and inherited-artifact provenance."},
     {"rule_id": "CDHB-H018", "description": "A fresh run has fewer than three complete directions, accepts an incomplete slop stub, or lacks a screenshot-bound quality review by a reviewer other than the producer."},
     {"rule_id": "CDHB-H019", "description": "A concept enters consultation below 75 quality, above B AI-slop, with a hard design rejection, or without a clear user outcome, primary action, product proof, and five-second reaction."},
-    {"rule_id": "CDHB-H020", "description": "An agent marks its own concepts ready for selection, or the consultation surface buries visual comparison beneath specification detail."}
+    {"rule_id": "CDHB-H020", "description": "An agent marks its own concepts ready for selection, or the consultation surface buries visual comparison beneath specification detail."},
+    {"rule_id": "CDHB-H021", "description": "A benchmark substitutes producer-authored pass booleans for the native concept validator, raw collision-aware browser probes, or independently attested dimension scores."},
+    {"rule_id": "CDHB-H022", "description": "The primary carrier is absent from the opening mobile viewport, interaction changes no measurable rendered state, or protected semantics change between states."}
   ],
   "minimum_human_reviewers": 1,
   "passing_score": 75,
@@ -58,7 +60,7 @@
     {"dimension": "authority-and-lifecycle-clarity", "weight": 9},
     {"dimension": "responsive-behavior-and-accessibility", "weight": 5}
   ],
-  "schema_version": 2,
+  "schema_version": 3,
   "seed_options": {
     "audience": ["founder-operator", "engineering-leader", "platform-team", "independent-studio"],
     "edge_case": ["healthy-but-unauthorized", "checks-passed-evidence-stale", "review-ready-not-completed", "aggregate-current-one-project-blocked"],

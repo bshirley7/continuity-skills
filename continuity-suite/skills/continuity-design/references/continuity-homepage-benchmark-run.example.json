@@ -1,6 +1,6 @@
 {
   "approval": null,
-  "benchmark_id": "continuity-design-homepage-v9",
+  "benchmark_id": "continuity-design-homepage-v10",
   "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "checkpoints": [],
   "concepts": [],
@@ -34,10 +34,11 @@
   "evidence": [],
   "execution_authorized": false,
   "hard_failure_reviews": [],
+  "native_validation": {"path": "validation/native-concept-set.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
   "prototype_validation": null,
   "reviews": [],
-  "run_id": "homepage-v9-example",
-  "schema_version": 2,
+  "run_id": "homepage-v10-example",
+  "schema_version": 3,
   "seed": {
     "audience": "founder-operator",
     "edge_case": "healthy-but-unauthorized",

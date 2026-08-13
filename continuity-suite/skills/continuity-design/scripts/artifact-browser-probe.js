@@ -100,6 +100,17 @@
       value: "value" in element ? element.value : null,
     };
   });
+  const interactionStates = [...document.querySelectorAll("[data-continuity-state]")].map((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      state_id: element.getAttribute("data-continuity-state"),
+      selector: selector(element),
+      value: element.getAttribute("data-continuity-state-value") || element.getAttribute("aria-pressed") || element.getAttribute("aria-selected") || element.className,
+      text: element.textContent.trim(),
+      visible: visible(element),
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    };
+  });
   const rgba = (value) => {
     const match = value.match(/rgba?\(([^)]+)\)/);
     if (!match) return null;
@@ -275,8 +286,13 @@
       if (overlaps(aRect, bRect)) add("content-collision", "error", a, `overlaps ${selector(b)}`);
     }
   }
+  const textClipping = findings.filter((item) => item.rule_id === "text-clipping");
+  const contentCollisions = findings.filter((item) => item.rule_id === "content-collision");
+  const openingSignatureElements = signatureElements.filter((item) => (
+    item.visible && item.roles.includes("opening") && item.viewport_intersection_ratio >= 0.1
+  ));
   return {
-    schema_version: 3,
+    schema_version: 4,
     probe_kind: "continuity-artifact-browser-probe",
     document_url: window.location.href,
     target_document_path: document.querySelector('meta[name="continuity-probe-target-path"]')?.content || null,
@@ -288,12 +304,16 @@
     composition_planes: compositionPlanes,
     typography_transfers: typographyTransfers,
     signature_elements: signatureElements,
+    opening_signature_elements: openingSignatureElements,
     interaction_invariants: interactionInvariants,
+    interaction_states: interactionStates,
     presentation_slides: presentationSlides,
     presentation_readability_passed: presentationReadabilityPassed,
     document: { scroll_width: root.scrollWidth, client_width: root.clientWidth },
     horizontal_overflow: horizontalOverflow,
     sticky_or_fixed_obstructions: obstructions,
+    text_clipping: textClipping,
+    content_collisions: contentCollisions,
     craft_findings: findings,
     passed: presentationReadabilityPassed && !horizontalOverflow && obstructions.length === 0 && !findings.some((item) => item.severity === "error" || item.severity === "critical"),
   };

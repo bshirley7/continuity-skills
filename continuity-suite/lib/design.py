@@ -3741,7 +3741,7 @@ def _verified_browser_probe(root: Path, value: Any, viewport: str, screenshot_wi
     probe_viewport = probe.get("viewport")
     findings = probe.get("craft_findings")
     if (
-        probe.get("schema_version") not in {2, 3}
+        probe.get("schema_version") not in {2, 3, 4}
         or probe.get("passed") is not True
         or not isinstance(probe_viewport, dict)
         or probe_viewport.get("width") != screenshot_width
@@ -3751,6 +3751,12 @@ def _verified_browser_probe(root: Path, value: Any, viewport: str, screenshot_wi
         or any(isinstance(item, dict) and item.get("severity") in {"error", "critical"} for item in findings)
     ):
         raise DesignError(f"Browser probe did not supply passing machine evidence: {relative}")
+    if probe.get("schema_version") == 4 and (
+        probe.get("text_clipping") != []
+        or probe.get("content_collisions") != []
+        or not isinstance(probe.get("opening_signature_elements"), list)
+    ):
+        raise DesignError(f"Browser probe found clipped, colliding, or incomplete opening evidence: {relative}")
     return {"viewport": viewport, "path": relative, "sha256": actual_hash, "schema_version": probe["schema_version"], "status": "passed"}
 
 
@@ -3819,6 +3825,7 @@ def _validate_interaction_invariants(
     value: Any,
     expected_target: dict[str, str],
     interaction_mode: str,
+    probe_schema_version: int = 3,
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise DesignError(f"Concept {concept_id} requires interaction-state invariant evidence")
@@ -3842,7 +3849,7 @@ def _validate_interaction_invariants(
         evidence = _verified_reference_file(root, state.get("probe"), f"Concept {concept_id} interaction state probe", {".json"})
         probe = _browser_probe_payload(root, evidence)
         if (
-            probe.get("schema_version") != 3
+            probe.get("schema_version") != probe_schema_version
             or probe.get("probe_kind") != "continuity-artifact-browser-probe"
             or probe.get("passed") is not True
             or probe.get("target_document_path") != expected_target["path"]
@@ -4004,10 +4011,10 @@ def _validate_typographic_transfer(root: Path, concept_id: str, value: Any, prot
         for item in str(rendered.get("computed_family", "")).split(",") if item.strip()
     }
     if (
-        probe.get("schema_version") != 3 or probe.get("probe_kind") != "continuity-artifact-browser-probe"
+        probe.get("schema_version") not in {3, 4} or probe.get("probe_kind") != "continuity-artifact-browser-probe"
         or probe.get("passed") is not True or probe.get("document_fonts_status") != "loaded"
         or not isinstance(probe.get("viewport"), dict) or probe["viewport"].get("width") != 1440
-        or reference_probe.get("schema_version") != 3 or reference_probe.get("probe_kind") != "continuity-artifact-browser-probe"
+        or reference_probe.get("schema_version") not in {3, 4} or reference_probe.get("probe_kind") != "continuity-artifact-browser-probe"
         or reference_probe.get("passed") is not True or len(reference_matching) != 1
         or value["font_family"].casefold() not in computed_families
         or rendered.get("measurement_method") != "canvas-2d"
@@ -4053,7 +4060,7 @@ def _validate_composition_asset_plan(root: Path, concept_id: str, value: Any, pr
     _, probe_path = _artifact_relative_path(root, probe_ref["path"])
     probe = _read_json(probe_path)
     rendered_planes = probe.get("composition_planes")
-    if probe.get("schema_version") != 3 or probe.get("probe_kind") != "continuity-artifact-browser-probe" or probe.get("passed") is not True or not isinstance(rendered_planes, list):
+    if probe.get("schema_version") not in {3, 4} or probe.get("probe_kind") != "continuity-artifact-browser-probe" or probe.get("passed") is not True or not isinstance(rendered_planes, list):
         raise DesignError(f"Concept {concept_id} composition evidence must come from a passed rendered browser probe")
     ids: set[str] = set()
     z_indexes: set[int] = set()
@@ -4382,7 +4389,7 @@ def reference_validate(root: Path, config: dict[str, Any], manifest_path: Path) 
             _, typography_probe_path = _artifact_relative_path(root, typography_probe["path"])
             typography_probe_value = _read_json(typography_probe_path)
             if (
-                typography_probe_value.get("schema_version") != 3
+                typography_probe_value.get("schema_version") not in {3, 4}
                 or typography_probe_value.get("probe_kind") != "continuity-artifact-browser-probe"
                 or typography_probe_value.get("passed") is not True
                 or not isinstance(typography_probe_value.get("viewport"), dict)
@@ -5331,8 +5338,10 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             if viewport not in expected_widths or viewport in runtime_viewports:
                 raise DesignError(f"Concept {concept_id} runtime probes require unique mobile, tablet, and desktop evidence")
             normalized_probe = _verified_browser_probe(root, probe, viewport, expected_widths[viewport])
-            if record.get("workflow_version", 1) >= 3 and normalized_probe["schema_version"] != 3:
-                raise DesignError(f"Concept {concept_id} workflow version 3 requires browser probe schema 3 at every viewport")
+            if record.get("workflow_version", 1) >= 4 and normalized_probe["schema_version"] != 4:
+                raise DesignError(f"Concept {concept_id} workflow version 4 requires collision-aware browser probe schema 4 at every viewport")
+            if record.get("workflow_version", 1) == 3 and normalized_probe["schema_version"] not in {3, 4}:
+                raise DesignError(f"Concept {concept_id} workflow version 3 requires browser probe schema 3 or newer at every viewport")
             if normalized_probe["sha256"] in concept_runtime_probe_hashes:
                 raise DesignError("Every concept requires its own runtime probe artifacts")
             concept_runtime_probe_hashes.add(normalized_probe["sha256"])
@@ -5356,7 +5365,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
             )
             reduced_motion_probe = _browser_probe_payload(root, reduced_motion_ref)
             if (
-                reduced_motion_probe.get("schema_version") != 3
+                reduced_motion_probe.get("schema_version") != (4 if record.get("workflow_version", 1) >= 4 else 3)
                 or reduced_motion_probe.get("probe_kind") != "continuity-artifact-browser-probe"
                 or reduced_motion_probe.get("passed") is not True
                 or reduced_motion_probe.get("target_document_path") != deep_relative
@@ -5380,6 +5389,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
                     "source_bundle_sha256": runtime_source_bundle["source_bundle_sha256"],
                 },
                 interaction_mode,
+                4 if record.get("workflow_version", 1) >= 4 else 3,
             )
         else:
             signature_coverage = None
@@ -5815,7 +5825,7 @@ def concept_validate(root: Path, config: dict[str, Any], manifest_path: Path) ->
     }
     record.update({"status": "awaiting-feedback", "concept_evidence": evidence})
     _write_json(design_dir / "draft.json", record)
-    return {"design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "concept_forming_media_count": concept_forming_media_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "portfolio_report_hash": portfolio["report_hash"] if portfolio else None, "prior_output_challenge_status": normalized_prior_challenge["status"] if normalized_prior_challenge else None, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "reference_translation_hash": (reference_translation or {}).get("report_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
+    return {"schema_version": 1, "validator": "continuity design concept-validate", "validation_status": "passed", "workflow_version": record.get("workflow_version", 1), "design_id": design_id, "revision": record["revision"], "status": record["status"], "concept_ids": [item["concept_id"] for item in normalized], "concept_count": len(normalized), "concept_manifest_hash": evidence["manifest_hash"], "visual_reference_hash": visual_reference_hash, "creative_range_status": "passed", "impact_review_status": "passed", "compelling_concept_count": compelling_count, "range_audit_status": "passed", "grammar_congruence_status": "passed", "journey_structure_status": "passed", "typography_family_count": len(typography_family_names), "art_direction_family_count": len(art_direction_family_names), "composition_family_count": len(composition_family_names), "page_grammar_count": len(page_grammar_ids), "interaction_motion_strategy_count": len(interaction_strategy_ids), "minimum_journey_stage_count": minimum_journey_stage_count, "concept_forming_media_count": concept_forming_media_count, "signature_stage_coverage_minimum": signature_stage_minimum, "per_concept_runtime_probes": True, "comparison_depth_coverage": True, "generated_media_extraction_passed": True, "portfolio_report_hash": portfolio["report_hash"] if portfolio else None, "prior_output_challenge_status": normalized_prior_challenge["status"] if normalized_prior_challenge else None, "generative_laboratory_hash": laboratory.get("laboratory_hash"), "reference_translation_hash": (reference_translation or {}).get("report_hash"), "slop_ruleset_version": design_slop.RULESET_VERSION, "execution_authorized": False}
 
 
 def improvement_cycle(root: Path, config: dict[str, Any], manifest_path: Path) -> dict[str, Any]:

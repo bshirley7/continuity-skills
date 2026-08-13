@@ -1,6 +1,6 @@
 {
   "approval": null,
-  "benchmark_id": "continuity-design-presentation-v2",
+  "benchmark_id": "continuity-design-presentation-v3",
   "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "checkpoints": [],
   "concepts": [],
@@ -34,11 +34,12 @@
   "evidence": [],
   "execution_authorized": false,
   "hard_failure_reviews": [],
+  "native_validation": {"path": "validation/native-concept-set.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
   "prototype_validation": null,
   "refinement_passes": [],
   "reviews": [],
-  "run_id": "presentation-v2-example",
-  "schema_version": 2,
+  "run_id": "presentation-v3-example",
+  "schema_version": 3,
   "seed": {
     "audience": "engineering-leader",
     "narrative": "handoff-loss-to-durable-record",

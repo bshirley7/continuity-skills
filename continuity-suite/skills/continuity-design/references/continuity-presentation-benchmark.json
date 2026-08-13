@@ -1,5 +1,5 @@
 {
-  "benchmark_id": "continuity-design-presentation-v2",
+  "benchmark_id": "continuity-design-presentation-v3",
   "brief_path": "continuity-presentation-challenge.md",
   "hard_failures": [
     {"rule_id": "CDPB-H001", "description": "Healthy is presented as authorized, or review-ready as completed."},
@@ -23,7 +23,9 @@
     {"rule_id": "CDPB-H019", "description": "A fresh run has fewer than three complete directions, accepts an incomplete slop stub, or lacks a screenshot-bound quality review by a reviewer other than the producer."},
     {"rule_id": "CDPB-H020", "description": "A concept enters consultation below 75 quality, above B AI-slop, with a hard design rejection, or without a clear user outcome, primary action, product proof, and five-second reaction."},
     {"rule_id": "CDPB-H021", "description": "A claimed craft pass reuses a concept screenshot, lacks distinct before/after/comparison evidence, or breaks the prior-after to next-before chain."},
-    {"rule_id": "CDPB-H022", "description": "An agent marks its own concepts ready for selection, or the consultation surface buries visual comparison beneath specification detail."}
+    {"rule_id": "CDPB-H022", "description": "An agent marks its own concepts ready for selection, or the consultation surface buries visual comparison beneath specification detail."},
+    {"rule_id": "CDPB-H023", "description": "A benchmark substitutes claimed slide counts or pass booleans for native concept validation, raw signature-role probes, or independently attested dimension scores."},
+    {"rule_id": "CDPB-H024", "description": "Opening, proof, interaction, quiet-or-edge, and closure roles do not survive the rendered sequence and required viewports, or protected semantics change between states."}
   ],
   "minimum_human_reviewers": 1,
   "minimum_refinement_passes": 3,
@@ -65,7 +67,7 @@
     {"dimension": "responsive-accessibility-and-interaction", "weight": 7},
     {"dimension": "genericity-resistance-and-self-critique", "weight": 5}
   ],
-  "schema_version": 2,
+  "schema_version": 3,
   "seed_options": {
     "audience": ["founder-operator", "engineering-leader", "product-leader", "platform-team"],
     "narrative": ["handoff-loss-to-durable-record", "overnight-decision", "authority-boundary", "project-truth-to-portfolio-signal"],

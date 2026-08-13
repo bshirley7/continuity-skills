@@ -70,6 +70,7 @@ def _definition(path: Path) -> dict[str, Any]:
     identities = {
         (1, "continuity-design-presentation-v1"),
         (2, "continuity-design-presentation-v2"),
+        (3, "continuity-design-presentation-v3"),
     }
     if set(value) != required or (value.get("schema_version"), value.get("benchmark_id")) not in identities:
         raise ValueError("Presentation benchmark definition has an unsupported shape")
@@ -178,9 +179,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     art_families: set[str] = set()
     composition_families: set[str] = set()
     sequence_grammars: set[str] = set()
+    argument_architectures: set[str] = set()
+    journey_job_sequences: set[tuple[str, ...]] = set()
     concept_forming = 0
     compelling = 0
     normalized_concepts: list[dict[str, Any]] = []
+    quality_reviews: list[dict[str, Any]] = []
     for concept in concepts:
         if not isinstance(concept, dict) or not isinstance(concept.get("direction_id"), str) or not concept["direction_id"].strip():
             raise ValueError("Every presentation concept requires a direction_id")
@@ -200,6 +204,15 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
             )
             quality = benchmark_quality.validate_quality_review(
                 run_root, concept.get("quality_review"), direction_id, _artifact, _read, _png_dimensions,
+                require_attestation=definition["schema_version"] >= 3,
+            )
+            quality_reviews.append(quality)
+        if definition["schema_version"] >= 3:
+            runtime = benchmark_quality.validate_runtime_evidence(
+                run_root, concept, direction_id, _artifact, _read, presentation=True,
+            )
+            handoff = benchmark_quality.validate_handoff_proof(
+                run_root, concept.get("handoff_proof"), direction_id, _artifact, _read, _png_dimensions,
             )
         presentation_fidelity = slop_value.get("presentation_fidelity")
         if (
@@ -241,6 +254,13 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         required_system = ("typography_family", "art_direction_family", "composition_family", "sequence_grammar")
         if any(not isinstance(concept.get(key), str) or not concept[key].strip() for key in required_system):
             raise ValueError(f"Presentation concept {direction_id} lacks a complete expression and sequence system")
+        if definition["schema_version"] >= 3:
+            architecture = concept.get("argument_architecture")
+            jobs = concept.get("journey_job_sequence")
+            if not isinstance(architecture, str) or not architecture.strip() or not isinstance(jobs, list) or len(jobs) < 4 or any(not isinstance(item, str) or not item.strip() for item in jobs):
+                raise ValueError(f"Presentation concept {direction_id} lacks an argument architecture and journey-job sequence")
+            argument_architectures.add(architecture.strip())
+            journey_job_sequences.add(tuple(item.strip() for item in jobs))
         type_families.add(concept["typography_family"])
         art_families.add(concept["art_direction_family"])
         composition_families.add(concept["composition_family"])
@@ -249,6 +269,9 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         normalized_concept = {"direction_id": direction_id, "board": board, "contact_sheet": contact_sheet, "slop_report": slop}
         if definition["schema_version"] >= 2:
             normalized_concept["quality_review"] = quality
+        if definition["schema_version"] >= 3:
+            normalized_concept["runtime_evidence"] = runtime
+            normalized_concept["handoff_proof"] = handoff
         normalized_concepts.append(normalized_concept)
     if concept_forming < 1 or compelling < 1:
         raise ValueError("Presentation benchmark requires concept-forming media and at least one compelling concept")
@@ -259,6 +282,16 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         or len(sequence_grammars) != len(concepts)
     ):
         raise ValueError("Presentation concepts must differ in type, art direction, composition, and sequence grammar")
+    if definition["schema_version"] >= 3 and (len(argument_architectures) != len(concepts) or len(journey_job_sequences) != len(concepts)):
+        raise ValueError("Presentation concepts must differ in argument architecture and journey-job sequence, not only visual system")
+
+    native_validation = None
+    if definition["schema_version"] >= 3:
+        benchmark_quality.validate_quality_review_set(quality_reviews)
+        native_validation = benchmark_quality.validate_native_concept_set(
+            run_root, manifest.get("native_validation"), concept_ids, laboratory_hash,
+            translation_hash, _artifact, _read,
+        )
 
     creative_pathway = None
     if definition["schema_version"] >= 2:
@@ -449,12 +482,14 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "benchmark_id": definition["benchmark_id"],
         "run_id": manifest.get("run_id"),
         "status": stage,
+        "stage_classification": "concepts-validated" if stage == "directions" else stage,
         "stage_valid": True,
         "concept_count": len(normalized_concepts),
         "refinement_pass_count": len(normalized_passes),
         "compelling_concept_count": compelling,
         "concept_forming_media_count": concept_forming,
         "sequence_grammar_count": len(sequence_grammars),
+        "native_validation": native_validation,
         "creative_pathway": creative_pathway["mode"] if creative_pathway else None,
         "creative_pathway_basis": creative_pathway["decision_basis"] if creative_pathway else None,
         "evidence_roles": sorted(normalized_evidence),
