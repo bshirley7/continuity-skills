@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "status": "passed",
+  "direction_id": "direction-1",
+  "producer_id": "design-producer",
+  "reviewer_id": "independent-design-reviewer",
+  "reviewer_type": "independent-agent",
+  "reviewed_at": "2026-08-13T12:00:00Z",
+  "design_score": 82,
+  "ai_slop_grade": "B",
+  "hard_rejections": {
+    "generic_card_grid_first_impression": false,
+    "beautiful_image_weak_brand": false,
+    "strong_headline_without_action": false,
+    "busy_imagery_behind_text": false,
+    "repeated_mood_statements": false,
+    "purposeless_carousel": false,
+    "stacked_cards_as_layout": false,
+    "default_primary_typeface": false,
+    "undersized_body_copy": false,
+    "desktop_stack_on_mobile": false
+  },
+  "value_story": {
+    "user_outcome": "The next actor understands the current decision without reconstructing the project.",
+    "primary_action": "Inspect the evidence and decide the bounded next step.",
+    "product_proof": "A realistic handoff record demonstrates goal, evidence, owner, and stop.",
+    "five_second_reaction": "The decision survives the handoff."
+  },
+  "wide_evidence": {"path": "quality/direction-1-wide.png", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "narrow_evidence": {"path": "quality/direction-1-narrow.png", "sha256": "1111111111111111111111111111111111111111111111111111111111111111"},
+  "findings": [],
+  "dimension_scores": {
+    "hierarchy": 84,
+    "product_proof": 82,
+    "interaction_or_sequence": 79,
+    "responsive_transformation": 81,
+    "identity": 85,
+    "craft": 81
+  },
+  "comparative_rank": 1,
+  "confidence": 0.82,
+  "review_attestation": {
+    "run_id": "independent-review-direction-1",
+    "independent_from_producer": true,
+    "method": "independent-agent-run",
+    "raw_review": {"path": "quality/direction-1-raw-review.md", "sha256": "2222222222222222222222222222222222222222222222222222222222222222"}
+  },
+  "warning_dispositions": []
+}

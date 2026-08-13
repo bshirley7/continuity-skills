@@ -54,6 +54,20 @@
         "reference_decomposition": {"type": "array", "items": {"type": "object"}},
         "rejected_decisions": {"type": "array"},
         "concept_evidence": {"oneOf": [{"type": "object"}, {"type": "null"}]},
+        "brand_guidelines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["direction_id", "consultation_summary", "brand_guideline", "brand_guideline_hash"],
+            "properties": {
+              "direction_id": {"type": "string", "minLength": 1},
+              "consultation_summary": {"type": "object"},
+              "brand_guideline": {"$ref": "design-brand-guideline.schema.json"},
+              "brand_guideline_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            },
+            "additionalProperties": false
+          }
+        },
         "reference_translation": {"oneOf": [{"type": "object"}, {"type": "null"}]},
         "slop_ruleset_version": {"type": "string"}
       },

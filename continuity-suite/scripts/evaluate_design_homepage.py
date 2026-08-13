@@ -7,8 +7,15 @@ import argparse
 import hashlib
 import json
 import re
+import struct
+import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import design_benchmark_consultation as benchmark_consultation  # noqa: E402
+import design_benchmark_pathway as benchmark_pathway  # noqa: E402
+import design_benchmark_quality as benchmark_quality  # noqa: E402
 
 
 STAGES = {"directions": 1, "selected": 2, "prototype-validated": 3, "approved": 4, "scored": 5}
@@ -41,6 +48,16 @@ def _artifact(root: Path, value: Any, label: str) -> dict[str, str]:
     return {"path": relative, "sha256": value["sha256"]}
 
 
+def _png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        raise ValueError(f"Homepage evidence is not an encoded PNG: {path.name}")
+    width, height = struct.unpack(">II", data[16:24])
+    if width < 1 or height < 1:
+        raise ValueError(f"Homepage PNG has invalid dimensions: {path.name}")
+    return width, height
+
+
 def _definition(path: Path) -> dict[str, Any]:
     value = _read(path, "Benchmark definition")
     required = {
@@ -48,9 +65,14 @@ def _definition(path: Path) -> dict[str, Any]:
         "required_checkpoints", "required_evidence_roles", "seed_options", "rubric",
         "hard_failures", "passing_score", "minimum_human_reviewers",
     }
-    if set(value) != required or value.get("schema_version") != 1:
+    identities = {
+        (1, "continuity-design-homepage-v8"),
+        (2, "continuity-design-homepage-v9"),
+        (3, "continuity-design-homepage-v10"),
+    }
+    if set(value) != required or (value.get("schema_version"), value.get("benchmark_id")) not in identities:
         raise ValueError("Benchmark definition has an unsupported shape")
-    if value.get("benchmark_id") != "continuity-design-homepage-v8" or value.get("workflow") != "$continuity-design":
+    if value.get("workflow") != "$continuity-design":
         raise ValueError("Benchmark definition identity is invalid")
     return value
 
@@ -74,7 +96,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     definition_path = definition_path.resolve()
     definition = _definition(definition_path)
     manifest = _read(manifest_path.resolve(), "Benchmark run manifest")
-    if manifest.get("schema_version") != 1 or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
+    if manifest.get("schema_version") != definition["schema_version"] or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
         raise ValueError("Benchmark run identity does not match its definition")
     stage = manifest.get("status")
     if stage not in STAGES:
@@ -172,6 +194,8 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     concepts = manifest.get("concepts")
     if not isinstance(concepts, list) or not 1 <= len(concepts) <= 3:
         raise ValueError("Homepage benchmark requires one to three concepts")
+    if definition["schema_version"] >= 2 and manifest.get("creative_pathway", {}).get("mode") == "fresh-concepts" and len(concepts) != 3:
+        raise ValueError("Fresh benchmark runs require exactly three complete design concepts")
     concept_ids: set[str] = set()
     typography_strategies: set[str] = set()
     typography_families: set[str] = set()
@@ -179,9 +203,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     composition_families: set[str] = set()
     page_grammar_families: set[str] = set()
     interaction_motion_strategies: set[str] = set()
+    argument_architectures: set[str] = set()
+    journey_job_sequences: set[tuple[str, ...]] = set()
     impact_strengths: set[str] = set()
     reference_adaptation_ids: set[str] = set()
     normalized_concepts = []
+    quality_reviews: list[dict[str, Any]] = []
     for concept in concepts:
         if not isinstance(concept, dict) or not isinstance(concept.get("direction_id"), str) or not concept["direction_id"].strip():
             raise ValueError("Every benchmark concept requires a direction_id")
@@ -193,6 +220,22 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop["path"], f"Concept slop report {direction_id}")
         if slop_value.get("status") != "passed" or slop_value.get("stage") != "concept":
             raise ValueError(f"Concept {direction_id} lacks a passed concept-stage slop report")
+        if definition["schema_version"] >= 2:
+            benchmark_quality.validate_slop_report(
+                run_root, slop_value, f"Concept slop report {direction_id}", _artifact, _png_dimensions,
+            )
+            quality = benchmark_quality.validate_quality_review(
+                run_root, concept.get("quality_review"), direction_id, _artifact, _read, _png_dimensions,
+                require_attestation=definition["schema_version"] >= 3,
+            )
+            quality_reviews.append(quality)
+        if definition["schema_version"] >= 3:
+            runtime = benchmark_quality.validate_runtime_evidence(
+                run_root, concept, direction_id, _artifact, _read,
+            )
+            handoff = benchmark_quality.validate_handoff_proof(
+                run_root, concept.get("handoff_proof"), direction_id, _artifact, _read, _png_dimensions,
+            )
         if concept.get("creative_range_status") != "passed" or concept.get("generative_laboratory_hash") != laboratory_hash:
             raise ValueError(f"Concept {direction_id} lacks passed creative-range evidence bound to the generative laboratory")
         reference_adaptation_id = concept.get("reference_adaptation_id")
@@ -226,6 +269,13 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
             raise ValueError(f"Concept {direction_id} lacks page-grammar congruence evidence")
         if concept.get("journey_structure_status") != "passed":
             raise ValueError(f"Concept {direction_id} lacks deep-journey structure evidence")
+        if definition["schema_version"] >= 3:
+            architecture = concept.get("argument_architecture")
+            jobs = concept.get("journey_job_sequence")
+            if not isinstance(architecture, str) or not architecture.strip() or not isinstance(jobs, list) or len(jobs) < 4 or any(not isinstance(item, str) or not item.strip() for item in jobs):
+                raise ValueError(f"Concept {direction_id} lacks an argument architecture and journey-job sequence")
+            argument_architectures.add(architecture.strip())
+            journey_job_sequences.add(tuple(item.strip() for item in jobs))
         typography_strategies.add(concept["typography_strategy_id"])
         typography_families.add(concept["typography_family"])
         art_direction_families.add(concept["art_direction_family"])
@@ -233,7 +283,13 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         page_grammar_families.add(concept["page_grammar_family"])
         interaction_motion_strategies.add(concept["interaction_motion_strategy_id"])
         impact_strengths.add(concept["impact_strength"])
-        normalized_concepts.append({"direction_id": direction_id, "board": board, "slop_report": slop})
+        normalized_concept = {"direction_id": direction_id, "board": board, "slop_report": slop}
+        if definition["schema_version"] >= 2:
+            normalized_concept["quality_review"] = quality
+        if definition["schema_version"] >= 3:
+            normalized_concept["runtime_evidence"] = runtime
+            normalized_concept["handoff_proof"] = handoff
+        normalized_concepts.append(normalized_concept)
         concept_ids.add(direction_id)
     if translation_adaptation_count != len(concepts):
         raise ValueError("Reference translation adaptation count must match the complete concept set")
@@ -250,6 +306,29 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         raise ValueError("Homepage benchmark concepts require a passed range audit")
     if "compelling" not in impact_strengths:
         raise ValueError("Homepage benchmark requires at least one compelling concept before selection")
+    if definition["schema_version"] >= 3 and (len(argument_architectures) != len(concepts) or len(journey_job_sequences) != len(concepts)):
+        raise ValueError("Homepage concepts must differ in argument architecture and journey-job sequence, not only visual system")
+    native_validation = None
+    if definition["schema_version"] >= 3:
+        benchmark_quality.validate_quality_review_set(quality_reviews)
+        native_validation = benchmark_quality.validate_native_concept_set(
+            run_root, manifest.get("native_validation"), concept_ids, laboratory_hash,
+            translation_hash, _artifact, _read,
+        )
+
+    creative_pathway = None
+    if definition["schema_version"] >= 2:
+        creative_pathway = benchmark_pathway.validate_creative_pathway(
+            run_root, manifest.get("creative_pathway"), concepts, _artifact, _read,
+        )
+
+    consultation_binding = None
+    concept_contracts: dict[str, dict[str, str]] = {}
+    if definition["schema_version"] >= 2:
+        concept_contracts = benchmark_consultation.validate_concept_contracts(run_root, concepts, _artifact, _read)
+        consultation_binding = benchmark_consultation.validate_consultation(
+            run_root, manifest.get("consultation"), concept_contracts, _artifact, _read,
+        )
 
     selection = manifest.get("selection")
     if STAGES[stage] >= STAGES["selected"]:
@@ -294,6 +373,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         required_approval = ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")
         if any(approval.get(key) != approval_value.get(key) for key in required_approval) or approval_value.get("status") != "approved" or approval_value.get("execution_authorized") is not False:
             raise ValueError("Design approval record does not match the benchmark approval binding")
+        if definition["schema_version"] >= 2:
+            if approval_value.get("design_id") != consultation_binding["design_id"] or approval_value.get("revision") != consultation_binding["revision"]:
+                raise ValueError("Design approval is stale against the final consultation revision")
+            expected_guidelines = [concept_contracts[direction_id]["brand_guideline_hash"] for direction_id in selection["direction_ids"]]
+            if approval_value.get("approval_bundle", {}).get("brand_guideline_hashes") != expected_guidelines:
+                raise ValueError("Design approval bundle does not bind the selected brand guidelines")
     elif approval is not None:
         raise ValueError("Pre-approval benchmark stages cannot claim design approval")
 
@@ -350,6 +435,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "benchmark_id": definition["benchmark_id"],
         "run_id": manifest.get("run_id"),
         "status": stage,
+        "stage_classification": "concepts-validated" if stage == "directions" else stage,
         "stage_valid": True,
         "concept_count": len(normalized_concepts),
         "typography_family_count": len(typography_families),
@@ -362,7 +448,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "compelling_concept_count": sum(concept.get("impact_strength") == "compelling" for concept in concepts),
         "reference_translation_hash": translation_hash,
         "reference_adaptation_count": translation_adaptation_count,
+        "native_validation": native_validation,
+        "creative_pathway": creative_pathway["mode"] if creative_pathway else None,
+        "creative_pathway_basis": creative_pathway["decision_basis"] if creative_pathway else None,
         "checkpoint_count": len(normalized_checkpoints),
+        "consultation_round_count": consultation_binding["round_count"] if consultation_binding else 0,
+        "material_feedback_round_count": consultation_binding["material_round_count"] if consultation_binding else 0,
         "evidence_roles": sorted(normalized_evidence),
         "seed": seed,
         "score": capped_score,

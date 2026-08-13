@@ -1,19 +1,45 @@
 {
   "approval": null,
-  "benchmark_id": "continuity-design-presentation-v1",
+  "benchmark_id": "continuity-design-presentation-v3",
   "brief_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "checkpoints": [],
   "concepts": [],
+  "creative_pathway": {
+    "mode": "fresh-concepts",
+    "diagnosis": {"path": "pathway/diagnosis.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+    "fresh_evidence": {
+      "research": {"path": "research/research.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "moodboard": {"path": "research/moodboard.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "generative_laboratory": {"path": "laboratory/laboratory.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "concept_manifest": {"path": "concepts/concept-manifest.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "comparison": {"path": "concepts/comparison.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+    }
+  },
+  "consultation": {
+    "design_id": "continuity-presentation-benchmark",
+    "execution_authorized": false,
+    "private": true,
+    "rounds": [{
+      "board": {"path": "consultation/round-1.html", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "delta_input": null,
+      "delta_record": null,
+      "feedback": {"path": "consultation/round-1-feedback.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "record": {"path": "consultation/round-1-record.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "round": 1,
+      "snapshot": {"path": "consultation/round-1-snapshot.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+    }]
+  },
   "definition_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "doctor": {"path": "evidence/doctor.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
   "evidence": [],
   "execution_authorized": false,
   "hard_failure_reviews": [],
+  "native_validation": {"path": "validation/native-concept-set.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
   "prototype_validation": null,
   "refinement_passes": [],
   "reviews": [],
-  "run_id": "presentation-premerge-001",
-  "schema_version": 1,
+  "run_id": "presentation-v3-example",
+  "schema_version": 3,
   "seed": {
     "audience": "engineering-leader",
     "narrative": "handoff-loss-to-durable-record",
@@ -23,7 +49,7 @@
   },
   "selection": null,
   "source": {
-    "branch": "feature/continuity-design-creative-director",
+    "branch": "feature/continuity-design-consultation",
     "commit": "0000000000000000000000000000000000000000",
     "skill_path": "skills/continuity-design/SKILL.md",
     "skill_sha256": "0000000000000000000000000000000000000000000000000000000000000000"

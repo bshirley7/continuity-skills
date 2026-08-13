@@ -2337,6 +2337,10 @@ unresolved_gaps: []
         artifact.joinpath("leak.js").write_text("const route='/api/v1/roadmap'", encoding="utf-8")
         leaked = json.loads(self.cli("roadmap", "production-audit", "--artifact", str(artifact)).stdout)
         self.assertFalse(leaked["clean"])
+        artifact.joinpath("leak.js").write_text("const route='/api/v1/feedback'; const app='ContinuityDesignConsultation'", encoding="utf-8")
+        consultation_leak = json.loads(self.cli("roadmap", "production-audit", "--artifact", str(artifact)).stdout)
+        self.assertFalse(consultation_leak["clean"])
+        self.assertEqual({"/api/v1/feedback", "ContinuityDesignConsultation"}, {item["marker"] for item in consultation_leak["findings"]})
 
     def test_report_exists_with_no_goals_and_memory_status(self) -> None:
         self.cli("memory", "audit")
@@ -4277,7 +4281,7 @@ class InstallerTest(unittest.TestCase):
             second_manifest["scheduler"]["portfolio_max_concurrency"] = 1
             second_manifest_path.write_text(json.dumps(second_manifest, indent=2) + "\n", encoding="utf-8")
             review_day = dt.datetime.now(ZoneInfo("America/Chicago")).date() + dt.timedelta(days=1)
-            while review_day.weekday() >= 5:
+            while (review_day + dt.timedelta(days=1)).weekday() >= 5:
                 review_day += dt.timedelta(days=1)
             review_at = dt.datetime.combine(review_day, dt.time(20, 30), ZoneInfo("America/Chicago")).isoformat()
             actions = subprocess.run(

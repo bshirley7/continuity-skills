@@ -126,7 +126,10 @@ continuity design visual-render --input <render.json>
 continuity design probe-prepare --target <prototype.html>
 continuity design slop-check --target <file-or-directory> --manifest <slop-manifest.json>
 continuity design concept-validate --manifest <concept-manifest.json>
+continuity design consultation-render <design-id> --actor <identity>
+continuity design consultation-serve <design-id> --actor <identity> [--port 0] [--open]
 continuity design feedback-record <design-id> --input <feedback.json>
+continuity design feedback-delta-record <design-id> --round <number> --input <delta.json>
 continuity design improvement-cycle --manifest <cycle.json>
 continuity design select <design-id> --direction <direction-id> [--combine <direction-id>] --actor <identity>
 continuity design approve <design-id> --revision <revision> --approved-by <identity> --authorization-text <exact-text>

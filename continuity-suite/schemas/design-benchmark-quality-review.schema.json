@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuity Design pre-consultation quality review",
+  "type": "object",
+  "required": ["schema_version", "status", "direction_id", "producer_id", "reviewer_id", "reviewer_type", "reviewed_at", "design_score", "ai_slop_grade", "hard_rejections", "value_story", "wide_evidence", "narrow_evidence", "findings"],
+  "properties": {
+    "schema_version": {"enum": [1, 2]},
+    "status": {"const": "passed"},
+    "direction_id": {"type": "string", "minLength": 1},
+    "producer_id": {"type": "string", "minLength": 1},
+    "reviewer_id": {"type": "string", "minLength": 1},
+    "reviewer_type": {"enum": ["human", "independent-agent"]},
+    "reviewed_at": {"type": "string", "minLength": 1},
+    "design_score": {"type": "number", "minimum": 75, "maximum": 100},
+    "ai_slop_grade": {"enum": ["A", "B"]},
+    "hard_rejections": {
+      "type": "object",
+      "required": ["generic_card_grid_first_impression", "beautiful_image_weak_brand", "strong_headline_without_action", "busy_imagery_behind_text", "repeated_mood_statements", "purposeless_carousel", "stacked_cards_as_layout", "default_primary_typeface", "undersized_body_copy", "desktop_stack_on_mobile"],
+      "properties": {
+        "generic_card_grid_first_impression": {"const": false},
+        "beautiful_image_weak_brand": {"const": false},
+        "strong_headline_without_action": {"const": false},
+        "busy_imagery_behind_text": {"const": false},
+        "repeated_mood_statements": {"const": false},
+        "purposeless_carousel": {"const": false},
+        "stacked_cards_as_layout": {"const": false},
+        "default_primary_typeface": {"const": false},
+        "undersized_body_copy": {"const": false},
+        "desktop_stack_on_mobile": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "value_story": {
+      "type": "object",
+      "required": ["user_outcome", "primary_action", "product_proof", "five_second_reaction"],
+      "properties": {
+        "user_outcome": {"type": "string", "minLength": 1},
+        "primary_action": {"type": "string", "minLength": 1},
+        "product_proof": {"type": "string", "minLength": 1},
+        "five_second_reaction": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "wide_evidence": {"$ref": "#/$defs/artifact"},
+    "narrow_evidence": {"$ref": "#/$defs/artifact"},
+    "findings": {"type": "array", "items": {"type": "object"}},
+    "dimension_scores": {
+      "type": "object",
+      "required": ["hierarchy", "product_proof", "interaction_or_sequence", "responsive_transformation", "identity", "craft"],
+      "properties": {
+        "hierarchy": {"type": "number", "minimum": 70, "maximum": 100},
+        "product_proof": {"type": "number", "minimum": 70, "maximum": 100},
+        "interaction_or_sequence": {"type": "number", "minimum": 70, "maximum": 100},
+        "responsive_transformation": {"type": "number", "minimum": 70, "maximum": 100},
+        "identity": {"type": "number", "minimum": 70, "maximum": 100},
+        "craft": {"type": "number", "minimum": 70, "maximum": 100}
+      },
+      "additionalProperties": false
+    },
+    "comparative_rank": {"type": "integer", "minimum": 1, "maximum": 3},
+    "confidence": {"type": "number", "minimum": 0.5, "maximum": 1},
+    "review_attestation": {
+      "type": "object",
+      "required": ["run_id", "independent_from_producer", "method", "raw_review"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "independent_from_producer": {"const": true},
+        "method": {"enum": ["human-session", "independent-agent-run", "blinded-panel"]},
+        "raw_review": {"$ref": "#/$defs/artifact"}
+      },
+      "additionalProperties": false
+    },
+    "warning_dispositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "rationale", "evidence"],
+        "properties": {
+          "rule_id": {"type": "string", "minLength": 1},
+          "rationale": {"type": "string", "minLength": 1},
+          "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifact"}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [{
+    "if": {"properties": {"schema_version": {"const": 2}}},
+    "then": {"required": ["dimension_scores", "comparative_rank", "confidence", "review_attestation", "warning_dispositions"]}
+  }],
+  "additionalProperties": false
+}

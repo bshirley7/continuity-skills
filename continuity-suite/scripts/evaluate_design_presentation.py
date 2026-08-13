@@ -8,8 +8,14 @@ import hashlib
 import json
 import re
 import struct
+import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import design_benchmark_consultation as benchmark_consultation  # noqa: E402
+import design_benchmark_pathway as benchmark_pathway  # noqa: E402
+import design_benchmark_quality as benchmark_quality  # noqa: E402
 
 
 STAGES = {"directions": 1, "selected": 2, "prototype-validated": 3, "approved": 4, "scored": 5}
@@ -61,9 +67,14 @@ def _definition(path: Path) -> dict[str, Any]:
         "hard_failures", "passing_score", "minimum_human_reviewers",
         "minimum_refinement_passes", "minimum_slide_roles",
     }
-    if set(value) != required or value.get("schema_version") != 1:
+    identities = {
+        (1, "continuity-design-presentation-v1"),
+        (2, "continuity-design-presentation-v2"),
+        (3, "continuity-design-presentation-v3"),
+    }
+    if set(value) != required or (value.get("schema_version"), value.get("benchmark_id")) not in identities:
         raise ValueError("Presentation benchmark definition has an unsupported shape")
-    if value.get("benchmark_id") != "continuity-design-presentation-v1" or value.get("workflow") != "$continuity-design":
+    if value.get("workflow") != "$continuity-design":
         raise ValueError("Presentation benchmark definition identity is invalid")
     return value
 
@@ -87,7 +98,7 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     definition_path = definition_path.resolve()
     definition = _definition(definition_path)
     manifest = _read(manifest_path.resolve(), "Presentation benchmark run manifest")
-    if manifest.get("schema_version") != 1 or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
+    if manifest.get("schema_version") != definition["schema_version"] or manifest.get("benchmark_id") != definition["benchmark_id"] or manifest.get("workflow") != definition["workflow"]:
         raise ValueError("Presentation benchmark run identity does not match its definition")
     stage = manifest.get("status")
     if stage not in STAGES:
@@ -161,14 +172,19 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
     concepts = manifest.get("concepts")
     if not isinstance(concepts, list) or not 1 <= len(concepts) <= 3:
         raise ValueError("Presentation benchmark requires one to three concepts")
+    if definition["schema_version"] >= 2 and manifest.get("creative_pathway", {}).get("mode") == "fresh-concepts" and len(concepts) != 3:
+        raise ValueError("Fresh benchmark runs require exactly three complete design concepts")
     concept_ids: set[str] = set()
     type_families: set[str] = set()
     art_families: set[str] = set()
     composition_families: set[str] = set()
     sequence_grammars: set[str] = set()
+    argument_architectures: set[str] = set()
+    journey_job_sequences: set[tuple[str, ...]] = set()
     concept_forming = 0
     compelling = 0
     normalized_concepts: list[dict[str, Any]] = []
+    quality_reviews: list[dict[str, Any]] = []
     for concept in concepts:
         if not isinstance(concept, dict) or not isinstance(concept.get("direction_id"), str) or not concept["direction_id"].strip():
             raise ValueError("Every presentation concept requires a direction_id")
@@ -182,6 +198,22 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop["path"], f"Concept slop report {direction_id}")
         if slop_value.get("status") != "passed" or slop_value.get("stage") != "concept":
             raise ValueError(f"Presentation concept {direction_id} lacks a passed concept slop report")
+        if definition["schema_version"] >= 2:
+            benchmark_quality.validate_slop_report(
+                run_root, slop_value, f"Concept slop report {direction_id}", _artifact, _png_dimensions,
+            )
+            quality = benchmark_quality.validate_quality_review(
+                run_root, concept.get("quality_review"), direction_id, _artifact, _read, _png_dimensions,
+                require_attestation=definition["schema_version"] >= 3,
+            )
+            quality_reviews.append(quality)
+        if definition["schema_version"] >= 3:
+            runtime = benchmark_quality.validate_runtime_evidence(
+                run_root, concept, direction_id, _artifact, _read, presentation=True,
+            )
+            handoff = benchmark_quality.validate_handoff_proof(
+                run_root, concept.get("handoff_proof"), direction_id, _artifact, _read, _png_dimensions,
+            )
         presentation_fidelity = slop_value.get("presentation_fidelity")
         if (
             not isinstance(presentation_fidelity, dict)
@@ -222,12 +254,25 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         required_system = ("typography_family", "art_direction_family", "composition_family", "sequence_grammar")
         if any(not isinstance(concept.get(key), str) or not concept[key].strip() for key in required_system):
             raise ValueError(f"Presentation concept {direction_id} lacks a complete expression and sequence system")
+        if definition["schema_version"] >= 3:
+            architecture = concept.get("argument_architecture")
+            jobs = concept.get("journey_job_sequence")
+            if not isinstance(architecture, str) or not architecture.strip() or not isinstance(jobs, list) or len(jobs) < 4 or any(not isinstance(item, str) or not item.strip() for item in jobs):
+                raise ValueError(f"Presentation concept {direction_id} lacks an argument architecture and journey-job sequence")
+            argument_architectures.add(architecture.strip())
+            journey_job_sequences.add(tuple(item.strip() for item in jobs))
         type_families.add(concept["typography_family"])
         art_families.add(concept["art_direction_family"])
         composition_families.add(concept["composition_family"])
         sequence_grammars.add(concept["sequence_grammar"])
         concept_ids.add(direction_id)
-        normalized_concepts.append({"direction_id": direction_id, "board": board, "contact_sheet": contact_sheet, "slop_report": slop})
+        normalized_concept = {"direction_id": direction_id, "board": board, "contact_sheet": contact_sheet, "slop_report": slop}
+        if definition["schema_version"] >= 2:
+            normalized_concept["quality_review"] = quality
+        if definition["schema_version"] >= 3:
+            normalized_concept["runtime_evidence"] = runtime
+            normalized_concept["handoff_proof"] = handoff
+        normalized_concepts.append(normalized_concept)
     if concept_forming < 1 or compelling < 1:
         raise ValueError("Presentation benchmark requires concept-forming media and at least one compelling concept")
     if len(concepts) > 1 and (
@@ -237,11 +282,36 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         or len(sequence_grammars) != len(concepts)
     ):
         raise ValueError("Presentation concepts must differ in type, art direction, composition, and sequence grammar")
+    if definition["schema_version"] >= 3 and (len(argument_architectures) != len(concepts) or len(journey_job_sequences) != len(concepts)):
+        raise ValueError("Presentation concepts must differ in argument architecture and journey-job sequence, not only visual system")
+
+    native_validation = None
+    if definition["schema_version"] >= 3:
+        benchmark_quality.validate_quality_review_set(quality_reviews)
+        native_validation = benchmark_quality.validate_native_concept_set(
+            run_root, manifest.get("native_validation"), concept_ids, laboratory_hash,
+            translation_hash, _artifact, _read,
+        )
+
+    creative_pathway = None
+    if definition["schema_version"] >= 2:
+        creative_pathway = benchmark_pathway.validate_creative_pathway(
+            run_root, manifest.get("creative_pathway"), concepts, _artifact, _read,
+        )
+
+    consultation_binding = None
+    concept_contracts: dict[str, dict[str, str]] = {}
+    if definition["schema_version"] >= 2:
+        concept_contracts = benchmark_consultation.validate_concept_contracts(run_root, concepts, _artifact, _read)
+        consultation_binding = benchmark_consultation.validate_consultation(
+            run_root, manifest.get("consultation"), concept_contracts, _artifact, _read,
+        )
 
     passes = manifest.get("refinement_passes")
     if not isinstance(passes, list) or len(passes) < definition["minimum_refinement_passes"]:
         raise ValueError("Presentation benchmark lacks the required autonomous refinement passes")
     normalized_passes = []
+    previous_after_hash = None
     for index, item in enumerate(passes, 1):
         if not isinstance(item, dict) or item.get("pass") != index:
             raise ValueError("Presentation refinement passes must be consecutive and one-based")
@@ -259,12 +329,23 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         slop_value = _read(run_root / slop_report["path"], f"Refinement pass {index} slop report")
         if slop_value.get("stage") != "concept" or slop_value.get("status") != item["slop_status"]:
             raise ValueError(f"Presentation refinement pass {index} slop status is not bound to its report")
+        before = _artifact(run_root, item.get("before"), f"Refinement pass {index} before evidence")
+        after = _artifact(run_root, item.get("after"), f"Refinement pass {index} after evidence")
         visual_delta = _artifact(run_root, item.get("visual_delta"), f"Refinement pass {index} visual delta")
+        _png_dimensions(run_root / before["path"])
+        _png_dimensions(run_root / after["path"])
         _png_dimensions(run_root / visual_delta["path"])
+        if len({before["sha256"], after["sha256"], visual_delta["sha256"]}) != 3:
+            raise ValueError(f"Presentation refinement pass {index} must bind distinct before, after, and comparison evidence")
+        if previous_after_hash is not None and before["sha256"] != previous_after_hash:
+            raise ValueError(f"Presentation refinement pass {index} does not continue from the prior pass")
+        previous_after_hash = after["sha256"]
         normalized_passes.append({
             "pass": index,
             "artifact": _artifact(run_root, item.get("artifact"), f"Refinement pass {index} artifact"),
             "visual_delta": visual_delta,
+            "before": before,
+            "after": after,
             "self_assessment": _artifact(run_root, item.get("self_assessment"), f"Refinement pass {index} self-assessment"),
             "slop_report": slop_report,
         })
@@ -342,6 +423,12 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         binding = ("design_id", "revision", "design_hash", "visual_reference_hash", "approval_bundle_hash")
         if any(approval.get(key) != approval_value.get(key) for key in binding) or approval_value.get("status") != "approved" or approval_value.get("execution_authorized") is not False:
             raise ValueError("Presentation approval record does not match its exact bundle")
+        if definition["schema_version"] >= 2:
+            if approval_value.get("design_id") != consultation_binding["design_id"] or approval_value.get("revision") != consultation_binding["revision"]:
+                raise ValueError("Presentation approval is stale against the final consultation revision")
+            expected_guidelines = [concept_contracts[direction_id]["brand_guideline_hash"] for direction_id in selection["direction_ids"]]
+            if approval_value.get("approval_bundle", {}).get("brand_guideline_hashes") != expected_guidelines:
+                raise ValueError("Presentation approval bundle does not bind the selected brand guidelines")
     elif approval is not None:
         raise ValueError("Pre-approval presentation stages cannot claim design approval")
 
@@ -395,13 +482,19 @@ def evaluate(source_root: Path, run_root: Path, definition_path: Path, manifest_
         "benchmark_id": definition["benchmark_id"],
         "run_id": manifest.get("run_id"),
         "status": stage,
+        "stage_classification": "concepts-validated" if stage == "directions" else stage,
         "stage_valid": True,
         "concept_count": len(normalized_concepts),
         "refinement_pass_count": len(normalized_passes),
         "compelling_concept_count": compelling,
         "concept_forming_media_count": concept_forming,
         "sequence_grammar_count": len(sequence_grammars),
+        "native_validation": native_validation,
+        "creative_pathway": creative_pathway["mode"] if creative_pathway else None,
+        "creative_pathway_basis": creative_pathway["decision_basis"] if creative_pathway else None,
         "evidence_roles": sorted(normalized_evidence),
+        "consultation_round_count": consultation_binding["round_count"] if consultation_binding else 0,
+        "material_feedback_round_count": consultation_binding["material_round_count"] if consultation_binding else 0,
         "seed": seed,
         "score": capped_score,
         "raw_score": raw_score,

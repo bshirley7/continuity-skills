@@ -1,0 +1,12 @@
+{
+  "memorable_thing": "The evidence seam",
+  "coherence_rationale": "Typography, spacing, state, and voice all reinforce one proof-led reading order.",
+  "safe_choices": [
+    {"decision": "Keep routine controls familiar", "rationale": "Category-literate controls preserve expert task speed."},
+    {"decision": "Use document order on mobile", "rationale": "Linear transformation keeps each claim adjacent to its evidence."}
+  ],
+  "creative_risks": [
+    {"move": "Overscale the opening proof", "rationale": "Make authority immediate.", "gain": "Strong recognition", "cost": "Less simultaneous context", "boundary": "Never hide the first evidence item."},
+    {"move": "Let the evidence seam cross sections", "rationale": "Make continuity structural rather than decorative.", "gain": "Narrative coherence", "cost": "More layout discipline", "boundary": "Stop at permissions, errors, and recovery surfaces."}
+  ]
+}
