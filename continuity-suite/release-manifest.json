@@ -34,7 +34,7 @@
     "docs/windows.md": "a45ae445973ed5fb493db0d71cbf94d794243c4c7001dbb2193ff5872a7e9cee",
     "installer/install.py": "1a9213cd8d3e77089b6227fae81f075e18ec2245753327a8b4f13ada0b7c7ba8",
     "lib/design.py": "28f4f0b3c42e4ba6fc48a9b1e55c498ce1bb33d2432bac13363adb0c2b092f26",
-    "lib/design_consultation.py": "cf2471c08537ad0443223d92fba5400bfd7b81c24dc6cf938a43161774623c9b",
+    "lib/design_consultation.py": "354b8453746c7da587b7d247f8eb4c4c34a9db2357813de05866549da904dd82",
     "lib/design_slop.py": "aa740322ade56e487186ae8c689882407bee301102287d9a64b7b2f7d37f7f84",
     "lib/github_projects.py": "44345f877254494ef4e4f68a481c076156a7f54d84248b240b7de5503e168514",
     "lib/product_audit.py": "9445118927e30ccd70fd42a74b01627ba94835d2ddadaeb0512f91489aa38334",
