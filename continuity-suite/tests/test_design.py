@@ -350,11 +350,11 @@ class DesignLifecycleTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
 
-        def request(method, path, body=None, headers=None):
+        def request(method, path, body=None, headers=None, *, read_body=True):
             connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
             connection.request(method, path, body=body, headers=headers or {})
             response = connection.getresponse()
-            value = response.read()
+            value = response.read() if read_body else b""
             result = response.status, dict(response.getheaders()), value
             connection.close()
             return result
@@ -377,7 +377,8 @@ class DesignLifecycleTests(unittest.TestCase):
             self.assertEqual(request("GET", "/api/v1/assets/not-allowlisted.png", headers=auth)[0], 404)
             self.assertEqual(request("GET", "/api/v1/board", headers={**auth, "Origin": "https://example.com"})[0], 403)
             self.assertEqual(request("GET", "/%2e%2e/private", headers=auth)[0], 400)
-            self.assertEqual(request("POST", "/api/v1/feedback", b"{}", {**auth, "Content-Type": "application/json", "Content-Length": str(design_consultation.MAX_FEEDBACK_BYTES + 1)})[0], 413)
+            oversized = b"x" * (design_consultation.MAX_FEEDBACK_BYTES + 1)
+            self.assertEqual(request("POST", "/api/v1/feedback", oversized, {**auth, "Content-Type": "application/json"}, read_body=False)[0], 413)
             stale = json.dumps({
                 "design_id": record["design_id"], "revision": 99, "board_hash": rendered["board_hash"],
                 "concept_evidence_hash": rendered["concept_evidence_hash"], "contract_changed": False,
